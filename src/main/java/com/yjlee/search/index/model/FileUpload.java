@@ -7,34 +7,31 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 
 @Entity
 @Table(name = "file_uploads")
 @Getter
-@ToString
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class FileUpload {
-
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
   String id;
 
   @Column(nullable = false)
-  String indexId; // 어떤 색인에 속하는 파일인지
+  Long indexId;
 
   @Column(nullable = false)
   String originalFileName;
 
   @Column(nullable = false)
-  String s3Key; // S3에 저장된 키
+  String s3Key;
 
   @Column(nullable = false)
-  String s3Url; // S3 접근 URL
+  String s3Url;
 
   @Column(nullable = false)
   Long fileSize;

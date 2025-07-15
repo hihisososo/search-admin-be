@@ -1,7 +1,6 @@
 package com.yjlee.search.index.dto;
 
-import java.time.ZonedDateTime;
-import java.util.Map;
+import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Value;
 import lombok.extern.jackson.Jacksonized;
@@ -9,15 +8,12 @@ import lombok.extern.jackson.Jacksonized;
 @Value
 @Builder
 @Jacksonized
-public class IndexResponse {
+public class IndexListResponse {
   long id;
   String name;
   String description;
   String status;
   long docCount;
   long size;
-  ZonedDateTime lastIndexedAt;
-  String fileName;
-  Map<String, Object> mappings;
-  Map<String, Object> settings;
+  LocalDateTime updatedAt;
 }

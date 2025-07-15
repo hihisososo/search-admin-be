@@ -10,7 +10,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -35,8 +38,8 @@ public class S3FileService {
       // S3 키 생성
       String s3Key = generateS3Key(indexName, fileName);
 
-      // S3 Presigner 생성
-      try (S3Presigner presigner = S3Presigner.create()) {
+      // S3 Presigner 생성 (region과 credentials 명시적 설정)
+      try (S3Presigner presigner = createPresigner()) {
 
         PutObjectRequest putObjectRequest =
             PutObjectRequest.builder()
@@ -67,7 +70,8 @@ public class S3FileService {
   /** 파일 다운로드용 Presigned URL 생성 */
   public String generateDownloadPresignedUrl(String s3Key) {
     try {
-      try (S3Presigner presigner = S3Presigner.create()) {
+      // S3 Presigner 생성 (region과 credentials 명시적 설정)
+      try (S3Presigner presigner = createPresigner()) {
 
         GetObjectRequest getObjectRequest =
             GetObjectRequest.builder().bucket(s3Properties.getBucket()).key(s3Key).build();
@@ -89,6 +93,17 @@ public class S3FileService {
       log.error("다운로드 Presigned URL 생성 실패 - S3 Key: {}", s3Key, e);
       throw new RuntimeException("다운로드 Presigned URL 생성 실패: " + e.getMessage(), e);
     }
+  }
+
+  /** S3Presigner 생성 (region과 credentials 명시적 설정) */
+  private S3Presigner createPresigner() {
+    return S3Presigner.builder()
+        .region(Region.of(s3Properties.getRegion()))
+        .credentialsProvider(
+            StaticCredentialsProvider.create(
+                AwsBasicCredentials.create(
+                    s3Properties.getAccessKey(), s3Properties.getSecretKey())))
+        .build();
   }
 
   /** 직접 파일 업로드 (서버에서 업로드) */

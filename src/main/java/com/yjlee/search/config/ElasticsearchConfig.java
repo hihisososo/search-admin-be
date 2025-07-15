@@ -22,19 +22,14 @@ public class ElasticsearchConfig {
 
   @Bean
   public ElasticsearchClient elasticsearchClient() {
-    log.info(
-        "Connecting to Elasticsearch at {}://{}:{}",
-        elasticsearchProperties.getScheme(),
-        elasticsearchProperties.getHost(),
-        elasticsearchProperties.getPort());
+    String host = elasticsearchProperties.getHost();
+    int port = elasticsearchProperties.getPort();
+    String scheme = elasticsearchProperties.getScheme();
 
-    RestClient restClient =
-        RestClient.builder(
-                new HttpHost(
-                    elasticsearchProperties.getHost(),
-                    elasticsearchProperties.getPort(),
-                    elasticsearchProperties.getScheme()))
-            .build();
+    log.info("Connecting to Elasticsearch at {}://{}:{}", scheme, host, port);
+
+    HttpHost httpHost = new HttpHost(host, port, scheme);
+    RestClient restClient = RestClient.builder(httpHost).build();
 
     RestClientTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
     return new ElasticsearchClient(transport);

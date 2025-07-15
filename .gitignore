@@ -37,3 +37,6 @@ out/
 .vscode/
 .cursorrules
 hidden/
+
+### Logs ###
+logs/

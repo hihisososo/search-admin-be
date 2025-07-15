@@ -1,59 +1,60 @@
 package com.yjlee.search.index.model;
 
+import com.yjlee.search.common.converter.JsonbConverter;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import java.util.Map;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "index_meta_data")
+@EntityListeners(AuditingEntityListener.class)
 @Getter
-@ToString
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class IndexMetadata {
-  @Id String id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  Long id;
 
   @Column(nullable = false, unique = true)
   String name;
 
+  @Column(length = 500)
+  String description;
+
   @Column(nullable = false)
   String status;
 
-  @Column(nullable = false)
-  String dataSource;
+  @Column(length = 200)
+  String fileName;
 
-  @Column(length = 1000)
-  String jdbcUrl;
+  @Convert(converter = JsonbConverter.class)
+  private Map<String, Object> mappings;
 
-  @Column(length = 100)
-  String jdbcUser;
-
-  @Column(length = 255)
-  String jdbcPassword;
-
-  String jdbcQuery;
+  @Convert(converter = JsonbConverter.class)
+  private Map<String, Object> settings;
 
   @Column ZonedDateTime lastIndexedAt;
+  @CreatedDate @Column LocalDateTime createdAt;
+  @LastModifiedDate @Column LocalDateTime updatedAt;
 
-  @Column(nullable = false)
-  @Builder.Default
-  LocalDateTime createdAt = LocalDateTime.now();
+  public void updateDescription(String description) {
+    this.description = description;
+  }
 
-  @Column(nullable = false)
-  @Builder.Default
-  LocalDateTime updatedAt = LocalDateTime.now();
+  public void updateStatus(String status) {
+    this.status = status;
+  }
 
-  @PreUpdate
-  protected void onUpdate() {
-    updatedAt = LocalDateTime.now();
+  public void updateLastIndexedAt(ZonedDateTime lastIndexedAt) {
+    this.lastIndexedAt = lastIndexedAt;
   }
 }
