@@ -25,11 +25,16 @@ app:
   elasticsearch:
     host: ${ELASTICSEARCH_HOST}
     port: ${ELASTICSEARCH_PORT}
-  s3:
-    access-key: ${AWS_S3_ACCESS_KEY}
-    secret-key: ${AWS_S3_SECRET_KEY}
+  aws:
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
     region: ap-northeast-2
-    bucket: ${AWS_S3_BUCKET_NAME}
+    s3:
+      bucket: ${AWS_S3_BUCKET_NAME}
+    ec2:
+      instance-ids: ${AWS_EC2_INSTANCE_IDS}
+  dictionary:
+    ec2-deploy-path: ${DICTIONARY_EC2_DEPLOY_PATH:/opt/search-dict}
 
 logging:
   level:

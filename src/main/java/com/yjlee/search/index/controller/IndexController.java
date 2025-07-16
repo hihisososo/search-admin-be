@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -27,6 +28,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class IndexController {
   private final IndexService indexService;
   private final S3FileService s3FileService;
+
+  // 색인 실행 동시성 제어를 위한 락과 플래그 (색인별)
+  private static final Map<Long, Object> INDEX_RUN_LOCKS = new ConcurrentHashMap<>();
+  private static final Map<Long, Boolean> INDEX_RUN_STATUS = new ConcurrentHashMap<>();
 
   @Operation(summary = "색인 목록 조회", description = "색인 목록을 페이징 및 검색어로 조회합니다.")
   @ApiResponses({@ApiResponse(responseCode = "200", description = "성공")})
@@ -123,15 +128,35 @@ public class IndexController {
   @Operation(summary = "색인 실행", description = "JSON 파일의 데이터를 Elasticsearch에 색인합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "JSON 데이터 소스가 아니거나 파일이 없음")
+    @ApiResponse(responseCode = "400", description = "JSON 데이터 소스가 아니거나 파일이 없음"),
+    @ApiResponse(responseCode = "409", description = "해당 색인이 이미 실행 중입니다")
   })
   @PostMapping("/{indexId}/run")
   public ResponseEntity<Void> runIndex(
       @Parameter(description = "색인 ID") @PathVariable String indexId) {
     log.info("색인 실행 요청: {}", indexId);
     Long id = Long.parseLong(indexId);
-    indexService.runIndex(id);
-    return ResponseEntity.ok().build();
+
+    // 색인별 락 객체 가져오기 (없으면 생성)
+    Object lock = INDEX_RUN_LOCKS.computeIfAbsent(id, k -> new Object());
+
+    synchronized (lock) {
+      // 이미 해당 색인이 실행 중인지 확인
+      if (INDEX_RUN_STATUS.getOrDefault(id, false)) {
+        log.warn("색인 실행 중복 요청 - 색인 ID: {}, 이미 실행 중", id);
+        throw new IllegalStateException("색인 ID " + id + "가 이미 실행 중입니다. 잠시 후 다시 시도해주세요.");
+      }
+
+      try {
+        INDEX_RUN_STATUS.put(id, true);
+        log.info("색인 실행 시작 (동시성 제어 적용) - 색인 ID: {}", id);
+        indexService.runIndex(id);
+        log.info("색인 실행 완료 - 색인 ID: {}", id);
+        return ResponseEntity.ok().build();
+      } finally {
+        INDEX_RUN_STATUS.put(id, false);
+      }
+    }
   }
 
   @Operation(summary = "색인명 중복 체크", description = "색인명이 이미 존재하는지 확인합니다.")
@@ -156,38 +181,6 @@ public class IndexController {
     result.put("name", name.trim());
     result.put("exists", exists);
     result.put("message", exists ? "이미 존재하는 색인명입니다" : "사용 가능한 색인명입니다");
-
-    return ResponseEntity.ok(result);
-  }
-
-  @Operation(
-      summary = "파일 다운로드용 Presigned URL 생성 (레거시)",
-      description = "S3에 저장된 JSON 파일을 다운로드하기 위한 Presigned URL을 생성합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "잘못된 요청")
-  })
-  @GetMapping("/{indexName}/download-url")
-  public ResponseEntity<Map<String, Object>> generateDownloadUrl(
-      @Parameter(description = "색인명") @PathVariable String indexName,
-      @Parameter(description = "S3 키 또는 파일 URL") @RequestParam String s3Key) {
-
-    log.info("Generating download presigned URL - indexName: {}, s3Key: {}", indexName, s3Key);
-
-    String actualS3Key =
-        s3Key.startsWith("http") ? s3FileService.extractS3KeyFromUrl(s3Key) : s3Key;
-
-    if (actualS3Key == null) {
-      throw new IllegalArgumentException("유효하지 않은 S3 키 또는 URL입니다");
-    }
-
-    String presignedUrl = s3FileService.generateDownloadPresignedUrl(actualS3Key);
-
-    Map<String, Object> result = new HashMap<>();
-    result.put("presignedUrl", presignedUrl);
-    result.put("s3Key", actualS3Key);
-    result.put("indexName", indexName);
-    result.put("expiresInHours", 1);
 
     return ResponseEntity.ok(result);
   }

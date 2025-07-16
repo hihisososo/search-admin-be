@@ -60,6 +60,25 @@ public class GlobalExceptionHandler {
         .build();
   }
 
+  @ExceptionHandler(IllegalStateException.class)
+  @ResponseStatus(HttpStatus.CONFLICT)
+  public ErrorResponse handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
+    String errorId = generateErrorId();
+
+    log.warn(
+        "Illegal state. ErrorId: {}, Path: {}, Message: {}",
+        errorId,
+        request.getRequestURI(),
+        ex.getMessage());
+
+    return ErrorResponse.builder()
+        .code(409)
+        .message(ex.getMessage())
+        .errorId(errorId)
+        .path(request.getRequestURI())
+        .build();
+  }
+
   @ExceptionHandler(Exception.class)
   @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
   public ErrorResponse handleEtc(Exception ex, HttpServletRequest request) {

@@ -16,6 +16,8 @@ public interface IndexMapper {
 
   IndexDownloadResponse toIndexDownloadResponse(String presignedUrl, long indexId);
 
+  @Mapping(target = "docCount", ignore = true)
+  @Mapping(target = "size", ignore = true)
   IndexResponse toIndexResponse(IndexMetadata metadata);
 
   @Mapping(target = "docCount", source = "stats.docCount")

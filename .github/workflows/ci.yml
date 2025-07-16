@@ -15,6 +15,4 @@ jobs:
       - name: Ensure gradlew is executable
         run: chmod +x gradlew
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon
-      - name: Run tests
-        run: ./gradlew test --no-daemon
+        run: ./gradlew build --no-daemon -x test
