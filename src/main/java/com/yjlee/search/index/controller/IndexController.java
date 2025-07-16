@@ -159,36 +159,4 @@ public class IndexController {
 
     return ResponseEntity.ok(result);
   }
-
-  @Operation(
-      summary = "파일 다운로드용 Presigned URL 생성 (레거시)",
-      description = "S3에 저장된 JSON 파일을 다운로드하기 위한 Presigned URL을 생성합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "잘못된 요청")
-  })
-  @GetMapping("/{indexName}/download-url")
-  public ResponseEntity<Map<String, Object>> generateDownloadUrl(
-      @Parameter(description = "색인명") @PathVariable String indexName,
-      @Parameter(description = "S3 키 또는 파일 URL") @RequestParam String s3Key) {
-
-    log.info("Generating download presigned URL - indexName: {}, s3Key: {}", indexName, s3Key);
-
-    String actualS3Key =
-        s3Key.startsWith("http") ? s3FileService.extractS3KeyFromUrl(s3Key) : s3Key;
-
-    if (actualS3Key == null) {
-      throw new IllegalArgumentException("유효하지 않은 S3 키 또는 URL입니다");
-    }
-
-    String presignedUrl = s3FileService.generateDownloadPresignedUrl(actualS3Key);
-
-    Map<String, Object> result = new HashMap<>();
-    result.put("presignedUrl", presignedUrl);
-    result.put("s3Key", actualS3Key);
-    result.put("indexName", indexName);
-    result.put("expiresInHours", 1);
-
-    return ResponseEntity.ok(result);
-  }
 }

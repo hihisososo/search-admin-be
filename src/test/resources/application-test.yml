@@ -17,11 +17,19 @@ spring:
 
 app:
   elasticsearch:
-    host: localhost
-    port: 9200
-    scheme: http
-  s3:
-    access-key: ${AWS_S3_ACCESS_KEY}
-    secret-key: ${AWS_S3_SECRET_KEY}
+    host: ${ELASTICSEARCH_HOST}
+    port: ${ELASTICSEARCH_PORT}
+  aws:
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
     region: ap-northeast-2
-    bucket: search-portfolio-uploads-test
+    s3:
+      bucket: ${AWS_S3_BUCKET_NAME}
+    ec2:
+      instance-ids: ${AWS_EC2_INSTANCE_IDS}
+  dictionary:
+    ec2-deploy-path: ${DICTIONARY_EC2_DEPLOY_PATH:/tmp/search-dict}
+  test:
+    # 테스트 환경에서 사용할 prefix
+    index-prefix: "test_"
+    s3-path-prefix: "test/"
