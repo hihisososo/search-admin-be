@@ -310,7 +310,7 @@ public class SynonymDictionaryService {
   private String generateAutoVersionName() {
     String timestamp =
         java.time.LocalDateTime.now()
-            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss"));
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss-SSS"));
     return "v" + timestamp;
   }
 

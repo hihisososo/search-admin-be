@@ -13,6 +13,7 @@ import com.yjlee.search.dictionary.user.model.UserDictionaryVersion;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
 import com.yjlee.search.dictionary.user.repository.UserDictionarySnapshotRepository;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryVersionRepository;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -304,8 +305,7 @@ public class UserDictionaryService {
   /** 자동 버전명 생성 */
   private String generateAutoVersionName() {
     String timestamp =
-        java.time.LocalDateTime.now()
-            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss"));
+        java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmmss-SSS"));
     return "v" + timestamp;
   }
 

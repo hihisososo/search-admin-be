@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -27,6 +28,10 @@ import org.springframework.web.multipart.MultipartFile;
 public class IndexController {
   private final IndexService indexService;
   private final S3FileService s3FileService;
+
+  // 색인 실행 동시성 제어를 위한 락과 플래그 (색인별)
+  private static final Map<Long, Object> INDEX_RUN_LOCKS = new ConcurrentHashMap<>();
+  private static final Map<Long, Boolean> INDEX_RUN_STATUS = new ConcurrentHashMap<>();
 
   @Operation(summary = "색인 목록 조회", description = "색인 목록을 페이징 및 검색어로 조회합니다.")
   @ApiResponses({@ApiResponse(responseCode = "200", description = "성공")})
@@ -123,15 +128,35 @@ public class IndexController {
   @Operation(summary = "색인 실행", description = "JSON 파일의 데이터를 Elasticsearch에 색인합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "JSON 데이터 소스가 아니거나 파일이 없음")
+    @ApiResponse(responseCode = "400", description = "JSON 데이터 소스가 아니거나 파일이 없음"),
+    @ApiResponse(responseCode = "409", description = "해당 색인이 이미 실행 중입니다")
   })
   @PostMapping("/{indexId}/run")
   public ResponseEntity<Void> runIndex(
       @Parameter(description = "색인 ID") @PathVariable String indexId) {
     log.info("색인 실행 요청: {}", indexId);
     Long id = Long.parseLong(indexId);
-    indexService.runIndex(id);
-    return ResponseEntity.ok().build();
+
+    // 색인별 락 객체 가져오기 (없으면 생성)
+    Object lock = INDEX_RUN_LOCKS.computeIfAbsent(id, k -> new Object());
+
+    synchronized (lock) {
+      // 이미 해당 색인이 실행 중인지 확인
+      if (INDEX_RUN_STATUS.getOrDefault(id, false)) {
+        log.warn("색인 실행 중복 요청 - 색인 ID: {}, 이미 실행 중", id);
+        throw new IllegalStateException("색인 ID " + id + "가 이미 실행 중입니다. 잠시 후 다시 시도해주세요.");
+      }
+
+      try {
+        INDEX_RUN_STATUS.put(id, true);
+        log.info("색인 실행 시작 (동시성 제어 적용) - 색인 ID: {}", id);
+        indexService.runIndex(id);
+        log.info("색인 실행 완료 - 색인 ID: {}", id);
+        return ResponseEntity.ok().build();
+      } finally {
+        INDEX_RUN_STATUS.put(id, false);
+      }
+    }
   }
 
   @Operation(summary = "색인명 중복 체크", description = "색인명이 이미 존재하는지 확인합니다.")

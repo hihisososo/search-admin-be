@@ -27,6 +27,10 @@ public class UserDictionaryController {
 
   private final UserDictionaryService userDictionaryService;
 
+  // 버전 생성 동시성 제어를 위한 락과 플래그
+  private static final Object VERSION_CREATION_LOCK = new Object();
+  private static volatile boolean isVersionCreationInProgress = false;
+
   @Operation(
       summary = "사용자 사전 목록 조회",
       description = "사용자 사전 목록을 페이징 및 검색어로 조회합니다. version 파라미터가 있으면 해당 버전의 배포된 사전을 조회합니다.")
@@ -122,14 +126,30 @@ public class UserDictionaryController {
       description = "현재 시점의 사용자 사전들을 스냅샷으로 저장하고 새 버전을 생성하며 EC2에 배포합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "잘못된 요청")
+    @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+    @ApiResponse(responseCode = "409", description = "다른 버전 생성 작업이 진행 중입니다")
   })
   @PostMapping("/versions")
   public ResponseEntity<UserDictionaryVersionResponse> createVersion() {
-
     log.info("사용자 사전 버전 생성 요청 (자동 버전)");
-    UserDictionaryVersionResponse response = userDictionaryService.createVersion();
-    return ResponseEntity.ok(response);
+
+    synchronized (VERSION_CREATION_LOCK) {
+      // 이미 버전 생성 작업이 진행 중인지 확인
+      if (isVersionCreationInProgress) {
+        log.warn("사용자 사전 버전 생성 중복 요청 - 다른 작업이 진행 중");
+        throw new IllegalStateException("다른 사용자 사전 버전 생성 작업이 진행 중입니다. 잠시 후 다시 시도해주세요.");
+      }
+
+      try {
+        isVersionCreationInProgress = true;
+        log.info("사용자 사전 버전 생성 시작 (동기화 적용)");
+        UserDictionaryVersionResponse response = userDictionaryService.createVersion();
+        log.info("사용자 사전 버전 생성 완료: {}", response.getVersion());
+        return ResponseEntity.ok(response);
+      } finally {
+        isVersionCreationInProgress = false;
+      }
+    }
   }
 
   @Operation(summary = "사용자 사전 버전 목록 조회", description = "사용자 사전의 모든 버전 목록을 조회합니다.")

@@ -20,8 +20,8 @@ app:
     host: ${ELASTICSEARCH_HOST}
     port: ${ELASTICSEARCH_PORT}
   aws:
-    access-key: ${AWS_ACCESS_KEY_ID:}
-    secret-key: ${AWS_SECRET_ACCESS_KEY:}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
     region: ap-northeast-2
     s3:
       bucket: ${AWS_S3_BUCKET_NAME}

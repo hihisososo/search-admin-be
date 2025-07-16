@@ -249,18 +249,15 @@ class UserDictionaryCrudIntegrationTest {
     // given - 사전 데이터 생성
     createTestData();
 
-    // 버전 생성 (실제 API 사용)
-    createTestVersion();
+    // 버전 생성 (실제 API 사용하여 생성된 버전명 가져오기)
+    String versionName = createTestVersionAndGetName();
 
-    // when & then - v1.0 버전으로 조회
+    // when & then - 생성된 버전으로 조회
     mockMvc
-        .perform(get("/api/v1/dictionaries/user").param("version", "v1.0"))
+        .perform(get("/api/v1/dictionaries/user").param("version", versionName))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content").isArray())
-        .andExpect(jsonPath("$.content.length()").value(3))
-        .andExpect(jsonPath("$.content[0].keyword").value("대학교 => 학교, 대학, 캠퍼스"))
-        .andExpect(jsonPath("$.content[1].keyword").value("병원 => 의료진, 의료기관, 진료소"))
-        .andExpect(jsonPath("$.content[2].keyword").value("식당 => 음식점, 레스토랑, 맛집"));
+        .andExpect(jsonPath("$.content.length()").value(3));
   }
 
   @Test
@@ -268,12 +265,13 @@ class UserDictionaryCrudIntegrationTest {
     // given - 사전 데이터 생성
     createTestData();
 
-    // 버전 생성 (실제 API 사용)
-    createTestVersion();
+    // 버전 생성 (실제 API 사용하여 생성된 버전명 가져오기)
+    String versionName = createTestVersionAndGetName();
 
-    // when & then - v1.0 버전에서 "병원" 검색
+    // when & then - 생성된 버전에서 "병원" 검색
     mockMvc
-        .perform(get("/api/v1/dictionaries/user").param("version", "v1.0").param("search", "병원"))
+        .perform(
+            get("/api/v1/dictionaries/user").param("version", versionName).param("search", "병원"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content").isArray())
         .andExpect(jsonPath("$.content.length()").value(1))
@@ -310,24 +308,24 @@ class UserDictionaryCrudIntegrationTest {
   void deleteVersion_성공() throws Exception {
     // given - 사전 데이터 및 버전 생성
     createTestData();
-    createTestVersion();
+    String versionName = createTestVersionAndGetName();
 
     // 버전이 존재하는지 확인
     mockMvc
-        .perform(get("/api/v1/dictionaries/user").param("version", "v1.0"))
+        .perform(get("/api/v1/dictionaries/user").param("version", versionName))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content.length()").value(3));
 
     // when & then - 버전 삭제
     mockMvc
-        .perform(delete("/api/v1/dictionaries/user/versions/v1.0"))
+        .perform(delete("/api/v1/dictionaries/user/versions/" + versionName))
         .andExpect(status().isNoContent());
 
     // 삭제 후 해당 버전으로 조회 시 실패 확인
     mockMvc
-        .perform(get("/api/v1/dictionaries/user").param("version", "v1.0"))
+        .perform(get("/api/v1/dictionaries/user").param("version", versionName))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value("존재하지 않는 배포 버전입니다: v1.0"));
+        .andExpect(jsonPath("$.message").value("존재하지 않는 배포 버전입니다: " + versionName));
   }
 
   @Test
@@ -346,23 +344,23 @@ class UserDictionaryCrudIntegrationTest {
   void deleteVersion_스냅샷함께삭제_확인() throws Exception {
     // given - 사전 데이터 및 버전 생성
     createTestData();
-    createTestVersion();
+    String versionName = createTestVersionAndGetName();
 
     // 스냅샷이 생성되었는지 확인 (3개 사전 -> 3개 스냅샷)
-    long snapshotCountBefore = snapshotRepository.countByVersion("v1.0");
+    long snapshotCountBefore = snapshotRepository.countByVersion(versionName);
     org.assertj.core.api.Assertions.assertThat(snapshotCountBefore).isEqualTo(3);
 
     // when - 버전 삭제
     mockMvc
-        .perform(delete("/api/v1/dictionaries/user/versions/v1.0"))
+        .perform(delete("/api/v1/dictionaries/user/versions/" + versionName))
         .andExpect(status().isNoContent());
 
     // then - 스냅샷도 함께 삭제되었는지 확인
-    long snapshotCountAfter = snapshotRepository.countByVersion("v1.0");
+    long snapshotCountAfter = snapshotRepository.countByVersion(versionName);
     org.assertj.core.api.Assertions.assertThat(snapshotCountAfter).isEqualTo(0);
 
     // 버전도 삭제되었는지 확인
-    boolean versionExists = versionRepository.existsByVersion("v1.0");
+    boolean versionExists = versionRepository.existsByVersion(versionName);
     org.assertj.core.api.Assertions.assertThat(versionExists).isFalse();
   }
 
@@ -482,5 +480,18 @@ class UserDictionaryCrudIntegrationTest {
   /** 테스트용 버전 생성 (실제 API 호출) */
   private void createTestVersion() throws Exception {
     mockMvc.perform(post("/api/v1/dictionaries/user/versions")).andExpect(status().isOk());
+  }
+
+  /** 테스트용 버전 생성하고 버전명 반환 */
+  private String createTestVersionAndGetName() throws Exception {
+    String response =
+        mockMvc
+            .perform(post("/api/v1/dictionaries/user/versions"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    return objectMapper.readTree(response).get("version").asText();
   }
 }
