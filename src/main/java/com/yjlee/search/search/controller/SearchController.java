@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @Tag(name = "Search Simulation", description = "검색 시뮬레이션 API")
 @RestController
-@RequestMapping("/api/v1/search")
+@RequestMapping("/api/v1/search-simulation")
 @RequiredArgsConstructor
 public class SearchController {
 
