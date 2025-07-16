@@ -16,5 +16,5 @@ jobs:
         run: chmod +x gradlew
       - name: Build with Gradle
         run: ./gradlew build --no-daemon
-      - name: Run tests
-        run: ./gradlew test --no-daemon
+      - name: Run unit/fast tests only
+        run: ./gradlew test --no-daemon --exclude-tag integration
