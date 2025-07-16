@@ -8,7 +8,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -33,23 +32,11 @@ public class S3FileService {
   private final AwsProperties awsProperties;
   private final AwsCredentialsProvider credentialsProvider;
 
-  @Value("${app.test.s3-path-prefix:}")
-  private String s3PathPrefix;
-
-  /** 실제 S3 키 생성 (테스트 환경에서 prefix 적용) */
-  private String getActualS3Key(String s3Key) {
-    if (s3PathPrefix != null && !s3PathPrefix.isEmpty()) {
-      return s3PathPrefix + s3Key;
-    }
-    return s3Key;
-  }
-
   /** JSON 파일 업로드용 Presigned URL 생성 */
   public String generateUploadPresignedUrl(String indexName, String fileName) {
     try {
       // S3 키 생성
       String s3Key = generateS3Key(indexName, fileName);
-      String actualS3Key = getActualS3Key(s3Key);
 
       // S3 Presigner 생성 (region과 credentials 명시적 설정)
       try (S3Presigner presigner = createPresigner()) {
@@ -57,7 +44,7 @@ public class S3FileService {
         PutObjectRequest putObjectRequest =
             PutObjectRequest.builder()
                 .bucket(awsProperties.getS3().getBucket())
-                .key(actualS3Key)
+                .key(s3Key)
                 .contentType("application/json")
                 .build();
 
@@ -70,7 +57,7 @@ public class S3FileService {
         PresignedPutObjectRequest presignedRequest = presigner.presignPutObject(presignRequest);
         String presignedUrl = presignedRequest.url().toString();
 
-        log.info("업로드용 Presigned URL 생성 완료 - S3 Key: {}", actualS3Key);
+        log.info("업로드용 Presigned URL 생성 완료 - S3 Key: {}", s3Key);
         return presignedUrl;
       }
 
@@ -83,15 +70,11 @@ public class S3FileService {
   /** 파일 다운로드용 Presigned URL 생성 */
   public String generateDownloadPresignedUrl(String s3Key) {
     try {
-      String actualS3Key = getActualS3Key(s3Key);
       // S3 Presigner 생성 (region과 credentials 명시적 설정)
       try (S3Presigner presigner = createPresigner()) {
 
         GetObjectRequest getObjectRequest =
-            GetObjectRequest.builder()
-                .bucket(awsProperties.getS3().getBucket())
-                .key(actualS3Key)
-                .build();
+            GetObjectRequest.builder().bucket(awsProperties.getS3().getBucket()).key(s3Key).build();
 
         GetObjectPresignRequest presignRequest =
             GetObjectPresignRequest.builder()
@@ -102,7 +85,7 @@ public class S3FileService {
         PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
         String presignedUrl = presignedRequest.url().toString();
 
-        log.info("다운로드용 Presigned URL 생성 완료 - S3 Key: {}", actualS3Key);
+        log.info("다운로드용 Presigned URL 생성 완료 - S3 Key: {}", s3Key);
         return presignedUrl;
       }
 
@@ -128,13 +111,12 @@ public class S3FileService {
 
       // S3 키 생성 (경로 포함)
       String s3Key = generateS3Key(indexName, file.getOriginalFilename());
-      String actualS3Key = getActualS3Key(s3Key);
 
       // S3 업로드
       PutObjectRequest putRequest =
           PutObjectRequest.builder()
               .bucket(awsProperties.getS3().getBucket())
-              .key(actualS3Key)
+              .key(s3Key)
               .contentType("application/json")
               .contentLength(file.getSize())
               .build();
@@ -142,10 +124,10 @@ public class S3FileService {
       s3Client.putObject(
           putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
-      log.info("파일 업로드 완료 - S3 Key: {}, Size: {} bytes", actualS3Key, file.getSize());
+      log.info("파일 업로드 완료 - S3 Key: {}, Size: {} bytes", s3Key, file.getSize());
 
       // 파일 URL 생성
-      String fileUrl = generateFileUrl(actualS3Key);
+      String fileUrl = generateFileUrl(s3Key);
 
       // 업로드 결과 반환 (원래 S3 키 반환 - DB에는 prefix 없는 키 저장)
       return UploadResult.builder()
@@ -176,15 +158,14 @@ public class S3FileService {
   /** S3에서 파일 삭제 */
   public void deleteFile(String s3Key) {
     try {
-      String actualS3Key = getActualS3Key(s3Key);
       DeleteObjectRequest deleteRequest =
           DeleteObjectRequest.builder()
               .bucket(awsProperties.getS3().getBucket())
-              .key(actualS3Key)
+              .key(s3Key)
               .build();
 
       s3Client.deleteObject(deleteRequest);
-      log.info("파일 삭제 완료 - S3 Key: {}", actualS3Key);
+      log.info("파일 삭제 완료 - S3 Key: {}", s3Key);
 
     } catch (Exception e) {
       log.error("파일 삭제 실패 - S3 Key: {}", s3Key, e);
