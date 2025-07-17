@@ -9,6 +9,6 @@ import lombok.extern.jackson.Jacksonized;
 @Jacksonized
 public class SearchExecuteResponse {
   String indexName;
-  Object searchResult; // ES 검색 결과를 그대로 반환
-  long took; // 검색 소요 시간 (ms)
+  Object searchResult;
+  long took;
 }

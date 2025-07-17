@@ -1,4 +1,4 @@
-package com.yjlee.search.search.dto;
+package com.yjlee.search.searchsimulation.dto;
 
 import java.time.LocalDateTime;
 import lombok.Builder;
@@ -8,7 +8,7 @@ import lombok.extern.jackson.Jacksonized;
 @Value
 @Builder
 @Jacksonized
-public class SearchQueryResponse {
+public class SearchSimulationQueryResponse {
   long id;
   String name;
   String description;

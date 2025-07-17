@@ -9,7 +9,6 @@ import com.yjlee.search.index.model.IndexMetadata;
 import com.yjlee.search.index.repository.ElasticsearchRepository;
 import com.yjlee.search.index.repository.FileUploadRepository;
 import com.yjlee.search.index.repository.IndexMetadataRepository;
-import com.yjlee.search.service.S3FileService;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
