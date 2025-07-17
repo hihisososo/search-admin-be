@@ -41,7 +41,8 @@ class SearchSimulationIntegrationTest {
   private static final String SEARCH_INDEXES_API = "/api/v1/search-simulation/indexes";
   private static final String SEARCH_EXECUTE_API = "/api/v1/search-simulation/execute";
   private static final String SEARCH_QUERIES_API = "/api/v1/search-simulation/queries";
-  private static final String SEARCH_QUERIES_DETAIL_API = "/api/v1/search-simulation/queries/{queryId}";
+  private static final String SEARCH_QUERIES_DETAIL_API =
+      "/api/v1/search-simulation/queries/{queryId}";
 
   // 테스트별 고유 prefix (절대 겹치지 않도록)
   private final String testIndexPrefix =
@@ -435,10 +436,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then - "product-index"에서 "상품" 검색
     mockMvc
-        .perform(
-            get(SEARCH_QUERIES_API)
-                .param("indexName", productIndexName)
-                .param("search", "상품"))
+        .perform(get(SEARCH_QUERIES_API).param("indexName", productIndexName).param("search", "상품"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content").isArray())
         .andExpect(jsonPath("$.content.length()").value(1))
@@ -587,14 +585,10 @@ class SearchSimulationIntegrationTest {
     Long queryId = createTestSearchQuery("상품명 검색", productIndexName);
 
     // when & then
-    mockMvc
-        .perform(delete(SEARCH_QUERIES_DETAIL_API, queryId))
-        .andExpect(status().isNoContent());
+    mockMvc.perform(delete(SEARCH_QUERIES_DETAIL_API, queryId)).andExpect(status().isNoContent());
 
     // 삭제 후 조회 시 실패 확인
-    mockMvc
-        .perform(get(SEARCH_QUERIES_DETAIL_API, queryId))
-        .andExpect(status().isBadRequest());
+    mockMvc.perform(get(SEARCH_QUERIES_DETAIL_API, queryId)).andExpect(status().isBadRequest());
   }
 
   @Test
