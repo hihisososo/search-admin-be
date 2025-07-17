@@ -37,6 +37,13 @@ class SearchSimulationIntegrationTest {
   @Autowired private SearchQueryRepository searchQueryRepository;
   @Autowired private ElasticsearchRepository elasticsearchRepository;
 
+  // API 엔드포인트 상수
+  private static final String SEARCH_INDEXES_API = "/api/v1/search-simulation/indexes";
+  private static final String SEARCH_EXECUTE_API = "/api/v1/search-simulation/execute";
+  private static final String SEARCH_QUERIES_API = "/api/v1/search-simulation/queries";
+  private static final String SEARCH_QUERIES_DETAIL_API =
+      "/api/v1/search-simulation/queries/{queryId}";
+
   // 테스트별 고유 prefix (절대 겹치지 않도록)
   private final String testIndexPrefix =
       "test-sim-" + UUID.randomUUID().toString().substring(0, 8) + "-";
@@ -71,7 +78,7 @@ class SearchSimulationIntegrationTest {
   void getIndexList_성공() throws Exception {
     // when & then
     mockMvc
-        .perform(get("/api/v1/search/indexes"))
+        .perform(get(SEARCH_INDEXES_API))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$").isArray())
         .andExpect(jsonPath("$.length()").value(3))
@@ -90,7 +97,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then
     mockMvc
-        .perform(get("/api/v1/search/indexes"))
+        .perform(get(SEARCH_INDEXES_API))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$").isArray())
         .andExpect(jsonPath("$.length()").value(0));
@@ -110,7 +117,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/execute")
+            post(SEARCH_EXECUTE_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -133,7 +140,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/execute")
+            post(SEARCH_EXECUTE_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -154,7 +161,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/execute")
+            post(SEARCH_EXECUTE_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -185,7 +192,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/execute")
+            post(SEARCH_EXECUTE_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -204,7 +211,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/execute")
+            post(SEARCH_EXECUTE_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -224,7 +231,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/execute")
+            post(SEARCH_EXECUTE_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest());
@@ -242,7 +249,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/execute")
+            post(SEARCH_EXECUTE_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest());
@@ -260,7 +267,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/execute")
+            post(SEARCH_EXECUTE_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isInternalServerError());
@@ -282,7 +289,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/queries")
+            post(SEARCH_QUERIES_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -310,7 +317,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/queries")
+            post(SEARCH_QUERIES_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest());
@@ -330,7 +337,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/queries")
+            post(SEARCH_QUERIES_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest());
@@ -350,7 +357,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/queries")
+            post(SEARCH_QUERIES_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest());
@@ -370,7 +377,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            post("/api/v1/search/queries")
+            post(SEARCH_QUERIES_API)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest());
@@ -385,7 +392,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then
     mockMvc
-        .perform(get("/api/v1/search/queries"))
+        .perform(get(SEARCH_QUERIES_API))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content").isArray())
         .andExpect(jsonPath("$.content.length()").value(3))
@@ -401,7 +408,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then - "상품" 키워드로 검색
     mockMvc
-        .perform(get("/api/v1/search/queries").param("search", "상품"))
+        .perform(get(SEARCH_QUERIES_API).param("search", "상품"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content").isArray())
         .andExpect(jsonPath("$.content.length()").value(1))
@@ -415,7 +422,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then - "user-index"로 필터링
     mockMvc
-        .perform(get("/api/v1/search/queries").param("indexName", userIndexName))
+        .perform(get(SEARCH_QUERIES_API).param("indexName", userIndexName))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content").isArray())
         .andExpect(jsonPath("$.content.length()").value(1))
@@ -429,10 +436,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then - "product-index"에서 "상품" 검색
     mockMvc
-        .perform(
-            get("/api/v1/search/queries")
-                .param("indexName", productIndexName)
-                .param("search", "상품"))
+        .perform(get(SEARCH_QUERIES_API).param("indexName", productIndexName).param("search", "상품"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content").isArray())
         .andExpect(jsonPath("$.content.length()").value(1))
@@ -447,7 +451,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then - 이름 오름차순 정렬
     mockMvc
-        .perform(get("/api/v1/search/queries").param("sortBy", "name").param("sortDir", "asc"))
+        .perform(get(SEARCH_QUERIES_API).param("sortBy", "name").param("sortDir", "asc"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content[0].name").value("가격범위 검색"))
         .andExpect(jsonPath("$.content[1].name").value("사용자명 검색"))
@@ -463,7 +467,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then - 첫 번째 페이지 (size=3)
     mockMvc
-        .perform(get("/api/v1/search/queries").param("page", "1").param("size", "3"))
+        .perform(get(SEARCH_QUERIES_API).param("page", "1").param("size", "3"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content.length()").value(3))
         .andExpect(jsonPath("$.page").value(0))
@@ -473,7 +477,7 @@ class SearchSimulationIntegrationTest {
 
     // 두 번째 페이지
     mockMvc
-        .perform(get("/api/v1/search/queries").param("page", "2").param("size", "3"))
+        .perform(get(SEARCH_QUERIES_API).param("page", "2").param("size", "3"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content.length()").value(2))
         .andExpect(jsonPath("$.page").value(1));
@@ -488,7 +492,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then
     mockMvc
-        .perform(get("/api/v1/search/queries/{queryId}", queryId))
+        .perform(get(SEARCH_QUERIES_DETAIL_API, queryId))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(queryId))
         .andExpect(jsonPath("$.name").value("상품명 검색"))
@@ -503,7 +507,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then
     mockMvc
-        .perform(get("/api/v1/search/queries/{queryId}", nonExistentId))
+        .perform(get(SEARCH_QUERIES_DETAIL_API, nonExistentId))
         .andExpect(status().isBadRequest());
   }
 
@@ -525,7 +529,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            put("/api/v1/search/queries/{queryId}", queryId)
+            put(SEARCH_QUERIES_DETAIL_API, queryId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -549,7 +553,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            put("/api/v1/search/queries/{queryId}", queryId)
+            put(SEARCH_QUERIES_DETAIL_API, queryId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
@@ -567,7 +571,7 @@ class SearchSimulationIntegrationTest {
     // when & then
     mockMvc
         .perform(
-            put("/api/v1/search/queries/{queryId}", nonExistentId)
+            put(SEARCH_QUERIES_DETAIL_API, nonExistentId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest());
@@ -581,14 +585,10 @@ class SearchSimulationIntegrationTest {
     Long queryId = createTestSearchQuery("상품명 검색", productIndexName);
 
     // when & then
-    mockMvc
-        .perform(delete("/api/v1/search/queries/{queryId}", queryId))
-        .andExpect(status().isNoContent());
+    mockMvc.perform(delete(SEARCH_QUERIES_DETAIL_API, queryId)).andExpect(status().isNoContent());
 
     // 삭제 후 조회 시 실패 확인
-    mockMvc
-        .perform(get("/api/v1/search/queries/{queryId}", queryId))
-        .andExpect(status().isBadRequest());
+    mockMvc.perform(get(SEARCH_QUERIES_DETAIL_API, queryId)).andExpect(status().isBadRequest());
   }
 
   @Test
@@ -598,7 +598,7 @@ class SearchSimulationIntegrationTest {
 
     // when & then
     mockMvc
-        .perform(delete("/api/v1/search/queries/{queryId}", nonExistentId))
+        .perform(delete(SEARCH_QUERIES_DETAIL_API, nonExistentId))
         .andExpect(status().isBadRequest());
   }
 
@@ -866,7 +866,7 @@ class SearchSimulationIntegrationTest {
     String response =
         mockMvc
             .perform(
-                post("/api/v1/search/queries")
+                post(SEARCH_QUERIES_API)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
@@ -895,7 +895,7 @@ class SearchSimulationIntegrationTest {
               .build();
 
       mockMvc.perform(
-          post("/api/v1/search/queries")
+          post(SEARCH_QUERIES_API)
               .contentType(MediaType.APPLICATION_JSON)
               .content(objectMapper.writeValueAsString(request)));
     }
