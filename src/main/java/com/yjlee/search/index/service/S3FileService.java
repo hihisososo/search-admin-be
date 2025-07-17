@@ -1,4 +1,4 @@
-package com.yjlee.search.service;
+package com.yjlee.search.index.service;
 
 import com.yjlee.search.config.AwsConfig.AwsProperties;
 import java.io.IOException;

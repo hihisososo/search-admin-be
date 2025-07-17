@@ -1,4 +1,4 @@
-package com.yjlee.search.search.dto;
+package com.yjlee.search.searchsimulation.dto;
 
 import lombok.Builder;
 import lombok.Value;

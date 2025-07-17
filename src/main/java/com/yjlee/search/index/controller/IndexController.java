@@ -3,7 +3,7 @@ package com.yjlee.search.index.controller;
 import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.index.dto.*;
 import com.yjlee.search.index.service.IndexService;
-import com.yjlee.search.service.S3FileService;
+import com.yjlee.search.index.service.S3FileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

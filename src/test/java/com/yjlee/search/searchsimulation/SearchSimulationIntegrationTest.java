@@ -1,4 +1,4 @@
-package com.yjlee.search.search;
+package com.yjlee.search.searchsimulation;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -7,10 +7,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.index.model.IndexMetadata;
 import com.yjlee.search.index.repository.ElasticsearchRepository;
 import com.yjlee.search.index.repository.IndexMetadataRepository;
-import com.yjlee.search.search.dto.SearchExecuteRequest;
-import com.yjlee.search.search.dto.SearchQueryCreateRequest;
-import com.yjlee.search.search.dto.SearchQueryUpdateRequest;
-import com.yjlee.search.search.repository.SearchQueryRepository;
+import com.yjlee.search.searchsimulation.dto.SearchSimulationExecuteRequest;
+import com.yjlee.search.searchsimulation.dto.SearchSimulationQueryCreateRequest;
+import com.yjlee.search.searchsimulation.dto.SearchSimulationQueryUpdateRequest;
+import com.yjlee.search.searchsimulation.repository.SearchSimulationQueryRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,7 +34,7 @@ class SearchSimulationIntegrationTest {
   @Autowired private MockMvc mockMvc;
   @Autowired private ObjectMapper objectMapper;
   @Autowired private IndexMetadataRepository indexMetadataRepository;
-  @Autowired private SearchQueryRepository searchQueryRepository;
+  @Autowired private SearchSimulationQueryRepository searchQueryRepository;
   @Autowired private ElasticsearchRepository elasticsearchRepository;
 
   // API 엔드포인트 상수
@@ -108,8 +108,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void executeSearch_성공() throws Exception {
     // given
-    SearchExecuteRequest request =
-        SearchExecuteRequest.builder()
+    SearchSimulationExecuteRequest request =
+        SearchSimulationExecuteRequest.builder()
             .indexName(productIndexName)
             .queryDsl("{\"query\":{\"match\":{\"name\":\"컴퓨터\"}}}")
             .build();
@@ -131,8 +131,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void executeSearch_실제데이터검색_성공() throws Exception {
     // given - "컴퓨터" 키워드로 상품 검색
-    SearchExecuteRequest request =
-        SearchExecuteRequest.builder()
+    SearchSimulationExecuteRequest request =
+        SearchSimulationExecuteRequest.builder()
             .indexName(productIndexName)
             .queryDsl("{\"query\":{\"match\":{\"name\":\"컴퓨터\"}}}")
             .build();
@@ -152,8 +152,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void executeSearch_범위검색_성공() throws Exception {
     // given - 가격 범위 검색 (50만원 이상 100만원 이하)
-    SearchExecuteRequest request =
-        SearchExecuteRequest.builder()
+    SearchSimulationExecuteRequest request =
+        SearchSimulationExecuteRequest.builder()
             .indexName(productIndexName)
             .queryDsl("{\"query\":{\"range\":{\"price\":{\"gte\":500000,\"lte\":1000000}}}}")
             .build();
@@ -171,8 +171,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void executeSearch_복합쿼리_성공() throws Exception {
     // given - bool 쿼리로 전자제품 중 100만원 이하 상품 검색
-    SearchExecuteRequest request =
-        SearchExecuteRequest.builder()
+    SearchSimulationExecuteRequest request =
+        SearchSimulationExecuteRequest.builder()
             .indexName(productIndexName)
             .queryDsl(
                 """
@@ -202,8 +202,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void executeSearch_사용자인덱스_성공() throws Exception {
     // given - 사용자 이름으로 검색
-    SearchExecuteRequest request =
-        SearchExecuteRequest.builder()
+    SearchSimulationExecuteRequest request =
+        SearchSimulationExecuteRequest.builder()
             .indexName(userIndexName)
             .queryDsl("{\"query\":{\"match\":{\"name\":\"김철수\"}}}")
             .build();
@@ -222,8 +222,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void executeSearch_유효성검증실패_인덱스명없음() throws Exception {
     // given
-    SearchExecuteRequest request =
-        SearchExecuteRequest.builder()
+    SearchSimulationExecuteRequest request =
+        SearchSimulationExecuteRequest.builder()
             .indexName("") // 빈 인덱스명
             .queryDsl("{\"query\":{\"match_all\":{}}}")
             .build();
@@ -240,8 +240,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void executeSearch_유효성검증실패_쿼리DSL없음() throws Exception {
     // given
-    SearchExecuteRequest request =
-        SearchExecuteRequest.builder()
+    SearchSimulationExecuteRequest request =
+        SearchSimulationExecuteRequest.builder()
             .indexName(productIndexName)
             .queryDsl("") // 빈 Query DSL
             .build();
@@ -258,8 +258,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void executeSearch_잘못된쿼리DSL() throws Exception {
     // given
-    SearchExecuteRequest request =
-        SearchExecuteRequest.builder()
+    SearchSimulationExecuteRequest request =
+        SearchSimulationExecuteRequest.builder()
             .indexName(productIndexName)
             .queryDsl("{invalid json}") // 잘못된 JSON
             .build();
@@ -278,8 +278,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void createSearchQuery_성공() throws Exception {
     // given
-    SearchQueryCreateRequest request =
-        SearchQueryCreateRequest.builder()
+    SearchSimulationQueryCreateRequest request =
+        SearchSimulationQueryCreateRequest.builder()
             .name("상품명 검색")
             .description("상품명으로 검색하는 쿼리")
             .queryDsl("{\"query\":{\"match\":{\"name\":\"{{keyword}}\"}}}")
@@ -306,8 +306,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void createSearchQuery_유효성검증실패_이름없음() throws Exception {
     // given
-    SearchQueryCreateRequest request =
-        SearchQueryCreateRequest.builder()
+    SearchSimulationQueryCreateRequest request =
+        SearchSimulationQueryCreateRequest.builder()
             .name("") // 빈 이름
             .description("설명")
             .queryDsl("{\"query\":{\"match_all\":{}}}")
@@ -326,8 +326,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void createSearchQuery_유효성검증실패_쿼리DSL없음() throws Exception {
     // given
-    SearchQueryCreateRequest request =
-        SearchQueryCreateRequest.builder()
+    SearchSimulationQueryCreateRequest request =
+        SearchSimulationQueryCreateRequest.builder()
             .name("테스트 쿼리")
             .description("설명")
             .queryDsl("") // 빈 Query DSL
@@ -346,8 +346,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void createSearchQuery_유효성검증실패_인덱스명없음() throws Exception {
     // given
-    SearchQueryCreateRequest request =
-        SearchQueryCreateRequest.builder()
+    SearchSimulationQueryCreateRequest request =
+        SearchSimulationQueryCreateRequest.builder()
             .name("테스트 쿼리")
             .description("설명")
             .queryDsl("{\"query\":{\"match_all\":{}}}")
@@ -366,8 +366,8 @@ class SearchSimulationIntegrationTest {
   @Test
   void createSearchQuery_잘못된쿼리DSL() throws Exception {
     // given
-    SearchQueryCreateRequest request =
-        SearchQueryCreateRequest.builder()
+    SearchSimulationQueryCreateRequest request =
+        SearchSimulationQueryCreateRequest.builder()
             .name("테스트 쿼리")
             .description("설명")
             .queryDsl("{invalid json}") // 잘못된 JSON
@@ -518,8 +518,8 @@ class SearchSimulationIntegrationTest {
     // given - 테스트 검색식 생성
     Long queryId = createTestSearchQuery("상품명 검색", productIndexName);
 
-    SearchQueryUpdateRequest request =
-        SearchQueryUpdateRequest.builder()
+    SearchSimulationQueryUpdateRequest request =
+        SearchSimulationQueryUpdateRequest.builder()
             .name("상품명 검색 (수정됨)")
             .description("수정된 설명")
             .queryDsl("{\"query\":{\"bool\":{\"must\":[{\"match\":{\"name\":\"{{keyword}}\"}}]}}}")
@@ -544,8 +544,8 @@ class SearchSimulationIntegrationTest {
     // given - 테스트 검색식 생성
     Long queryId = createTestSearchQuery("상품명 검색", productIndexName);
 
-    SearchQueryUpdateRequest request =
-        SearchQueryUpdateRequest.builder()
+    SearchSimulationQueryUpdateRequest request =
+        SearchSimulationQueryUpdateRequest.builder()
             .description("설명만 수정")
             // 다른 필드는 null (수정하지 않음)
             .build();
@@ -566,7 +566,8 @@ class SearchSimulationIntegrationTest {
   void updateSearchQuery_존재하지않는검색식_실패() throws Exception {
     // given
     Long nonExistentId = 999L;
-    SearchQueryUpdateRequest request = SearchQueryUpdateRequest.builder().name("수정된 이름").build();
+    SearchSimulationQueryUpdateRequest request =
+        SearchSimulationQueryUpdateRequest.builder().name("수정된 이름").build();
 
     // when & then
     mockMvc
@@ -855,8 +856,8 @@ class SearchSimulationIntegrationTest {
 
   /** 테스트용 검색식 생성 */
   private Long createTestSearchQuery(String name, String indexName) throws Exception {
-    SearchQueryCreateRequest request =
-        SearchQueryCreateRequest.builder()
+    SearchSimulationQueryCreateRequest request =
+        SearchSimulationQueryCreateRequest.builder()
             .name(name)
             .description(name + " 설명")
             .queryDsl("{\"query\":{\"match\":{\"name\":\"{{keyword}}\"}}}")
@@ -886,8 +887,8 @@ class SearchSimulationIntegrationTest {
     };
 
     for (String[] data : testData) {
-      SearchQueryCreateRequest request =
-          SearchQueryCreateRequest.builder()
+      SearchSimulationQueryCreateRequest request =
+          SearchSimulationQueryCreateRequest.builder()
               .name(data[0])
               .indexName(data[1])
               .description(data[2])

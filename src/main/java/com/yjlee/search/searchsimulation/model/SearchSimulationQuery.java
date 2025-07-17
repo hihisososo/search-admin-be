@@ -1,4 +1,4 @@
-package com.yjlee.search.search.model;
+package com.yjlee.search.searchsimulation.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -16,7 +16,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SearchQuery {
+public class SearchSimulationQuery {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
