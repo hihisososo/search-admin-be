@@ -1,10 +1,9 @@
-package com.yjlee.search.dashboard.controller;
+package com.yjlee.search.stats.controller;
 
-import com.yjlee.search.dashboard.dto.DashboardStatsResponse;
-import com.yjlee.search.dashboard.dto.IndexDistributionResponse;
-import com.yjlee.search.dashboard.dto.PopularKeywordResponse;
-import com.yjlee.search.dashboard.dto.TrendResponse;
-import com.yjlee.search.dashboard.service.DashboardService;
+import com.yjlee.search.stats.dto.PopularKeywordResponse;
+import com.yjlee.search.stats.dto.StatsResponse;
+import com.yjlee.search.stats.dto.TrendResponse;
+import com.yjlee.search.stats.service.StatsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -18,21 +17,21 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
-@Tag(name = "Dashboard", description = "대시보드 API")
+@Tag(name = "Stats", description = "통계 API")
 @RestController
-@RequestMapping("/api/v1/dashboard")
+@RequestMapping("/api/v1/stats")
 @RequiredArgsConstructor
-public class DashboardController {
+public class StatsController {
 
-  private final DashboardService dashboardService;
+  private final StatsService statsService;
 
   @Operation(summary = "기본 통계 조회")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
     @ApiResponse(responseCode = "500", description = "서버 오류")
   })
-  @GetMapping("/stats")
-  public ResponseEntity<DashboardStatsResponse> getStats(
+  @GetMapping
+  public ResponseEntity<StatsResponse> getStats(
       @Parameter(description = "시작일시 (기본값: 7일 전)")
           @RequestParam(required = false)
           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -51,7 +50,7 @@ public class DashboardController {
 
     log.info("대시보드 통계 조회 - 기간: {} ~ {}", from, to);
 
-    DashboardStatsResponse stats = dashboardService.getStats(from, to);
+    StatsResponse stats = statsService.getStats(from, to);
     return ResponseEntity.ok(stats);
   }
 
@@ -82,7 +81,7 @@ public class DashboardController {
 
     log.info("인기검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
 
-    PopularKeywordResponse popularKeywords = dashboardService.getPopularKeywords(from, to, limit);
+    PopularKeywordResponse popularKeywords = statsService.getPopularKeywords(from, to, limit);
     return ResponseEntity.ok(popularKeywords);
   }
 
@@ -113,37 +112,8 @@ public class DashboardController {
 
     log.info("시계열 추이 조회 - 기간: {} ~ {}, 간격: {}", from, to, interval);
 
-    TrendResponse trends = dashboardService.getTrends(from, to, interval);
+    TrendResponse trends = statsService.getTrends(from, to, interval);
     return ResponseEntity.ok(trends);
-  }
-
-  @Operation(summary = "인덱스별 분포 조회")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "500", description = "서버 오류")
-  })
-  @GetMapping("/index-distribution")
-  public ResponseEntity<IndexDistributionResponse> getIndexDistribution(
-      @Parameter(description = "시작일시 (기본값: 7일 전)")
-          @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-          LocalDateTime from,
-      @Parameter(description = "종료일시 (기본값: 현재)")
-          @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-          LocalDateTime to) {
-
-    if (from == null) {
-      from = LocalDateTime.now().minusDays(7);
-    }
-    if (to == null) {
-      to = LocalDateTime.now();
-    }
-
-    log.info("인덱스별 분포 조회 - 기간: {} ~ {}", from, to);
-
-    IndexDistributionResponse distribution = dashboardService.getIndexDistribution(from, to);
-    return ResponseEntity.ok(distribution);
   }
 
   @Operation(summary = "급등검색어 조회")
@@ -173,7 +143,7 @@ public class DashboardController {
 
     log.info("급등검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
 
-    PopularKeywordResponse trendingKeywords = dashboardService.getTrendingKeywords(from, to, limit);
+    PopularKeywordResponse trendingKeywords = statsService.getTrendingKeywords(from, to, limit);
     return ResponseEntity.ok(trendingKeywords);
   }
 }

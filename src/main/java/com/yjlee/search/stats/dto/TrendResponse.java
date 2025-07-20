@@ -1,4 +1,4 @@
-package com.yjlee.search.dashboard.dto;
+package com.yjlee.search.stats.dto;
 
 import java.time.LocalDateTime;
 import java.util.List;

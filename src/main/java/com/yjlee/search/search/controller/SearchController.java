@@ -1,20 +1,27 @@
 package com.yjlee.search.search.controller;
 
+import com.yjlee.search.search.dto.AutocompleteResponse;
+import com.yjlee.search.search.dto.PriceRangeDto;
+import com.yjlee.search.search.dto.ProductFiltersDto;
+import com.yjlee.search.search.dto.ProductSortDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
-import com.yjlee.search.search.dto.SearchRequest;
 import com.yjlee.search.search.service.SearchService;
 import com.yjlee.search.searchlog.model.SearchLogDocument;
 import com.yjlee.search.searchlog.service.SearchLogService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Map;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -30,17 +37,37 @@ public class SearchController {
   private final SearchService searchService;
   private final SearchLogService searchAnalyticsService;
 
-  @Operation(summary = "검색 실행")
+  @Operation(summary = "상품 검색", description = "상품을 검색하고 필터링, 정렬, 집계 결과를 반환합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
     @ApiResponse(responseCode = "400", description = "잘못된 요청"),
     @ApiResponse(responseCode = "500", description = "검색 실행 실패")
   })
-  @PostMapping
+  @GetMapping
   public ResponseEntity<SearchExecuteResponse> search(
-      @RequestBody @Valid SearchRequest request, HttpServletRequest httpRequest) {
+      @Parameter(description = "검색어", required = true) @RequestParam @NotBlank String query,
+      @Parameter(description = "페이지 번호", required = true) @RequestParam @Min(1) Integer page,
+      @Parameter(description = "페이지 크기", required = true) @RequestParam @Min(1) @Max(100)
+          Integer size,
+      @Parameter(description = "정렬 필드") @RequestParam(required = false, defaultValue = "score")
+          String sortField,
+      @Parameter(description = "정렬 순서") @RequestParam(required = false, defaultValue = "desc")
+          String sortOrder,
+      @Parameter(description = "브랜드 필터") @RequestParam(required = false) List<String> brand,
+      @Parameter(description = "카테고리 필터") @RequestParam(required = false) List<String> category,
+      @Parameter(description = "최소 가격") @RequestParam(required = false) Long priceFrom,
+      @Parameter(description = "최대 가격") @RequestParam(required = false) Long priceTo,
+      HttpServletRequest httpRequest) {
 
-    log.info("검색 실행 요청 - 인덱스: {}, 키워드: {}", request.getIndexName(), request.getSearchKeyword());
+    SearchExecuteRequest request =
+        buildSearchRequest(
+            query, page, size, sortField, sortOrder, brand, category, priceFrom, priceTo);
+
+    log.info(
+        "상품 검색 요청 - 검색어: {}, 페이지: {}, 크기: {}",
+        request.getQuery(),
+        request.getPage(),
+        request.getSize());
 
     LocalDateTime requestTime = LocalDateTime.now();
     String clientIp = getClientIp(httpRequest);
@@ -54,16 +81,11 @@ public class SearchController {
     try {
       long startTime = System.currentTimeMillis();
 
-      SearchExecuteRequest searchRequest =
-          SearchExecuteRequest.builder()
-              .indexName(request.getIndexName())
-              .queryDsl(request.getQueryDsl())
-              .build();
-
-      response = searchService.executeSearch(searchRequest);
+      response = searchService.searchProducts(request);
       responseTimeMs = System.currentTimeMillis() - startTime;
 
-      log.info("검색 실행 완료 - 소요시간: {}ms", responseTimeMs);
+      log.info(
+          "상품 검색 완료 - 소요시간: {}ms, 결과수: {}", responseTimeMs, response.getHits().getData().size());
 
     } catch (Exception e) {
       isError = true;
@@ -72,7 +94,7 @@ public class SearchController {
           System.currentTimeMillis()
               - (requestTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
 
-      log.error("검색 실행 실패 - 인덱스: {}, 에러: {}", request.getIndexName(), e.getMessage(), e);
+      log.error("상품 검색 실패 - 검색어: {}, 에러: {}", request.getQuery(), e.getMessage(), e);
       throw e;
 
     } finally {
@@ -95,7 +117,7 @@ public class SearchController {
   }
 
   private void collectSearchLog(
-      SearchRequest request,
+      SearchExecuteRequest request,
       LocalDateTime timestamp,
       String clientIp,
       String userAgent,
@@ -105,20 +127,21 @@ public class SearchController {
       String errorMessage) {
 
     String keyword =
-        request.getSearchKeyword() != null && !request.getSearchKeyword().trim().isEmpty()
-            ? request.getSearchKeyword().trim()
+        request.getQuery() != null && !request.getQuery().trim().isEmpty()
+            ? request.getQuery().trim()
             : "unknown";
 
-    Long resultCount = extractResultCount(response);
+    Long resultCount =
+        response != null && response.getHits() != null ? response.getHits().getTotal() : 0L;
 
     SearchLogDocument searchLog =
         SearchLogDocument.builder()
             .timestamp(timestamp)
             .searchKeyword(keyword)
-            .indexName(request.getIndexName())
+            .indexName("products")
             .responseTimeMs(responseTimeMs)
             .resultCount(resultCount)
-            .queryDsl(request.getQueryDsl())
+            .queryDsl("product_search")
             .clientIp(clientIp)
             .userAgent(userAgent)
             .isError(isError)
@@ -128,40 +151,6 @@ public class SearchController {
     searchAnalyticsService.saveSearchLog(searchLog);
 
     log.debug("검색 로그 수집 완료 - 키워드: {}, 결과수: {}", keyword, resultCount);
-  }
-
-  private Long extractResultCount(SearchExecuteResponse response) {
-    if (response == null || response.getSearchResult() == null) {
-      return 0L;
-    }
-
-    try {
-      if (response.getSearchResult() instanceof Map) {
-        @SuppressWarnings("unchecked")
-        Map<String, Object> result = (Map<String, Object>) response.getSearchResult();
-
-        Object hits = result.get("hits");
-        if (hits instanceof Map) {
-          @SuppressWarnings("unchecked")
-          Map<String, Object> hitsMap = (Map<String, Object>) hits;
-
-          Object total = hitsMap.get("total");
-          if (total instanceof Map) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> totalMap = (Map<String, Object>) total;
-
-            Object value = totalMap.get("value");
-            if (value instanceof Number) {
-              return ((Number) value).longValue();
-            }
-          }
-        }
-      }
-    } catch (Exception e) {
-      log.debug("검색 결과 수 추출 실패, 기본값 0 사용: {}", e.getMessage());
-    }
-
-    return 0L;
   }
 
   private String getClientIp(HttpServletRequest request) {
@@ -178,8 +167,76 @@ public class SearchController {
     return request.getRemoteAddr();
   }
 
+  @Operation(summary = "자동완성 검색", description = "키워드를 기반으로 autocomplete 인덱스에서 자동완성 결과를 조회합니다.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "성공"),
+    @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+    @ApiResponse(responseCode = "500", description = "자동완성 검색 실패")
+  })
+  @GetMapping("/autocomplete")
+  public ResponseEntity<AutocompleteResponse> autocomplete(
+      @Parameter(description = "검색 키워드", required = true)
+          @RequestParam
+          @NotBlank(message = "검색 키워드는 필수입니다")
+          @Size(min = 1, max = 100, message = "검색 키워드는 1자 이상 100자 이하여야 합니다")
+          String keyword) {
+
+    log.info("자동완성 검색 요청 - 키워드: {}", keyword);
+
+    try {
+      AutocompleteResponse response = searchService.getAutocompleteSuggestions(keyword);
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      log.error("자동완성 검색 실패 - 키워드: {}", keyword, e);
+      throw e;
+    }
+  }
+
   private String getUserAgent(HttpServletRequest request) {
     String userAgent = request.getHeader("User-Agent");
     return userAgent != null ? userAgent : "unknown";
+  }
+
+  private SearchExecuteRequest buildSearchRequest(
+      String query,
+      Integer page,
+      Integer size,
+      String sortField,
+      String sortOrder,
+      List<String> brand,
+      List<String> category,
+      Long priceFrom,
+      Long priceTo) {
+
+    SearchExecuteRequest request = new SearchExecuteRequest();
+    request.setQuery(query);
+    request.setPage(page);
+    request.setSize(size);
+
+    // 정렬 설정
+    if (sortField != null || sortOrder != null) {
+      ProductSortDto sort = new ProductSortDto();
+      sort.setField(sortField);
+      sort.setOrder(sortOrder);
+      request.setSort(sort);
+    }
+
+    // 필터 설정
+    if (brand != null || category != null || priceFrom != null || priceTo != null) {
+      ProductFiltersDto filters = new ProductFiltersDto();
+      filters.setBrand(brand);
+      filters.setCategory(category);
+
+      if (priceFrom != null || priceTo != null) {
+        PriceRangeDto priceRange = new PriceRangeDto();
+        priceRange.setFrom(priceFrom);
+        priceRange.setTo(priceTo);
+        filters.setPriceRange(priceRange);
+      }
+
+      request.setFilters(filters);
+    }
+
+    return request;
   }
 }
