@@ -13,6 +13,9 @@ import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.search.dto.PopularKeywordDto;
 import com.yjlee.search.search.dto.PopularKeywordsResponse;
+import com.yjlee.search.search.dto.SearchExecuteRequest;
+import com.yjlee.search.search.dto.SearchExecuteResponse;
+import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.dto.TrendingKeywordDto;
 import com.yjlee.search.search.dto.TrendingKeywordsResponse;
 import com.yjlee.search.searchlog.model.SearchLogDocument;
@@ -480,5 +483,88 @@ public class SearchLogService {
         .filter(keyword -> keyword.matches(".*[가-힣a-zA-Z].*"))
         .sorted()
         .toList();
+  }
+
+  /**
+   * 일반 검색 로그 수집
+   */
+  public void collectSearchLog(
+      SearchExecuteRequest request,
+      LocalDateTime timestamp,
+      String clientIp,
+      String userAgent,
+      long responseTimeMs,
+      SearchExecuteResponse response,
+      boolean isError,
+      String errorMessage) {
+
+    String keyword =
+        request.getQuery() != null && !request.getQuery().trim().isEmpty()
+            ? request.getQuery().trim()
+            : "unknown";
+
+    Long resultCount =
+        response != null && response.getHits() != null ? response.getHits().getTotal() : 0L;
+
+    SearchLogDocument searchLog =
+        SearchLogDocument.builder()
+            .timestamp(timestamp)
+            .searchKeyword(keyword)
+            .indexName("products")
+            .responseTimeMs(responseTimeMs)
+            .resultCount(resultCount)
+            .queryDsl("product_search")
+            .clientIp(clientIp)
+            .userAgent(userAgent)
+            .isError(isError)
+            .errorMessage(errorMessage)
+            .build();
+
+    saveSearchLog(searchLog);
+
+    log.debug("검색 로그 수집 완료 - 키워드: {}, 결과수: {}", keyword, resultCount);
+  }
+
+  /**
+   * 시뮬레이션 검색 로그 수집
+   */
+  public void collectSearchLogSimulation(
+      SearchSimulationRequest request,
+      LocalDateTime timestamp,
+      String clientIp,
+      String userAgent,
+      long responseTimeMs,
+      SearchExecuteResponse response,
+      boolean isError,
+      String errorMessage) {
+
+    String keyword =
+        request.getQuery() != null && !request.getQuery().trim().isEmpty()
+            ? request.getQuery().trim()
+            : "unknown";
+
+    Long resultCount =
+        response != null && response.getHits() != null ? response.getHits().getTotal() : 0L;
+
+    String indexName = "simulation_" + request.getEnvironmentType().name().toLowerCase();
+
+    SearchLogDocument searchLog =
+        SearchLogDocument.builder()
+            .timestamp(timestamp)
+            .searchKeyword(keyword)
+            .indexName(indexName)
+            .responseTimeMs(responseTimeMs)
+            .resultCount(resultCount)
+            .queryDsl("product_search_simulation")
+            .clientIp(clientIp)
+            .userAgent(userAgent)
+            .isError(isError)
+            .errorMessage(errorMessage)
+            .build();
+
+    saveSearchLog(searchLog);
+
+    log.debug("검색 시뮬레이션 로그 수집 완료 - 환경: {}, 키워드: {}, 결과수: {}", 
+        request.getEnvironmentType().getDescription(), keyword, resultCount);
   }
 }

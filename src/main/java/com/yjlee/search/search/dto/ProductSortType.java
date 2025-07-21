@@ -20,24 +20,28 @@ public enum ProductSortType {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
       searchBuilder.sort(sort -> sort.field(f -> f.field("price").order(order)));
+      searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   },
   REVIEW_COUNT("reviewCount") {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
       searchBuilder.sort(sort -> sort.field(f -> f.field("review_count").order(order)));
+      searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   },
   NAME("name") {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
       searchBuilder.sort(sort -> sort.field(f -> f.field("name.keyword").order(order)));
+      searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   },
   REGISTERED_MONTH("registeredMonth") {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
       searchBuilder.sort(sort -> sort.field(f -> f.field("registered_month").order(order)));
+      searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   };
 
