@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.user.service;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.dictionary.deployment.service.EC2DeploymentService;
+import com.yjlee.search.deployment.service.EC2DeploymentService;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;

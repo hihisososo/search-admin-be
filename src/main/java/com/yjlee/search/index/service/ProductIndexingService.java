@@ -74,6 +74,42 @@ public class ProductIndexingService {
     return totalIndexed;
   }
 
+  public int indexProductsToIndex(String indexName) throws IOException {
+    log.info("특정 인덱스 상품 색인 시작 - 인덱스: {}", indexName);
+
+    long totalProducts = productRepository.count();
+    log.info("색인할 상품 수: {}", totalProducts);
+
+    int pageNumber = 0;
+    int totalIndexed = 0;
+
+    while (true) {
+      Page<Product> productPage = productRepository.findAll(PageRequest.of(pageNumber, BATCH_SIZE));
+
+      if (productPage.isEmpty()) {
+        break;
+      }
+
+      List<ProductDocument> documents =
+          productPage.getContent().stream().map(ProductDocument::from).toList();
+
+      int indexed = bulkIndexToSpecificIndex(documents, indexName);
+      totalIndexed += indexed;
+
+      log.info(
+          "배치 {} 완료: 상품 {} 건 색인됨 (전체 진행률: {}/{})",
+          pageNumber + 1,
+          indexed,
+          totalIndexed,
+          totalProducts);
+
+      pageNumber++;
+    }
+
+    log.info("특정 인덱스 색인 완료: 상품 {} 건 - 인덱스: {}", totalIndexed, indexName);
+    return totalIndexed;
+  }
+
   private int bulkIndex(List<ProductDocument> documents) throws IOException {
     if (documents.isEmpty()) {
       return 0;
@@ -127,6 +163,36 @@ public class ProductIndexingService {
               item -> {
                 if (item.error() != null) {
                   log.error("자동완성 색인 실패: ID={}, Error={}", item.id(), item.error().reason());
+                }
+              });
+    }
+
+    return documents.size();
+  }
+
+  private int bulkIndexToSpecificIndex(List<ProductDocument> documents, String indexName)
+      throws IOException {
+    if (documents.isEmpty()) {
+      return 0;
+    }
+
+    BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
+
+    for (ProductDocument document : documents) {
+      bulkBuilder.operations(
+          op -> op.index(idx -> idx.index(indexName).id(document.getId()).document(document)));
+    }
+
+    BulkResponse response = elasticsearchClient.bulk(bulkBuilder.build());
+
+    if (response.errors()) {
+      log.warn("일부 문서 색인 실패 - 인덱스: {}", indexName);
+      response
+          .items()
+          .forEach(
+              item -> {
+                if (item.error() != null) {
+                  log.error("색인 실패: ID={}, Error={}", item.id(), item.error().reason());
                 }
               });
     }

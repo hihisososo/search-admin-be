@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.synonym.model;
 
-import com.yjlee.search.dictionary.deployment.enums.DeploymentStatus;
+import com.yjlee.search.common.enums.DictionaryDeploymentStatus;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -30,7 +30,7 @@ public class SynonymDictionaryVersion {
   @Column(nullable = false)
   @Enumerated(EnumType.STRING)
   @Builder.Default
-  DeploymentStatus status = DeploymentStatus.PENDING;
+  DictionaryDeploymentStatus status = DictionaryDeploymentStatus.PENDING;
 
   @Column String deployPath;
 
@@ -42,12 +42,12 @@ public class SynonymDictionaryVersion {
 
   @CreatedDate @Column LocalDateTime createdAt;
 
-  public void updateStatus(DeploymentStatus status) {
+  public void updateStatus(DictionaryDeploymentStatus status) {
     this.status = status;
   }
 
   public void markAsDeployed(String deployPath, String fileName, Long fileSize) {
-    this.status = DeploymentStatus.DEPLOYED;
+    this.status = DictionaryDeploymentStatus.DEPLOYED;
     this.deployPath = deployPath;
     this.fileName = fileName;
     this.fileSize = fileSize;
@@ -55,11 +55,11 @@ public class SynonymDictionaryVersion {
   }
 
   public void markAsDeploying() {
-    this.status = DeploymentStatus.DEPLOYING;
+    this.status = DictionaryDeploymentStatus.DEPLOYING;
   }
 
   public void markAsFailed() {
-    this.status = DeploymentStatus.FAILED;
+    this.status = DictionaryDeploymentStatus.FAILED;
   }
 
   public boolean canDeploy() {

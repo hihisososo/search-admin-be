@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.synonym.service;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.dictionary.deployment.service.EC2DeploymentService;
+import com.yjlee.search.deployment.service.EC2DeploymentService;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryListResponse;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryResponse;

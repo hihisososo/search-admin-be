@@ -1,0 +1,41 @@
+{
+  "properties": {
+    "brand": { "type": "keyword" },
+    "category": { "type": "keyword" },
+    "description": {
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer"
+    },
+    "description_raw": { "type": "keyword" },
+    "id": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "model": { "type": "keyword" },
+    "name": {
+      "type": "text",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      },
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer"
+    },
+    "name_raw": { "type": "keyword" },
+    "price": { "type": "integer" },
+    "registered_month": {
+      "type": "date",
+      "format": "yyyy-MM"
+    },
+    "review_count": { "type": "integer" },
+    "thumbnail_url": { "type": "keyword" }
+  }
+} 
