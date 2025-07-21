@@ -13,6 +13,12 @@ public class ProductDto {
   @Schema(description = "상품 ID", example = "1")
   private String id;
 
+  @Schema(description = "Elasticsearch 스코어", example = "15.234567")
+  private Double score;
+
+  @Schema(description = "Elasticsearch explain 결과 (시뮬레이션에서 explain=true일 때만 포함)")
+  private String explain;
+
   @Schema(description = "상품명", example = "아이폰 15 Pro")
   private String name;
 
