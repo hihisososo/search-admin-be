@@ -88,10 +88,12 @@ public class SynonymDictionaryController {
   public ResponseEntity<SynonymDictionaryResponse> createSynonymDictionary(
       @RequestBody @Valid SynonymDictionaryCreateRequest request,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.debug("유의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
-    SynonymDictionaryResponse response = synonymDictionaryService.createSynonymDictionary(request, environment);
+    SynonymDictionaryResponse response =
+        synonymDictionaryService.createSynonymDictionary(request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -105,7 +107,8 @@ public class SynonymDictionaryController {
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
       @RequestBody @Valid SynonymDictionaryUpdateRequest request,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.debug("유의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     SynonymDictionaryResponse response =
@@ -122,7 +125,8 @@ public class SynonymDictionaryController {
   public ResponseEntity<Void> deleteSynonymDictionary(
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.info("유의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
     synonymDictionaryService.deleteSynonymDictionary(dictionaryId, environment);
@@ -168,7 +172,8 @@ public class SynonymDictionaryController {
     log.info("동의어 사전 동기화 상태 조회 요청");
 
     try {
-      String synonymStatus = elasticsearchSynonymService.getSynonymSetStatus(DictionaryEnvironmentType.DEV);
+      String synonymStatus =
+          elasticsearchSynonymService.getSynonymSetStatus(DictionaryEnvironmentType.DEV);
 
       Map<String, Object> response = new HashMap<>();
       response.put("success", true);

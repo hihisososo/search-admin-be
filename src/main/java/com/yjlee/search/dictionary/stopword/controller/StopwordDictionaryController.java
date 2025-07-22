@@ -84,7 +84,8 @@ public class StopwordDictionaryController {
   public ResponseEntity<StopwordDictionaryResponse> createStopwordDictionary(
       @RequestBody @Valid StopwordDictionaryCreateRequest request,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.debug("불용어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
     StopwordDictionaryResponse response =
@@ -102,7 +103,8 @@ public class StopwordDictionaryController {
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
       @RequestBody @Valid StopwordDictionaryUpdateRequest request,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.debug("불용어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     StopwordDictionaryResponse response =
@@ -119,7 +121,8 @@ public class StopwordDictionaryController {
   public ResponseEntity<Void> deleteStopwordDictionary(
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.info("불용어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
     stopwordDictionaryService.deleteStopwordDictionary(dictionaryId, environment);

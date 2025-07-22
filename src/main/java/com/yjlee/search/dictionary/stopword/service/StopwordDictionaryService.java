@@ -30,7 +30,8 @@ public class StopwordDictionaryService {
 
   /** 불용어 사전 생성 */
   @Transactional
-  public StopwordDictionaryResponse createStopwordDictionary(StopwordDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+  public StopwordDictionaryResponse createStopwordDictionary(
+      StopwordDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
     log.info("불용어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
 
     StopwordDictionary dictionary =
@@ -133,7 +134,9 @@ public class StopwordDictionaryService {
   /** 불용어 사전 수정 */
   @Transactional
   public StopwordDictionaryResponse updateStopwordDictionary(
-      Long dictionaryId, StopwordDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
+      Long dictionaryId,
+      StopwordDictionaryUpdateRequest request,
+      DictionaryEnvironmentType environment) {
     log.info("불용어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
 
     StopwordDictionary existing =
@@ -210,7 +213,9 @@ public class StopwordDictionaryService {
     // 현재사전을 개발 환경 스냅샷으로 복사
     List<StopwordDictionarySnapshot> devSnapshots =
         currentDictionaries.stream()
-            .map(dict -> StopwordDictionarySnapshot.createSnapshot(DictionaryEnvironmentType.DEV, dict))
+            .map(
+                dict ->
+                    StopwordDictionarySnapshot.createSnapshot(DictionaryEnvironmentType.DEV, dict))
             .toList();
 
     snapshotRepository.saveAll(devSnapshots);

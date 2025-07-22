@@ -30,7 +30,8 @@ public class SynonymDictionaryService {
 
   /** 유의어 사전 생성 */
   @Transactional
-  public SynonymDictionaryResponse createSynonymDictionary(SynonymDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+  public SynonymDictionaryResponse createSynonymDictionary(
+      SynonymDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
     log.info("유의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
 
     SynonymDictionary synonymDictionary =
@@ -133,7 +134,9 @@ public class SynonymDictionaryService {
   /** 유의어 사전 수정 */
   @Transactional
   public SynonymDictionaryResponse updateSynonymDictionary(
-      Long dictionaryId, SynonymDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
+      Long dictionaryId,
+      SynonymDictionaryUpdateRequest request,
+      DictionaryEnvironmentType environment) {
     log.info("유의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
 
     SynonymDictionary existing =
@@ -209,7 +212,9 @@ public class SynonymDictionaryService {
     // 현재사전을 개발 환경 스냅샷으로 복사
     List<SynonymDictionarySnapshot> devSnapshots =
         currentDictionaries.stream()
-            .map(dict -> SynonymDictionarySnapshot.createSnapshot(DictionaryEnvironmentType.DEV, dict))
+            .map(
+                dict ->
+                    SynonymDictionarySnapshot.createSnapshot(DictionaryEnvironmentType.DEV, dict))
             .toList();
 
     snapshotRepository.saveAll(devSnapshots);
@@ -310,6 +315,4 @@ public class SynonymDictionaryService {
         .updatedAt(snapshot.getUpdatedAt())
         .build();
   }
-
-
 }

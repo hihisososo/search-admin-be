@@ -1,13 +1,12 @@
 package com.yjlee.search.test.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Builder
 @AllArgsConstructor
@@ -48,7 +47,7 @@ public class DictionaryExtractionResponse {
   public static class UserDictionaryEntry {
     @Schema(description = "키워드", example = "갤럭시S24")
     private String keyword;
-    
+
     @Schema(description = "설명", example = "삼성 스마트폰 모델명")
     private String description;
   }
@@ -61,10 +60,10 @@ public class DictionaryExtractionResponse {
   public static class SynonymDictionaryEntry {
     @Schema(description = "기준 키워드", example = "스마트폰")
     private String keyword;
-    
+
     @Schema(description = "동의어 목록", example = "핸드폰,휴대폰,모바일")
     private String synonyms;
-    
+
     @Schema(description = "설명", example = "스마트폰과 동일한 의미의 단어들")
     private String description;
   }
@@ -77,7 +76,7 @@ public class DictionaryExtractionResponse {
   public static class StopwordDictionaryEntry {
     @Schema(description = "불용어", example = "그리고")
     private String keyword;
-    
+
     @Schema(description = "설명", example = "검색에서 제외할 접속사")
     private String description;
   }
@@ -90,11 +89,11 @@ public class DictionaryExtractionResponse {
   public static class TypoCorrectionDictionaryEntry {
     @Schema(description = "오타", example = "삼송")
     private String keyword;
-    
+
     @Schema(description = "교정어", example = "삼성")
     private String correctedWord;
-    
+
     @Schema(description = "설명", example = "삼성 브랜드명 오타")
     private String description;
   }
-} 
+}

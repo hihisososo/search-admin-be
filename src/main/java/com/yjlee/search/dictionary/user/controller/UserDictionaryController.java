@@ -82,10 +82,12 @@ public class UserDictionaryController {
   public ResponseEntity<UserDictionaryResponse> createUserDictionary(
       @RequestBody @Valid UserDictionaryCreateRequest request,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.debug("사용자 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
-    UserDictionaryResponse response = userDictionaryService.createUserDictionary(request, environment);
+    UserDictionaryResponse response =
+        userDictionaryService.createUserDictionary(request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -99,7 +101,8 @@ public class UserDictionaryController {
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
       @RequestBody @Valid UserDictionaryUpdateRequest request,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.debug("사용자 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     UserDictionaryResponse response =
@@ -116,7 +119,8 @@ public class UserDictionaryController {
   public ResponseEntity<Void> deleteUserDictionary(
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
       @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
     log.info("사용자 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
     userDictionaryService.deleteUserDictionary(dictionaryId, environment);

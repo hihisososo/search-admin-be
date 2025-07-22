@@ -30,7 +30,8 @@ public class UserDictionaryService {
 
   /** 사용자 사전 생성 */
   @Transactional
-  public UserDictionaryResponse createUserDictionary(UserDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+  public UserDictionaryResponse createUserDictionary(
+      UserDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
     log.info("사용자 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
 
     UserDictionary userDictionary =
@@ -132,7 +133,9 @@ public class UserDictionaryService {
   /** 사용자 사전 수정 */
   @Transactional
   public UserDictionaryResponse updateUserDictionary(
-      Long dictionaryId, UserDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
+      Long dictionaryId,
+      UserDictionaryUpdateRequest request,
+      DictionaryEnvironmentType environment) {
     log.info("사용자 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
 
     UserDictionary existing =
@@ -148,7 +151,8 @@ public class UserDictionaryService {
       existing.updateDescription(request.getDescription());
     }
 
-    log.info("사용자 사전 수정 완료: {} (ID: {}) - 환경: {}", existing.getKeyword(), dictionaryId, environment);
+    log.info(
+        "사용자 사전 수정 완료: {} (ID: {}) - 환경: {}", existing.getKeyword(), dictionaryId, environment);
     return toUserDictionaryResponse(existing);
   }
 

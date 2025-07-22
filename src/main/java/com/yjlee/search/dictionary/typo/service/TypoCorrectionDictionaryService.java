@@ -30,8 +30,13 @@ public class TypoCorrectionDictionaryService {
 
   /** 오타교정 사전 생성 */
   @Transactional
-  public TypoCorrectionDictionaryResponse createTypoCorrectionDictionary(TypoCorrectionDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
-    log.info("오타교정 사전 생성 요청: {} -> {} - 환경: {}", request.getKeyword(), request.getCorrectedWord(), environment);
+  public TypoCorrectionDictionaryResponse createTypoCorrectionDictionary(
+      TypoCorrectionDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+    log.info(
+        "오타교정 사전 생성 요청: {} -> {} - 환경: {}",
+        request.getKeyword(),
+        request.getCorrectedWord(),
+        environment);
 
     TypoCorrectionDictionary dictionary =
         TypoCorrectionDictionary.builder()
@@ -135,7 +140,9 @@ public class TypoCorrectionDictionaryService {
   /** 오타교정 사전 수정 */
   @Transactional
   public TypoCorrectionDictionaryResponse updateTypoCorrectionDictionary(
-      Long dictionaryId, TypoCorrectionDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
+      Long dictionaryId,
+      TypoCorrectionDictionaryUpdateRequest request,
+      DictionaryEnvironmentType environment) {
     log.info("오타교정 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
 
     TypoCorrectionDictionary existing =
@@ -151,13 +158,15 @@ public class TypoCorrectionDictionaryService {
       existing.updateDescription(request.getDescription());
     }
 
-    log.info("오타교정 사전 수정 완료: {} (ID: {}) - 환경: {}", existing.getKeyword(), dictionaryId, environment);
+    log.info(
+        "오타교정 사전 수정 완료: {} (ID: {}) - 환경: {}", existing.getKeyword(), dictionaryId, environment);
     return convertToResponse(existing);
   }
 
   /** 오타교정 사전 삭제 */
   @Transactional
-  public void deleteTypoCorrectionDictionary(Long dictionaryId, DictionaryEnvironmentType environment) {
+  public void deleteTypoCorrectionDictionary(
+      Long dictionaryId, DictionaryEnvironmentType environment) {
     log.info("오타교정 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
 
     if (!repository.existsById(dictionaryId)) {
@@ -201,8 +210,7 @@ public class TypoCorrectionDictionaryService {
     log.info("개발 환경 오타교정 사전 배포 시작");
 
     // 현재사전 조회
-    List<TypoCorrectionDictionary> currentDictionaries =
-        repository.findAllByOrderByKeywordAsc();
+    List<TypoCorrectionDictionary> currentDictionaries = repository.findAllByOrderByKeywordAsc();
 
     // 기존 개발 환경 스냅샷 삭제
     snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
@@ -210,7 +218,10 @@ public class TypoCorrectionDictionaryService {
     // 현재사전을 개발 환경 스냅샷으로 복사
     List<TypoCorrectionDictionarySnapshot> devSnapshots =
         currentDictionaries.stream()
-            .map(dict -> TypoCorrectionDictionarySnapshot.createSnapshot(DictionaryEnvironmentType.DEV, dict))
+            .map(
+                dict ->
+                    TypoCorrectionDictionarySnapshot.createSnapshot(
+                        DictionaryEnvironmentType.DEV, dict))
             .toList();
 
     snapshotRepository.saveAll(devSnapshots);
@@ -316,6 +327,4 @@ public class TypoCorrectionDictionaryService {
         .updatedAt(snapshot.getUpdatedAt())
         .build();
   }
-
-
 }
