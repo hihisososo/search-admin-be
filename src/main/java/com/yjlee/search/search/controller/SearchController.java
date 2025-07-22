@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -50,17 +49,21 @@ public class SearchController {
   public ResponseEntity<SearchExecuteResponse> search(
       @Parameter(description = "검색어", required = true) @RequestParam @NotBlank String query,
       @Parameter(description = "페이지 번호", required = true) @RequestParam @Min(1) Integer page,
-      @Parameter(description = "페이지 크기", required = true) @RequestParam @Min(1) @Max(100) Integer size,
-      @Parameter(description = "정렬 필드") @RequestParam(required = false, defaultValue = "score") String sortField,
-      @Parameter(description = "정렬 순서") @RequestParam(required = false, defaultValue = "desc") String sortOrder,
+      @Parameter(description = "페이지 크기", required = true) @RequestParam @Min(1) @Max(100)
+          Integer size,
+      @Parameter(description = "정렬 필드") @RequestParam(required = false, defaultValue = "score")
+          String sortField,
+      @Parameter(description = "정렬 순서") @RequestParam(required = false, defaultValue = "desc")
+          String sortOrder,
       @Parameter(description = "브랜드 필터") @RequestParam(required = false) List<String> brand,
       @Parameter(description = "카테고리 필터") @RequestParam(required = false) List<String> category,
       @Parameter(description = "최소 가격") @RequestParam(required = false) Long priceFrom,
       @Parameter(description = "최대 가격") @RequestParam(required = false) Long priceTo,
       HttpServletRequest httpRequest) {
 
-    SearchExecuteRequest request = searchRequestBuilderService.buildSearchRequest(
-        query, page, size, sortField, sortOrder, brand, category, priceFrom, priceTo);
+    SearchExecuteRequest request =
+        searchRequestBuilderService.buildSearchRequest(
+            query, page, size, sortField, sortOrder, brand, category, priceFrom, priceTo);
 
     log.info(
         "상품 검색 요청 - 검색어: {}, 페이지: {}, 크기: {}",
@@ -89,8 +92,9 @@ public class SearchController {
     } catch (Exception e) {
       isError = true;
       errorMessage = e.getMessage();
-      responseTimeMs = System.currentTimeMillis()
-          - (requestTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+      responseTimeMs =
+          System.currentTimeMillis()
+              - (requestTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
 
       log.error("상품 검색 실패 - 검색어: {}, 에러: {}", request.getQuery(), e.getMessage(), e);
       throw e;
@@ -122,7 +126,11 @@ public class SearchController {
   })
   @GetMapping("/autocomplete")
   public ResponseEntity<AutocompleteResponse> autocomplete(
-      @Parameter(description = "검색 키워드", required = true) @RequestParam @NotBlank(message = "검색 키워드는 필수입니다") @Size(min = 1, max = 100, message = "검색 키워드는 1자 이상 100자 이하여야 합니다") String keyword) {
+      @Parameter(description = "검색 키워드", required = true)
+          @RequestParam
+          @NotBlank(message = "검색 키워드는 필수입니다")
+          @Size(min = 1, max = 100, message = "검색 키워드는 1자 이상 100자 이하여야 합니다")
+          String keyword) {
 
     log.info("자동완성 검색 요청 - 키워드: {}", keyword);
 
@@ -135,7 +143,9 @@ public class SearchController {
     }
   }
 
-  @Operation(summary = "상품 검색 시뮬레이션", description = "개발/운영 환경을 선택하여 상품을 검색하고 필터링, 정렬, 집계 결과를 반환합니다.")
+  @Operation(
+      summary = "상품 검색 시뮬레이션",
+      description = "개발/운영 환경을 선택하여 상품을 검색하고 필터링, 정렬, 집계 결과를 반환합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
     @ApiResponse(responseCode = "400", description = "잘못된 요청"),
@@ -143,21 +153,38 @@ public class SearchController {
   })
   @GetMapping("/simulation")
   public ResponseEntity<SearchExecuteResponse> searchSimulation(
-      @Parameter(description = "환경 타입 (DEV: 개발, PROD: 운영)", required = true) @RequestParam IndexEnvironment.EnvironmentType environmentType,
+      @Parameter(description = "환경 타입 (DEV: 개발, PROD: 운영)", required = true) @RequestParam
+          IndexEnvironment.EnvironmentType environmentType,
       @Parameter(description = "검색어", required = true) @RequestParam @NotBlank String query,
       @Parameter(description = "페이지 번호", required = true) @RequestParam @Min(1) Integer page,
-      @Parameter(description = "페이지 크기", required = true) @RequestParam @Min(1) @Max(100) Integer size,
-      @Parameter(description = "Elasticsearch explain 결과 포함 여부") @RequestParam(required = false, defaultValue = "false") boolean explain,
-      @Parameter(description = "정렬 필드") @RequestParam(required = false, defaultValue = "score") String sortField,
-      @Parameter(description = "정렬 순서") @RequestParam(required = false, defaultValue = "desc") String sortOrder,
+      @Parameter(description = "페이지 크기", required = true) @RequestParam @Min(1) @Max(100)
+          Integer size,
+      @Parameter(description = "Elasticsearch explain 결과 포함 여부")
+          @RequestParam(required = false, defaultValue = "false")
+          boolean explain,
+      @Parameter(description = "정렬 필드") @RequestParam(required = false, defaultValue = "score")
+          String sortField,
+      @Parameter(description = "정렬 순서") @RequestParam(required = false, defaultValue = "desc")
+          String sortOrder,
       @Parameter(description = "브랜드 필터") @RequestParam(required = false) List<String> brand,
       @Parameter(description = "카테고리 필터") @RequestParam(required = false) List<String> category,
       @Parameter(description = "최소 가격") @RequestParam(required = false) Long priceFrom,
       @Parameter(description = "최대 가격") @RequestParam(required = false) Long priceTo,
       HttpServletRequest httpRequest) {
 
-    SearchSimulationRequest request = searchRequestBuilderService.buildSearchSimulationRequest(
-        environmentType, query, page, size, explain, sortField, sortOrder, brand, category, priceFrom, priceTo);
+    SearchSimulationRequest request =
+        searchRequestBuilderService.buildSearchSimulationRequest(
+            environmentType,
+            query,
+            page,
+            size,
+            explain,
+            sortField,
+            sortOrder,
+            brand,
+            category,
+            priceFrom,
+            priceTo);
 
     log.info(
         "상품 검색 시뮬레이션 요청 - 환경: {}, 검색어: {}, 페이지: {}, 크기: {}, explain: {}",
@@ -183,17 +210,24 @@ public class SearchController {
       responseTimeMs = System.currentTimeMillis() - startTime;
 
       log.info(
-          "상품 검색 시뮬레이션 완료 - 환경: {}, 소요시간: {}ms, 결과수: {}", 
-          request.getEnvironmentType().getDescription(), responseTimeMs, response.getHits().getData().size());
+          "상품 검색 시뮬레이션 완료 - 환경: {}, 소요시간: {}ms, 결과수: {}",
+          request.getEnvironmentType().getDescription(),
+          responseTimeMs,
+          response.getHits().getData().size());
 
     } catch (Exception e) {
       isError = true;
       errorMessage = e.getMessage();
-      responseTimeMs = System.currentTimeMillis()
-          - (requestTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
+      responseTimeMs =
+          System.currentTimeMillis()
+              - (requestTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
 
-      log.error("상품 검색 시뮬레이션 실패 - 환경: {}, 검색어: {}, 에러: {}", 
-          request.getEnvironmentType().getDescription(), request.getQuery(), e.getMessage(), e);
+      log.error(
+          "상품 검색 시뮬레이션 실패 - 환경: {}, 검색어: {}, 에러: {}",
+          request.getEnvironmentType().getDescription(),
+          request.getQuery(),
+          e.getMessage(),
+          e);
       throw e;
 
     } finally {
@@ -223,13 +257,19 @@ public class SearchController {
   })
   @GetMapping("/autocomplete/simulation")
   public ResponseEntity<AutocompleteResponse> autocompleteSimulation(
-      @Parameter(description = "검색 키워드", required = true) @RequestParam @NotBlank(message = "검색 키워드는 필수입니다") @Size(min = 1, max = 100, message = "검색 키워드는 1자 이상 100자 이하여야 합니다") String keyword,
-      @Parameter(description = "환경 타입 (DEV: 개발, PROD: 운영)", required = true) @RequestParam IndexEnvironment.EnvironmentType environmentType) {
+      @Parameter(description = "검색 키워드", required = true)
+          @RequestParam
+          @NotBlank(message = "검색 키워드는 필수입니다")
+          @Size(min = 1, max = 100, message = "검색 키워드는 1자 이상 100자 이하여야 합니다")
+          String keyword,
+      @Parameter(description = "환경 타입 (DEV: 개발, PROD: 운영)", required = true) @RequestParam
+          IndexEnvironment.EnvironmentType environmentType) {
 
     log.info("자동완성 검색 시뮬레이션 요청 - 환경: {}, 키워드: {}", environmentType.getDescription(), keyword);
 
     try {
-      AutocompleteResponse response = searchService.getAutocompleteSuggestionsSimulation(keyword, environmentType);
+      AutocompleteResponse response =
+          searchService.getAutocompleteSuggestionsSimulation(keyword, environmentType);
       return ResponseEntity.ok(response);
     } catch (Exception e) {
       log.error("자동완성 검색 시뮬레이션 실패 - 환경: {}, 키워드: {}", environmentType.getDescription(), keyword, e);

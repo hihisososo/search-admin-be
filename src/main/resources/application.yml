@@ -33,8 +33,11 @@ app:
       bucket: ${AWS_S3_BUCKET_NAME}
     ec2:
       instance-ids: ${AWS_EC2_INSTANCE_IDS}
-  dictionary:
-    ec2-deploy-path: ${DICTIONARY_EC2_DEPLOY_PATH:/opt/search-dict}
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY:}
+    url: https://api.openai.com/v1/chat/completions
 
 logging:
   level:

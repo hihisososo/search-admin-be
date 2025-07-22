@@ -3,11 +3,16 @@ package com.yjlee.search.deployment.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.dto.*;
 import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
+import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
+import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
+import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -31,6 +36,11 @@ public class DeploymentManagementService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexingExecutionService indexingExecutionService;
   private final ElasticsearchIndexService elasticsearchIndexService;
+  private final SynonymDictionaryService synonymDictionaryService;
+  private final UserDictionaryService userDictionaryService;
+  private final StopwordDictionaryService stopwordDictionaryService;
+  private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
+  private final ElasticsearchSynonymService elasticsearchSynonymService;
 
   private static final String PRODUCTS_SEARCH_ALIAS = "products-search";
 
@@ -171,6 +181,9 @@ public class DeploymentManagementService {
           createDeploymentHistory(devEnvironment.getVersion(), request.getDescription());
       history = deploymentHistoryRepository.save(history);
 
+      // 사전 운영 환경 배포
+      deployDictionariesToProd();
+
       // 배포 실행
       executeDeploymentInternal(devEnvironment, prodEnvironment, history.getId());
 
@@ -180,6 +193,24 @@ public class DeploymentManagementService {
     } catch (Exception e) {
       log.error("배포 실행 실패", e);
       return DeploymentOperationResponse.failure("배포 실행 실패: " + e.getMessage());
+    }
+  }
+
+  private void deployDictionariesToProd() {
+    try {
+      // 사전 스냅샷 운영 환경 배포
+      synonymDictionaryService.deployToProd();
+      userDictionaryService.deployToProd();
+      stopwordDictionaryService.deployToProd();
+      typoCorrectionDictionaryService.deployToProd();
+
+      // 동의어 사전 PROD 환경 synonym_set 업데이트
+      elasticsearchSynonymService.updateSynonymSetRealtime(DictionaryEnvironmentType.PROD);
+
+      log.info("모든 사전 운영 환경 배포 및 synonym_set 업데이트 완료");
+    } catch (Exception e) {
+      log.error("사전 운영 환경 배포 실패", e);
+      throw new RuntimeException("사전 운영 환경 배포 실패", e);
     }
   }
 

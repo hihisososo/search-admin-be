@@ -8,7 +8,6 @@ import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionarySnapshotRepository;
-import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryVersionRepository;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,13 +29,11 @@ class SynonymDictionaryCrudIntegrationTest {
   @Autowired private ObjectMapper objectMapper;
   @Autowired private SynonymDictionaryRepository synonymDictionaryRepository;
   @Autowired private SynonymDictionarySnapshotRepository snapshotRepository;
-  @Autowired private SynonymDictionaryVersionRepository versionRepository;
 
   @BeforeEach
   void setUp() {
-    // DB 정리 (순서 중요: 외래키 관계 때문에 스냅샷 먼저 삭제)
+    // DB 정리 (스냅샷 먼저 삭제)
     snapshotRepository.deleteAll();
-    versionRepository.deleteAll();
     synonymDictionaryRepository.deleteAll();
   }
 

@@ -97,4 +97,4 @@ public class SearchRequestBuilderService {
 
     return request;
   }
-} 
+}

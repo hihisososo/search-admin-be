@@ -24,4 +24,4 @@ public class HttpRequestUtils {
     String userAgent = request.getHeader("User-Agent");
     return userAgent != null ? userAgent : "unknown";
   }
-} 
+}

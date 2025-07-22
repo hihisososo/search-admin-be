@@ -1,10 +1,13 @@
 package com.yjlee.search.deployment.service;
 
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
+import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import com.yjlee.search.index.service.ProductIndexingService;
@@ -26,26 +29,36 @@ public class IndexingExecutionService {
   private final ProductIndexingService productIndexingService;
   private final SynonymDictionaryService synonymDictionaryService;
   private final UserDictionaryService userDictionaryService;
+  private final StopwordDictionaryService stopwordDictionaryService;
+  private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
   private final UserDictionaryRepository userDictionaryRepository;
   private final EC2DeploymentService ec2DeploymentService;
   private final ElasticsearchIndexService elasticsearchIndexService;
+  private final ElasticsearchSynonymService elasticsearchSynonymService;
 
   @Async("deploymentTaskExecutor")
   public void executeIndexingAsync(Long environmentId, String version, Long historyId) {
     try {
       log.info("비동기 색인 시작 - 버전: {}", version);
 
-      // 1. 사전 스냅샷 생성
-      createDictionarySnapshots();
+      // 1. 사전 개발환경 배포
+      deployDictionariesToDev();
 
       // 2. 사용자사전 EC2 업로드
       uploadUserDictionaryToEC2(version);
 
-      // 3. 새 인덱스 생성 및 데이터 색인
-      String newIndexName = elasticsearchIndexService.createNewIndex(version);
+      // 3. 불용어사전 EC2 업로드
+      uploadStopwordDictionaryToEC2(version);
+
+      // 4. 동의어 사전 synonym_set 업데이트 (DEV 환경)
+      updateSynonymSetForIndexing();
+
+      // 5. 새 인덱스 생성 및 데이터 색인
+      String newIndexName =
+          elasticsearchIndexService.createNewIndex(version, DictionaryEnvironmentType.DEV);
       int documentCount = indexProductsToNewIndex(newIndexName);
 
-      // 4. 완료 처리
+      // 6. 완료 처리
       completeIndexing(environmentId, historyId, newIndexName, version, documentCount);
 
       log.info("색인 완료 - 버전: {}, 문서 수: {}", version, documentCount);
@@ -100,14 +113,16 @@ public class IndexingExecutionService {
     deploymentHistoryRepository.save(history);
   }
 
-  private void createDictionarySnapshots() {
+  private void deployDictionariesToDev() {
     try {
-      synonymDictionaryService.createVersion();
-      userDictionaryService.createVersion();
-      log.info("사전 스냅샷 생성 완료");
+      synonymDictionaryService.deployToDev();
+      userDictionaryService.deployToDev();
+      stopwordDictionaryService.deployToDev();
+      typoCorrectionDictionaryService.deployToDev();
+      log.info("모든 사전 개발 환경 배포 완료");
     } catch (Exception e) {
-      log.error("사전 스냅샷 생성 실패", e);
-      throw new RuntimeException("사전 스냅샷 생성 실패", e);
+      log.error("사전 개발 환경 배포 실패", e);
+      throw new RuntimeException("사전 개발 환경 배포 실패", e);
     }
   }
 
@@ -129,6 +144,35 @@ public class IndexingExecutionService {
     }
   }
 
+  private void uploadStopwordDictionaryToEC2(String version) {
+    try {
+      String stopwordDictContent = getCurrentStopwordDictionaryContent();
+
+      EC2DeploymentService.EC2DeploymentResult result =
+          ec2DeploymentService.deployStopwordDictionary(stopwordDictContent, version);
+
+      if (!result.isSuccess()) {
+        throw new RuntimeException("불용어사전 EC2 업로드 실패: " + result.getMessage());
+      }
+
+      log.info("불용어사전 EC2 업로드 완료 - 버전: {}, 내용 길이: {}", version, stopwordDictContent.length());
+    } catch (Exception e) {
+      log.error("불용어사전 EC2 업로드 실패 - 버전: {}", version, e);
+      throw new RuntimeException("불용어사전 EC2 업로드 실패", e);
+    }
+  }
+
+  private void updateSynonymSetForIndexing() {
+    try {
+      // DEV 환경으로 synonym_set 업데이트
+      elasticsearchSynonymService.updateSynonymSetRealtime(DictionaryEnvironmentType.DEV);
+      log.info("색인용 동의어 사전 synonym_set 업데이트 완료 (DEV 환경)");
+    } catch (Exception e) {
+      log.error("색인용 동의어 사전 synonym_set 업데이트 실패", e);
+      throw new RuntimeException("색인용 동의어 사전 synonym_set 업데이트 실패", e);
+    }
+  }
+
   private String getCurrentUserDictionaryContent() {
     try {
       return userDictionaryRepository.findAll().stream()
@@ -137,6 +181,26 @@ public class IndexingExecutionService {
           .trim();
     } catch (Exception e) {
       log.error("사용자사전 내용 조회 실패", e);
+      return "";
+    }
+  }
+
+  private String getCurrentStopwordDictionaryContent() {
+    try {
+      return stopwordDictionaryService.getDevSnapshots().stream()
+          .map(
+              stopword -> {
+                String keyword = stopword.getKeyword();
+                // 쉼표로 구분된 불용어들을 줄바꿈으로 구분된 형태로 변환
+                if (keyword.contains(",")) {
+                  return String.join("\n", keyword.split(",")).replaceAll("\\s+", ""); // 공백 제거
+                }
+                return keyword;
+              })
+          .reduce("", (acc, keyword) -> acc + keyword + "\n")
+          .trim();
+    } catch (Exception e) {
+      log.error("불용어사전 내용 조회 실패", e);
       return "";
     }
   }

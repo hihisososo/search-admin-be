@@ -36,4 +36,7 @@ public class SearchExecuteRequest {
   @Valid
   @Schema(description = "필터 옵션")
   private ProductFiltersDto filters;
+
+  @Schema(description = "오타교정 적용 여부", example = "true", defaultValue = "true")
+  private Boolean applyTypoCorrection = true;
 }

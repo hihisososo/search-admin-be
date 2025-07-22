@@ -1,11 +1,11 @@
 package com.yjlee.search.dictionary.user.controller;
 
 import com.yjlee.search.common.PageResponse;
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryUpdateRequest;
-import com.yjlee.search.dictionary.user.dto.UserDictionaryVersionResponse;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,39 +27,35 @@ public class UserDictionaryController {
 
   private final UserDictionaryService userDictionaryService;
 
-  // 버전 생성 동시성 제어를 위한 락과 플래그
-  private static final Object VERSION_CREATION_LOCK = new Object();
-  private static volatile boolean isVersionCreationInProgress = false;
-
   @Operation(
       summary = "사용자 사전 목록 조회",
-      description = "사용자 사전 목록을 페이징 및 검색어로 조회합니다. version 파라미터가 있으면 해당 버전의 배포된 사전을 조회합니다.")
+      description = "사용자 사전 목록을 페이징 및 검색어로 조회합니다. environment 파라미터로 현재/개발/운영 환경의 사전을 조회할 수 있습니다.")
   @ApiResponses({@ApiResponse(responseCode = "200", description = "성공")})
   @GetMapping
   public ResponseEntity<PageResponse<UserDictionaryListResponse>> getUserDictionaries(
       @Parameter(description = "페이지 번호") @RequestParam(defaultValue = "1") int page,
       @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size,
       @Parameter(description = "키워드 검색어") @RequestParam(required = false) String search,
-      @Parameter(description = "정렬 필드 (keyword, updatedAt/deployedAt)")
+      @Parameter(description = "정렬 필드 (keyword, createdAt, updatedAt)")
           @RequestParam(defaultValue = "updatedAt")
           String sortBy,
       @Parameter(description = "정렬 방향 (asc, desc)") @RequestParam(defaultValue = "desc")
           String sortDir,
-      @Parameter(description = "배포 버전 (없으면 현재 사전, 있으면 해당 버전의 배포된 사전)")
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
           @RequestParam(required = false)
-          String version) {
+          DictionaryEnvironmentType environment) {
 
     log.debug(
-        "사용자 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, version: {}",
+        "사용자 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
         page,
         size,
         search,
         sortBy,
         sortDir,
-        version);
+        environment);
 
     PageResponse<UserDictionaryListResponse> response =
-        userDictionaryService.getUserDictionaries(page, size, search, sortBy, sortDir, version);
+        userDictionaryService.getUserDictionaries(page, size, search, sortBy, sortDir, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -84,10 +80,12 @@ public class UserDictionaryController {
   })
   @PostMapping
   public ResponseEntity<UserDictionaryResponse> createUserDictionary(
-      @RequestBody @Valid UserDictionaryCreateRequest request) {
+      @RequestBody @Valid UserDictionaryCreateRequest request,
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
+          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
 
-    log.debug("사용자 사전 생성 요청: {}", request.getKeyword());
-    UserDictionaryResponse response = userDictionaryService.createUserDictionary(request);
+    log.debug("사용자 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
+    UserDictionaryResponse response = userDictionaryService.createUserDictionary(request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -99,11 +97,13 @@ public class UserDictionaryController {
   @PutMapping("/{dictionaryId}")
   public ResponseEntity<UserDictionaryResponse> updateUserDictionary(
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
-      @RequestBody @Valid UserDictionaryUpdateRequest request) {
+      @RequestBody @Valid UserDictionaryUpdateRequest request,
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
+          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
 
-    log.debug("사용자 사전 수정 요청: {}", dictionaryId);
+    log.debug("사용자 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     UserDictionaryResponse response =
-        userDictionaryService.updateUserDictionary(dictionaryId, request);
+        userDictionaryService.updateUserDictionary(dictionaryId, request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -114,68 +114,12 @@ public class UserDictionaryController {
   })
   @DeleteMapping("/{dictionaryId}")
   public ResponseEntity<Void> deleteUserDictionary(
-      @Parameter(description = "사전 ID") @PathVariable Long dictionaryId) {
+      @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
+          @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
 
-    log.info("사용자 사전 삭제 요청: {}", dictionaryId);
-    userDictionaryService.deleteUserDictionary(dictionaryId);
-    return ResponseEntity.noContent().build();
-  }
-
-  @Operation(
-      summary = "사용자 사전 버전 생성",
-      description = "현재 시점의 사용자 사전들을 스냅샷으로 저장하고 새 버전을 생성하며 EC2에 배포합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-    @ApiResponse(responseCode = "409", description = "다른 버전 생성 작업이 진행 중입니다")
-  })
-  @PostMapping("/versions")
-  public ResponseEntity<UserDictionaryVersionResponse> createVersion() {
-    log.info("사용자 사전 버전 생성 요청 (자동 버전)");
-
-    synchronized (VERSION_CREATION_LOCK) {
-      // 이미 버전 생성 작업이 진행 중인지 확인
-      if (isVersionCreationInProgress) {
-        log.warn("사용자 사전 버전 생성 중복 요청 - 다른 작업이 진행 중");
-        throw new IllegalStateException("다른 사용자 사전 버전 생성 작업이 진행 중입니다. 잠시 후 다시 시도해주세요.");
-      }
-
-      try {
-        isVersionCreationInProgress = true;
-        log.info("사용자 사전 버전 생성 시작 (동기화 적용)");
-        UserDictionaryVersionResponse response = userDictionaryService.createVersion();
-        log.info("사용자 사전 버전 생성 완료: {}", response.getVersion());
-        return ResponseEntity.ok(response);
-      } finally {
-        isVersionCreationInProgress = false;
-      }
-    }
-  }
-
-  @Operation(summary = "사용자 사전 버전 목록 조회", description = "사용자 사전의 모든 버전 목록을 조회합니다.")
-  @ApiResponses({@ApiResponse(responseCode = "200", description = "성공")})
-  @GetMapping("/versions")
-  public ResponseEntity<PageResponse<UserDictionaryVersionResponse>> getVersions(
-      @Parameter(description = "페이지 번호") @RequestParam(defaultValue = "1") int page,
-      @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size) {
-
-    log.debug("사용자 사전 버전 목록 조회 - page: {}, size: {}", page, size);
-    PageResponse<UserDictionaryVersionResponse> response =
-        userDictionaryService.getVersions(page, size);
-    return ResponseEntity.ok(response);
-  }
-
-  @Operation(summary = "사용자 사전 버전 삭제", description = "특정 버전과 해당 버전의 모든 스냅샷을 삭제합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "204", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "존재하지 않는 버전")
-  })
-  @DeleteMapping("/versions/{version}")
-  public ResponseEntity<Void> deleteVersion(
-      @Parameter(description = "삭제할 버전명") @PathVariable String version) {
-
-    log.info("사용자 사전 버전 삭제 요청: {}", version);
-    userDictionaryService.deleteVersion(version);
+    log.info("사용자 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
+    userDictionaryService.deleteUserDictionary(dictionaryId, environment);
     return ResponseEntity.noContent().build();
   }
 }
