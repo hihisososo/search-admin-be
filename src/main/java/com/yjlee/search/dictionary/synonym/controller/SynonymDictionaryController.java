@@ -1,11 +1,12 @@
 package com.yjlee.search.dictionary.synonym.controller;
 
 import com.yjlee.search.common.PageResponse;
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryListResponse;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryResponse;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryUpdateRequest;
-import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryVersionResponse;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,6 +14,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -26,41 +29,38 @@ import org.springframework.web.bind.annotation.*;
 public class SynonymDictionaryController {
 
   private final SynonymDictionaryService synonymDictionaryService;
-
-  // 버전 생성 동시성 제어를 위한 락과 플래그
-  private static final Object VERSION_CREATION_LOCK = new Object();
-  private static volatile boolean isVersionCreationInProgress = false;
+  private final ElasticsearchSynonymService elasticsearchSynonymService;
 
   @Operation(
       summary = "유의어 사전 목록 조회",
-      description = "유의어 사전 목록을 페이징 및 검색어로 조회합니다. version 파라미터가 있으면 해당 버전의 배포된 사전을 조회합니다.")
+      description = "유의어 사전 목록을 페이징 및 검색어로 조회합니다. environment 파라미터로 현재/개발/운영 환경의 사전을 조회할 수 있습니다.")
   @ApiResponses({@ApiResponse(responseCode = "200", description = "성공")})
   @GetMapping
   public ResponseEntity<PageResponse<SynonymDictionaryListResponse>> getSynonymDictionaries(
       @Parameter(description = "페이지 번호") @RequestParam(defaultValue = "1") int page,
       @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size,
       @Parameter(description = "키워드 검색어") @RequestParam(required = false) String search,
-      @Parameter(description = "정렬 필드 (keyword, updatedAt/deployedAt)")
+      @Parameter(description = "정렬 필드 (keyword, createdAt, updatedAt)")
           @RequestParam(defaultValue = "updatedAt")
           String sortBy,
       @Parameter(description = "정렬 방향 (asc, desc)") @RequestParam(defaultValue = "desc")
           String sortDir,
-      @Parameter(description = "배포 버전 (없으면 현재 사전, 있으면 해당 버전의 배포된 사전)")
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
           @RequestParam(required = false)
-          String version) {
+          DictionaryEnvironmentType environment) {
 
     log.debug(
-        "유의어 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, version: {}",
+        "유의어 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
         page,
         size,
         search,
         sortBy,
         sortDir,
-        version);
+        environment);
 
     PageResponse<SynonymDictionaryListResponse> response =
         synonymDictionaryService.getSynonymDictionaries(
-            page, size, search, sortBy, sortDir, version);
+            page, size, search, sortBy, sortDir, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -86,10 +86,14 @@ public class SynonymDictionaryController {
   })
   @PostMapping
   public ResponseEntity<SynonymDictionaryResponse> createSynonymDictionary(
-      @RequestBody @Valid SynonymDictionaryCreateRequest request) {
+      @RequestBody @Valid SynonymDictionaryCreateRequest request,
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
-    log.debug("유의어 사전 생성 요청: {}", request.getKeyword());
-    SynonymDictionaryResponse response = synonymDictionaryService.createSynonymDictionary(request);
+    log.debug("유의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
+    SynonymDictionaryResponse response =
+        synonymDictionaryService.createSynonymDictionary(request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -101,11 +105,14 @@ public class SynonymDictionaryController {
   @PutMapping("/{dictionaryId}")
   public ResponseEntity<SynonymDictionaryResponse> updateSynonymDictionary(
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
-      @RequestBody @Valid SynonymDictionaryUpdateRequest request) {
+      @RequestBody @Valid SynonymDictionaryUpdateRequest request,
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
-    log.debug("유의어 사전 수정 요청: {}", dictionaryId);
+    log.debug("유의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     SynonymDictionaryResponse response =
-        synonymDictionaryService.updateSynonymDictionary(dictionaryId, request);
+        synonymDictionaryService.updateSynonymDictionary(dictionaryId, request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -116,68 +123,75 @@ public class SynonymDictionaryController {
   })
   @DeleteMapping("/{dictionaryId}")
   public ResponseEntity<Void> deleteSynonymDictionary(
-      @Parameter(description = "사전 ID") @PathVariable Long dictionaryId) {
+      @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
-    log.info("유의어 사전 삭제 요청: {}", dictionaryId);
-    synonymDictionaryService.deleteSynonymDictionary(dictionaryId);
+    log.info("유의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
+    synonymDictionaryService.deleteSynonymDictionary(dictionaryId, environment);
     return ResponseEntity.noContent().build();
   }
 
-  @Operation(
-      summary = "유의어 사전 버전 생성",
-      description = "현재 시점의 유의어 사전들을 스냅샷으로 저장하고 새 버전을 생성하며 EC2에 배포합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-    @ApiResponse(responseCode = "409", description = "다른 버전 생성 작업이 진행 중입니다")
-  })
-  @PostMapping("/versions")
-  public ResponseEntity<SynonymDictionaryVersionResponse> createVersion() {
-    log.info("유의어 사전 버전 생성 요청 (자동 버전)");
+  @Operation(summary = "동의어 사전 실시간 반영", description = "동의어 사전 변경사항을 Elasticsearch에 즉시 반영")
+  @PostMapping("/realtime-sync")
+  public ResponseEntity<Map<String, Object>> syncSynonymDictionary(
+      @Parameter(description = "환경 타입 (CURRENT/DEV/PROD)", example = "DEV") @RequestParam
+          DictionaryEnvironmentType environment) {
 
-    synchronized (VERSION_CREATION_LOCK) {
-      // 이미 버전 생성 작업이 진행 중인지 확인
-      if (isVersionCreationInProgress) {
-        log.warn("유의어 사전 버전 생성 중복 요청 - 다른 작업이 진행 중");
-        throw new IllegalStateException("다른 유의어 사전 버전 생성 작업이 진행 중입니다. 잠시 후 다시 시도해주세요.");
-      }
+    log.info("동의어 사전 실시간 반영 요청 - 환경: {}", environment.getDescription());
 
-      try {
-        isVersionCreationInProgress = true;
-        log.info("유의어 사전 버전 생성 시작 (동기화 적용)");
-        SynonymDictionaryVersionResponse response = synonymDictionaryService.createVersion();
-        log.info("유의어 사전 버전 생성 완료: {}", response.getVersion());
-        return ResponseEntity.ok(response);
-      } finally {
-        isVersionCreationInProgress = false;
-      }
+    try {
+      elasticsearchSynonymService.updateSynonymSetRealtime(environment);
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("success", true);
+      response.put("message", "동의어 사전 실시간 반영 완료");
+      response.put("environment", environment.getDescription());
+      response.put("timestamp", System.currentTimeMillis());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      log.error("동의어 사전 실시간 반영 실패", e);
+
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("success", false);
+      errorResponse.put("message", "동의어 사전 실시간 반영 실패: " + e.getMessage());
+      errorResponse.put("environment", environment.getDescription());
+      errorResponse.put("timestamp", System.currentTimeMillis());
+
+      return ResponseEntity.internalServerError().body(errorResponse);
     }
   }
 
-  @Operation(summary = "유의어 사전 버전 목록 조회", description = "유의어 사전의 모든 버전 목록을 조회합니다.")
-  @ApiResponses({@ApiResponse(responseCode = "200", description = "성공")})
-  @GetMapping("/versions")
-  public ResponseEntity<PageResponse<SynonymDictionaryVersionResponse>> getVersions(
-      @Parameter(description = "페이지 번호") @RequestParam(defaultValue = "1") int page,
-      @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size) {
+  @Operation(summary = "동의어 사전 동기화 상태 조회", description = "동의어 사전의 동기화 상태 조회")
+  @GetMapping("/sync-status")
+  public ResponseEntity<Map<String, Object>> getSynonymSyncStatus() {
 
-    log.debug("유의어 사전 버전 목록 조회 - page: {}, size: {}", page, size);
-    PageResponse<SynonymDictionaryVersionResponse> response =
-        synonymDictionaryService.getVersions(page, size);
-    return ResponseEntity.ok(response);
-  }
+    log.info("동의어 사전 동기화 상태 조회 요청");
 
-  @Operation(summary = "유의어 사전 버전 삭제", description = "특정 버전과 해당 버전의 모든 스냅샷을 삭제합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "204", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "존재하지 않는 버전")
-  })
-  @DeleteMapping("/versions/{version}")
-  public ResponseEntity<Void> deleteVersion(
-      @Parameter(description = "삭제할 버전명") @PathVariable String version) {
+    try {
+      String synonymStatus =
+          elasticsearchSynonymService.getSynonymSetStatus(DictionaryEnvironmentType.DEV);
 
-    log.info("유의어 사전 버전 삭제 요청: {}", version);
-    synonymDictionaryService.deleteVersion(version);
-    return ResponseEntity.noContent().build();
+      Map<String, Object> response = new HashMap<>();
+      response.put("success", true);
+      response.put("synonymStatus", synonymStatus);
+      response.put("lastSyncTime", System.currentTimeMillis());
+      response.put("timestamp", System.currentTimeMillis());
+
+      return ResponseEntity.ok(response);
+
+    } catch (Exception e) {
+      log.error("동의어 사전 동기화 상태 조회 실패", e);
+
+      Map<String, Object> errorResponse = new HashMap<>();
+      errorResponse.put("success", false);
+      errorResponse.put("message", "상태 조회 실패: " + e.getMessage());
+      errorResponse.put("timestamp", System.currentTimeMillis());
+
+      return ResponseEntity.internalServerError().body(errorResponse);
+    }
   }
 }

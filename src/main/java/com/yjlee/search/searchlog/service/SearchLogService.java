@@ -485,9 +485,7 @@ public class SearchLogService {
         .toList();
   }
 
-  /**
-   * 일반 검색 로그 수집
-   */
+  /** 일반 검색 로그 수집 */
   public void collectSearchLog(
       SearchExecuteRequest request,
       LocalDateTime timestamp,
@@ -525,9 +523,7 @@ public class SearchLogService {
     log.debug("검색 로그 수집 완료 - 키워드: {}, 결과수: {}", keyword, resultCount);
   }
 
-  /**
-   * 시뮬레이션 검색 로그 수집
-   */
+  /** 시뮬레이션 검색 로그 수집 */
   public void collectSearchLogSimulation(
       SearchSimulationRequest request,
       LocalDateTime timestamp,
@@ -564,7 +560,10 @@ public class SearchLogService {
 
     saveSearchLog(searchLog);
 
-    log.debug("검색 시뮬레이션 로그 수집 완료 - 환경: {}, 키워드: {}, 결과수: {}", 
-        request.getEnvironmentType().getDescription(), keyword, resultCount);
+    log.debug(
+        "검색 시뮬레이션 로그 수집 완료 - 환경: {}, 키워드: {}, 결과수: {}",
+        request.getEnvironmentType().getDescription(),
+        keyword,
+        resultCount);
   }
 }

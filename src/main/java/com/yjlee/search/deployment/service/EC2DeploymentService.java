@@ -28,6 +28,8 @@ public class EC2DeploymentService {
   private static final String USER_DICT_BASE_PATH = "/usr/share/elasticsearch/config/analysis/user";
   private static final String SYNONYM_DICT_BASE_PATH =
       "/usr/share/elasticsearch/config/analysis/synonym";
+  private static final String STOPWORD_DICT_BASE_PATH =
+      "/usr/share/elasticsearch/config/analysis/stopword";
 
   public EC2DeploymentResult deployUserDictionary(String content, String version) {
     log.info("사용자사전 EC2 배포 시작 - 버전: {}, 내용 길이: {}", version, content.length());
@@ -49,6 +51,30 @@ public class EC2DeploymentService {
       return EC2DeploymentResult.builder()
           .success(false)
           .message("사용자사전 배포 실패: " + e.getMessage())
+          .version(version)
+          .build();
+    }
+  }
+
+  public EC2DeploymentResult deployStopwordDictionary(String content, String version) {
+    log.info("불용어사전 EC2 배포 시작 - 버전: {}, 내용 길이: {}", version, content.length());
+
+    try {
+      String script = createStopwordDictDeployScript(content, version);
+      EC2DeploymentResult result = executeSSMCommand(script, "불용어사전 배포");
+
+      return EC2DeploymentResult.builder()
+          .success(result.isSuccess())
+          .commandId(result.getCommandId())
+          .message(result.getMessage())
+          .version(version)
+          .build();
+
+    } catch (Exception e) {
+      log.error("불용어사전 EC2 배포 실패 - 버전: {}", version, e);
+      return EC2DeploymentResult.builder()
+          .success(false)
+          .message("불용어사전 배포 실패: " + e.getMessage())
           .version(version)
           .build();
     }
@@ -96,6 +122,57 @@ public class EC2DeploymentService {
         fullFilePath,
         USER_DICT_BASE_PATH,
         USER_DICT_BASE_PATH,
+        fullFilePath,
+        content,
+        fullFilePath,
+        fullFilePath,
+        fullFilePath,
+        fullFilePath,
+        fullFilePath);
+  }
+
+  private String createStopwordDictDeployScript(String content, String version) {
+    String fileName = version + ".txt";
+    String fullFilePath = String.format("%s/%s", STOPWORD_DICT_BASE_PATH, fileName);
+
+    return String.format(
+        """
+                            #!/bin/bash
+                            set -e
+
+                            echo "=== 불용어사전 배포 시작 ==="
+                            echo "버전: %s"
+                            echo "대상 경로: %s"
+
+                            # 디렉토리 생성
+                            echo "디렉토리 생성: %s"
+                            mkdir -p %s
+
+                            # 파일 내용 작성
+                            echo "파일 생성 중..."
+                            cat > %s << 'EOF'
+            %s
+            EOF
+
+                            # 파일 권한 설정
+                            chmod 644 %s
+
+                            # 결과 확인
+                            if [ -f "%s" ]; then
+                                echo "배포 성공: %s"
+                                echo "파일 크기: $(stat -c%%s %s) bytes"
+                                echo "파일 권한: $(stat -c%%A %s)"
+                                echo "=== 배포 완료 ==="
+                                exit 0
+                            else
+                                echo "배포 실패: 파일이 생성되지 않음"
+                                exit 1
+                            fi
+                            """,
+        version,
+        fullFilePath,
+        STOPWORD_DICT_BASE_PATH,
+        STOPWORD_DICT_BASE_PATH,
         fullFilePath,
         content,
         fullFilePath,

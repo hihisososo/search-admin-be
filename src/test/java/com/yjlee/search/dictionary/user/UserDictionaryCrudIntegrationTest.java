@@ -8,8 +8,6 @@ import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
 import com.yjlee.search.dictionary.user.repository.UserDictionarySnapshotRepository;
-import com.yjlee.search.dictionary.user.repository.UserDictionaryVersionRepository;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,13 +28,11 @@ class UserDictionaryCrudIntegrationTest {
   @Autowired private ObjectMapper objectMapper;
   @Autowired private UserDictionaryRepository userDictionaryRepository;
   @Autowired private UserDictionarySnapshotRepository snapshotRepository;
-  @Autowired private UserDictionaryVersionRepository versionRepository;
 
   @BeforeEach
   void setUp() {
-    // DB 정리 (순서 중요: 외래키 관계 때문에 스냅샷 먼저 삭제)
+    // DB 정리 (스냅샷 먼저 삭제)
     snapshotRepository.deleteAll();
-    versionRepository.deleteAll();
     userDictionaryRepository.deleteAll();
   }
 
@@ -210,6 +206,7 @@ class UserDictionaryCrudIntegrationTest {
         .andExpect(jsonPath("$.message").value("존재하지 않는 사용자 사전입니다: " + nonExistentId));
   }
 
+  /*
   @Test
   void createVersion_성공() throws Exception {
     // given - 사전 데이터 생성
@@ -340,29 +337,10 @@ class UserDictionaryCrudIntegrationTest {
         .andExpect(jsonPath("$.message").value("존재하지 않는 버전입니다: " + nonExistentVersion));
   }
 
-  @Test
-  void deleteVersion_스냅샷함께삭제_확인() throws Exception {
-    // given - 사전 데이터 및 버전 생성
-    createTestData();
-    String versionName = createTestVersionAndGetName();
-
-    // 스냅샷이 생성되었는지 확인 (3개 사전 -> 3개 스냅샷)
-    long snapshotCountBefore = snapshotRepository.countByVersion(versionName);
-    org.assertj.core.api.Assertions.assertThat(snapshotCountBefore).isEqualTo(3);
-
-    // when - 버전 삭제
-    mockMvc
-        .perform(delete("/api/v1/dictionaries/user/versions/" + versionName))
-        .andExpect(status().isNoContent());
-
-    // then - 스냅샷도 함께 삭제되었는지 확인
-    long snapshotCountAfter = snapshotRepository.countByVersion(versionName);
-    org.assertj.core.api.Assertions.assertThat(snapshotCountAfter).isEqualTo(0);
-
-    // 버전도 삭제되었는지 확인
-    boolean versionExists = versionRepository.existsByVersion(versionName);
-    org.assertj.core.api.Assertions.assertThat(versionExists).isFalse();
-  }
+  // @Test
+  // void deleteVersion_스냅샷함께삭제_확인() throws Exception {
+  //   // 기존 버전 관리 기능 제거로 인해 주석 처리
+  // }
 
   @Test
   void getVersions_버전목록조회_성공() throws Exception {
@@ -435,6 +413,7 @@ class UserDictionaryCrudIntegrationTest {
         .andExpect(jsonPath("$.content.length()").value(0))
         .andExpect(jsonPath("$.totalElements").value(0));
   }
+  */
 
   /** 테스트용 사용자 사전 생성 */
   private Long createTestUserDictionary() throws Exception {

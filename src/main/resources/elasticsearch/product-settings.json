@@ -7,7 +7,11 @@
         "search_synonym_filter": {
           "type": "synonym_graph",
           "updateable": "true",
-          "synonyms_set": "synonyms-nori"
+          "synonyms_set": "{SYNONYM_SET_NAME}"
+        },
+        "stopword_filter": {
+          "type": "stop",
+          "stopwords_path": "{STOPWORD_DICT_PATH}"
         },
         "pos_filter": {
           "type": "nori_part_of_speech",
@@ -19,7 +23,7 @@
       },
       "analyzer": {
         "nori_index_analyzer": {
-          "filter": ["pos_filter"],
+          "filter": ["pos_filter", "stopword_filter"],
           "type": "custom",
           "tokenizer": "userdic_nori_tokenizer"
         },
@@ -28,7 +32,7 @@
           "tokenizer": "bigram_tokenizer"
         },
         "nori_search_analyzer": {
-          "filter": ["pos_filter", "search_synonym_filter"],
+          "filter": ["pos_filter", "search_synonym_filter", "stopword_filter"],
           "type": "custom",
           "tokenizer": "userdic_nori_tokenizer"
         }
@@ -41,7 +45,8 @@
         },
         "userdic_nori_tokenizer": {
           "type": "nori_tokenizer",
-          "user_dictionary": "{USER_DICT_PATH}"
+          "user_dictionary": "{USER_DICT_PATH}",
+          "decompound_mode": "mixed"
         }
       }
     }
