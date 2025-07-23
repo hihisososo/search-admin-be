@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.yjlee.search.search.constants.ESFields;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -19,28 +20,35 @@ public enum ProductSortType {
   PRICE("price") {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
-      searchBuilder.sort(sort -> sort.field(f -> f.field("price").order(order)));
+      searchBuilder.sort(sort -> sort.field(f -> f.field(ESFields.PRICE).order(order)));
+      searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
+    }
+  },
+  RATING("rating") {
+    @Override
+    public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
+      searchBuilder.sort(sort -> sort.field(f -> f.field(ESFields.RATING).order(order)));
       searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   },
   REVIEW_COUNT("reviewCount") {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
-      searchBuilder.sort(sort -> sort.field(f -> f.field("review_count").order(order)));
+      searchBuilder.sort(sort -> sort.field(f -> f.field(ESFields.REVIEW_COUNT).order(order)));
       searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   },
   NAME("name") {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
-      searchBuilder.sort(sort -> sort.field(f -> f.field("name.keyword").order(order)));
+      searchBuilder.sort(sort -> sort.field(f -> f.field(ESFields.NAME_KEYWORD).order(order)));
       searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   },
   REGISTERED_MONTH("registeredMonth") {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
-      searchBuilder.sort(sort -> sort.field(f -> f.field("registered_month").order(order)));
+      searchBuilder.sort(sort -> sort.field(f -> f.field(ESFields.REGISTERED_MONTH).order(order)));
       searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   };

@@ -1,6 +1,7 @@
 package com.yjlee.search.search.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.math.BigDecimal;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
@@ -29,10 +30,10 @@ public class ProductDto {
   private List<String> model;
 
   @Schema(description = "브랜드", example = "Apple")
-  private String brand;
+  private String brandName;
 
   @Schema(description = "카테고리", example = "스마트폰")
-  private String category;
+  private String categoryName;
 
   @Schema(description = "가격", example = "1200000")
   private Integer price;
@@ -40,15 +41,18 @@ public class ProductDto {
   @Schema(description = "등록월", example = "2024-01")
   private String registeredMonth;
 
+  @Schema(description = "평점", example = "4.5")
+  private BigDecimal rating;
+
   @Schema(description = "리뷰 수", example = "234")
-  private Long reviewCount;
+  private Integer reviewCount;
 
   @Schema(description = "썸네일 URL", example = "https://example.com/iphone15pro.jpg")
   private String thumbnailUrl;
 
-  @Schema(description = "상품 설명", example = "최신 A17 Pro 칩셋이 탑재된 프리미엄 스마트폰")
-  private String description;
+  @Schema(description = "상품 스펙", example = "최신 A17 Pro 칩셋이 탑재된 프리미엄 스마트폰")
+  private String specs;
 
-  @Schema(description = "상품 설명 원본", example = "최신 A17 Pro 칩셋이 탑재된 프리미엄 스마트폰")
-  private String descriptionRaw;
+  @Schema(description = "상품 스펙 원본", example = "최신 A17 Pro 칩셋이 탑재된 프리미엄 스마트폰")
+  private String specsRaw;
 }

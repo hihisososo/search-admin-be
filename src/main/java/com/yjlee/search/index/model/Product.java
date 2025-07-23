@@ -1,6 +1,7 @@
 package com.yjlee.search.index.model;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -20,27 +21,32 @@ public class Product {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
 
-  @Column(nullable = false, length = 255)
+  @Column(nullable = false, length = 500, unique = true)
   String name;
 
-  @Column(length = 500)
+  @Column(name = "thumbnail_url", length = 1000)
   String thumbnailUrl;
 
   Long price;
 
-  @Column(length = 20)
+  @Column(columnDefinition = "TEXT")
+  String specs;
+
+  @Column(name = "reg_month", length = 20)
   String regMonth;
 
-  @Builder.Default Long reviewCount = 0L;
+  @Column(precision = 3, scale = 1)
+  BigDecimal rating;
 
-  @Column(nullable = false)
+  @Builder.Default
+  @Column(name = "review_count")
+  Integer reviewCount = 0;
+
+  @Column(name = "category_id", nullable = false)
   Long categoryId;
 
-  @Column(nullable = false, length = 100)
+  @Column(name = "category_name", nullable = false, length = 100)
   String categoryName;
-
-  @Column(columnDefinition = "TEXT")
-  String description;
 
   @CreatedDate
   @Column(name = "created_at")

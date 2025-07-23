@@ -11,6 +11,7 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
+import com.yjlee.search.search.constants.ESFields;
 import com.yjlee.search.search.dto.PopularKeywordDto;
 import com.yjlee.search.search.dto.PopularKeywordsResponse;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
@@ -412,7 +413,11 @@ public class SearchLogService {
                 .queryDsl(
                     "{\"query\":{\"multi_match\":{\"query\":\""
                         + keyword
-                        + "\",\"fields\":[\"name\",\"description\"]}}}")
+                        + "\",\"fields\":[\""
+                        + ESFields.NAME
+                        + "\",\""
+                        + ESFields.SPECS
+                        + "\"]}}}")
                 .clientIp(sampleIps[ThreadLocalRandom.current().nextInt(sampleIps.length)])
                 .userAgent(userAgents[ThreadLocalRandom.current().nextInt(userAgents.length)])
                 .isError(ThreadLocalRandom.current().nextDouble() < 0.05) // 5% 에러율

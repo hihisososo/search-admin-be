@@ -8,6 +8,7 @@ import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import co.elastic.clients.elasticsearch.indices.PutAliasRequest;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.search.constants.ESFields;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +24,6 @@ public class ElasticsearchIndexService {
 
   private final ElasticsearchClient elasticsearchClient;
   private final ResourceLoader resourceLoader;
-
-  private static final String PRODUCTS_SEARCH_ALIAS = "products-search";
 
   /** 환경별 synonym set 이름 생성 */
   private String getSynonymSetName(DictionaryEnvironmentType environmentType) {
@@ -83,15 +82,82 @@ public class ElasticsearchIndexService {
   }
 
   public void updateProductsSearchAlias(String newIndexName) throws IOException {
-    PutAliasRequest request =
-        PutAliasRequest.of(a -> a.index(newIndexName).name(PRODUCTS_SEARCH_ALIAS));
-    elasticsearchClient.indices().putAlias(request);
-    log.info("products-search alias 업데이트 완료: {}", newIndexName);
+    // 현재 products-search alias가 연결된 모든 인덱스 조회
+    var getAliasRequest =
+        co.elastic.clients.elasticsearch.indices.GetAliasRequest.of(
+            a -> a.name(ESFields.PRODUCTS_SEARCH_ALIAS));
+
+    try {
+      var aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
+
+      // atomic alias update를 위한 액션 리스트 생성
+      var actions =
+          new java.util.ArrayList<co.elastic.clients.elasticsearch.indices.update_aliases.Action>();
+
+      // 기존 alias 제거 액션들 추가
+      for (String existingIndex : aliasResponse.result().keySet()) {
+        if (!existingIndex.equals(newIndexName)) {
+          actions.add(
+              co.elastic.clients.elasticsearch.indices.update_aliases.Action.of(
+                  a ->
+                      a.remove(r -> r.index(existingIndex).alias(ESFields.PRODUCTS_SEARCH_ALIAS))));
+          log.info("기존 alias 제거 예정: {} -> {}", existingIndex, ESFields.PRODUCTS_SEARCH_ALIAS);
+        }
+      }
+
+      // 새 인덱스에 alias 추가 액션
+      actions.add(
+          co.elastic.clients.elasticsearch.indices.update_aliases.Action.of(
+              a -> a.add(add -> add.index(newIndexName).alias(ESFields.PRODUCTS_SEARCH_ALIAS))));
+
+      // atomic update 실행
+      if (!actions.isEmpty()) {
+        var updateRequest =
+            co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest.of(
+                u -> u.actions(actions));
+        elasticsearchClient.indices().updateAliases(updateRequest);
+        log.info(
+            "products-search alias atomic 업데이트 완료: {} ({}개 액션 실행)", newIndexName, actions.size());
+      } else {
+        log.info("alias 업데이트 불필요: {} 이미 연결됨", newIndexName);
+      }
+
+    } catch (co.elastic.clients.elasticsearch._types.ElasticsearchException e) {
+      if (e.response().status() == 404) {
+        // alias가 존재하지 않는 경우, 새로 생성
+        var putAliasRequest =
+            PutAliasRequest.of(a -> a.index(newIndexName).name(ESFields.PRODUCTS_SEARCH_ALIAS));
+        elasticsearchClient.indices().putAlias(putAliasRequest);
+        log.info("products-search alias 신규 생성 완료: {}", newIndexName);
+      } else {
+        throw e;
+      }
+    }
   }
 
   public boolean indexExists(String indexName) throws IOException {
     ExistsRequest request = ExistsRequest.of(e -> e.index(indexName));
     return elasticsearchClient.indices().exists(request).value();
+  }
+
+  /** 현재 products-search alias가 연결된 인덱스들을 조회 */
+  public java.util.Set<String> getCurrentAliasIndices() throws IOException {
+    try {
+      var getAliasRequest =
+          co.elastic.clients.elasticsearch.indices.GetAliasRequest.of(
+              a -> a.name(ESFields.PRODUCTS_SEARCH_ALIAS));
+      var aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
+      java.util.Set<String> indices = aliasResponse.result().keySet();
+      log.info("현재 {} alias가 연결된 인덱스들: {}", ESFields.PRODUCTS_SEARCH_ALIAS, indices);
+      return indices;
+    } catch (co.elastic.clients.elasticsearch._types.ElasticsearchException e) {
+      if (e.response().status() == 404) {
+        log.info("{} alias가 존재하지 않음", ESFields.PRODUCTS_SEARCH_ALIAS);
+        return java.util.Set.of();
+      } else {
+        throw e;
+      }
+    }
   }
 
   private void deleteIndex(String indexName) throws IOException {
