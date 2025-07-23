@@ -10,6 +10,7 @@ import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
+import com.yjlee.search.search.constants.ESFields;
 import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +28,6 @@ public class ProductIndexingService {
   private final ProductRepository productRepository;
   private final ObjectMapper objectMapper;
 
-  private static final String INDEX_NAME = "products";
-  private static final String AUTOCOMPLETE_INDEX_NAME = "autocomplete";
   private static final int BATCH_SIZE = 1000;
 
   public int indexAllProducts() throws IOException {
@@ -119,7 +118,12 @@ public class ProductIndexingService {
 
     for (ProductDocument document : documents) {
       bulkBuilder.operations(
-          op -> op.index(idx -> idx.index(INDEX_NAME).id(document.getId()).document(document)));
+          op ->
+              op.index(
+                  idx ->
+                      idx.index(ESFields.PRODUCTS_INDEX_PREFIX)
+                          .id(document.getId())
+                          .document(document)));
     }
 
     BulkResponse response = elasticsearchClient.bulk(bulkBuilder.build());
@@ -150,7 +154,8 @@ public class ProductIndexingService {
       AutocompleteDocument document = documents.get(i);
       final String docId = String.valueOf(System.currentTimeMillis() + i);
       bulkBuilder.operations(
-          op -> op.index(idx -> idx.index(AUTOCOMPLETE_INDEX_NAME).id(docId).document(document)));
+          op ->
+              op.index(idx -> idx.index(ESFields.AUTOCOMPLETE_INDEX).id(docId).document(document)));
     }
 
     BulkResponse response = elasticsearchClient.bulk(bulkBuilder.build());
@@ -206,7 +211,8 @@ public class ProductIndexingService {
     // products 인덱스 데이터 삭제
     try {
       DeleteByQueryRequest productsRequest =
-          DeleteByQueryRequest.of(d -> d.index(INDEX_NAME).query(q -> q.matchAll(m -> m)));
+          DeleteByQueryRequest.of(
+              d -> d.index(ESFields.PRODUCTS_INDEX_PREFIX).query(q -> q.matchAll(m -> m)));
 
       DeleteByQueryResponse productsResponse = elasticsearchClient.deleteByQuery(productsRequest);
       log.info("products 인덱스 데이터 삭제 완료: {} 건", productsResponse.deleted());
@@ -218,7 +224,7 @@ public class ProductIndexingService {
     try {
       DeleteByQueryRequest autocompleteRequest =
           DeleteByQueryRequest.of(
-              d -> d.index(AUTOCOMPLETE_INDEX_NAME).query(q -> q.matchAll(m -> m)));
+              d -> d.index(ESFields.AUTOCOMPLETE_INDEX).query(q -> q.matchAll(m -> m)));
 
       DeleteByQueryResponse autocompleteResponse =
           elasticsearchClient.deleteByQuery(autocompleteRequest);

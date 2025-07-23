@@ -1,23 +1,30 @@
 {
   "properties": {
-    "brand": { "type": "keyword" },
-    "category": { "type": "keyword" },
-    "description": {
+    "id": {
+      "type": "long"
+    },
+    "brand_name": {
+      "type": "keyword"
+    },
+    "category_id": {
+      "type": "long",
+      "index": false
+    },
+    "category_name": {
+      "type": "keyword"
+    },
+    "specs": {
       "type": "text",
       "analyzer": "nori_index_analyzer",
       "search_analyzer": "nori_search_analyzer"
     },
-    "description_raw": { "type": "keyword" },
-    "id": {
-      "type": "text",
-      "fields": {
-        "keyword": {
-          "type": "keyword",
-          "ignore_above": 256
-        }
-      }
+    "specs_raw": {
+      "type": "keyword",
+      "index": false
     },
-    "model": { "type": "keyword" },
+    "model": {
+      "type": "keyword"
+    },
     "name": {
       "type": "text",
       "fields": {
@@ -29,13 +36,26 @@
       "analyzer": "nori_index_analyzer",
       "search_analyzer": "nori_search_analyzer"
     },
-    "name_raw": { "type": "keyword" },
-    "price": { "type": "integer" },
-    "registered_month": {
+    "name_raw": {
+      "type": "keyword",
+      "index": false
+    },
+    "price": {
+      "type": "long"
+    },
+    "reg_month": {
       "type": "date",
       "format": "yyyy-MM"
     },
-    "review_count": { "type": "integer" },
-    "thumbnail_url": { "type": "keyword" }
+    "review_count": {
+      "type": "integer"
+    },
+    "rating": {
+      "type": "float"
+    },
+    "thumbnail_url": {
+      "type": "keyword",
+      "index": false
+    }
   }
-} 
+}

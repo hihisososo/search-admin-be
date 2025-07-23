@@ -5,6 +5,8 @@ import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.util.BrandExtractor;
 import com.yjlee.search.index.util.ModelExtractor;
+import com.yjlee.search.index.util.RegDateExtractor;
+import java.math.BigDecimal;
 import java.util.List;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -23,7 +25,9 @@ public class ProductDocument {
   String nameRaw;
 
   List<String> model;
-  String brand;
+
+  @JsonProperty("brand_name")
+  String brandName;
 
   @JsonProperty("thumbnail_url")
   String thumbnailUrl;
@@ -33,14 +37,18 @@ public class ProductDocument {
   @JsonProperty("registered_month")
   String registeredMonth;
 
+  BigDecimal rating;
+
   @JsonProperty("review_count")
   Integer reviewCount;
 
-  String category;
-  String description;
+  @JsonProperty("category_name")
+  String categoryName;
 
-  @JsonProperty("description_raw")
-  String descriptionRaw;
+  String specs;
+
+  @JsonProperty("specs_raw")
+  String specsRaw;
 
   public static ProductDocument from(Product product) {
     return ProductDocument.builder()
@@ -48,14 +56,15 @@ public class ProductDocument {
         .name(TextPreprocessor.preprocess(product.getName()))
         .nameRaw(product.getName())
         .model(ModelExtractor.extractModels(product.getName()))
-        .brand(BrandExtractor.extractBrand(product.getName()))
+        .brandName(BrandExtractor.extractBrand(product.getName()))
         .thumbnailUrl(product.getThumbnailUrl())
         .price(product.getPrice() != null ? product.getPrice().intValue() : null)
-        .registeredMonth(product.getRegMonth().replace(".", "-"))
-        .reviewCount(product.getReviewCount() != null ? product.getReviewCount().intValue() : 0)
-        .category(product.getCategoryName())
-        .description(TextPreprocessor.preprocess(product.getDescription()))
-        .descriptionRaw(product.getDescription())
+        .registeredMonth(RegDateExtractor.extractRegDate(product.getRegMonth()))
+        .rating(product.getRating())
+        .reviewCount(product.getReviewCount() != null ? product.getReviewCount() : 0)
+        .categoryName(product.getCategoryName())
+        .specs(product.getSpecs() != null ? TextPreprocessor.preprocess(product.getSpecs()) : null)
+        .specsRaw(product.getSpecs())
         .build();
   }
 }

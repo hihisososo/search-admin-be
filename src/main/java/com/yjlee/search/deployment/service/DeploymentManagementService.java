@@ -42,8 +42,6 @@ public class DeploymentManagementService {
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
   private final ElasticsearchSynonymService elasticsearchSynonymService;
 
-  private static final String PRODUCTS_SEARCH_ALIAS = "products-search";
-
   public EnvironmentListResponse getEnvironments() {
     List<IndexEnvironment> environments = indexEnvironmentRepository.findAll();
 
@@ -231,8 +229,24 @@ public class DeploymentManagementService {
     try {
       log.info("배포 실행 - 개발: {} -> 운영", devEnvironment.getIndexName());
 
+      // 0. 배포 전 현재 alias 상태 확인
+      try {
+        var currentAliasIndices = elasticsearchIndexService.getCurrentAliasIndices();
+        log.info("배포 전 products-search alias 상태: {}", currentAliasIndices);
+      } catch (Exception e) {
+        log.warn("배포 전 alias 상태 확인 실패 (무시하고 계속 진행): {}", e.getMessage());
+      }
+
       // 1. products-search alias를 개발 인덱스로 변경
       elasticsearchIndexService.updateProductsSearchAlias(devEnvironment.getIndexName());
+
+      // 1-1. 배포 후 alias 상태 확인
+      try {
+        var updatedAliasIndices = elasticsearchIndexService.getCurrentAliasIndices();
+        log.info("배포 후 products-search alias 상태: {}", updatedAliasIndices);
+      } catch (Exception e) {
+        log.warn("배포 후 alias 상태 확인 실패 (무시하고 계속 진행): {}", e.getMessage());
+      }
 
       // 2. 기존 운영 인덱스 삭제 (있으면 삭제)
       if (prodEnvironment.getIndexName() != null) {

@@ -10,10 +10,6 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
-  servlet:
-    multipart:
-      max-file-size: 50MB
-      max-request-size: 50MB
 
 springdoc:
   api-docs:
@@ -26,8 +22,8 @@ app:
     host: ${ELASTICSEARCH_HOST}
     port: ${ELASTICSEARCH_PORT}
   aws:
-    access-key: ${AWS_ACCESS_KEY_ID:}
-    secret-key: ${AWS_SECRET_ACCESS_KEY:}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
     region: ap-northeast-2
     s3:
       bucket: ${AWS_S3_BUCKET_NAME}
@@ -36,9 +32,9 @@ app:
 
 openai:
   api:
-    key: ${OPENAI_API_KEY:}
+    key: ${OPENAI_API_KEY}
     url: https://api.openai.com/v1/chat/completions
 
 logging:
   level:
-    com.yjlee.search: DEBUG 
+    com.yjlee.search: DEBUG
