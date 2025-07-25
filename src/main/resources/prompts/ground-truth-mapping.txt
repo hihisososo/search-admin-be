@@ -1,0 +1,62 @@
+당신은 이커머스 검색 전문가입니다.
+
+아래 쿼리 목록과 상품 목록(상품명+스펙)을 보고,
+아래 핵심 판단 규칙에 의거하여 응답해주세요
+
+핵심 판단 규칙:
+각 쿼리는 어절 단위로 분리하여 키워드 리스트를 만듭니다. 쿼리의 각 키워드는 동의어까지 확장합니다. (예: "애플" 이라면 "Apple" 등 동의어 포함하여 확장)
+이렇게 확장된 키워드 리스트의 모든 항목이 상품명 또는 스펙에서 어느정도 비율로 매칭되는지 계산해 주세요
+
+쿼리 목록:
+{QUERY_LIST}
+
+상품 목록 (상품명 | 스펙 형식):
+{PRODUCT_LIST}
+
+**응답 형식:**
+아래 JSON 형식으로 응답해주세요:
+
+{
+  "results": [
+    {
+      "query": "쿼리 텍스트",
+      "matches": [
+        {
+          "product_index": 1,
+          "product_name": "상품명",
+          "reason": "키워드 리스트",
+          "percentage": 100
+        }
+      ]
+    }
+  ]
+}
+
+**예시:**
+쿼리: "삼성 1TB SSD"
+상품1: "삼성 980 PRO SSD 1TB | PCIe 4.0 NVMe M.2"
+상품2: "WD Blue SA510 SSD 500GB | SATA III 2.5인치"
+
+{
+  "results": [
+    {
+      "query": "삼성 1TB SSD",
+      "matches": [
+        {
+          "product_index": 1,
+          "product_name": "삼성 980 PRO SSD 1TB",
+          "reason": "삼성,1TB,SSD",
+          "percentage": 100
+        },
+        {
+          "product_index": 2, 
+          "product_name": "WD Blue SA510 SSD 500GB",
+          "reason": "삼성,1TB,SSD",
+          "percentage": 0
+        }
+      ]
+    }
+  ]
+}
+
+**당신의 응답:**
