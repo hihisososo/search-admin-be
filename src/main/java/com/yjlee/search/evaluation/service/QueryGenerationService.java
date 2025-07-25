@@ -144,31 +144,36 @@ public class QueryGenerationService {
   }
 
   private SearchResponse<ProductDocument> initiateScrollSearch() throws Exception {
-    SearchRequest searchRequest = SearchRequest.of(
-        builder -> builder
-            .index(ESFields.PRODUCTS_SEARCH_ALIAS)
-            .size(BATCH_SIZE)
-            .scroll(s -> s.time(SCROLL_TIMEOUT))
-            .source(
-                src -> src.filter(
-                    f -> f.includes(
-                        ESFields.PRODUCT_NAME_RAW, ESFields.PRODUCT_SPECS_RAW)))
-            .query(q -> q.term(t -> t.field(ESFields.CATEGORY_NAME).value("SSD"))));
+    SearchRequest searchRequest =
+        SearchRequest.of(
+            builder ->
+                builder
+                    .index(ESFields.PRODUCTS_SEARCH_ALIAS)
+                    .size(BATCH_SIZE)
+                    .scroll(s -> s.time(SCROLL_TIMEOUT))
+                    .source(
+                        src ->
+                            src.filter(
+                                f ->
+                                    f.includes(
+                                        ESFields.PRODUCT_NAME_RAW, ESFields.PRODUCT_SPECS_RAW)))
+                    .query(q -> q.term(t -> t.field(ESFields.CATEGORY_NAME).value("SSD"))));
 
     log.debug("🔍 Scroll 검색 시작: batch_size={}, timeout={}", BATCH_SIZE, SCROLL_TIMEOUT);
     return elasticsearchClient.search(searchRequest, ProductDocument.class);
   }
 
   private ScrollResponse<ProductDocument> continueScroll(String scrollId) throws Exception {
-    ScrollRequest scrollRequest = ScrollRequest
-        .of(builder -> builder.scrollId(scrollId).scroll(s -> s.time(SCROLL_TIMEOUT)));
+    ScrollRequest scrollRequest =
+        ScrollRequest.of(builder -> builder.scrollId(scrollId).scroll(s -> s.time(SCROLL_TIMEOUT)));
 
     return elasticsearchClient.scroll(scrollRequest, ProductDocument.class);
   }
 
   private void clearScroll(String scrollId) {
     try {
-      ClearScrollRequest clearRequest = ClearScrollRequest.of(builder -> builder.scrollId(scrollId));
+      ClearScrollRequest clearRequest =
+          ClearScrollRequest.of(builder -> builder.scrollId(scrollId));
       elasticsearchClient.clearScroll(clearRequest);
       log.debug("🧹 Scroll 정리 완료: scrollId={}", scrollId);
     } catch (Exception e) {
@@ -180,8 +185,9 @@ public class QueryGenerationService {
     return hits.stream()
         .filter(hit -> isValidProduct(hit.source()))
         .map(
-            hit -> new ProductInfoDto(
-                hit.id(), hit.source().getNameRaw().trim(), hit.source().getSpecsRaw()))
+            hit ->
+                new ProductInfoDto(
+                    hit.id(), hit.source().getNameRaw().trim(), hit.source().getSpecsRaw()))
         .collect(Collectors.toList());
   }
 
@@ -242,7 +248,8 @@ public class QueryGenerationService {
 
   private void saveLLMInteraction(String prompt, String response, int productCount) {
     try {
-      String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"));
+      String timestamp =
+          LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"));
       String baseFileName = String.format("batch_%s_products_%d", timestamp, productCount);
 
       // 입력 프롬프트 저장
@@ -337,9 +344,10 @@ public class QueryGenerationService {
   }
 
   private void saveGeneratedQueries(Map<String, Integer> queryCountMap) {
-    List<EvaluationQuery> evaluationQueries = queryCountMap.entrySet().stream()
-        .map(this::createEvaluationQuery)
-        .collect(Collectors.toList());
+    List<EvaluationQuery> evaluationQueries =
+        queryCountMap.entrySet().stream()
+            .map(this::createEvaluationQuery)
+            .collect(Collectors.toList());
 
     evaluationQueryRepository.saveAll(evaluationQueries);
   }

@@ -9,4 +9,4 @@ public class TestPromptResponse {
   private String prompt;
   private String response;
   private long responseTimeMs;
-} 
+}

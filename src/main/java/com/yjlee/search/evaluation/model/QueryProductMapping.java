@@ -34,4 +34,4 @@ public class QueryProductMapping {
 
   @Column(columnDefinition = "TEXT")
   String matchingReasons;
-} 
+}

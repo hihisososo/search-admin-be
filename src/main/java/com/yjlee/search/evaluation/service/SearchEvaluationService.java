@@ -9,11 +9,9 @@ import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.search.dto.ProductFiltersDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
-import com.yjlee.search.search.dto.SearchHitsDto;
 import com.yjlee.search.search.service.SearchService;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -38,9 +36,8 @@ public class SearchEvaluationService {
     log.info("🔍 검색 평가 시작 - 쿼리: '{}', TOP-{}", query, topK);
 
     // 1. 정답셋 조회
-    Optional<QueryProductMapping> groundTruthOpt = queryProductMappingRepository
-        .findByQuery(query);
-    
+    Optional<QueryProductMapping> groundTruthOpt = queryProductMappingRepository.findByQuery(query);
+
     if (groundTruthOpt.isEmpty()) {
       log.warn("⚠️ 정답셋이 없는 쿼리: '{}'", query);
       return buildEmptyResponse(query, topK);
@@ -59,8 +56,12 @@ public class SearchEvaluationService {
     double precision = calculatePrecision(correctIds.size(), searchResultIds.size());
     double recall = calculateRecall(correctIds.size(), groundTruthIds.size());
 
-    log.info("📈 평가 완료 - 정확률: {:.3f}, 재현률: {:.3f}, 정답: {}/{}", 
-        precision, recall, correctIds.size(), groundTruthIds.size());
+    log.info(
+        "📈 평가 완료 - 정확률: {:.3f}, 재현률: {:.3f}, 정답: {}/{}",
+        precision,
+        recall,
+        correctIds.size(),
+        groundTruthIds.size());
 
     return SearchEvaluationResponse.builder()
         .query(query)
@@ -124,9 +125,7 @@ public class SearchEvaluationService {
   }
 
   private Set<String> calculateIntersection(List<String> searchResults, Set<String> groundTruth) {
-    return searchResults.stream()
-        .filter(groundTruth::contains)
-        .collect(Collectors.toSet());
+    return searchResults.stream().filter(groundTruth::contains).collect(Collectors.toSet());
   }
 
   private double calculatePrecision(int correctCount, int totalSearchResults) {
@@ -149,29 +148,30 @@ public class SearchEvaluationService {
     for (QueryProductMapping mapping : allMappings) {
       try {
         String query = mapping.getQuery();
-        
+
         SearchEvaluationRequest request = new SearchEvaluationRequest();
         request.setQuery(query);
         request.setTopK(100);
-        
+
         SearchEvaluationResponse response = evaluateSearch(request);
-        
-        EvaluationResult result = EvaluationResult.builder()
-            .query(query)
-            .precision(response.getPrecision())
-            .recall(response.getRecall())
-            .correctCount(response.getCorrectResults())
-            .totalSearchResults(response.getTotalSearchResults())
-            .totalGroundTruth(response.getTotalGroundTruth())
-            .build();
-            
+
+        EvaluationResult result =
+            EvaluationResult.builder()
+                .query(query)
+                .precision(response.getPrecision())
+                .recall(response.getRecall())
+                .correctCount(response.getCorrectResults())
+                .totalSearchResults(response.getTotalSearchResults())
+                .totalGroundTruth(response.getTotalGroundTruth())
+                .build();
+
         results.add(result);
         processed++;
-        
+
         if (processed % 10 == 0) {
           log.info("📈 진행률: {}/{}", processed, allMappings.size());
         }
-        
+
       } catch (Exception e) {
         log.warn("⚠️ 쿼리 평가 실패: '{}'", mapping.getQuery(), e);
       }
@@ -179,7 +179,7 @@ public class SearchEvaluationService {
 
     evaluationResultRepository.saveAll(results);
     log.info("✅ 모든 쿼리 평가 완료: {}개 저장", results.size());
-    
+
     return String.format("평가 완료: %d개 쿼리 처리됨", results.size());
   }
-} 
+}

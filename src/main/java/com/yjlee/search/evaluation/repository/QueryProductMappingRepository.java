@@ -8,4 +8,4 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface QueryProductMappingRepository extends JpaRepository<QueryProductMapping, Long> {
   Optional<QueryProductMapping> findByQuery(String query);
-} 
+}

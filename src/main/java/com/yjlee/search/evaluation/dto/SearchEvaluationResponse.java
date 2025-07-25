@@ -1,8 +1,8 @@
 package com.yjlee.search.evaluation.dto;
 
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
-import java.util.List;
 
 @Getter
 @Builder
@@ -17,4 +17,4 @@ public class SearchEvaluationResponse {
   private List<String> searchResultIds;
   private List<String> groundTruthIds;
   private List<String> correctIds;
-} 
+}

@@ -56,7 +56,8 @@ public class SearchEvaluationController {
 
   @Operation(summary = "검색 평가", description = "정답셋을 기반으로 검색 품질(정확률, 재현률)을 평가합니다")
   @PostMapping("/evaluate")
-  public ResponseEntity<SearchEvaluationResponse> evaluateSearch(@RequestBody SearchEvaluationRequest request) {
+  public ResponseEntity<SearchEvaluationResponse> evaluateSearch(
+      @RequestBody SearchEvaluationRequest request) {
     try {
       SearchEvaluationResponse response = searchEvaluationService.evaluateSearch(request);
       return ResponseEntity.ok(response);
@@ -83,13 +84,14 @@ public class SearchEvaluationController {
       long startTime = System.currentTimeMillis();
       String response = llmService.callLLMAPI(request.getPrompt());
       long endTime = System.currentTimeMillis();
-      
-      TestPromptResponse testResponse = TestPromptResponse.builder()
-          .prompt(request.getPrompt())
-          .response(response)
-          .responseTimeMs(endTime - startTime)
-          .build();
-          
+
+      TestPromptResponse testResponse =
+          TestPromptResponse.builder()
+              .prompt(request.getPrompt())
+              .response(response)
+              .responseTimeMs(endTime - startTime)
+              .build();
+
       return ResponseEntity.ok(testResponse);
     } catch (Exception e) {
       return ResponseEntity.badRequest().build();
@@ -98,24 +100,26 @@ public class SearchEvaluationController {
 
   @Operation(summary = "파일 프롬프트 테스트", description = "파일로 프롬프트를 업로드하여 LLM 테스트")
   @PostMapping(value = "/test-prompt-file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<TestPromptResponse> testPromptFile(@RequestParam("file") MultipartFile file) {
+  public ResponseEntity<TestPromptResponse> testPromptFile(
+      @RequestParam("file") MultipartFile file) {
     try {
       if (file.isEmpty()) {
         return ResponseEntity.badRequest().build();
       }
 
       String prompt = new String(file.getBytes(), "UTF-8");
-      
+
       long startTime = System.currentTimeMillis();
       String response = llmService.callLLMAPI(prompt);
       long endTime = System.currentTimeMillis();
-      
-      TestPromptResponse testResponse = TestPromptResponse.builder()
-          .prompt(prompt)
-          .response(response)
-          .responseTimeMs(endTime - startTime)
-          .build();
-          
+
+      TestPromptResponse testResponse =
+          TestPromptResponse.builder()
+              .prompt(prompt)
+              .response(response)
+              .responseTimeMs(endTime - startTime)
+              .build();
+
       return ResponseEntity.ok(testResponse);
     } catch (Exception e) {
       return ResponseEntity.badRequest().build();

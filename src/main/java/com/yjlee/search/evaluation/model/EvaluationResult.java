@@ -43,4 +43,4 @@ public class EvaluationResult {
 
   @Column(nullable = false)
   Integer totalGroundTruth;
-} 
+}

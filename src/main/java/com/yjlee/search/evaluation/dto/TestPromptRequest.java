@@ -5,4 +5,4 @@ import lombok.Getter;
 @Getter
 public class TestPromptRequest {
   private String prompt;
-} 
+}

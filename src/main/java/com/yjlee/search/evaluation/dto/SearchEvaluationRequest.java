@@ -8,4 +8,4 @@ import lombok.Setter;
 public class SearchEvaluationRequest {
   private String query;
   private int topK = 100;
-} 
+}
