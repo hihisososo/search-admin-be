@@ -229,21 +229,6 @@ public class SearchController {
           e.getMessage(),
           e);
       throw e;
-
-    } finally {
-      try {
-        searchLogService.collectSearchLogSimulation(
-            request,
-            requestTime,
-            clientIp,
-            userAgent,
-            responseTimeMs,
-            response,
-            isError,
-            errorMessage);
-      } catch (Exception logError) {
-        log.warn("검색 시뮬레이션 로그 수집 실패: {}", logError.getMessage(), logError);
-      }
     }
 
     return ResponseEntity.ok(response);

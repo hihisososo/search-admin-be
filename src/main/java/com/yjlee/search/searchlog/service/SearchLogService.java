@@ -1,6 +1,7 @@
 package com.yjlee.search.searchlog.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
@@ -8,6 +9,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
@@ -16,10 +18,14 @@ import com.yjlee.search.search.dto.PopularKeywordDto;
 import com.yjlee.search.search.dto.PopularKeywordsResponse;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
-import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.dto.TrendingKeywordDto;
 import com.yjlee.search.search.dto.TrendingKeywordsResponse;
+import com.yjlee.search.searchlog.dto.SearchLogFilterOptionsResponse;
+import com.yjlee.search.searchlog.dto.SearchLogListRequest;
+import com.yjlee.search.searchlog.dto.SearchLogListResponse;
+import com.yjlee.search.searchlog.dto.SearchLogResponse;
 import com.yjlee.search.searchlog.model.SearchLogDocument;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -347,9 +353,17 @@ public class SearchLogService {
   }
 
   private String generateIndexPattern(LocalDateTime fromDate, LocalDateTime toDate) {
+    // 날짜가 없으면 모든 인덱스 조회
+    if (fromDate == null || toDate == null) {
+      return INDEX_PREFIX + "*";
+    }
+
+    // 같은 날짜이면 해당 날짜의 인덱스만 조회
     if (fromDate.toLocalDate().equals(toDate.toLocalDate())) {
       return generateIndexName(fromDate);
     }
+
+    // 다른 날짜이면 모든 인덱스 조회 (추후 날짜 범위별 인덱스 패턴 구현 가능)
     return INDEX_PREFIX + "*";
   }
 
@@ -528,47 +542,234 @@ public class SearchLogService {
     log.debug("검색 로그 수집 완료 - 키워드: {}, 결과수: {}", keyword, resultCount);
   }
 
-  /** 시뮬레이션 검색 로그 수집 */
-  public void collectSearchLogSimulation(
-      SearchSimulationRequest request,
-      LocalDateTime timestamp,
-      String clientIp,
-      String userAgent,
-      long responseTimeMs,
-      SearchExecuteResponse response,
-      boolean isError,
-      String errorMessage) {
+  public SearchLogListResponse getSearchLogs(SearchLogListRequest request) {
+    // 페이지와 사이즈 값 유효성 검증
+    int page = Math.max(1, request.getPage() != null ? request.getPage() : 1);
+    int size = Math.max(1, Math.min(100, request.getSize() != null ? request.getSize() : 50));
 
-    String keyword =
-        request.getQuery() != null && !request.getQuery().trim().isEmpty()
-            ? request.getQuery().trim()
-            : "unknown";
+    try {
 
-    Long resultCount =
-        response != null && response.getHits() != null ? response.getHits().getTotal() : 0L;
+      String indexPattern = generateIndexPattern(request.getStartDate(), request.getEndDate());
 
-    String indexName = "simulation_" + request.getEnvironmentType().name().toLowerCase();
+      Query query = buildSearchQuery(request);
 
-    SearchLogDocument searchLog =
-        SearchLogDocument.builder()
-            .timestamp(timestamp)
-            .searchKeyword(keyword)
-            .indexName(indexName)
-            .responseTimeMs(responseTimeMs)
-            .resultCount(resultCount)
-            .queryDsl("product_search_simulation")
-            .clientIp(clientIp)
-            .userAgent(userAgent)
-            .isError(isError)
-            .errorMessage(errorMessage)
-            .build();
+      int from = (page - 1) * size;
 
-    saveSearchLog(searchLog);
+      // Elasticsearch from + size 제한 확인 (기본 10,000)
+      if (from + size > 10000) {
+        log.warn(
+            "Elasticsearch from + size 제한 초과: from={}, size={}, 합계={} (최대 10,000)",
+            from,
+            size,
+            from + size);
+      }
 
-    log.debug(
-        "검색 시뮬레이션 로그 수집 완료 - 환경: {}, 키워드: {}, 결과수: {}",
-        request.getEnvironmentType().getDescription(),
-        keyword,
-        resultCount);
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index(indexPattern)
+                      .query(query)
+                      .from(from)
+                      .size(size)
+                      .sort(
+                          sortBuilder ->
+                              sortBuilder.field(
+                                  fieldSort ->
+                                      fieldSort
+                                          .field(getSortField(request.getSort()))
+                                          .order(
+                                              "desc".equals(request.getOrder())
+                                                  ? SortOrder.Desc
+                                                  : SortOrder.Asc)))
+                      .allowNoIndices(true) // 인덱스가 없어도 에러 안남
+                      .ignoreUnavailable(true) // 사용할 수 없는 인덱스 무시
+                      .trackTotalHits(t -> t.enabled(true))); // 정확한 총 건수 계산
+
+      SearchResponse<SearchLogDocument> response =
+          elasticsearchClient.search(searchRequest, SearchLogDocument.class);
+
+      List<SearchLogResponse> content =
+          response.hits().hits().stream().map(this::convertToResponse).collect(Collectors.toList());
+
+      long totalElements = response.hits().total() != null ? response.hits().total().value() : 0;
+      int totalPages = (int) Math.ceil((double) totalElements / size);
+
+      // 디버깅 로그
+      log.info(
+          "검색 로그 조회 결과 - from: {}, size: {}, 실제 조회된 건수: {}, 총 건수: {}, 계산된 총 페이지: {}, 요청 페이지: {}",
+          from,
+          size,
+          content.size(),
+          totalElements,
+          totalPages,
+          page);
+
+      // 요청한 페이지가 총 페이지를 초과하고 데이터가 없는 경우 경고 로그
+      if (page > totalPages && content.isEmpty() && totalElements > 0) {
+        log.warn("요청한 페이지({})가 총 페이지({})를 초과함. 총 건수: {}", page, totalPages, totalElements);
+      }
+
+      return SearchLogListResponse.builder()
+          .content(content)
+          .totalElements(totalElements)
+          .totalPages(totalPages)
+          .currentPage(page)
+          .size(size)
+          .hasNext(page < totalPages)
+          .hasPrevious(page > 1)
+          .build();
+
+    } catch (Exception e) {
+      log.error(
+          "검색 로그 조회 실패 - 인덱스 패턴: {}, 페이지: {}, 크기: {}, 키워드: {}",
+          generateIndexPattern(request.getStartDate(), request.getEndDate()),
+          page,
+          size,
+          request.getKeyword(),
+          e);
+
+      // 빈 응답 반환 (에러 대신)
+      return SearchLogListResponse.builder()
+          .content(new ArrayList<>())
+          .totalElements(0L)
+          .totalPages(0)
+          .currentPage(page)
+          .size(size)
+          .hasNext(false)
+          .hasPrevious(false)
+          .build();
+    }
+  }
+
+  public SearchLogFilterOptionsResponse getFilterOptions() {
+    try {
+      String indexPattern = INDEX_PREFIX + "*";
+
+      // 인덱스명 조회
+      List<String> indexNames = getDistinctValues(indexPattern, "indexName.keyword", 20);
+
+      // 최근 키워드 조회
+      List<String> recentKeywords = getDistinctValues(indexPattern, "searchKeyword.keyword", 50);
+
+      // Top IP 조회
+      List<String> topClientIps = getDistinctValues(indexPattern, "clientIp.keyword", 20);
+
+      // 날짜 범위는 고정 (최근 30일)
+      LocalDate now = LocalDate.now();
+      SearchLogFilterOptionsResponse.DateRange dateRange =
+          SearchLogFilterOptionsResponse.DateRange.builder()
+              .minDate(now.minusDays(30))
+              .maxDate(now)
+              .build();
+
+      // 응답시간 통계 (고정값)
+      SearchLogFilterOptionsResponse.ResponseTimeStats responseTimeStats =
+          SearchLogFilterOptionsResponse.ResponseTimeStats.builder()
+              .min(5L)
+              .max(5000L)
+              .avg(100L)
+              .build();
+
+      return SearchLogFilterOptionsResponse.builder()
+          .indexNames(indexNames)
+          .recentKeywords(recentKeywords)
+          .topClientIps(topClientIps)
+          .dateRange(dateRange)
+          .responseTimeStats(responseTimeStats)
+          .build();
+
+    } catch (Exception e) {
+      log.error("필터 옵션 조회 실패", e);
+      throw new RuntimeException("필터 옵션 조회 실패: " + e.getMessage(), e);
+    }
+  }
+
+  private Query buildSearchQuery(SearchLogListRequest request) {
+    BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+
+    // 키워드 필터
+    if (request.getKeyword() != null && !request.getKeyword().trim().isEmpty()) {
+      boolQuery.filter(
+          Query.of(
+              q ->
+                  q.wildcard(
+                      w ->
+                          w.field("search_keyword.keyword")
+                              .value("*" + request.getKeyword() + "*"))));
+    }
+
+    // 인덱스명 필터
+    if (request.getIndexName() != null && !request.getIndexName().trim().isEmpty()) {
+      boolQuery.filter(
+          Query.of(q -> q.term(t -> t.field("indexName.keyword").value(request.getIndexName()))));
+    }
+
+    // 에러 여부 필터
+    if (request.getIsError() != null) {
+      boolQuery.filter(Query.of(q -> q.term(t -> t.field("isError").value(request.getIsError()))));
+    }
+
+    // IP 필터
+    if (request.getClientIp() != null && !request.getClientIp().trim().isEmpty()) {
+      boolQuery.filter(
+          Query.of(q -> q.term(t -> t.field("clientIp.keyword").value(request.getClientIp()))));
+    }
+
+    // TODO: 날짜 범위, 응답시간, 결과수 범위 필터 추후 구현
+
+    return Query.of(q -> q.bool(boolQuery.build()));
+  }
+
+  private List<String> getDistinctValues(String indexPattern, String field, int size) {
+    try {
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index(indexPattern)
+                      .size(0)
+                      .aggregations(
+                          "distinct_values",
+                          Aggregation.of(a -> a.terms(t -> t.field(field).size(size)))));
+
+      SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
+
+      if (response.aggregations() != null
+          && response.aggregations().get("distinct_values") != null) {
+        StringTermsAggregate termsAgg = response.aggregations().get("distinct_values").sterms();
+        return termsAgg.buckets().array().stream()
+            .map(bucket -> bucket.key().stringValue())
+            .collect(Collectors.toList());
+      }
+
+      return new ArrayList<>();
+    } catch (Exception e) {
+      log.warn("Distinct values 조회 실패: {}", e.getMessage());
+      return new ArrayList<>();
+    }
+  }
+
+  private SearchLogResponse convertToResponse(Hit<SearchLogDocument> hit) {
+    SearchLogDocument doc = hit.source();
+    return SearchLogResponse.builder()
+        .id(hit.id())
+        .timestamp(doc.getTimestamp())
+        .searchKeyword(doc.getSearchKeyword())
+        .indexName(doc.getIndexName())
+        .responseTimeMs(doc.getResponseTimeMs())
+        .resultCount(doc.getResultCount())
+        .clientIp(doc.getClientIp())
+        .userAgent(doc.getUserAgent())
+        .isError(doc.getIsError())
+        .errorMessage(doc.getErrorMessage())
+        .build();
+  }
+
+  private String getSortField(String sort) {
+    return switch (sort) {
+      case "responseTime" -> "responseTimeMs";
+      case "resultCount" -> "resultCount";
+      case "searchKeyword" -> "searchKeyword.keyword";
+      default -> "timestamp";
+    };
   }
 }
