@@ -15,6 +15,12 @@
     },
     "specs": {
       "type": "text",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      },
       "analyzer": "nori_index_analyzer",
       "search_analyzer": "nori_search_analyzer"
     },
@@ -22,6 +28,7 @@
       "type": "keyword",
       "index": false
     },
+
     "model": {
       "type": "keyword"
     },
@@ -39,6 +46,12 @@
     "name_raw": {
       "type": "keyword",
       "index": false
+    },
+    "content_vector": {
+      "type": "dense_vector",
+      "dims": 1536,
+      "index": true,
+      "similarity": "cosine"
     },
     "price": {
       "type": "long"

@@ -50,6 +50,9 @@ public class ProductDocument {
   @JsonProperty("specs_raw")
   String specsRaw;
 
+  @JsonProperty("name_specs_vector")
+  List<Float> nameSpecsVector;
+
   public static ProductDocument from(Product product) {
     return ProductDocument.builder()
         .id(String.valueOf(product.getId()))
@@ -63,7 +66,7 @@ public class ProductDocument {
         .rating(product.getRating())
         .reviewCount(product.getReviewCount() != null ? product.getReviewCount() : 0)
         .categoryName(product.getCategoryName())
-        .specs(product.getSpecs() != null ? TextPreprocessor.preprocess(product.getSpecs()) : null)
+        .specs(TextPreprocessor.preprocess(product.getSpecs() + " " + product.getCategoryName()))
         .specsRaw(product.getSpecs())
         .build();
   }

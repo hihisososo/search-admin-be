@@ -6,13 +6,16 @@ import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.DeleteByQueryRequest;
 import co.elastic.clients.elasticsearch.core.DeleteByQueryResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yjlee.search.evaluation.service.OpenAIEmbeddingService;
 import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.search.constants.ESFields;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,6 +30,7 @@ public class ProductIndexingService {
   private final ElasticsearchClient elasticsearchClient;
   private final ProductRepository productRepository;
   private final ObjectMapper objectMapper;
+  private final OpenAIEmbeddingService embeddingService;
 
   private static final int BATCH_SIZE = 1000;
 
@@ -49,8 +53,7 @@ public class ProductIndexingService {
         break;
       }
 
-      List<ProductDocument> documents =
-          productPage.getContent().stream().map(ProductDocument::from).toList();
+      List<ProductDocument> documents = createDocumentsWithEmbeddings(productPage.getContent());
       List<AutocompleteDocument> autocompleteDocuments =
           productPage.getContent().stream().map(AutocompleteDocument::from).toList();
 
@@ -89,8 +92,7 @@ public class ProductIndexingService {
         break;
       }
 
-      List<ProductDocument> documents =
-          productPage.getContent().stream().map(ProductDocument::from).toList();
+      List<ProductDocument> documents = createDocumentsWithEmbeddings(productPage.getContent());
 
       int indexed = bulkIndexToSpecificIndex(documents, indexName);
       totalIndexed += indexed;
@@ -234,5 +236,129 @@ public class ProductIndexingService {
     }
 
     log.info("기존 인덱스 데이터 삭제 완료");
+  }
+
+  private List<ProductDocument> createDocumentsWithEmbeddings(List<Product> products) {
+    log.info("🔄 벌크 임베딩 생성 시작: {}개 상품", products.size());
+
+    try {
+      // 기본 문서 생성
+      List<ProductDocument> baseDocs =
+          products.stream().map(ProductDocument::from).collect(Collectors.toList());
+
+      // 통합 컨텐츠 텍스트 수집 (name + specs 결합)
+      List<String> allTexts = new ArrayList<>();
+      for (ProductDocument doc : baseDocs) {
+        String combinedContent = createCombinedContent(doc.getNameRaw(), doc.getSpecsRaw());
+        allTexts.add(combinedContent);
+      }
+
+      log.info("📦 벌크 임베딩 요청: {}개 통합 컨텐츠", allTexts.size());
+
+      // 벌크 임베딩 생성
+      List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(allTexts);
+
+      if (allEmbeddings.size() != allTexts.size()) {
+        log.warn("⚠️ 임베딩 개수 불일치: 요청 {} vs 응답 {}", allTexts.size(), allEmbeddings.size());
+      }
+
+      // 임베딩을 상품별로 분배하여 최종 문서 생성
+      List<ProductDocument> documents = new ArrayList<>();
+      for (int i = 0; i < baseDocs.size(); i++) {
+        ProductDocument baseDoc = baseDocs.get(i);
+
+        List<Float> contentVector =
+            convertToFloatList(i < allEmbeddings.size() ? allEmbeddings.get(i) : new float[1536]);
+
+        ProductDocument docWithEmbeddings =
+            ProductDocument.builder()
+                .id(baseDoc.getId())
+                .name(baseDoc.getName())
+                .nameRaw(baseDoc.getNameRaw())
+                .model(baseDoc.getModel())
+                .brandName(baseDoc.getBrandName())
+                .thumbnailUrl(baseDoc.getThumbnailUrl())
+                .price(baseDoc.getPrice())
+                .registeredMonth(baseDoc.getRegisteredMonth())
+                .rating(baseDoc.getRating())
+                .reviewCount(baseDoc.getReviewCount())
+                .categoryName(baseDoc.getCategoryName())
+                .specs(baseDoc.getSpecs())
+                .specsRaw(baseDoc.getSpecsRaw())
+                .nameSpecsVector(contentVector)
+                .build();
+
+        documents.add(docWithEmbeddings);
+      }
+
+      log.info("✅ 벌크 임베딩 생성 완료: {}개 상품", documents.size());
+      return documents;
+
+    } catch (Exception e) {
+      log.error("❌ 벌크 임베딩 생성 실패, 빈 임베딩으로 대체", e);
+
+      // 실패 시 빈 임베딩으로 문서 생성
+      return products.stream()
+          .map(
+              product -> {
+                ProductDocument baseDoc = ProductDocument.from(product);
+                return ProductDocument.builder()
+                    .id(baseDoc.getId())
+                    .name(baseDoc.getName())
+                    .nameRaw(baseDoc.getNameRaw())
+                    .model(baseDoc.getModel())
+                    .brandName(baseDoc.getBrandName())
+                    .thumbnailUrl(baseDoc.getThumbnailUrl())
+                    .price(baseDoc.getPrice())
+                    .registeredMonth(baseDoc.getRegisteredMonth())
+                    .rating(baseDoc.getRating())
+                    .reviewCount(baseDoc.getReviewCount())
+                    .categoryName(baseDoc.getCategoryName())
+                    .specs(baseDoc.getSpecs())
+                    .specsRaw(baseDoc.getSpecsRaw())
+                    .nameSpecsVector(new ArrayList<>())
+                    .build();
+              })
+          .collect(Collectors.toList());
+    }
+  }
+
+  private List<Float> generateEmbedding(String text) {
+    try {
+      if (text == null || text.trim().isEmpty()) {
+        return new ArrayList<>();
+      }
+
+      float[] embedding = embeddingService.getEmbedding(text);
+      return convertToFloatList(embedding);
+    } catch (Exception e) {
+      log.warn("임베딩 생성 실패: {}", text, e);
+      return new ArrayList<>();
+    }
+  }
+
+  private List<Float> convertToFloatList(float[] embedding) {
+    List<Float> result = new ArrayList<>();
+    for (float f : embedding) {
+      result.add(f);
+    }
+    return result;
+  }
+
+  private String createCombinedContent(String nameRaw, String specsRaw) {
+    StringBuilder combined = new StringBuilder();
+
+    if (nameRaw != null && !nameRaw.trim().isEmpty()) {
+      combined.append(nameRaw.trim());
+    }
+
+    if (specsRaw != null && !specsRaw.trim().isEmpty()) {
+      if (combined.length() > 0) {
+        combined.append(" "); // 구분자
+      }
+      combined.append(specsRaw.trim());
+    }
+
+    return combined.toString();
   }
 }

@@ -26,11 +26,11 @@ public class LLMService {
 
   public String callLLMAPI(String prompt) {
     try {
-      log.debug("🤖 LLM API 호출 시작");
+      log.debug("LLM API 호출 시작");
       return performAPICall(prompt);
     } catch (Exception e) {
-      log.error("❌ LLM API 호출 실패", e);
-      return "";
+      log.error("LLM API 호출 실패: {}", e.getMessage(), e);
+      throw new RuntimeException("LLM API 호출 실패: " + e.getMessage(), e);
     }
   }
 

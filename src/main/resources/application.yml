@@ -34,6 +34,7 @@ openai:
   api:
     key: ${OPENAI_API_KEY}
     url: https://api.openai.com/v1/chat/completions
+    embedding: https://api.openai.com/v1/embeddings
 
 logging:
   level:

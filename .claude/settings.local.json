@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(claude --dangerously-skip-permissions)",
+      "Bash(claude --dangerously-skip-permissions --auto-approve)",
+      "Bash(claude config set permissionMode bypassPermissions)",
+      "Bash(claude config set --global permissionMode bypassPermissions)",
+      "mcp__ide__getDiagnostics",
+      "Bash(./gradlew:*)"
+    ],
+    "deny": []
+  }
+}
