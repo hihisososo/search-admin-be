@@ -24,11 +24,10 @@ public class AsyncConfig {
   @Bean(name = "llmTaskExecutor")
   public Executor llmTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(8);
-    executor.setMaxPoolSize(16);
-    executor.setQueueCapacity(100);
+    executor.setCorePoolSize(12); // 8 → 12로 증가 (더 많은 쿼리 동시 처리)
+    executor.setMaxPoolSize(24); // 16 → 24로 증가
+    executor.setQueueCapacity(200); // 100 → 200으로 증가
     executor.setThreadNamePrefix("llm-async-");
-    executor.setKeepAliveSeconds(60);
     executor.initialize();
     return executor;
   }
@@ -36,14 +35,21 @@ public class AsyncConfig {
   @Bean(name = "evaluationTaskExecutor")
   public Executor evaluationTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(6);
-    executor.setMaxPoolSize(12);
-    executor.setQueueCapacity(150);
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(4);
+    executor.setQueueCapacity(50);
     executor.setThreadNamePrefix("evaluation-async-");
-    executor.setKeepAliveSeconds(60);
-    // 큐가 가득 찰 때 호출자 스레드에서 실행하여 백프레셔 제공
-    executor.setRejectedExecutionHandler(
-        new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+    executor.initialize();
+    return executor;
+  }
+
+  @Bean(name = "generalTaskExecutor")
+  public Executor generalTaskExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(10);
+    executor.setMaxPoolSize(20);
+    executor.setQueueCapacity(200);
+    executor.setThreadNamePrefix("general-async-");
     executor.initialize();
     return executor;
   }
