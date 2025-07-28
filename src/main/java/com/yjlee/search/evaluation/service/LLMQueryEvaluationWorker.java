@@ -90,7 +90,8 @@ public class LLMQueryEvaluationWorker {
   }
 
   /** LLM을 사용한 실제 평가 로직 */
-  private void evaluateWithLLM(String query, EvaluationQuery evaluationQuery, List<QueryProductMapping> mappings) {
+  private void evaluateWithLLM(
+      String query, EvaluationQuery evaluationQuery, List<QueryProductMapping> mappings) {
     // 1. 모든 상품 정보를 ES에서 벌크 조회
     List<String> productIds = mappings.stream().map(QueryProductMapping::getProductId).toList();
     Map<String, ProductDocument> productMap = getProductsBulk(productIds);
@@ -133,25 +134,32 @@ public class LLMQueryEvaluationWorker {
         // 배치별 LLM 호출
         log.info("🤖 LLM API 호출 시작 (배치 크기: {})", batchProducts.size());
         String batchResponse = llmService.callLLMAPI(batchPrompt);
-        
+
         if (batchResponse == null || batchResponse.trim().isEmpty()) {
           log.warn("⚠️ LLM API 응답이 비어있습니다");
           throw new RuntimeException("LLM API 응답이 비어있습니다");
         }
-        
+
         log.info("✅ LLM API 응답 수신 (길이: {}자)", batchResponse.length());
         log.debug("LLM 응답 내용: {}", batchResponse);
 
         // 배치별 응답 파싱
-        List<QueryProductMapping> batchResults = parseBulkEvaluationResponse(query, batchMappings, batchResponse);
+        List<QueryProductMapping> batchResults =
+            parseBulkEvaluationResponse(query, batchMappings, batchResponse);
         updatedMappings.addAll(batchResults);
 
-        log.info("✅ 배치 처리 완료: {}-{}/{} (성공: {}개)", i + 1, endIndex, products.size(), batchResults.size());
+        log.info(
+            "✅ 배치 처리 완료: {}-{}/{} (성공: {}개)",
+            i + 1,
+            endIndex,
+            products.size(),
+            batchResults.size());
 
       } catch (Exception e) {
         log.warn("⚠️ 배치 {}-{} 처리 실패", i + 1, endIndex, e);
         // 실패한 배치는 실패 매핑으로 처리
-        List<QueryProductMapping> failedBatch = createFailedMappings(query, batchMappings, "배치 처리 실패: " + e.getMessage());
+        List<QueryProductMapping> failedBatch =
+            createFailedMappings(query, batchMappings, "배치 처리 실패: " + e.getMessage());
         updatedMappings.addAll(failedBatch);
       }
     }
@@ -173,7 +181,8 @@ public class LLMQueryEvaluationWorker {
       log.debug("🔍 ES 벌크 조회 시작: {}개 상품", productIds.size());
 
       // MultiGet 요청 생성
-      MgetRequest.Builder requestBuilder = new MgetRequest.Builder().index(ESFields.PRODUCTS_SEARCH_ALIAS);
+      MgetRequest.Builder requestBuilder =
+          new MgetRequest.Builder().index(ESFields.PRODUCTS_SEARCH_ALIAS);
 
       // 각 상품 ID를 요청에 추가
       for (String productId : productIds) {
@@ -181,7 +190,8 @@ public class LLMQueryEvaluationWorker {
       }
 
       MgetRequest request = requestBuilder.build();
-      MgetResponse<ProductDocument> response = elasticsearchClient.mget(request, ProductDocument.class);
+      MgetResponse<ProductDocument> response =
+          elasticsearchClient.mget(request, ProductDocument.class);
 
       // 응답을 Map으로 변환
       Map<String, ProductDocument> productMap = new HashMap<>();
@@ -222,9 +232,11 @@ public class LLMQueryEvaluationWorker {
 
   private ProductDocument getProductFromES(String productId) {
     try {
-      GetRequest request = GetRequest.of(g -> g.index(ESFields.PRODUCTS_SEARCH_ALIAS).id(productId));
+      GetRequest request =
+          GetRequest.of(g -> g.index(ESFields.PRODUCTS_SEARCH_ALIAS).id(productId));
 
-      GetResponse<ProductDocument> response = elasticsearchClient.get(request, ProductDocument.class);
+      GetResponse<ProductDocument> response =
+          elasticsearchClient.get(request, ProductDocument.class);
       return response.found() ? response.source() : null;
     } catch (Exception e) {
       log.warn("⚠️ ES에서 상품 {} 조회 실패", productId, e);
@@ -239,8 +251,14 @@ public class LLMQueryEvaluationWorker {
       ProductDocument product = products.get(i);
       productListBuilder.append("상품 ").append(i + 1).append(":\n");
       productListBuilder.append("- ID: ").append(product.getId()).append("\n");
-      productListBuilder.append("- 상품명: ").append(product.getNameRaw() != null ? product.getNameRaw() : "N/A").append("\n");
-      productListBuilder.append("- 스펙: ").append(product.getSpecsRaw() != null ? product.getSpecsRaw() : "N/A").append("\n\n");
+      productListBuilder
+          .append("- 상품명: ")
+          .append(product.getNameRaw() != null ? product.getNameRaw() : "N/A")
+          .append("\n");
+      productListBuilder
+          .append("- 스펙: ")
+          .append(product.getSpecsRaw() != null ? product.getSpecsRaw() : "N/A")
+          .append("\n\n");
     }
 
     // 템플릿 변수 설정
@@ -252,7 +270,8 @@ public class LLMQueryEvaluationWorker {
     return promptTemplateLoader.loadTemplate("bulk-product-relevance-evaluation.txt", variables);
   }
 
-  private List<QueryProductMapping> parseBulkEvaluationResponse(String query, List<QueryProductMapping> mappings, String response) {
+  private List<QueryProductMapping> parseBulkEvaluationResponse(
+      String query, List<QueryProductMapping> mappings, String response) {
     List<QueryProductMapping> updatedMappings = new ArrayList<>();
 
     try {
@@ -278,14 +297,15 @@ public class LLMQueryEvaluationWorker {
 
             String evaluationReason = String.format("%s (신뢰도: %.2f)", reason, confidence);
 
-            QueryProductMapping updatedMapping = QueryProductMapping.builder()
-                .id(mapping.getId())
-                .evaluationQuery(mapping.getEvaluationQuery())
-                .productId(mapping.getProductId())
-                .relevanceStatus(RelevanceStatus.fromBoolean(isRelevant))
-                .evaluationReason(evaluationReason)
-                .evaluationSource(EVALUATION_SOURCE_LLM)
-                .build();
+            QueryProductMapping updatedMapping =
+                QueryProductMapping.builder()
+                    .id(mapping.getId())
+                    .evaluationQuery(mapping.getEvaluationQuery())
+                    .productId(mapping.getProductId())
+                    .relevanceStatus(RelevanceStatus.fromBoolean(isRelevant))
+                    .evaluationReason(evaluationReason)
+                    .evaluationSource(EVALUATION_SOURCE_LLM)
+                    .build();
 
             updatedMappings.add(updatedMapping);
 
@@ -297,7 +317,8 @@ public class LLMQueryEvaluationWorker {
 
         } catch (Exception e) {
           log.warn("⚠️ 상품 {} 평가 결과 파싱 실패", mapping.getProductId(), e);
-          QueryProductMapping failedMapping = createFailedMapping(mapping, "파싱 실패: " + e.getMessage());
+          QueryProductMapping failedMapping =
+              createFailedMapping(mapping, "파싱 실패: " + e.getMessage());
           updatedMappings.add(failedMapping);
         }
       }
@@ -310,7 +331,8 @@ public class LLMQueryEvaluationWorker {
     return updatedMappings;
   }
 
-  private List<QueryProductMapping> createFailedMappings(String query, List<QueryProductMapping> mappings, String errorMessage) {
+  private List<QueryProductMapping> createFailedMappings(
+      String query, List<QueryProductMapping> mappings, String errorMessage) {
     List<QueryProductMapping> failedMappings = new ArrayList<>();
 
     for (QueryProductMapping mapping : mappings) {
@@ -321,7 +343,8 @@ public class LLMQueryEvaluationWorker {
     return failedMappings;
   }
 
-  private QueryProductMapping createFailedMapping(QueryProductMapping mapping, String errorMessage) {
+  private QueryProductMapping createFailedMapping(
+      QueryProductMapping mapping, String errorMessage) {
     return QueryProductMapping.builder()
         .id(mapping.getId())
         .evaluationQuery(mapping.getEvaluationQuery())

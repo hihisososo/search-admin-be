@@ -3,7 +3,6 @@ package com.yjlee.search.evaluation.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
-import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.evaluation.dto.ProductInfoDto;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
@@ -190,8 +189,4 @@ public class QueryGenerationService {
       log.info("저장할 새로운 쿼리가 없습니다");
     }
   }
-
-
-
-
 }

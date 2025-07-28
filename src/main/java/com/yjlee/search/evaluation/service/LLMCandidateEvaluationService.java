@@ -80,7 +80,8 @@ public class LLMCandidateEvaluationService {
     // 각 쿼리별 후보군 개수 확인
     int totalCandidates = 0;
     for (EvaluationQuery query : queries) {
-      List<QueryProductMapping> mappings = queryProductMappingRepository.findByEvaluationQuery(query);
+      List<QueryProductMapping> mappings =
+          queryProductMappingRepository.findByEvaluationQuery(query);
       int candidateCount = mappings.size();
       totalCandidates += candidateCount;
       log.info("쿼리 '{}': {}개 후보군", query.getQuery(), candidateCount);
@@ -174,12 +175,12 @@ public class LLMCandidateEvaluationService {
         // 배치별 LLM 호출
         log.info("🤖 LLM API 호출 시작 (배치 크기: {})", batchProducts.size());
         String batchResponse = llmService.callLLMAPI(batchPrompt);
-        
+
         if (batchResponse == null || batchResponse.trim().isEmpty()) {
           log.warn("⚠️ LLM API 응답이 비어있습니다");
           throw new RuntimeException("LLM API 응답이 비어있습니다");
         }
-        
+
         log.info("✅ LLM API 응답 수신 (길이: {}자)", batchResponse.length());
         log.debug("LLM 응답 내용: {}", batchResponse);
 

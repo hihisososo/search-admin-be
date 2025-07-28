@@ -44,7 +44,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -176,8 +175,6 @@ public class EvaluationPageController {
     return ResponseEntity.ok().build();
   }
 
-
-
   @PostMapping("/queries/generate-async")
   @Operation(summary = "랜덤 쿼리 생성 (비동기)", description = "지정된 개수만큼 랜덤 쿼리를 비동기로 생성합니다")
   public ResponseEntity<AsyncTaskStartResponse> generateQueriesAsync(
@@ -190,8 +187,6 @@ public class EvaluationPageController {
             .build());
   }
 
-
-
   @PostMapping("/candidates/generate-async")
   @Operation(summary = "검색 기반 후보군 생성 (비동기)", description = "선택된 쿼리들에 대한 상품 후보군을 비동기로 생성합니다")
   public ResponseEntity<AsyncTaskStartResponse> generateCandidatesAsync(
@@ -203,8 +198,6 @@ public class EvaluationPageController {
             .message("후보군 생성 작업이 시작되었습니다. 작업 ID: " + taskId)
             .build());
   }
-
-
 
   @PostMapping("/candidates/evaluate-llm-async")
   @Operation(summary = "LLM 자동 후보군 평가 (비동기)", description = "선택된 쿼리들의 후보군을 비동기로 LLM 평가합니다")
