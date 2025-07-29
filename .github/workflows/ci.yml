@@ -68,9 +68,9 @@ jobs:
           # Docker 재시작
           ssh -o StrictHostKeyChecking=no -i key.pem ${USER}@${HOST} << 'EOF'
             cd ~/search-admin-be
-            docker-compose down
+            docker compose down
             docker build -t search-admin-be .
-            docker-compose up -d
+            docker compose up -d
           EOF
           
           rm -f key.pem
