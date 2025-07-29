@@ -13,4 +13,11 @@ services:
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       - ELASTICSEARCH_HOST=${ELASTICSEARCH_HOST}
       - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:MaxMetaspaceSize=128m
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 512M
