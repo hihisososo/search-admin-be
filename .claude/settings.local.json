@@ -1,13 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:docs.anthropic.com)",
-      "Bash(claude --dangerously-skip-permissions)",
-      "Bash(claude --dangerously-skip-permissions --auto-approve)",
-      "Bash(claude config set permissionMode bypassPermissions)",
-      "Bash(claude config set --global permissionMode bypassPermissions)",
-      "mcp__ide__getDiagnostics",
-      "Bash(./gradlew:*)"
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(rm:*)",
+      "Bash(./gradlew:*)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   }
