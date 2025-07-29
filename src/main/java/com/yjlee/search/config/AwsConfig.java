@@ -35,19 +35,6 @@ public class AwsConfig {
   }
 
   @Bean
-  public S3Client s3Client(AwsCredentialsProvider credentialsProvider) {
-    log.info(
-        "S3 클라이언트 초기화 - 리전: {}, 버킷: {}",
-        awsProperties.getRegion(),
-        awsProperties.getS3().getBucket());
-
-    return S3Client.builder()
-        .region(Region.of(awsProperties.getRegion()))
-        .credentialsProvider(credentialsProvider)
-        .build();
-  }
-
-  @Bean
   public SsmClient ssmClient(AwsCredentialsProvider credentialsProvider) {
     log.info("SSM 클라이언트 초기화 - 리전: {}", awsProperties.getRegion());
 
@@ -65,15 +52,7 @@ public class AwsConfig {
     private String accessKey;
     private String secretKey;
     private String region = "ap-northeast-2";
-    private S3Properties s3 = new S3Properties();
     private Ec2Properties ec2 = new Ec2Properties();
-
-    @Getter
-    @Setter
-    public static class S3Properties {
-      private String bucket;
-      private String baseUrl;
-    }
 
     @Getter
     @Setter
