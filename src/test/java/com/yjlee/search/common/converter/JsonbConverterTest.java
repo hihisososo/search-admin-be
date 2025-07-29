@@ -108,7 +108,7 @@ class JsonbConverterTest {
     assertThat(result).hasSize(2);
     assertThat(result.get("name")).isEqualTo("test");
     assertThat(result.get("address")).isInstanceOf(Map.class);
-    
+
     Map<String, Object> resultAddress = (Map<String, Object>) result.get("address");
     assertThat(resultAddress.get("city")).isEqualTo("Seoul");
     assertThat(resultAddress.get("country")).isEqualTo("Korea");

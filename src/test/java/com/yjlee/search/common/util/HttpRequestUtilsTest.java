@@ -23,7 +23,8 @@ class HttpRequestUtilsTest {
   @Test
   @DisplayName("X-Forwarded-For 헤더에서 클라이언트 IP 추출")
   void should_get_client_ip_from_x_forwarded_for_header() {
-    when(mockRequest.getHeader("X-Forwarded-For")).thenReturn("192.168.1.100, 10.0.0.1, 172.16.0.1");
+    when(mockRequest.getHeader("X-Forwarded-For"))
+        .thenReturn("192.168.1.100, 10.0.0.1, 172.16.0.1");
 
     String clientIp = httpRequestUtils.getClientIp(mockRequest);
 
@@ -98,7 +99,8 @@ class HttpRequestUtilsTest {
   @Test
   @DisplayName("IPv6 주소 처리")
   void should_handle_ipv6_address() {
-    when(mockRequest.getHeader("X-Forwarded-For")).thenReturn("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
+    when(mockRequest.getHeader("X-Forwarded-For"))
+        .thenReturn("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
 
     String clientIp = httpRequestUtils.getClientIp(mockRequest);
 

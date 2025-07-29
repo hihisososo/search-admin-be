@@ -63,7 +63,7 @@ class TextPreprocessorTest {
   @Test
   @DisplayName("유니코드 정규화 처리")
   void should_normalize_unicode() {
-    String input = "café"; 
+    String input = "café";
     String result = TextPreprocessor.preprocess(input);
     assertThat(result).isEqualTo("café");
   }

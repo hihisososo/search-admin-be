@@ -17,7 +17,7 @@ class PageResponseTest {
   void should_create_page_response_from_page() {
     Page<String> mockPage = mock(Page.class);
     List<String> content = Arrays.asList("item1", "item2", "item3");
-    
+
     when(mockPage.getContent()).thenReturn(content);
     when(mockPage.getNumber()).thenReturn(0);
     when(mockPage.getSize()).thenReturn(10);
@@ -38,7 +38,7 @@ class PageResponseTest {
   void should_handle_empty_page() {
     Page<String> mockPage = mock(Page.class);
     List<String> emptyContent = Arrays.asList();
-    
+
     when(mockPage.getContent()).thenReturn(emptyContent);
     when(mockPage.getNumber()).thenReturn(0);
     when(mockPage.getSize()).thenReturn(10);
@@ -59,7 +59,7 @@ class PageResponseTest {
   void should_handle_last_page() {
     Page<Integer> mockPage = mock(Page.class);
     List<Integer> content = Arrays.asList(21, 22);
-    
+
     when(mockPage.getContent()).thenReturn(content);
     when(mockPage.getNumber()).thenReturn(2);
     when(mockPage.getSize()).thenReturn(10);
@@ -82,7 +82,7 @@ class PageResponseTest {
     TestEntity entity1 = new TestEntity(1L, "Test1");
     TestEntity entity2 = new TestEntity(2L, "Test2");
     List<TestEntity> content = Arrays.asList(entity1, entity2);
-    
+
     when(mockPage.getContent()).thenReturn(content);
     when(mockPage.getNumber()).thenReturn(0);
     when(mockPage.getSize()).thenReturn(2);
