@@ -36,10 +36,9 @@ out/
 ### VS Code ###
 .vscode/
 .cursorrules
+.claude/
 hidden/
+CLAUDE.md
 
 ### Logs ###
 logs/
-
-### Claude ###
-CLAUDE.md
