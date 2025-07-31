@@ -1,11 +1,9 @@
 package com.yjlee.search.deployment.service;
 
 /**
- * 사전 서버로의 배포를 담당하는 서비스
- * AWS SSM을 통해 사전 EC2 인스턴스에 애플리케이션을 배포함
- * 주의: 실제 운영 서버 배포는 GitHub Actions의 EC2_INSTANCE_IDS를 사용함
+ * 사전 서버로의 배포를 담당하는 서비스 AWS SSM을 통해 사전 EC2 인스턴스에 애플리케이션을 배포함 주의: 실제 운영 서버 배포는 GitHub Actions의
+ * EC2_INSTANCE_IDS를 사용함
  */
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,10 +116,10 @@ public class DictionaryDeploymentService {
         while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
             if curl -f -s $HEALTH_CHECK_URL > /dev/null; then
                 echo "헬스체크 성공!"
-                
+
                 # 오래된 백업 정리 (7일 이상)
                 find backups -type f -mtime +7 -delete 2>/dev/null || true
-                
+
                 echo "=== 사전 서버 배포 완료 ==="
                 exit 0
             fi
