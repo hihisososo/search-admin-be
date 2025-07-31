@@ -130,17 +130,31 @@ jobs:
           
           echo "Command ID: $COMMAND_ID"
           
-          # 명령 실행 대기 및 결과 확인
-          aws ssm wait command-executed \
-            --command-id $COMMAND_ID \
-            --instance-id $INSTANCE_IDS \
-            || true
+          # 명령 실행 대기 (최대 20분)
+          echo "Waiting for deployment to complete..."
           
-          # 실행 결과 확인
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id $COMMAND_ID \
-            --instance-id $INSTANCE_IDS \
-            --query "Status" --output text)
+          # wait 명령은 최대 120회 시도 (각 5초) = 10분이 기본값
+          # 배포가 오래 걸릴 수 있으므로 직접 상태 확인
+          MAX_ATTEMPTS=240  # 20분 (5초 * 240)
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id $COMMAND_ID \
+              --instance-id $INSTANCE_IDS \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+            
+            if [ "$STATUS" = "Success" ] || [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              break
+            fi
+            
+            echo "Status: $STATUS (attempt $((ATTEMPT+1))/$MAX_ATTEMPTS)"
+            sleep 5
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+          
+          # 최종 상태 확인
+          echo "Final deployment status: $STATUS"
           
           echo "Deployment status: $STATUS"
           
