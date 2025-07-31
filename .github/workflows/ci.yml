@@ -92,6 +92,7 @@ jobs:
               
               # Gradle 빌드
               echo 'Building application...'
+              chmod +x ./gradlew
               ./gradlew clean bootJar
               
               # JAR 파일을 app.jar로 복사
