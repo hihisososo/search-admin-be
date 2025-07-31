@@ -25,8 +25,11 @@ app:
     access-key: ${AWS_ACCESS_KEY_ID}
     secret-key: ${AWS_SECRET_ACCESS_KEY}
     region: ap-northeast-2
-    ec2:
-      instance-ids: ${AWS_EC2_INSTANCE_IDS}
+    dictionary:
+      ec2-instance-ids: ${AWS_DICTIONARY_EC2_INSTANCE_IDS}
+  deployment:
+    application-path: /home/ec2-user/search-admin-be
+    git-branch: ${GIT_BRANCH:main}
 
 openai:
   api:
