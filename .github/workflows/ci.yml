@@ -67,13 +67,21 @@ jobs:
             --timeout-seconds 900 \
             --parameters commands="[\"
               set -e
-              cd /home/ec2-user/search-admin-be
               
-              # Git 최신 코드 pull
-              echo 'Pulling latest code from main branch...'
-              git fetch origin main
-              git checkout main
-              git pull origin main
+              # Git 저장소 확인 및 처리
+              if [ ! -d "/home/ec2-user/search-admin-be/.git" ]; then
+                echo 'Repository not found. Cloning...'
+                cd /home/ec2-user
+                rm -rf search-admin-be
+                git clone https://github.com/${{ github.repository }}.git search-admin-be
+                cd search-admin-be
+              else
+                echo 'Repository found. Pulling latest code...'
+                cd /home/ec2-user/search-admin-be
+                git fetch origin main
+                git checkout main
+                git pull origin main
+              fi
               
               # 현재 JAR 백업
               if [ -f build/libs/*.jar ]; then
