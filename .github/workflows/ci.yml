@@ -58,63 +58,48 @@ jobs:
         run: |
           VERSION=$(date +%Y%m%d%H%M%S)-${GITHUB_SHA::8}
           
-          # 배포 스크립트 생성
-          DEPLOY_SCRIPT="
-          set -e
-          cd /home/ec2-user
-          
-          # 프로젝트 디렉토리 확인 및 클론
-          if [ ! -d search-admin-be ]; then 
-            git clone https://github.com/${{ github.repository }}.git search-admin-be
-          fi
-          
-          cd search-admin-be
-          git pull origin main
-          chmod +x ./gradlew
-          
-          # 메모리 부족 방지를 위한 설정
-          export GRADLE_OPTS='-Xmx512m -XX:MaxMetaspaceSize=256m'
-          
-          # 기존 컨테이너 및 리소스 정리
-          docker compose down
-          docker system prune -af --volumes
-          
-          # 스왑 메모리 확인 및 활성화
-          if ! sudo swapon -s | grep -q swapfile; then
-            sudo dd if=/dev/zero of=/swapfile bs=128M count=8
-            sudo chmod 600 /swapfile
-            sudo mkswap /swapfile
-            sudo swapon /swapfile
-          fi
-          
-          # Gradle 빌드 (메모리 최소화)
-          ./gradlew clean bootJar --no-daemon --max-workers=1
-          
-          # 빌드 캐시 정리
-          rm -rf ~/.gradle/caches/
-          
-          # Docker 이미지 빌드
-          docker build --memory=512m -t search-admin-be:$VERSION .
-          
-          # 새 컨테이너 시작
-          docker compose up -d
-          
-          # 헬스체크 대기
-          sleep 45
-          
-          # 헬스체크 수행
-          curl -f http://localhost:8080/actuator/health || exit 1
-          
-          # 불필요한 리소스 정리
-          docker image prune -af
-          docker container prune -f
-          "
-          
           # SSM 명령 전송
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_IDS }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=$DEPLOY_SCRIPT" \
+            --parameters '{
+              "commands": [
+                "set -e",
+                "cd /home/ec2-user",
+                "# 프로젝트 디렉토리 확인 및 클론",
+                "if [ ! -d search-admin-be ]; then git clone https://github.com/${{ github.repository }}.git search-admin-be; fi",
+                "cd search-admin-be",
+                "git pull origin main",
+                "chmod +x ./gradlew",
+                "# 메모리 부족 방지를 위한 설정",
+                "export GRADLE_OPTS=\"-Xmx512m -XX:MaxMetaspaceSize=256m\"",
+                "# 기존 컨테이너 및 리소스 정리",
+                "docker compose down",
+                "docker system prune -af --volumes",
+                "# 스왑 메모리 확인 및 활성화",
+                "if ! sudo swapon -s | grep -q swapfile; then",
+                "  sudo dd if=/dev/zero of=/swapfile bs=128M count=8",
+                "  sudo chmod 600 /swapfile",
+                "  sudo mkswap /swapfile",
+                "  sudo swapon /swapfile",
+                "fi",
+                "# Gradle 빌드 (메모리 최소화)",
+                "./gradlew clean bootJar --no-daemon --max-workers=1",
+                "# 빌드 캐시 정리",
+                "rm -rf ~/.gradle/caches/",
+                "# Docker 이미지 빌드",
+                "docker build --memory=512m -t search-admin-be:'$VERSION' .",
+                "# 새 컨테이너 시작",
+                "docker compose up -d",
+                "# 헬스체크 대기",
+                "sleep 45",
+                "# 헬스체크 수행",
+                "curl -f http://localhost:8080/actuator/health || exit 1",
+                "# 불필요한 리소스 정리",
+                "docker image prune -af",
+                "docker container prune -f"
+              ]
+            }' \
             --timeout-seconds 1200 \
             --output text --query "Command.CommandId")
           
