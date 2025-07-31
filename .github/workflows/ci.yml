@@ -107,7 +107,7 @@ jobs:
               docker compose down
               docker compose up -d
               
-              # 헬스체크
+              # 헬스체크 
               echo 'Performing health check...'
               sleep 15
               for i in {1..30}; do
