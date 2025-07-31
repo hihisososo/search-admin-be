@@ -47,30 +47,101 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download JAR
-        uses: actions/download-artifact@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          name: app-jar
-          path: build/libs
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
       
-      - name: Deploy to EC2
-        env:
-          KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USER }}
+      - name: Deploy via SSM
         run: |
-          echo "$KEY" > key.pem
-          chmod 600 key.pem
+          INSTANCE_IDS="${{ secrets.EC2_INSTANCE_IDS }}"
+          VERSION=$(date +%Y%m%d%H%M%S)-${GITHUB_SHA::8}
           
-          # 파일 전송
-          scp -o StrictHostKeyChecking=no -i key.pem build/libs/*.jar Dockerfile docker-compose.yml ${USER}@${HOST}:~/search-admin-be/
+          # 배포 스크립트 실행
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids $INSTANCE_IDS \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy application version $VERSION" \
+            --timeout-seconds 900 \
+            --parameters commands="[\"
+              set -e
+              cd /home/ec2-user/search-admin-be
+              
+              # Git 최신 코드 pull
+              echo 'Pulling latest code from main branch...'
+              git fetch origin main
+              git checkout main
+              git pull origin main
+              
+              # 현재 JAR 백업
+              if [ -f build/libs/*.jar ]; then
+                echo 'Backing up current JAR...'
+                mkdir -p backups
+                cp build/libs/*.jar backups/app-$(date +%Y%m%d%H%M%S).jar || true
+              fi
+              
+              # Gradle 빌드
+              echo 'Building application...'
+              ./gradlew clean bootJar
+              
+              # JAR 파일을 app.jar로 복사
+              echo 'Copying JAR file...'
+              cp build/libs/*.jar app.jar
+              
+              # Docker 이미지 빌드 및 재시작
+              echo 'Building Docker image...'
+              docker build -t search-admin-be:$VERSION -t search-admin-be:latest .
+              
+              echo 'Restarting Docker containers...'
+              docker compose down
+              docker compose up -d
+              
+              # 헬스체크
+              echo 'Performing health check...'
+              sleep 15
+              for i in {1..30}; do
+                if curl -f -s http://localhost:8080/actuator/health > /dev/null; then
+                  echo 'Health check passed!'
+                  
+                  # 오래된 백업 정리 (7일 이상)
+                  find backups -type f -mtime +7 -delete 2>/dev/null || true
+                  
+                  exit 0
+                fi
+                echo 'Waiting for health check...'
+                sleep 2
+              done
+              
+              echo 'Health check failed!'
+              exit 1
+            \"]" \
+            --output text --query "Command.CommandId")
           
-          # Docker 재시작
-          ssh -o StrictHostKeyChecking=no -i key.pem ${USER}@${HOST} << 'EOF'
-            cd ~/search-admin-be
-            docker compose down
-            docker build -t search-admin-be .
-            docker compose up -d
-          EOF
+          echo "Command ID: $COMMAND_ID"
           
-          rm -f key.pem
+          # 명령 실행 대기 및 결과 확인
+          aws ssm wait command-executed \
+            --command-id $COMMAND_ID \
+            --instance-id $INSTANCE_IDS \
+            || true
+          
+          # 실행 결과 확인
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id $COMMAND_ID \
+            --instance-id $INSTANCE_IDS \
+            --query "Status" --output text)
+          
+          echo "Deployment status: $STATUS"
+          
+          if [ "$STATUS" != "Success" ]; then
+            echo "Deployment failed!"
+            aws ssm get-command-invocation \
+              --command-id $COMMAND_ID \
+              --instance-id $INSTANCE_IDS \
+              --query "StandardErrorContent" --output text
+            exit 1
+          fi
+          
+          echo "Deployment successful!"
