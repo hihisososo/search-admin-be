@@ -62,8 +62,8 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_IDS }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters '{"commands":["set -e","cd /home/ec2-user","if [ ! -d search-admin-be ]; then git clone https://github.com/${{ github.repository }}.git search-admin-be; fi","cd search-admin-be","git pull origin main","chmod +x ./gradlew","./gradlew clean bootJar","docker build -t search-admin-be:'$VERSION' .","docker compose down","docker compose up -d","sleep 20","curl -f http://localhost:8080/actuator/health || exit 1"]}' \
-            --timeout-seconds 900 \
+            --parameters '{"commands":["set -e","cd /home/ec2-user","if [ ! -d search-admin-be ]; then git clone https://github.com/${{ github.repository }}.git search-admin-be; fi","cd search-admin-be","git pull origin main","chmod +x ./gradlew","# 메모리 부족 방지를 위한 강력한 설정","export GRADLE_OPTS=\"-Xmx512m -XX:MaxMetaspaceSize=256m\"","# 기존 컨테이너 중지 및 모든 리소스 정리","docker compose down","docker system prune -af --volumes","# 스왑 메모리 확인 및 활성화","sudo swapon -s || (sudo dd if=/dev/zero of=/swapfile bs=128M count=8 && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile)","# Gradle 빌드 (메모리 최소화)","./gradlew clean bootJar --no-daemon --max-workers=1","# 빌드 캐시 정리","rm -rf ~/.gradle/caches/","# Docker 빌드 (메모리 제한)","docker build --memory=512m -t search-admin-be:'$VERSION' .","# 새 컨테이너 시작","docker compose up -d","sleep 45","# 헬스체크","curl -f http://localhost:8080/actuator/health || exit 1","# 불필요한 리소스 정리","docker image prune -af","docker container prune -f"]}' \
+            --timeout-seconds 1200 \
             --output text --query "Command.CommandId")
           
           echo "Deployment started (ID: $COMMAND_ID)"
