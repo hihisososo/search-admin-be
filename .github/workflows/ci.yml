@@ -82,6 +82,7 @@ jobs:
             --output text --query "Command.CommandId")
           
           echo "Deployment started (ID: $COMMAND_ID)"
+
           
           # 배포 상태 모니터링
           for i in {1..180}; do
