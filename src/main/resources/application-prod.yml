@@ -32,6 +32,9 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    elasticsearch:
+      enabled: false
 
 server:
   port: 8080
