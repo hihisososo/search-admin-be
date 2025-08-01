@@ -62,23 +62,24 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters '{
               "commands": [
-                "set -e",
-                "sudo -u ec2-user cd /home/ec2-user/search-admin-be",
-                "echo \"최신 코드 가져오기...\"",
-                "sudo -u ec2-user git pull origin main",
-                "echo \"Gradle 빌드 시작...\"",
-                "sudo -u ec2-user ./gradlew clean bootJar",
-                "echo \"Docker 컨테이너 재시작...\"",
-                "sudo -u ec2-user docker compose down",
-                "echo \"이전 Docker 이미지 정리...\"",
-                "sudo -u ec2-user docker image prune -f",
-                "echo \"새 Docker 이미지 빌드...\"",
-                "sudo -u ec2-user docker build -t search-admin-be:latest .",
-                "sudo -u ec2-user docker compose up -d",
-                "echo \"헬스체크 대기중...\"",
-                "sleep 30",
-                "curl -f http://localhost:8080/actuator/health || exit 1",
-                "echo \"배포 완료!\""
+                "sudo -u ec2-user bash -c ' \\",
+                "  cd /home/ec2-user/search-admin-be && \\",
+                "  echo \"최신 코드 가져오기...\" && \\",
+                "  git pull origin main && \\",
+                "  echo \"Gradle 빌드 시작...\" && \\",
+                "  ./gradlew clean bootJar && \\",
+                "  echo \"Docker 컨테이너 재시작...\" && \\",
+                "  docker compose down && \\",
+                "  echo \"이전 Docker 이미지 정리...\" && \\",
+                "  docker image prune -f && \\",
+                "  echo \"새 Docker 이미지 빌드...\" && \\",
+                "  docker build -t search-admin-be:latest . && \\",
+                "  docker compose up -d && \\",
+                "  echo \"헬스체크 대기중...\" && \\",
+                "  sleep 30 && \\",
+                "  curl -f http://localhost:8080/actuator/health || exit 1 && \\",
+                "  echo \"배포 완료!\" \\",
+                "'"
               ]
             }' \
             --timeout-seconds 1200 \
