@@ -61,6 +61,7 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters '{
               "commands": [
+                "cd /home/ec2-user/search-admin-be && sudo -u ec2-user git pull origin main",
                 "sudo -u ec2-user bash /home/ec2-user/search-admin-be/scripts/deploy.sh"
               ]
             }' \

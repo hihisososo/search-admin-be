@@ -7,10 +7,6 @@ echo "🚀 배포 시작..."
 # 프로젝트 디렉토리로 이동
 cd /home/ec2-user/search-admin-be
 
-# 최신 코드 가져오기
-echo "📥 최신 코드 가져오기..."
-git pull origin main
-
 # Gradle 빌드
 echo "🔨 Gradle 빌드 시작..."
 ./gradlew clean bootJar
