@@ -4,7 +4,7 @@ RUN apk add --no-cache curl
 
 WORKDIR /app
 
-COPY *.jar app.jar
+COPY build/libs/*.jar app.jar
 
 EXPOSE 8080
 
