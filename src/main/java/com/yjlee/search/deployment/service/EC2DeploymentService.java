@@ -22,7 +22,7 @@ public class EC2DeploymentService {
 
   private final SsmClient ssmClient;
 
-  @Value("${app.aws.ec2.instance-ids}")
+  @Value("${app.aws.dictionary.ec2-instance-ids}")
   private String[] instanceIds;
 
   private static final String USER_DICT_BASE_PATH = "/usr/share/elasticsearch/config/analysis/user";
