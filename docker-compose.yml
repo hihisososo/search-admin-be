@@ -18,7 +18,7 @@ services:
       - AWS_DICTIONARY_EC2_INSTANCE_IDS=${AWS_DICTIONARY_EC2_INSTANCE_IDS}
       - AWS_REGION=${AWS_REGION}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - JAVA_OPTS=-Xmx384m -Xms128m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC
+      - JAVA_OPTS=-Xmx384m -Xms128m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:+UseStringDeduplication
     restart: unless-stopped
     deploy:
       resources:
