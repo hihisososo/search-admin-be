@@ -76,7 +76,7 @@ jobs:
               --instance-id "${{ secrets.EC2_INSTANCE_IDS }}" \
               --query "Status" --output text 2>/dev/null || echo "Pending")
 
-            case $STATUS in
+            case $STATUS in 
               Success)
                 echo "✅ Deployment successful!"
                 exit 0 ;;
