@@ -7,6 +7,9 @@ echo "🚀 배포 시작..."
 # 프로젝트 디렉토리로 이동
 cd /home/ec2-user/search-admin-be
 
+# gradlew 실행 권한 부여
+chmod +x ./gradlew
+
 # Gradle 빌드
 echo "🔨 Gradle 빌드 시작..."
 ./gradlew clean bootJar
