@@ -5,13 +5,13 @@ import static com.yjlee.search.evaluation.constants.EvaluationConstants.EVALUATI
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.GetRequest;
 import co.elastic.clients.elasticsearch.core.GetResponse;
+import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
-import com.yjlee.search.search.constants.ESFields;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;

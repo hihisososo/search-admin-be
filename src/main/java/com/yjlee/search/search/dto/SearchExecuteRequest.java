@@ -2,7 +2,6 @@ package com.yjlee.search.search.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -25,7 +24,6 @@ public class SearchExecuteRequest {
 
   @NotNull(message = "페이지 크기는 필수입니다")
   @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다")
-  @Max(value = 100, message = "페이지 크기는 100 이하여야 합니다")
   @Schema(description = "페이지 크기", example = "10", required = true)
   private Integer size;
 
