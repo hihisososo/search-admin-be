@@ -155,26 +155,28 @@ class SearchIntegrationTest extends BaseIntegrationTest {
     }
     BulkResponse response = elasticsearchClient.bulk(bulkRequest.build());
     assertThat(response.errors()).isFalse();
-    
+
     // 색인된 문서 수 확인
     Thread.sleep(1000); // 색인 완료 대기
     var countResponse = elasticsearchClient.count(c -> c.index(PRODUCT_INDEX));
     log.info("======= Indexed Documents Count: {} =======", countResponse.count());
-    
+
     // 색인된 문서 확인 (디버깅용)
-    var searchResponse = elasticsearchClient.search(
-        s -> s.index(PRODUCT_INDEX).size(10),
-        ProductDocument.class
-    );
-    searchResponse.hits().hits().forEach(hit -> {
-        var doc = hit.source();
-        log.info("Product - name: {}, brandName: {}", doc.getNameRaw(), doc.getBrandName());
-    });
+    var searchResponse =
+        elasticsearchClient.search(s -> s.index(PRODUCT_INDEX).size(10), ProductDocument.class);
+    searchResponse
+        .hits()
+        .hits()
+        .forEach(
+            hit -> {
+              var doc = hit.source();
+              log.info("Product - name: {}, brandName: {}", doc.getNameRaw(), doc.getBrandName());
+            });
 
     // 자동완성 데이터
     List<AutocompleteDocument> autocompletes =
         Arrays.asList(
-            createAutocomplete("아이", 110),  // "아이"로 검색할 때 매칭되도록 추가
+            createAutocomplete("아이", 110), // "아이"로 검색할 때 매칭되도록 추가
             createAutocomplete("아이폰", 100),
             createAutocomplete("아이폰 15", 90),
             createAutocomplete("아이폰 14", 80),
@@ -194,20 +196,23 @@ class SearchIntegrationTest extends BaseIntegrationTest {
 
     // 색인 새로고침
     elasticsearchClient.indices().refresh(r -> r.index(PRODUCT_INDEX, AUTOCOMPLETE_INDEX));
-    
+
     // 자동완성 색인 확인 (디버깅용)
     Thread.sleep(500);
     var autocompleteCount = elasticsearchClient.count(c -> c.index(AUTOCOMPLETE_INDEX));
     log.info("======= Indexed Autocomplete Documents Count: {} =======", autocompleteCount.count());
-    
-    var autocompleteSearch = elasticsearchClient.search(
-        s -> s.index(AUTOCOMPLETE_INDEX).size(10),
-        AutocompleteDocument.class
-    );
-    autocompleteSearch.hits().hits().forEach(hit -> {
-        var doc = hit.source();
-        log.info("Autocomplete - name: {}, nameIcu: {}", doc.getName(), doc.getNameIcu());
-    });
+
+    var autocompleteSearch =
+        elasticsearchClient.search(
+            s -> s.index(AUTOCOMPLETE_INDEX).size(10), AutocompleteDocument.class);
+    autocompleteSearch
+        .hits()
+        .hits()
+        .forEach(
+            hit -> {
+              var doc = hit.source();
+              log.info("Autocomplete - name: {}, nameIcu: {}", doc.getName(), doc.getNameIcu());
+            });
   }
 
   private void setupTypoCorrectionDictionary() {
@@ -340,15 +345,14 @@ class SearchIntegrationTest extends BaseIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON))
         .andExpect(MockMvcResultMatchers.status().isOk())
         .andExpect(MockMvcResultMatchers.jsonPath("$.suggestions").isNotEmpty())
-        .andExpect(
-            MockMvcResultMatchers.jsonPath("$.suggestions", Matchers.hasItem("아이")));
+        .andExpect(MockMvcResultMatchers.jsonPath("$.suggestions", Matchers.hasItem("아이")));
   }
 
   @Test
   @Order(6)
   @DisplayName("오타 교정")
   void testTypoCorrection() throws Exception {
-    
+
     mockMvc
         .perform(
             MockMvcRequestBuilders.get("/api/v1/search")
@@ -390,7 +394,7 @@ class SearchIntegrationTest extends BaseIntegrationTest {
   private ProductDocument createProduct(
       String id, String name, String category, Long price, Float score) {
     String specs = name + " " + category + " 스펙";
-    
+
     return ProductDocument.builder()
         .id(id)
         .name(TextPreprocessor.preprocess(name))
@@ -410,10 +414,7 @@ class SearchIntegrationTest extends BaseIntegrationTest {
   }
 
   private AutocompleteDocument createAutocomplete(String keyword, int weight) {
-    return AutocompleteDocument.builder()
-        .name(keyword)
-        .nameIcu(keyword)
-        .build();
+    return AutocompleteDocument.builder().name(keyword).nameIcu(keyword).build();
   }
 
   private String loadResourceFile(String path) throws IOException {
