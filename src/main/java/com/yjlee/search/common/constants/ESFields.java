@@ -1,4 +1,4 @@
-package com.yjlee.search.search.constants;
+package com.yjlee.search.common.constants;
 
 import java.util.List;
 
@@ -44,6 +44,12 @@ public class ESFields {
   public static final String PRODUCTS_INDEX_PREFIX = "products";
   public static final String SEARCH_LOGS_INDEX = "search-logs";
   public static final String SIMULATION_INDEX_PREFIX = "simulation-";
+
+  // 추가 필드
+  public static final String SCORE = "score";
+  public static final String CREATED_AT = "created_at";
+  public static final String CATEGORY = "category";
+  public static final String BRAND = "brand";
 
   private ESFields() {}
 }

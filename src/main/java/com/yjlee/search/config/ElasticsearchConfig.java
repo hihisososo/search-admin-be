@@ -24,16 +24,7 @@ public class ElasticsearchConfig {
   private final ElasticsearchProperties elasticsearchProperties;
 
   @Bean
-  public ElasticsearchClient elasticsearchClient() {
-    String host = elasticsearchProperties.getHost();
-    int port = elasticsearchProperties.getPort();
-    String scheme = elasticsearchProperties.getScheme();
-
-    log.info("Connecting to Elasticsearch at {}://{}:{}", scheme, host, port);
-
-    HttpHost httpHost = new HttpHost(host, port, scheme);
-    RestClient restClient = RestClient.builder(httpHost).build();
-
+  public JacksonJsonpMapper jsonpMapper() {
     // JSR310 모듈이 등록된 ObjectMapper 생성
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new JavaTimeModule());
@@ -42,7 +33,19 @@ public class ElasticsearchConfig {
     objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     // 커스텀 ObjectMapper를 사용하는 JacksonJsonpMapper 생성
-    JacksonJsonpMapper jsonpMapper = new JacksonJsonpMapper(objectMapper);
+    return new JacksonJsonpMapper(objectMapper);
+  }
+
+  @Bean
+  public ElasticsearchClient elasticsearchClient(JacksonJsonpMapper jsonpMapper) {
+    String host = elasticsearchProperties.getHost();
+    int port = elasticsearchProperties.getPort();
+    String scheme = elasticsearchProperties.getScheme();
+
+    log.info("Connecting to Elasticsearch at {}://{}:{}", scheme, host, port);
+
+    HttpHost httpHost = new HttpHost(host, port, scheme);
+    RestClient restClient = RestClient.builder(httpHost).build();
 
     RestClientTransport transport = new RestClientTransport(restClient, jsonpMapper);
     return new ElasticsearchClient(transport);

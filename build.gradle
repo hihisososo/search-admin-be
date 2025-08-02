@@ -3,6 +3,7 @@ plugins {
 	id 'org.springframework.boot' version '3.5.3'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'com.diffplug.spotless' version '6.25.0'
+	id 'jacoco'
 }
 
 group = 'com.yjlee'
@@ -51,8 +52,87 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testImplementation 'org.testcontainers:testcontainers:1.20.4'
+	testImplementation 'org.testcontainers:elasticsearch:1.20.4'
+	testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+	systemProperty 'file.encoding', 'UTF-8'
+	jvmArgs '-Dfile.encoding=UTF-8'
+}
+
+// 단위 테스트만 실행
+task unitTest(type: Test) {
+	useJUnitPlatform {
+		includeTags 'unit'
+	}
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+	systemProperty 'file.encoding', 'UTF-8'
+	jvmArgs '-Dfile.encoding=UTF-8'
+}
+
+// 통합 테스트만 실행
+task integrationTest(type: Test) {
+	useJUnitPlatform {
+		includeTags 'integration'
+	}
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+	systemProperty 'file.encoding', 'UTF-8'
+	jvmArgs '-Dfile.encoding=UTF-8'
+}
+
+// E2E 테스트만 실행
+task e2eTest(type: Test) {
+	useJUnitPlatform {
+		includeTags 'e2e'
+	}
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+	systemProperty 'file.encoding', 'UTF-8'
+	jvmArgs '-Dfile.encoding=UTF-8'
+}
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        html.outputLocation = layout.buildDirectory.dir('jacocoHtml')
+    }
+    
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                '**/config/**',
+                '**/dto/**',
+                '**/model/**',
+                '**/exception/**',
+                '**/*Application.class'
+            ])
+        }))
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.60
+            }
+        }
+    }
 }

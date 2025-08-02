@@ -1,6 +1,8 @@
 spring:
   application:
     name: search-admin-be-test
+  main:
+    allow-bean-definition-overriding: true
   datasource:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
@@ -14,16 +16,28 @@ spring:
   h2:
     console:
       enabled: true
+  sql:
+    init:
+      mode: never
 
 app:
   elasticsearch:
-    host: ${ELASTICSEARCH_HOST}
-    port: ${ELASTICSEARCH_PORT}
+    host: localhost
+    port: 9200
   aws:
-    access-key: ${AWS_ACCESS_KEY_ID}
-    secret-key: ${AWS_SECRET_ACCESS_KEY}
+    access-key: test-access-key
+    secret-key: test-secret-key
     region: ap-northeast-2
     s3:
-      bucket: ${AWS_S3_BUCKET_NAME}
+      bucket: test-bucket
     ec2:
-      instance-ids: ${AWS_EC2_INSTANCE_IDS}
+      instance-ids: i-test123
+
+# 테스트 환경 전용 인덱스 설정
+test:
+  elasticsearch:
+    index-prefix: test-
+    indices:
+      products-search: test-products-search
+      autocomplete: test-autocomplete
+      search-logs: test-search-logs

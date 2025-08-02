@@ -34,7 +34,7 @@ public class ProductDocument {
 
   Integer price;
 
-  @JsonProperty("registered_month")
+  @JsonProperty("reg_month")
   String registeredMonth;
 
   BigDecimal rating;

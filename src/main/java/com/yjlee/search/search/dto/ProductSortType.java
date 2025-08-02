@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.yjlee.search.search.constants.ESFields;
+import com.yjlee.search.common.constants.ESFields;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
