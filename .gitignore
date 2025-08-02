@@ -42,3 +42,7 @@ CLAUDE.md
 
 ### Logs ###
 logs/
+
+### Claude ###
+.claude/
+CLAUDE.md
