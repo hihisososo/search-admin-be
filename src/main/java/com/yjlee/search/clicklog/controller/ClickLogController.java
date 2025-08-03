@@ -29,13 +29,11 @@ public class ClickLogController {
     @ApiResponse(responseCode = "500", description = "서버 오류")
   })
   @PostMapping
-  public ResponseEntity<ClickLogResponse> logClick(
-      @Valid @RequestBody ClickLogRequest request) {
-    
-    log.debug("클릭 로그 요청 - 키워드: {}, 상품: {}", 
-        request.getSearchKeyword(),
-        request.getClickedProductId());
-    
+  public ResponseEntity<ClickLogResponse> logClick(@Valid @RequestBody ClickLogRequest request) {
+
+    log.debug(
+        "클릭 로그 요청 - 키워드: {}, 상품: {}", request.getSearchKeyword(), request.getClickedProductId());
+
     ClickLogResponse response = clickLogService.logClick(request);
     return ResponseEntity.ok(response);
   }

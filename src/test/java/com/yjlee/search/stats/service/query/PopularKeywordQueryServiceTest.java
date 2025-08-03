@@ -23,11 +23,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class PopularKeywordQueryServiceTest {
 
-  @Mock
-  private StatsRepository statsRepository;
+  @Mock private StatsRepository statsRepository;
 
-  @InjectMocks
-  private PopularKeywordQueryService popularKeywordQueryService;
+  @InjectMocks private PopularKeywordQueryService popularKeywordQueryService;
 
   private LocalDateTime from;
   private LocalDateTime to;
@@ -42,53 +40,54 @@ class PopularKeywordQueryServiceTest {
   @DisplayName("인기 검색어 조회 - 순위 변동 계산")
   void getPopularKeywords_WithRankChanges() {
     // given
-    List<KeywordStats> currentKeywords = Arrays.asList(
-        KeywordStats.builder()
-            .keyword("노트북")
-            .searchCount(100L)
-            .clickCount(30L)
-            .clickThroughRate(30.0)
-            .percentage(50.0)
-            .rank(1)
-            .build(),
-        KeywordStats.builder()
-            .keyword("키보드")
-            .searchCount(80L)
-            .clickCount(20L)
-            .clickThroughRate(25.0)
-            .percentage(40.0)
-            .rank(2)
-            .build(),
-        KeywordStats.builder()
-            .keyword("마우스")
-            .searchCount(20L)
-            .clickCount(5L)
-            .clickThroughRate(25.0)
-            .percentage(10.0)
-            .rank(3)
-            .build()
-    );
+    List<KeywordStats> currentKeywords =
+        Arrays.asList(
+            KeywordStats.builder()
+                .keyword("노트북")
+                .searchCount(100L)
+                .clickCount(30L)
+                .clickThroughRate(30.0)
+                .percentage(50.0)
+                .rank(1)
+                .build(),
+            KeywordStats.builder()
+                .keyword("키보드")
+                .searchCount(80L)
+                .clickCount(20L)
+                .clickThroughRate(25.0)
+                .percentage(40.0)
+                .rank(2)
+                .build(),
+            KeywordStats.builder()
+                .keyword("마우스")
+                .searchCount(20L)
+                .clickCount(5L)
+                .clickThroughRate(25.0)
+                .percentage(10.0)
+                .rank(3)
+                .build());
 
-    List<KeywordStats> previousKeywords = Arrays.asList(
-        KeywordStats.builder()
-            .keyword("키보드")
-            .searchCount(90L)
-            .clickCount(25L)
-            .clickThroughRate(27.8)
-            .percentage(45.0)
-            .rank(1)
-            .build(),
-        KeywordStats.builder()
-            .keyword("노트북")
-            .searchCount(70L)
-            .clickCount(20L)
-            .clickThroughRate(28.6)
-            .percentage(35.0)
-            .rank(2)
-            .build()
-    );
+    List<KeywordStats> previousKeywords =
+        Arrays.asList(
+            KeywordStats.builder()
+                .keyword("키보드")
+                .searchCount(90L)
+                .clickCount(25L)
+                .clickThroughRate(27.8)
+                .percentage(45.0)
+                .rank(1)
+                .build(),
+            KeywordStats.builder()
+                .keyword("노트북")
+                .searchCount(70L)
+                .clickCount(20L)
+                .clickThroughRate(28.6)
+                .percentage(35.0)
+                .rank(2)
+                .build());
 
-    when(statsRepository.getPopularKeywords(any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
+    when(statsRepository.getPopularKeywords(
+            any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
         .thenReturn(currentKeywords)
         .thenReturn(previousKeywords);
 
@@ -128,61 +127,62 @@ class PopularKeywordQueryServiceTest {
   @DisplayName("급등 검색어 조회")
   void getTrendingKeywords() {
     // given
-    List<KeywordStats> currentKeywords = Arrays.asList(
-        KeywordStats.builder()
-            .keyword("아이폰15")
-            .searchCount(200L)
-            .clickCount(100L)
-            .clickThroughRate(50.0)
-            .percentage(40.0)
-            .rank(1)
-            .build(),
-        KeywordStats.builder()
-            .keyword("갤럭시S24")
-            .searchCount(150L)
-            .clickCount(60L)
-            .clickThroughRate(40.0)
-            .percentage(30.0)
-            .rank(2)
-            .build(),
-        KeywordStats.builder()
-            .keyword("에어팟")
-            .searchCount(100L)
-            .clickCount(30L)
-            .clickThroughRate(30.0)
-            .percentage(20.0)
-            .rank(3)
-            .build(),
-        KeywordStats.builder()
-            .keyword("애플워치")
-            .searchCount(50L)
-            .clickCount(10L)
-            .clickThroughRate(20.0)
-            .percentage(10.0)
-            .rank(4)
-            .build()
-    );
+    List<KeywordStats> currentKeywords =
+        Arrays.asList(
+            KeywordStats.builder()
+                .keyword("아이폰15")
+                .searchCount(200L)
+                .clickCount(100L)
+                .clickThroughRate(50.0)
+                .percentage(40.0)
+                .rank(1)
+                .build(),
+            KeywordStats.builder()
+                .keyword("갤럭시S24")
+                .searchCount(150L)
+                .clickCount(60L)
+                .clickThroughRate(40.0)
+                .percentage(30.0)
+                .rank(2)
+                .build(),
+            KeywordStats.builder()
+                .keyword("에어팟")
+                .searchCount(100L)
+                .clickCount(30L)
+                .clickThroughRate(30.0)
+                .percentage(20.0)
+                .rank(3)
+                .build(),
+            KeywordStats.builder()
+                .keyword("애플워치")
+                .searchCount(50L)
+                .clickCount(10L)
+                .clickThroughRate(20.0)
+                .percentage(10.0)
+                .rank(4)
+                .build());
 
-    List<KeywordStats> previousKeywords = Arrays.asList(
-        KeywordStats.builder()
-            .keyword("에어팟")
-            .searchCount(80L)
-            .clickCount(20L)
-            .clickThroughRate(25.0)
-            .percentage(40.0)
-            .rank(1)
-            .build(),
-        KeywordStats.builder()
-            .keyword("애플워치")
-            .searchCount(60L)
-            .clickCount(12L)
-            .clickThroughRate(20.0)
-            .percentage(30.0)
-            .rank(2)
-            .build()
-    );
+    List<KeywordStats> previousKeywords =
+        Arrays.asList(
+            KeywordStats.builder()
+                .keyword("에어팟")
+                .searchCount(80L)
+                .clickCount(20L)
+                .clickThroughRate(25.0)
+                .percentage(40.0)
+                .rank(1)
+                .build(),
+            KeywordStats.builder()
+                .keyword("애플워치")
+                .searchCount(60L)
+                .clickCount(12L)
+                .clickThroughRate(20.0)
+                .percentage(30.0)
+                .rank(2)
+                .build());
 
-    when(statsRepository.getPopularKeywords(any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
+    when(statsRepository.getPopularKeywords(
+            any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
         .thenReturn(currentKeywords)
         .thenReturn(previousKeywords);
 
@@ -202,7 +202,8 @@ class PopularKeywordQueryServiceTest {
   @DisplayName("인기 검색어 조회 - 데이터가 없는 경우")
   void getPopularKeywords_NoData() {
     // given
-    when(statsRepository.getPopularKeywords(any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
+    when(statsRepository.getPopularKeywords(
+            any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
         .thenReturn(Collections.emptyList());
 
     // when

@@ -19,21 +19,24 @@ public class TrendQueryService {
 
   public TrendResponse getTrends(LocalDateTime from, LocalDateTime to, String interval) {
     log.info("시계열 추이 조회 - 기간: {} ~ {}, 간격: {}", from, to, interval);
-    
+
     List<TrendData> trends = statsRepository.getTrends(from, to, interval);
     String period = from.toLocalDate() + " ~ " + to.toLocalDate();
-    
-    List<TrendResponse.TrendData> trendDataList = trends.stream()
-        .map(trend -> TrendResponse.TrendData.builder()
-            .timestamp(trend.getTimestamp())
-            .searchCount(trend.getSearchCount())
-            .clickCount(trend.getClickCount())
-            .clickThroughRate(trend.getClickThroughRate())
-            .averageResponseTime(trend.getAverageResponseTime())
-            .label(trend.getLabel())
-            .build())
-        .collect(Collectors.toList());
-    
+
+    List<TrendResponse.TrendData> trendDataList =
+        trends.stream()
+            .map(
+                trend ->
+                    TrendResponse.TrendData.builder()
+                        .timestamp(trend.getTimestamp())
+                        .searchCount(trend.getSearchCount())
+                        .clickCount(trend.getClickCount())
+                        .clickThroughRate(trend.getClickThroughRate())
+                        .averageResponseTime(trend.getAverageResponseTime())
+                        .label(trend.getLabel())
+                        .build())
+            .collect(Collectors.toList());
+
     return TrendResponse.builder()
         .searchVolumeData(trendDataList)
         .responseTimeData(trendDataList)

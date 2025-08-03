@@ -19,11 +19,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class StatsQueryServiceTest {
 
-  @Mock
-  private StatsRepository statsRepository;
+  @Mock private StatsRepository statsRepository;
 
-  @InjectMocks
-  private StatsQueryService statsQueryService;
+  @InjectMocks private StatsQueryService statsQueryService;
 
   private LocalDateTime from;
   private LocalDateTime to;
@@ -38,16 +36,17 @@ class StatsQueryServiceTest {
   @DisplayName("통계 조회 - 정상 케이스")
   void getStats_Success() {
     // given
-    SearchStats searchStats = SearchStats.builder()
-        .totalSearchCount(1000L)
-        .totalDocumentCount(50000L)
-        .searchFailureRate(2.5)
-        .errorCount(25L)
-        .averageResponseTimeMs(150.5)
-        .successRate(97.5)
-        .clickCount(300L)
-        .clickThroughRate(30.0)
-        .build();
+    SearchStats searchStats =
+        SearchStats.builder()
+            .totalSearchCount(1000L)
+            .totalDocumentCount(50000L)
+            .searchFailureRate(2.5)
+            .errorCount(25L)
+            .averageResponseTimeMs(150.5)
+            .successRate(97.5)
+            .clickCount(300L)
+            .clickThroughRate(30.0)
+            .build();
 
     when(statsRepository.getSearchStats(any(LocalDateTime.class), any(LocalDateTime.class)))
         .thenReturn(searchStats);
@@ -73,16 +72,17 @@ class StatsQueryServiceTest {
   @DisplayName("통계 조회 - 데이터가 없는 경우")
   void getStats_NoData() {
     // given
-    SearchStats emptyStats = SearchStats.builder()
-        .totalSearchCount(0L)
-        .totalDocumentCount(0L)
-        .searchFailureRate(0.0)
-        .errorCount(0L)
-        .averageResponseTimeMs(0.0)
-        .successRate(0.0)
-        .clickCount(0L)
-        .clickThroughRate(0.0)
-        .build();
+    SearchStats emptyStats =
+        SearchStats.builder()
+            .totalSearchCount(0L)
+            .totalDocumentCount(0L)
+            .searchFailureRate(0.0)
+            .errorCount(0L)
+            .averageResponseTimeMs(0.0)
+            .successRate(0.0)
+            .clickCount(0L)
+            .clickThroughRate(0.0)
+            .build();
 
     when(statsRepository.getSearchStats(any(LocalDateTime.class), any(LocalDateTime.class)))
         .thenReturn(emptyStats);

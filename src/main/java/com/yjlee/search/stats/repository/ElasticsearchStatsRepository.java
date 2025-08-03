@@ -29,10 +29,10 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     try {
       SearchRequest searchRequest = buildStatsSearchRequest(from, to);
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
-      
+
       long clickCount = getClickCount(from, to);
       return parseStatsResponse(response, clickCount);
-      
+
     } catch (Exception e) {
       log.error("통계 조회 실패: {}", e.getMessage(), e);
       throw new RuntimeException("통계 조회 실패", e);
@@ -45,7 +45,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
       SearchRequest searchRequest = buildPopularKeywordsSearchRequest(from, to, limit);
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
       return parseKeywordStatsResponse(response, from, to);
-      
+
     } catch (Exception e) {
       log.error("인기검색어 조회 실패: {}", e.getMessage(), e);
       throw new RuntimeException("인기검색어 조회 실패", e);
@@ -58,7 +58,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
       SearchRequest searchRequest = buildTrendsSearchRequest(from, to, interval);
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
       return parseTrendsResponse(response, interval);
-      
+
     } catch (Exception e) {
       log.error("추이 조회 실패: {}", e.getMessage(), e);
       throw new RuntimeException("추이 조회 실패", e);
@@ -69,16 +69,19 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   public long getTotalSearchCount(LocalDateTime from, LocalDateTime to) {
     try {
       BoolQuery boolQuery = buildDateRangeQuery(from, to, "search-logs-*");
-      
-      SearchRequest searchRequest = SearchRequest.of(s -> s
-          .index("search-logs-*")
-          .size(0)
-          .query(Query.of(q -> q.bool(boolQuery)))
-          .aggregations("total", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp")))));
-      
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index("search-logs-*")
+                      .size(0)
+                      .query(Query.of(q -> q.bool(boolQuery)))
+                      .aggregations(
+                          "total", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp")))));
+
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
       return extractLongValue(response.aggregations(), "total", "value");
-      
+
     } catch (Exception e) {
       log.error("검색 횟수 조회 실패: {}", e.getMessage(), e);
       return 0L;
@@ -89,16 +92,19 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   public long getClickCount(LocalDateTime from, LocalDateTime to) {
     try {
       BoolQuery boolQuery = buildDateRangeQuery(from, to, "click-logs-*");
-      
-      SearchRequest searchRequest = SearchRequest.of(s -> s
-          .index("click-logs-*")
-          .size(0)
-          .query(Query.of(q -> q.bool(boolQuery)))
-          .aggregations("total", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp")))));
-      
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index("click-logs-*")
+                      .size(0)
+                      .query(Query.of(q -> q.bool(boolQuery)))
+                      .aggregations(
+                          "total", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp")))));
+
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
       return extractLongValue(response.aggregations(), "total", "value");
-      
+
     } catch (Exception e) {
       log.error("클릭 횟수 조회 실패: {}", e.getMessage(), e);
       return 0L;
@@ -108,22 +114,35 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   @Override
   public long getClickCountForKeyword(String keyword, LocalDateTime from, LocalDateTime to) {
     try {
-      BoolQuery boolQuery = BoolQuery.of(b -> b
-          .must(Query.of(q -> q.range(r -> r.date(d -> d
-              .field("timestamp")
-              .gte(from.toString())
-              .lte(to.toString())))))
-          .must(Query.of(q -> q.term(t -> t.field("searchKeyword.keyword").value(keyword)))));
-      
-      SearchRequest searchRequest = SearchRequest.of(s -> s
-          .index("click-logs-*")
-          .size(0)
-          .query(Query.of(q -> q.bool(boolQuery)))
-          .aggregations("total", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp")))));
-      
+      BoolQuery boolQuery =
+          BoolQuery.of(
+              b ->
+                  b.must(
+                          Query.of(
+                              q ->
+                                  q.range(
+                                      r ->
+                                          r.date(
+                                              d ->
+                                                  d.field("timestamp")
+                                                      .gte(from.toString())
+                                                      .lte(to.toString())))))
+                      .must(
+                          Query.of(
+                              q -> q.term(t -> t.field("searchKeyword.keyword").value(keyword)))));
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index("click-logs-*")
+                      .size(0)
+                      .query(Query.of(q -> q.bool(boolQuery)))
+                      .aggregations(
+                          "total", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp")))));
+
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
       return extractLongValue(response.aggregations(), "total", "value");
-      
+
     } catch (Exception e) {
       log.error("키워드별 클릭 횟수 조회 실패: {}", e.getMessage(), e);
       return 0L;
@@ -131,75 +150,102 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   }
 
   private BoolQuery buildDateRangeQuery(LocalDateTime from, LocalDateTime to, String index) {
-    return BoolQuery.of(b -> b
-        .must(Query.of(q -> q.range(r -> r.date(d -> d
-            .field("timestamp")
-            .gte(from.toString())
-            .lte(to.toString()))))));
+    return BoolQuery.of(
+        b ->
+            b.must(
+                Query.of(
+                    q ->
+                        q.range(
+                            r ->
+                                r.date(
+                                    d ->
+                                        d.field("timestamp")
+                                            .gte(from.toString())
+                                            .lte(to.toString()))))));
   }
 
   private SearchRequest buildStatsSearchRequest(LocalDateTime from, LocalDateTime to) {
     BoolQuery boolQuery = buildDateRangeQuery(from, to, "search-logs-*");
 
-    Map<String, Aggregation> aggregations = Map.of(
-        "total_searches", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp"))),
-        "total_documents", Aggregation.of(a -> a.sum(s -> s.field("resultCount"))),
-        "search_failures", Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("resultCount").value(0)))),
-        "errors", Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("isError").value(true)))),
-        "successful_searches", Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("isError").value(false)))),
-        "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("responseTimeMs")))
-    );
+    Map<String, Aggregation> aggregations =
+        Map.of(
+            "total_searches", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp"))),
+            "total_documents", Aggregation.of(a -> a.sum(s -> s.field("resultCount"))),
+            "search_failures",
+                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("resultCount").value(0)))),
+            "errors",
+                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("isError").value(true)))),
+            "successful_searches",
+                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("isError").value(false)))),
+            "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("responseTimeMs"))));
 
-    return SearchRequest.of(s -> s
-        .index("search-logs-*")
-        .size(0)
-        .query(Query.of(q -> q.bool(boolQuery)))
-        .aggregations(aggregations));
+    return SearchRequest.of(
+        s ->
+            s.index("search-logs-*")
+                .size(0)
+                .query(Query.of(q -> q.bool(boolQuery)))
+                .aggregations(aggregations));
   }
 
-  private SearchRequest buildPopularKeywordsSearchRequest(LocalDateTime from, LocalDateTime to, int limit) {
-    BoolQuery boolQuery = BoolQuery.of(b -> b
-        .must(Query.of(q -> q.range(r -> r.date(d -> d
-            .field("timestamp")
-            .gte(from.toString())
-            .lte(to.toString())))))
-        .must(Query.of(q -> q.term(t -> t.field("isError").value(false)))));
+  private SearchRequest buildPopularKeywordsSearchRequest(
+      LocalDateTime from, LocalDateTime to, int limit) {
+    BoolQuery boolQuery =
+        BoolQuery.of(
+            b ->
+                b.must(
+                        Query.of(
+                            q ->
+                                q.range(
+                                    r ->
+                                        r.date(
+                                            d ->
+                                                d.field("timestamp")
+                                                    .gte(from.toString())
+                                                    .lte(to.toString())))))
+                    .must(Query.of(q -> q.term(t -> t.field("isError").value(false)))));
 
-    Map<String, Aggregation> aggregations = Map.of(
-        "keywords", Aggregation.of(a -> a.terms(t -> t.field("searchKeyword.keyword").size(limit)))
-    );
+    Map<String, Aggregation> aggregations =
+        Map.of(
+            "keywords",
+            Aggregation.of(a -> a.terms(t -> t.field("searchKeyword.keyword").size(limit))));
 
-    return SearchRequest.of(s -> s
-        .index("search-logs-*")
-        .size(0)
-        .query(Query.of(q -> q.bool(boolQuery)))
-        .aggregations(aggregations));
+    return SearchRequest.of(
+        s ->
+            s.index("search-logs-*")
+                .size(0)
+                .query(Query.of(q -> q.bool(boolQuery)))
+                .aggregations(aggregations));
   }
 
-  private SearchRequest buildTrendsSearchRequest(LocalDateTime from, LocalDateTime to, String interval) {
+  private SearchRequest buildTrendsSearchRequest(
+      LocalDateTime from, LocalDateTime to, String interval) {
     String dateHistogramInterval = "hour".equals(interval) ? "1h" : "1d";
 
     BoolQuery boolQuery = buildDateRangeQuery(from, to, "search-logs-*");
 
-    Map<String, Aggregation> subAggregations = Map.of(
-        "search_count", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp"))),
-        "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("responseTimeMs")))
-    );
+    Map<String, Aggregation> subAggregations =
+        Map.of(
+            "search_count", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp"))),
+            "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("responseTimeMs"))));
 
-    Map<String, Aggregation> aggregations = Map.of(
-        "time_buckets", Aggregation.of(a -> a
-            .dateHistogram(dh -> dh
-                .field("timestamp")
-                .fixedInterval(fi -> fi.time(dateHistogramInterval))
-                .timeZone("Asia/Seoul"))
-            .aggregations(subAggregations))
-    );
+    Map<String, Aggregation> aggregations =
+        Map.of(
+            "time_buckets",
+            Aggregation.of(
+                a ->
+                    a.dateHistogram(
+                            dh ->
+                                dh.field("timestamp")
+                                    .fixedInterval(fi -> fi.time(dateHistogramInterval))
+                                    .timeZone("Asia/Seoul"))
+                        .aggregations(subAggregations)));
 
-    return SearchRequest.of(s -> s
-        .index("search-logs-*")
-        .size(0)
-        .query(Query.of(q -> q.bool(boolQuery)))
-        .aggregations(aggregations));
+    return SearchRequest.of(
+        s ->
+            s.index("search-logs-*")
+                .size(0)
+                .query(Query.of(q -> q.bool(boolQuery)))
+                .aggregations(aggregations));
   }
 
   private SearchStats parseStatsResponse(SearchResponse<Void> response, long clickCount) {
@@ -212,8 +258,10 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     long successfulSearches = extractLongValue(aggs, "successful_searches", "doc_count");
     double avgResponseTime = extractDoubleValue(aggs, "avg_response_time", "value");
 
-    double searchFailureRate = totalSearches > 0 ? (double) searchFailures / totalSearches * 100 : 0.0;
-    double successRate = totalSearches > 0 ? (double) successfulSearches / totalSearches * 100 : 0.0;
+    double searchFailureRate =
+        totalSearches > 0 ? (double) searchFailures / totalSearches * 100 : 0.0;
+    double successRate =
+        totalSearches > 0 ? (double) successfulSearches / totalSearches * 100 : 0.0;
     double clickThroughRate = totalSearches > 0 ? (double) clickCount / totalSearches * 100 : 0.0;
 
     return SearchStats.builder()
@@ -228,7 +276,8 @@ public class ElasticsearchStatsRepository implements StatsRepository {
         .build();
   }
 
-  private List<KeywordStats> parseKeywordStatsResponse(SearchResponse<Void> response, LocalDateTime from, LocalDateTime to) {
+  private List<KeywordStats> parseKeywordStatsResponse(
+      SearchResponse<Void> response, LocalDateTime from, LocalDateTime to) {
     var aggs = response.aggregations();
     var keywordsAgg = aggs.get("keywords");
 
@@ -248,14 +297,15 @@ public class ElasticsearchStatsRepository implements StatsRepository {
           double percentage = totalCount > 0 ? (double) searchCount / totalCount * 100 : 0.0;
           double ctr = searchCount > 0 ? (double) clickCount / searchCount * 100 : 0.0;
 
-          keywords.add(KeywordStats.builder()
-              .keyword(keyword)
-              .searchCount(searchCount)
-              .clickCount(clickCount)
-              .clickThroughRate(Math.round(ctr * 100.0) / 100.0)
-              .percentage(Math.round(percentage * 100.0) / 100.0)
-              .rank(i + 1)
-              .build());
+          keywords.add(
+              KeywordStats.builder()
+                  .keyword(keyword)
+                  .searchCount(searchCount)
+                  .clickCount(clickCount)
+                  .clickThroughRate(Math.round(ctr * 100.0) / 100.0)
+                  .percentage(Math.round(percentage * 100.0) / 100.0)
+                  .rank(i + 1)
+                  .build());
         }
       } catch (Exception e) {
         log.warn("키워드 통계 파싱 실패: {}", e.getMessage());
@@ -270,9 +320,10 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     var timeBucketsAgg = aggs.get("time_buckets");
 
     List<TrendData> trendData = new ArrayList<>();
-    DateTimeFormatter formatter = "hour".equals(interval)
-        ? DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00")
-        : DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    DateTimeFormatter formatter =
+        "hour".equals(interval)
+            ? DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00")
+            : DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     if (timeBucketsAgg != null && timeBucketsAgg._kind().jsonValue().equals("date_histogram")) {
       try {
@@ -282,20 +333,22 @@ public class ElasticsearchStatsRepository implements StatsRepository {
         for (var bucket : buckets) {
           LocalDateTime timestamp = LocalDateTime.parse(bucket.keyAsString().substring(0, 19));
           long searchCount = extractLongValue(bucket.aggregations(), "search_count", "value");
-          double avgResponseTime = extractDoubleValue(bucket.aggregations(), "avg_response_time", "value");
-          
+          double avgResponseTime =
+              extractDoubleValue(bucket.aggregations(), "avg_response_time", "value");
+
           // 시간대별 클릭 수는 별도 쿼리로 조회해야 함
           long clickCount = 0L; // TODO: 시간대별 클릭 수 조회 구현
           double ctr = searchCount > 0 ? (double) clickCount / searchCount * 100 : 0.0;
 
-          trendData.add(TrendData.builder()
-              .timestamp(timestamp)
-              .searchCount(searchCount)
-              .clickCount(clickCount)
-              .clickThroughRate(Math.round(ctr * 100.0) / 100.0)
-              .averageResponseTime(Math.round(avgResponseTime * 100.0) / 100.0)
-              .label(timestamp.format(formatter))
-              .build());
+          trendData.add(
+              TrendData.builder()
+                  .timestamp(timestamp)
+                  .searchCount(searchCount)
+                  .clickCount(clickCount)
+                  .clickThroughRate(Math.round(ctr * 100.0) / 100.0)
+                  .averageResponseTime(Math.round(avgResponseTime * 100.0) / 100.0)
+                  .label(timestamp.format(formatter))
+                  .build());
         }
       } catch (Exception e) {
         log.warn("시계열 추이 파싱 실패: {}", e.getMessage());

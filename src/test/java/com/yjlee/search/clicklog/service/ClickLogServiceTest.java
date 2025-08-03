@@ -20,24 +20,22 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ClickLogServiceTest {
 
-  @Mock
-  private ElasticsearchClient elasticsearchClient;
+  @Mock private ElasticsearchClient elasticsearchClient;
 
-  @Mock
-  private IndexResponse indexResponse;
+  @Mock private IndexResponse indexResponse;
 
-  @InjectMocks
-  private ClickLogService clickLogService;
+  @InjectMocks private ClickLogService clickLogService;
 
   private ClickLogRequest clickLogRequest;
 
   @BeforeEach
   void setUp() {
-    clickLogRequest = ClickLogRequest.builder()
-        .searchKeyword("노트북")
-        .clickedProductId("PROD-12345")
-        .indexName("products")
-        .build();
+    clickLogRequest =
+        ClickLogRequest.builder()
+            .searchKeyword("노트북")
+            .clickedProductId("PROD-12345")
+            .indexName("products")
+            .build();
   }
 
   @Test

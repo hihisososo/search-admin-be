@@ -17,10 +17,10 @@ public class StatsQueryService {
 
   public StatsResponse getStats(LocalDateTime from, LocalDateTime to) {
     log.info("통계 조회 - 기간: {} ~ {}", from, to);
-    
+
     SearchStats stats = statsRepository.getSearchStats(from, to);
     String period = from.toLocalDate() + " ~ " + to.toLocalDate();
-    
+
     return StatsResponse.builder()
         .totalSearchCount(stats.getTotalSearchCount())
         .totalDocumentCount(stats.getTotalDocumentCount())
