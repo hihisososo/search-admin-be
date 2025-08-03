@@ -1,6 +1,6 @@
 package com.yjlee.search.search.dto;
 
-import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -12,34 +12,34 @@ import lombok.Setter;
 @Setter
 public class SearchParams {
 
-  @Parameter(description = "검색어", required = true)
+  @Schema(description = "검색어", example = "노트북", required = true)
   @NotBlank
   private String query;
 
-  @Parameter(description = "페이지 번호", required = true)
+  @Schema(description = "페이지 번호", example = "1", required = true)
   @Min(1)
   private Integer page;
 
-  @Parameter(description = "페이지 크기", required = true)
+  @Schema(description = "페이지 크기", example = "20", required = true)
   @Min(1)
   @Max(100)
   private Integer size;
 
-  @Parameter(description = "정렬 필드")
+  @Schema(description = "정렬 필드", example = "score", defaultValue = "score")
   private String sortField = "score";
 
-  @Parameter(description = "정렬 순서")
+  @Schema(description = "정렬 순서", example = "desc", defaultValue = "desc")
   private String sortOrder = "desc";
 
-  @Parameter(description = "브랜드 필터")
+  @Schema(description = "브랜드 필터")
   private List<String> brand;
 
-  @Parameter(description = "카테고리 필터")
+  @Schema(description = "카테고리 필터")
   private List<String> category;
 
-  @Parameter(description = "최소 가격")
+  @Schema(description = "최소 가격", example = "10000")
   private Long priceFrom;
 
-  @Parameter(description = "최대 가격")
+  @Schema(description = "최대 가격", example = "100000")
   private Long priceTo;
 }
