@@ -39,4 +39,14 @@ public interface UserDictionarySnapshotRepository
 
   // 특정 환경의 모든 스냅샷 삭제
   void deleteByEnvironmentType(DictionaryEnvironmentType environmentType);
+
+  // 추가 메서드들 - 리팩토링을 위해 필요
+  Page<UserDictionarySnapshot> findByEnvironmentType(
+      DictionaryEnvironmentType environmentType, Pageable pageable);
+
+  Page<UserDictionarySnapshot> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
+      DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
+
+  Optional<UserDictionarySnapshot> findByOriginalDictionaryIdAndEnvironmentType(
+      Long originalDictionaryId, DictionaryEnvironmentType environmentType);
 }

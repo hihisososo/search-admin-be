@@ -1,3 +1,8 @@
+security:
+  api-key:
+    enabled: true
+    value: ${API_KEY:your-secure-api-key-here}
+
 spring:
   application:
     name: search-admin-be

@@ -6,7 +6,7 @@ import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryUpdateRequest;
-import com.yjlee.search.dictionary.user.service.UserDictionaryService;
+import com.yjlee.search.dictionary.user.service.UserDictionaryServiceV2;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserDictionaryController {
 
-  private final UserDictionaryService userDictionaryService;
+  private final UserDictionaryServiceV2 userDictionaryService;
 
   @Operation(
       summary = "사용자 사전 목록 조회",
@@ -55,7 +55,7 @@ public class UserDictionaryController {
         environment);
 
     PageResponse<UserDictionaryListResponse> response =
-        userDictionaryService.getUserDictionaries(page, size, search, sortBy, sortDir, environment);
+        userDictionaryService.getList(page - 1, size, sortBy, sortDir, search, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -69,7 +69,7 @@ public class UserDictionaryController {
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId) {
 
     log.debug("사용자 사전 상세 조회: {}", dictionaryId);
-    UserDictionaryResponse response = userDictionaryService.getUserDictionaryDetail(dictionaryId);
+    UserDictionaryResponse response = userDictionaryService.get(dictionaryId, DictionaryEnvironmentType.CURRENT);
     return ResponseEntity.ok(response);
   }
 
@@ -87,7 +87,7 @@ public class UserDictionaryController {
 
     log.debug("사용자 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
     UserDictionaryResponse response =
-        userDictionaryService.createUserDictionary(request, environment);
+        userDictionaryService.create(request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -106,7 +106,7 @@ public class UserDictionaryController {
 
     log.debug("사용자 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     UserDictionaryResponse response =
-        userDictionaryService.updateUserDictionary(dictionaryId, request, environment);
+        userDictionaryService.update(dictionaryId, request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -123,7 +123,7 @@ public class UserDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.info("사용자 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
-    userDictionaryService.deleteUserDictionary(dictionaryId, environment);
+    userDictionaryService.delete(dictionaryId, environment);
     return ResponseEntity.noContent().build();
   }
 }
