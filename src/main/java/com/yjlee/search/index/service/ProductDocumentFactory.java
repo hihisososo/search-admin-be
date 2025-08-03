@@ -19,9 +19,13 @@ public class ProductDocumentFactory {
         .brandName(BrandExtractor.extractBrand(product.getName()))
         .thumbnailUrl(product.getThumbnailUrl())
         .price(product.getPrice() != null ? product.getPrice().intValue() : null)
-        .registeredMonth(product.getRegMonth() != null && !product.getRegMonth().isEmpty() 
-            ? product.getRegMonth().replace(".", "-").substring(0, Math.min(7, product.getRegMonth().length()))
-            : "")
+        .registeredMonth(
+            product.getRegMonth() != null && !product.getRegMonth().isEmpty()
+                ? product
+                    .getRegMonth()
+                    .replace(".", "-")
+                    .substring(0, Math.min(7, product.getRegMonth().length()))
+                : "")
         .rating(product.getRating())
         .reviewCount(product.getReviewCount() != null ? product.getReviewCount() : 0)
         .categoryName(product.getCategoryName())
@@ -29,7 +33,7 @@ public class ProductDocumentFactory {
         .specsRaw(product.getSpecs())
         .build();
   }
-  
+
   public ProductDocument createProductDocument(Product product) {
     return create(product);
   }

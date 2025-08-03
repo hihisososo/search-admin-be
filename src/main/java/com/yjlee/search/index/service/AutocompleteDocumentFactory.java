@@ -15,7 +15,7 @@ public class AutocompleteDocumentFactory {
         .nameIcu(TextPreprocessor.preprocess(product.getName()))
         .build();
   }
-  
+
   public AutocompleteDocument createFromProductDocument(ProductDocument productDocument) {
     return AutocompleteDocument.builder()
         .name(productDocument.getNameRaw())

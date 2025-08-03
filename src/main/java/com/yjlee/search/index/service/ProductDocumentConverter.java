@@ -1,7 +1,6 @@
 package com.yjlee.search.index.service;
 
 import com.yjlee.search.index.dto.ProductDocument;
-import com.yjlee.search.index.model.Product;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -9,8 +8,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class ProductDocumentConverter {
-  
-  
+
   public ProductDocument convert(ProductDocument document, List<Float> vector) {
     return ProductDocument.builder()
         .id(document.getId())
@@ -29,21 +27,21 @@ public class ProductDocumentConverter {
         .nameSpecsVector(vector)
         .build();
   }
-  
+
   public String createSearchableText(ProductDocument document) {
     StringBuilder text = new StringBuilder();
-    
+
     if (document.getNameRaw() != null) {
       text.append(document.getNameRaw().trim());
     }
-    
+
     if (document.getSpecsRaw() != null && !document.getSpecsRaw().trim().isEmpty()) {
       if (text.length() > 0) {
         text.append(" ");
       }
       text.append(document.getSpecsRaw().trim());
     }
-    
+
     return text.toString();
   }
 }
