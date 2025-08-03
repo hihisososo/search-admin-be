@@ -9,8 +9,9 @@ import lombok.extern.jackson.Jacksonized;
 @Builder
 @Jacksonized
 public class UserDictionaryListResponse {
-  long id;
+  Long id;
   String keyword;
   String description;
+  LocalDateTime createdAt;
   LocalDateTime updatedAt;
 }

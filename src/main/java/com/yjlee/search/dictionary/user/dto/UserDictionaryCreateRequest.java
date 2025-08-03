@@ -1,5 +1,6 @@
 package com.yjlee.search.dictionary.user.dto;
 
+import com.yjlee.search.dictionary.common.dto.BaseDictionaryCreateRequest;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
@@ -9,7 +10,7 @@ import lombok.extern.jackson.Jacksonized;
 @Value
 @Builder
 @Jacksonized
-public class UserDictionaryCreateRequest {
+public class UserDictionaryCreateRequest implements BaseDictionaryCreateRequest {
   @NotBlank(message = "키워드는 필수입니다.")
   @Size(max = 1000, message = "키워드는 1000자를 초과할 수 없습니다.")
   String keyword;

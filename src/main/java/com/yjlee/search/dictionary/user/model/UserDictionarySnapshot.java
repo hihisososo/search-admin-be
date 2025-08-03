@@ -1,6 +1,7 @@
 package com.yjlee.search.dictionary.user.model;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.dictionary.common.model.DictionarySnapshotEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -17,7 +18,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class UserDictionarySnapshot {
+public class UserDictionarySnapshot implements DictionarySnapshotEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;

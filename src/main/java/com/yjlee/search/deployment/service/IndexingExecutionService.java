@@ -9,7 +9,7 @@ import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
-import com.yjlee.search.dictionary.user.service.UserDictionaryService;
+import com.yjlee.search.dictionary.user.service.UserDictionaryServiceV2;
 import com.yjlee.search.index.service.ProductIndexingService;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -28,7 +28,7 @@ public class IndexingExecutionService {
   private final DeploymentHistoryRepository deploymentHistoryRepository;
   private final ProductIndexingService productIndexingService;
   private final SynonymDictionaryService synonymDictionaryService;
-  private final UserDictionaryService userDictionaryService;
+  private final UserDictionaryServiceV2 userDictionaryService;
   private final StopwordDictionaryService stopwordDictionaryService;
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
   private final UserDictionaryRepository userDictionaryRepository;
