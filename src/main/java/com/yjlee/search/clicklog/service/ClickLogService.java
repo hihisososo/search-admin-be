@@ -8,7 +8,6 @@ import com.yjlee.search.clicklog.dto.ClickLogResponse;
 import com.yjlee.search.clicklog.model.ClickLogDocument;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,12 +21,17 @@ public class ClickLogService {
   private static final String CLICK_LOG_INDEX_PREFIX = "click-logs-";
   private static final DateTimeFormatter INDEX_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
-  public ClickLogResponse logClick(ClickLogRequest request, HttpServletRequest httpRequest) {
+  public ClickLogResponse logClick(ClickLogRequest request) {
     try {
       LocalDateTime now = LocalDateTime.now();
       String indexName = CLICK_LOG_INDEX_PREFIX + now.format(INDEX_DATE_FORMATTER);
       
-      ClickLogDocument document = buildClickLogDocument(request, httpRequest, now);
+      ClickLogDocument document = ClickLogDocument.builder()
+          .timestamp(now)
+          .searchKeyword(request.getSearchKeyword())
+          .clickedProductId(request.getClickedProductId())
+          .indexName(request.getIndexName())
+          .build();
       
       IndexRequest<ClickLogDocument> indexRequest = IndexRequest.of(i -> i
           .index(indexName)
@@ -35,11 +39,9 @@ public class ClickLogService {
       
       IndexResponse response = elasticsearchClient.index(indexRequest);
       
-      log.info("클릭 로그 저장 성공 - 세션: {}, 키워드: {}, 상품: {}, 위치: {}", 
-          request.getSearchSessionId(), 
+      log.info("클릭 로그 저장 성공 - 키워드: {}, 상품: {}", 
           request.getSearchKeyword(),
-          request.getClickedProductId(),
-          request.getClickPosition());
+          request.getClickedProductId());
       
       return ClickLogResponse.builder()
           .success(true)
@@ -55,39 +57,5 @@ public class ClickLogService {
           .timestamp(LocalDateTime.now().toString())
           .build();
     }
-  }
-
-  private ClickLogDocument buildClickLogDocument(
-      ClickLogRequest request, 
-      HttpServletRequest httpRequest, 
-      LocalDateTime timestamp) {
-    
-    return ClickLogDocument.builder()
-        .timestamp(timestamp)
-        .searchSessionId(request.getSearchSessionId())
-        .searchKeyword(request.getSearchKeyword())
-        .clickedProductId(request.getClickedProductId())
-        .clickedProductName(request.getClickedProductName())
-        .clickPosition(request.getClickPosition())
-        .indexName(request.getIndexName())
-        .clientIp(getClientIp(httpRequest))
-        .userAgent(httpRequest.getHeader("User-Agent"))
-        .clickType(request.getClickType())
-        .dwellTimeMs(request.getDwellTimeMs())
-        .build();
-  }
-
-  private String getClientIp(HttpServletRequest request) {
-    String xForwardedFor = request.getHeader("X-Forwarded-For");
-    if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-      return xForwardedFor.split(",")[0].trim();
-    }
-    
-    String xRealIp = request.getHeader("X-Real-IP");
-    if (xRealIp != null && !xRealIp.isEmpty()) {
-      return xRealIp;
-    }
-    
-    return request.getRemoteAddr();
   }
 }

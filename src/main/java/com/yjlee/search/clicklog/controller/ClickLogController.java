@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,15 +30,13 @@ public class ClickLogController {
   })
   @PostMapping
   public ResponseEntity<ClickLogResponse> logClick(
-      @Valid @RequestBody ClickLogRequest request,
-      HttpServletRequest httpRequest) {
+      @Valid @RequestBody ClickLogRequest request) {
     
-    log.debug("클릭 로그 요청 - 세션: {}, 키워드: {}, 상품: {}", 
-        request.getSearchSessionId(), 
+    log.debug("클릭 로그 요청 - 키워드: {}, 상품: {}", 
         request.getSearchKeyword(),
         request.getClickedProductId());
     
-    ClickLogResponse response = clickLogService.logClick(request, httpRequest);
+    ClickLogResponse response = clickLogService.logClick(request);
     return ResponseEntity.ok(response);
   }
 }
