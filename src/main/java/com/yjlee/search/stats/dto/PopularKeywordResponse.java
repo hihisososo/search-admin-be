@@ -19,6 +19,8 @@ public class PopularKeywordResponse {
   public static class KeywordStats {
     String keyword;
     long count;
+    long clickCount;
+    double clickThroughRate;
     double percentage;
     int rank;
     Integer previousRank;

@@ -22,6 +22,8 @@ public class TrendResponse {
   public static class TrendData {
     LocalDateTime timestamp;
     long searchCount;
+    long clickCount;
+    double clickThroughRate;
     double averageResponseTime;
     String label;
   }
