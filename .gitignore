@@ -46,3 +46,6 @@ logs/
 ### Claude ###
 .claude/
 CLAUDE.md
+
+### APM Agent ###
+apm-agent/

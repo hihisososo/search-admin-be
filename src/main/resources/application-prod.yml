@@ -1,49 +1,46 @@
 spring:
   datasource:
     hikari:
-      maximum-pool-size: 10
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 900000
+      maximum-pool-size: 20
       minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+  output:
+    ansi:
+      enabled: never
 
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    properties:
-      hibernate:
-        format_sql: false
+elasticsearch:
+  host: ${ELASTICSEARCH_HOST}
+  port: ${ELASTICSEARCH_PORT:9200}
+  scheme: ${ELASTICSEARCH_SCHEME:https}
+  username: ${ELASTICSEARCH_USERNAME}
+  password: ${ELASTICSEARCH_PASSWORD}
 
 logging:
   level:
     com.yjlee.search: INFO
-    org.springframework.web: INFO
-    org.hibernate: WARN
-  file:
-    name: logs/search-admin-be.log
-    max-size: 10MB
-    max-history: 30
+    org.springframework: WARN
+    org.elasticsearch: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
-  endpoint:
-    health:
-      show-details: always
-  health:
-    elasticsearch:
-      enabled: false
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: prod
 
-server:
-  port: 8080
-  compression:
-    enabled: true
-    mime-types: application/json,application/xml,text/html,text/xml,text/plain
-  tomcat:
-    threads:
-      max: 200
-      min-spare: 10
-    accept-count: 100
-    max-connections: 10000
+# Elastic APM 설정 (환경변수로 주입)
+elastic:
+  apm:
+    enabled: ${ELASTIC_APM_ENABLED:false}
+    service-name: ${spring.application.name}
+    server-url: ${ELASTIC_APM_SERVER_URL:}
+    secret-token: ${ELASTIC_APM_SECRET_TOKEN:}
+    environment: prod
+    log-level: INFO
