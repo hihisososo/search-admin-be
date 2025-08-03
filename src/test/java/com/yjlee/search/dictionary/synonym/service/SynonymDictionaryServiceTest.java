@@ -1,5 +1,9 @@
 package com.yjlee.search.dictionary.synonym.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
@@ -9,6 +13,9 @@ import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.synonym.model.SynonymDictionary;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionarySnapshotRepository;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,53 +28,34 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class SynonymDictionaryServiceTest {
 
-  @Mock
-  private SynonymDictionaryRepository synonymDictionaryRepository;
+  @Mock private SynonymDictionaryRepository synonymDictionaryRepository;
 
-  @Mock
-  private SynonymDictionarySnapshotRepository snapshotRepository;
+  @Mock private SynonymDictionarySnapshotRepository snapshotRepository;
 
-  @InjectMocks
-  private SynonymDictionaryService synonymDictionaryService;
+  @InjectMocks private SynonymDictionaryService synonymDictionaryService;
 
   private SynonymDictionary testDictionary;
 
   @BeforeEach
   void setUp() {
-    testDictionary = SynonymDictionary.builder()
-        .id(1L)
-        .keyword("노트북,랩탑")
-        .description("동의어")
-        .build();
+    testDictionary =
+        SynonymDictionary.builder().id(1L).keyword("노트북,랩탑").description("동의어").build();
   }
 
   @Test
   @DisplayName("유의어 사전 생성 - 성공")
   void createSynonymDictionary_Success() {
-    SynonymDictionaryCreateRequest request = SynonymDictionaryCreateRequest.builder()
-        .keyword("휴대폰,핸드폰")
-        .description("동의어")
-        .build();
+    SynonymDictionaryCreateRequest request =
+        SynonymDictionaryCreateRequest.builder().keyword("휴대폰,핸드폰").description("동의어").build();
 
-    when(synonymDictionaryRepository.save(any(SynonymDictionary.class)))
-        .thenReturn(testDictionary);
+    when(synonymDictionaryRepository.save(any(SynonymDictionary.class))).thenReturn(testDictionary);
 
-    SynonymDictionaryResponse response = synonymDictionaryService.createSynonymDictionary(
-        request, DictionaryEnvironmentType.CURRENT);
+    SynonymDictionaryResponse response =
+        synonymDictionaryService.createSynonymDictionary(
+            request, DictionaryEnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     assertThat(response.getKeyword()).isEqualTo("노트북,랩탑");
@@ -82,7 +70,7 @@ class SynonymDictionaryServiceTest {
 
     when(synonymDictionaryRepository.findAll(any(Pageable.class))).thenReturn(page);
 
-    PageResponse<SynonymDictionaryListResponse> response = 
+    PageResponse<SynonymDictionaryListResponse> response =
         synonymDictionaryService.getSynonymDictionaries(1, 10, null, null, null, null);
 
     assertThat(response).isNotNull();
@@ -93,16 +81,18 @@ class SynonymDictionaryServiceTest {
   @Test
   @DisplayName("유의어 사전 수정 - 성공")
   void updateSynonymDictionary_Success() {
-    SynonymDictionaryUpdateRequest request = SynonymDictionaryUpdateRequest.builder()
-        .keyword("노트북,랩탑,컴퓨터")
-        .description("수정된 동의어")
-        .build();
+    SynonymDictionaryUpdateRequest request =
+        SynonymDictionaryUpdateRequest.builder()
+            .keyword("노트북,랩탑,컴퓨터")
+            .description("수정된 동의어")
+            .build();
 
     when(synonymDictionaryRepository.findById(1L)).thenReturn(Optional.of(testDictionary));
     when(synonymDictionaryRepository.save(any(SynonymDictionary.class))).thenReturn(testDictionary);
 
-    SynonymDictionaryResponse response = synonymDictionaryService.updateSynonymDictionary(
-        1L, request, DictionaryEnvironmentType.CURRENT);
+    SynonymDictionaryResponse response =
+        synonymDictionaryService.updateSynonymDictionary(
+            1L, request, DictionaryEnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     verify(synonymDictionaryRepository, times(1)).save(any(SynonymDictionary.class));
