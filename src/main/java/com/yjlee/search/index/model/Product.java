@@ -12,7 +12,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Table(name = "products")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
-@Builder
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -35,12 +35,14 @@ public class Product {
   @Column(name = "reg_month", length = 20)
   String regMonth;
 
+  @Column(name = "reg_date", length = 50)
+  String regDate;
+
   @Column(precision = 3, scale = 1)
   BigDecimal rating;
 
-  @Builder.Default
   @Column(name = "review_count")
-  Integer reviewCount = 0;
+  Integer reviewCount;
 
   @Column(name = "category_id", nullable = false)
   Long categoryId;
