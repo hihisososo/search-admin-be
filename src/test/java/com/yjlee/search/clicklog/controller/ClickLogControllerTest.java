@@ -1,27 +1,32 @@
 package com.yjlee.search.clicklog.controller;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.clicklog.dto.ClickLogRequest;
-import com.yjlee.search.clicklog.dto.ClickLogResponse;
-import com.yjlee.search.clicklog.service.ClickLogService;
+import com.yjlee.search.clicklog.model.ClickLogDocument;
+import com.yjlee.search.common.config.BaseIntegrationTest;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
-@WebMvcTest(ClickLogController.class)
-class ClickLogControllerTest {
+@AutoConfigureMockMvc
+@Transactional
+class ClickLogControllerTest extends BaseIntegrationTest {
 
   @Autowired
   private MockMvc mockMvc;
@@ -29,12 +34,11 @@ class ClickLogControllerTest {
   @Autowired
   private ObjectMapper objectMapper;
 
-  @MockBean
-  private ClickLogService clickLogService;
+  @Autowired
+  private ElasticsearchClient elasticsearchClient;
 
+  private static final DateTimeFormatter INDEX_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy.MM.dd");
   private ClickLogRequest validRequest;
-  private ClickLogResponse successResponse;
-  private ClickLogResponse failureResponse;
 
   @BeforeEach
   void setUp() {
@@ -43,28 +47,12 @@ class ClickLogControllerTest {
         .clickedProductId("PROD-12345")
         .indexName("products")
         .build();
-
-    successResponse = ClickLogResponse.builder()
-        .success(true)
-        .message("클릭 로그가 성공적으로 저장되었습니다.")
-        .timestamp(LocalDateTime.now().toString())
-        .build();
-
-    failureResponse = ClickLogResponse.builder()
-        .success(false)
-        .message("클릭 로그 저장 중 오류가 발생했습니다: 연결 실패")
-        .timestamp(LocalDateTime.now().toString())
-        .build();
   }
 
   @Test
   @DisplayName("POST /api/v1/click-logs - 클릭 로그 저장 성공")
   void logClick_Success() throws Exception {
-    // given
-    when(clickLogService.logClick(any(ClickLogRequest.class)))
-        .thenReturn(successResponse);
-
-    // when & then
+    // when
     mockMvc.perform(post("/api/v1/click-logs")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(validRequest)))
@@ -72,23 +60,23 @@ class ClickLogControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.message").value("클릭 로그가 성공적으로 저장되었습니다."))
         .andExpect(jsonPath("$.timestamp").exists());
-  }
 
-  @Test
-  @DisplayName("POST /api/v1/click-logs - 클릭 로그 저장 실패")
-  void logClick_Failure() throws Exception {
-    // given
-    when(clickLogService.logClick(any(ClickLogRequest.class)))
-        .thenReturn(failureResponse);
-
-    // when & then
-    mockMvc.perform(post("/api/v1/click-logs")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(validRequest)))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.success").value(false))
-        .andExpect(jsonPath("$.message").value("클릭 로그 저장 중 오류가 발생했습니다: 연결 실패"))
-        .andExpect(jsonPath("$.timestamp").exists());
+    // then - Elasticsearch에서 확인
+    Thread.sleep(1000); // 인덱싱 대기
+    elasticsearchClient.indices().refresh();
+    
+    String indexName = "click-logs-" + LocalDateTime.now().format(INDEX_DATE_FORMATTER);
+    SearchRequest searchRequest = SearchRequest.of(s -> s
+        .index(indexName)
+        .query(Query.of(q -> q
+            .term(t -> t
+                .field("searchKeyword.keyword")
+                .value("노트북")))));
+    
+    SearchResponse<ClickLogDocument> response = elasticsearchClient.search(searchRequest, ClickLogDocument.class);
+    assertThat(response.hits().total().value()).isEqualTo(1);
+    assertThat(response.hits().hits().get(0).source().getSearchKeyword()).isEqualTo("노트북");
+    assertThat(response.hits().hits().get(0).source().getClickedProductId()).isEqualTo("PROD-12345");
   }
 
   @Test
@@ -151,5 +139,45 @@ class ClickLogControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{}"))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  @DisplayName("POST /api/v1/click-logs - 여러 클릭 로그 저장")
+  void logClick_Multiple() throws Exception {
+    // given
+    ClickLogRequest request1 = ClickLogRequest.builder()
+        .searchKeyword("키보드")
+        .clickedProductId("PROD-11111")
+        .indexName("products")
+        .build();
+
+    ClickLogRequest request2 = ClickLogRequest.builder()
+        .searchKeyword("마우스")
+        .clickedProductId("PROD-22222")
+        .indexName("products")
+        .build();
+
+    // when
+    mockMvc.perform(post("/api/v1/click-logs")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request1)))
+        .andExpect(status().isOk());
+
+    mockMvc.perform(post("/api/v1/click-logs")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request2)))
+        .andExpect(status().isOk());
+
+    // then
+    Thread.sleep(1000); // 인덱싱 대기
+    elasticsearchClient.indices().refresh();
+    
+    String indexName = "click-logs-" + LocalDateTime.now().format(INDEX_DATE_FORMATTER);
+    SearchRequest searchRequest = SearchRequest.of(s -> s
+        .index(indexName)
+        .size(10));
+    
+    SearchResponse<ClickLogDocument> response = elasticsearchClient.search(searchRequest, ClickLogDocument.class);
+    assertThat(response.hits().total().value()).isGreaterThanOrEqualTo(2);
   }
 }

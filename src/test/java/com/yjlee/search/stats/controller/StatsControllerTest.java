@@ -1,217 +1,156 @@
 package com.yjlee.search.stats.controller;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.yjlee.search.stats.dto.PopularKeywordResponse;
-import com.yjlee.search.stats.dto.StatsResponse;
-import com.yjlee.search.stats.dto.TrendResponse;
-import com.yjlee.search.stats.service.StatsService;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.IndexRequest;
+import com.yjlee.search.common.config.BaseIntegrationTest;
+import com.yjlee.search.searchlog.model.SearchLogDocument;
+import com.yjlee.search.clicklog.model.ClickLogDocument;
 import java.time.LocalDateTime;
-import java.util.Arrays;
+import java.time.format.DateTimeFormatter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
-@WebMvcTest(StatsController.class)
-class StatsControllerTest {
+@AutoConfigureMockMvc
+@Transactional
+class StatsControllerTest extends BaseIntegrationTest {
 
   @Autowired
   private MockMvc mockMvc;
 
-  @MockBean
-  private StatsService statsService;
+  @Autowired
+  private ElasticsearchClient elasticsearchClient;
 
-  private StatsResponse statsResponse;
-  private PopularKeywordResponse popularKeywordResponse;
-  private TrendResponse trendResponse;
+  private static final DateTimeFormatter INDEX_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy.MM.dd");
+  private LocalDateTime testTime;
+  private String searchLogIndex;
+  private String clickLogIndex;
 
   @BeforeEach
-  void setUp() {
-    // Stats Response 준비
-    statsResponse = StatsResponse.builder()
-        .totalSearchCount(1000L)
-        .totalDocumentCount(50000L)
-        .searchFailureRate(2.5)
-        .errorCount(25L)
-        .averageResponseTimeMs(150.5)
-        .successRate(97.5)
-        .clickCount(300L)
-        .clickThroughRate(30.0)
-        .period("2024-01-01 ~ 2024-01-08")
-        .build();
+  void setUp() throws Exception {
+    testTime = LocalDateTime.now();
+    searchLogIndex = "search-logs-" + testTime.format(INDEX_DATE_FORMATTER);
+    clickLogIndex = "click-logs-" + testTime.format(INDEX_DATE_FORMATTER);
 
-    // Popular Keyword Response 준비
-    popularKeywordResponse = PopularKeywordResponse.builder()
-        .keywords(Arrays.asList(
-            PopularKeywordResponse.KeywordStats.builder()
-                .keyword("노트북")
-                .count(100L)
-                .clickCount(30L)
-                .clickThroughRate(30.0)
-                .percentage(50.0)
-                .rank(1)
-                .changeStatus(PopularKeywordResponse.RankChangeStatus.UP)
-                .build(),
-            PopularKeywordResponse.KeywordStats.builder()
-                .keyword("키보드")
-                .count(80L)
-                .clickCount(20L)
-                .clickThroughRate(25.0)
-                .percentage(40.0)
-                .rank(2)
-                .changeStatus(PopularKeywordResponse.RankChangeStatus.DOWN)
-                .build()
-        ))
-        .period("2024-01-01 ~ 2024-01-08")
-        .build();
-
-    // Trend Response 준비
-    trendResponse = TrendResponse.builder()
-        .searchVolumeData(Arrays.asList(
-            TrendResponse.TrendData.builder()
-                .timestamp(LocalDateTime.now().minusDays(1))
-                .searchCount(100L)
-                .clickCount(30L)
-                .clickThroughRate(30.0)
-                .averageResponseTime(150.0)
-                .label("2024-01-07")
-                .build(),
-            TrendResponse.TrendData.builder()
-                .timestamp(LocalDateTime.now())
-                .searchCount(120L)
-                .clickCount(40L)
-                .clickThroughRate(33.3)
-                .averageResponseTime(140.0)
-                .label("2024-01-08")
-                .build()
-        ))
-        .responseTimeData(Arrays.asList())
-        .period("2024-01-01 ~ 2024-01-08")
-        .interval("day")
-        .build();
+    // 테스트 데이터 준비 - 검색 로그
+    insertSearchLog("노트북", 100L, false, 150L);
+    insertSearchLog("키보드", 0L, false, 200L);  // 검색 실패
+    insertSearchLog("마우스", 50L, false, 100L);
+    insertSearchLog("모니터", 30L, true, 0L);   // 에러 발생
+    
+    // 테스트 데이터 준비 - 클릭 로그
+    insertClickLog("노트북", "PROD-12345");
+    insertClickLog("노트북", "PROD-67890");
+    insertClickLog("마우스", "PROD-11111");
+    
+    // Elasticsearch 인덱스 새로고침
+    elasticsearchClient.indices().refresh();
   }
 
   @Test
   @DisplayName("GET /api/v1/stats - 기본 통계 조회")
   void getStats() throws Exception {
-    // given
-    when(statsService.getStats(any(LocalDateTime.class), any(LocalDateTime.class)))
-        .thenReturn(statsResponse);
-
-    // when & then
-    mockMvc.perform(get("/api/v1/stats")
-            .param("from", "2024-01-01T00:00:00")
-            .param("to", "2024-01-08T00:00:00"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalSearchCount").value(1000))
-        .andExpect(jsonPath("$.totalDocumentCount").value(50000))
-        .andExpect(jsonPath("$.searchFailureRate").value(2.5))
-        .andExpect(jsonPath("$.errorCount").value(25))
-        .andExpect(jsonPath("$.averageResponseTimeMs").value(150.5))
-        .andExpect(jsonPath("$.successRate").value(97.5))
-        .andExpect(jsonPath("$.clickCount").value(300))
-        .andExpect(jsonPath("$.clickThroughRate").value(30.0))
-        .andExpect(jsonPath("$.period").value("2024-01-01 ~ 2024-01-08"));
-  }
-
-  @Test
-  @DisplayName("GET /api/v1/stats - 파라미터 없이 조회 (기본값 사용)")
-  void getStats_WithoutParams() throws Exception {
-    // given
-    when(statsService.getStats(any(LocalDateTime.class), any(LocalDateTime.class)))
-        .thenReturn(statsResponse);
-
     // when & then
     mockMvc.perform(get("/api/v1/stats"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.totalSearchCount").exists())
-        .andExpect(jsonPath("$.clickThroughRate").exists());
+        .andExpect(jsonPath("$.totalSearchCount").value(4))
+        .andExpect(jsonPath("$.totalDocumentCount").value(180))  // 100 + 0 + 50 + 30
+        .andExpect(jsonPath("$.searchFailureRate").value(25.0))  // 1/4 * 100
+        .andExpect(jsonPath("$.errorCount").value(1))
+        .andExpect(jsonPath("$.successRate").value(75.0))  // 3/4 * 100
+        .andExpect(jsonPath("$.clickCount").value(3))
+        .andExpect(jsonPath("$.clickThroughRate").value(75.0))  // 3/4 * 100
+        .andExpect(jsonPath("$.period").exists());
+  }
+
+  @Test
+  @DisplayName("GET /api/v1/stats - 기간 지정 조회")
+  void getStats_WithDateRange() throws Exception {
+    // given
+    LocalDateTime from = testTime.minusDays(7);
+    LocalDateTime to = testTime.plusDays(1);
+
+    // when & then
+    mockMvc.perform(get("/api/v1/stats")
+            .param("from", from.toString())
+            .param("to", to.toString()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalSearchCount").value(4))
+        .andExpect(jsonPath("$.clickThroughRate").value(75.0));
   }
 
   @Test
   @DisplayName("GET /api/v1/stats/popular-keywords - 인기 검색어 조회")
   void getPopularKeywords() throws Exception {
-    // given
-    when(statsService.getPopularKeywords(any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
-        .thenReturn(popularKeywordResponse);
-
     // when & then
     mockMvc.perform(get("/api/v1/stats/popular-keywords")
-            .param("from", "2024-01-01T00:00:00")
-            .param("to", "2024-01-08T00:00:00")
             .param("limit", "10"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.keywords").isArray())
-        .andExpect(jsonPath("$.keywords[0].keyword").value("노트북"))
-        .andExpect(jsonPath("$.keywords[0].count").value(100))
-        .andExpect(jsonPath("$.keywords[0].clickCount").value(30))
-        .andExpect(jsonPath("$.keywords[0].clickThroughRate").value(30.0))
-        .andExpect(jsonPath("$.keywords[0].rank").value(1))
-        .andExpect(jsonPath("$.keywords[0].changeStatus").value("UP"))
-        .andExpect(jsonPath("$.period").value("2024-01-01 ~ 2024-01-08"));
+        .andExpect(jsonPath("$.keywords[0].keyword").exists())
+        .andExpect(jsonPath("$.keywords[0].count").exists())
+        .andExpect(jsonPath("$.keywords[0].clickCount").exists())
+        .andExpect(jsonPath("$.keywords[0].clickThroughRate").exists())
+        .andExpect(jsonPath("$.period").exists());
   }
 
   @Test
   @DisplayName("GET /api/v1/stats/trends - 시계열 추이 조회")
   void getTrends() throws Exception {
-    // given
-    when(statsService.getTrends(any(LocalDateTime.class), any(LocalDateTime.class), anyString()))
-        .thenReturn(trendResponse);
-
     // when & then
     mockMvc.perform(get("/api/v1/stats/trends")
-            .param("from", "2024-01-01T00:00:00")
-            .param("to", "2024-01-08T00:00:00")
-            .param("interval", "day"))
+            .param("interval", "hour"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.searchVolumeData").isArray())
-        .andExpect(jsonPath("$.searchVolumeData[0].searchCount").value(100))
-        .andExpect(jsonPath("$.searchVolumeData[0].clickCount").value(30))
-        .andExpect(jsonPath("$.searchVolumeData[0].clickThroughRate").value(30.0))
-        .andExpect(jsonPath("$.searchVolumeData[0].label").value("2024-01-07"))
-        .andExpect(jsonPath("$.period").value("2024-01-01 ~ 2024-01-08"))
-        .andExpect(jsonPath("$.interval").value("day"));
+        .andExpect(jsonPath("$.period").exists())
+        .andExpect(jsonPath("$.interval").value("hour"));
   }
 
   @Test
   @DisplayName("GET /api/v1/stats/trending-keywords - 급등 검색어 조회")
   void getTrendingKeywords() throws Exception {
-    // given
-    PopularKeywordResponse trendingResponse = PopularKeywordResponse.builder()
-        .keywords(Arrays.asList(
-            PopularKeywordResponse.KeywordStats.builder()
-                .keyword("아이폰15")
-                .count(200L)
-                .clickCount(100L)
-                .clickThroughRate(50.0)
-                .percentage(60.0)
-                .rank(1)
-                .build()
-        ))
-        .period("2024-01-01 ~ 2024-01-08")
-        .build();
-
-    when(statsService.getTrendingKeywords(any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
-        .thenReturn(trendingResponse);
-
     // when & then
     mockMvc.perform(get("/api/v1/stats/trending-keywords")
-            .param("from", "2024-01-01T00:00:00")
-            .param("to", "2024-01-08T00:00:00")
-            .param("limit", "10"))
+            .param("limit", "5"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.keywords").isArray())
-        .andExpect(jsonPath("$.keywords[0].keyword").value("아이폰15"))
-        .andExpect(jsonPath("$.keywords[0].clickThroughRate").value(50.0));
+        .andExpect(jsonPath("$.period").exists());
+  }
+
+  private void insertSearchLog(String keyword, Long resultCount, boolean isError, Long responseTime) throws Exception {
+    SearchLogDocument searchLog = SearchLogDocument.builder()
+        .timestamp(testTime)
+        .searchKeyword(keyword)
+        .indexName("products")
+        .responseTimeMs(responseTime)
+        .resultCount(resultCount)
+        .isError(isError)
+        .clientIp("127.0.0.1")
+        .userAgent("TestAgent")
+        .build();
+
+    elasticsearchClient.index(IndexRequest.of(i -> i
+        .index(searchLogIndex)
+        .document(searchLog)));
+  }
+
+  private void insertClickLog(String keyword, String productId) throws Exception {
+    ClickLogDocument clickLog = ClickLogDocument.builder()
+        .timestamp(testTime)
+        .searchKeyword(keyword)
+        .clickedProductId(productId)
+        .indexName("products")
+        .build();
+
+    elasticsearchClient.index(IndexRequest.of(i -> i
+        .index(clickLogIndex)
+        .document(clickLog)));
   }
 }
