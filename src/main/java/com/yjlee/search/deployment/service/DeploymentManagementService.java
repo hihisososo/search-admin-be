@@ -3,16 +3,12 @@ package com.yjlee.search.deployment.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.dto.*;
 import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
-import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
-import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
-import com.yjlee.search.dictionary.user.service.UserDictionaryService;
+import com.yjlee.search.deployment.strategy.EnvironmentStrategyFactory;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -36,11 +32,8 @@ public class DeploymentManagementService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexingExecutionService indexingExecutionService;
   private final ElasticsearchIndexService elasticsearchIndexService;
-  private final SynonymDictionaryService synonymDictionaryService;
-  private final UserDictionaryService userDictionaryService;
-  private final StopwordDictionaryService stopwordDictionaryService;
-  private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
-  private final ElasticsearchSynonymService elasticsearchSynonymService;
+  private final DeploymentStepService deploymentStepService;
+  private final EnvironmentStrategyFactory strategyFactory;
 
   public EnvironmentListResponse getEnvironments() {
     List<IndexEnvironment> environments = indexEnvironmentRepository.findAll();
@@ -174,16 +167,26 @@ public class DeploymentManagementService {
         prodEnvironment = indexEnvironmentRepository.save(prodEnvironment);
       }
 
+      // 전략 패턴을 통한 검증
+      var devStrategy = strategyFactory.getStrategy(IndexEnvironment.EnvironmentType.DEV);
+      var prodStrategy = strategyFactory.getStrategy(IndexEnvironment.EnvironmentType.PROD);
+
+      devStrategy.validateDeployment(devEnvironment, prodEnvironment);
+      prodStrategy.validateDeployment(devEnvironment, prodEnvironment);
+
       // 배포 이력 생성
       DeploymentHistory history =
           createDeploymentHistory(devEnvironment.getVersion(), request.getDescription());
       history = deploymentHistoryRepository.save(history);
 
-      // 사전 운영 환경 배포
-      deployDictionariesToProd();
+      // 운영 환경 배포 준비 (사전 배포 포함)
+      prodStrategy.prepareDeployment(prodEnvironment);
 
       // 배포 실행
       executeDeploymentInternal(devEnvironment, prodEnvironment, history.getId());
+
+      // 배포 후처리
+      prodStrategy.postDeployment(prodEnvironment);
 
       return DeploymentOperationResponse.success(
           "배포가 완료되었습니다.", devEnvironment.getVersion(), history.getId());
@@ -191,24 +194,6 @@ public class DeploymentManagementService {
     } catch (Exception e) {
       log.error("배포 실행 실패", e);
       return DeploymentOperationResponse.failure("배포 실행 실패: " + e.getMessage());
-    }
-  }
-
-  private void deployDictionariesToProd() {
-    try {
-      // 사전 스냅샷 운영 환경 배포
-      synonymDictionaryService.deployToProd();
-      userDictionaryService.deployToProd();
-      stopwordDictionaryService.deployToProd();
-      typoCorrectionDictionaryService.deployToProd();
-
-      // 동의어 사전 PROD 환경 synonym_set 업데이트
-      elasticsearchSynonymService.updateSynonymSetRealtime(DictionaryEnvironmentType.PROD);
-
-      log.info("모든 사전 운영 환경 배포 및 synonym_set 업데이트 완료");
-    } catch (Exception e) {
-      log.error("사전 운영 환경 배포 실패", e);
-      throw new RuntimeException("사전 운영 환경 배포 실패", e);
     }
   }
 
@@ -229,62 +214,23 @@ public class DeploymentManagementService {
     try {
       log.info("배포 실행 - 개발: {} -> 운영", devEnvironment.getIndexName());
 
-      // 0. 배포 전 현재 alias 상태 확인
-      try {
-        var currentAliasIndices = elasticsearchIndexService.getCurrentAliasIndices();
-        log.info("배포 전 products-search alias 상태: {}", currentAliasIndices);
-      } catch (Exception e) {
-        log.warn("배포 전 alias 상태 확인 실패 (무시하고 계속 진행): {}", e.getMessage());
-      }
+      // 1. Alias 업데이트
+      deploymentStepService.updateAlias(devEnvironment.getIndexName());
 
-      // 1. products-search alias를 개발 인덱스로 변경
-      elasticsearchIndexService.updateProductsSearchAlias(devEnvironment.getIndexName());
-
-      // 1-1. 배포 후 alias 상태 확인
-      try {
-        var updatedAliasIndices = elasticsearchIndexService.getCurrentAliasIndices();
-        log.info("배포 후 products-search alias 상태: {}", updatedAliasIndices);
-      } catch (Exception e) {
-        log.warn("배포 후 alias 상태 확인 실패 (무시하고 계속 진행): {}", e.getMessage());
-      }
-
-      // 2. 기존 운영 인덱스 삭제 (있으면 삭제)
-      if (prodEnvironment.getIndexName() != null) {
-        try {
-          elasticsearchIndexService.deleteIndexIfExists(prodEnvironment.getIndexName());
-          log.info("기존 운영 인덱스 삭제 완료: {}", prodEnvironment.getIndexName());
-        } catch (Exception e) {
-          log.warn("기존 운영 인덱스 삭제 실패 (무시하고 계속 진행): {}", e.getMessage());
-        }
-      }
+      // 2. 기존 운영 인덱스 삭제
+      deploymentStepService.deleteOldProdIndex(prodEnvironment);
 
       // 3. 운영 환경 정보 업데이트
-      prodEnvironment.setIndexName(devEnvironment.getIndexName());
-      prodEnvironment.setVersion(devEnvironment.getVersion());
-      prodEnvironment.setDocumentCount(devEnvironment.getDocumentCount());
-      prodEnvironment.setIndexStatus(IndexEnvironment.IndexStatus.ACTIVE);
-      prodEnvironment.setIndexDate(LocalDateTime.now());
-      indexEnvironmentRepository.save(prodEnvironment);
+      deploymentStepService.updateProdEnvironment(prodEnvironment, devEnvironment);
 
-      // 4. 이력 완료 처리
-      LocalDateTime completionTime = LocalDateTime.now();
-      DeploymentHistory history =
-          deploymentHistoryRepository
-              .findById(historyId)
-              .orElseThrow(() -> new IllegalStateException("이력을 찾을 수 없습니다"));
-      history.complete(completionTime, devEnvironment.getDocumentCount());
-      deploymentHistoryRepository.save(history);
+      // 4. 배포 이력 완료 처리
+      deploymentStepService.completeDeploymentHistory(historyId, devEnvironment.getDocumentCount());
 
       log.info("배포 완료 - 운영 인덱스: {}", prodEnvironment.getIndexName());
 
     } catch (Exception e) {
       log.error("배포 실패", e);
-      DeploymentHistory history =
-          deploymentHistoryRepository
-              .findById(historyId)
-              .orElseThrow(() -> new IllegalStateException("이력을 찾을 수 없습니다"));
-      history.fail();
-      deploymentHistoryRepository.save(history);
+      deploymentStepService.failDeploymentHistory(historyId);
       throw new RuntimeException("배포 실패: " + e.getMessage(), e);
     }
   }

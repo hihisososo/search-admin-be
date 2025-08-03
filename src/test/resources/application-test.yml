@@ -32,6 +32,11 @@ app:
       bucket: test-bucket
     ec2:
       instance-ids: i-test123
+    dictionary:
+      ec2-instance-ids: test-instance-1,test-instance-2
+  deployment:
+    application-path: /test/path
+    git-branch: test-branch
 
 # 테스트 환경 전용 인덱스 설정
 test:

@@ -1,0 +1,71 @@
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :compileTestJava
+> Task :processTestResources UP-TO-DATE
+> Task :testClasses
+> Task :test
+
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :test
+
+DeploymentControllerTest > POST /api/v1/deployments/deploy - 배포 실행 PASSED
+
+DeploymentControllerTest > GET /api/v1/deployment/history - 배포 이력 조회 PASSED
+
+DeploymentControllerTest > SSM 명령 실패 시나리오 테스트 FAILED
+    java.lang.AssertionError at DeploymentControllerTest.java:406
+
+DeploymentControllerTest > POST /api/v1/deployments/indexing - 색인 실행 PASSED
+
+DeploymentControllerTest > GET /api/v1/deployments/environments - 환경 목록 조회 PASSED
+
+DeploymentControllerTest > GET /api/v1/deployment/history - 타입별 필터링 FAILED
+    java.lang.AssertionError at DeploymentControllerTest.java:303
+
+DeploymentControllerTest > POST /api/v1/deployments/indexing - 색인 중복 실행 방지 FAILED
+    java.lang.AssertionError at DeploymentControllerTest.java:328
+
+DeploymentControllerTest > GET /api/v1/deployment/history - 상태별 필터링 PASSED
+
+DeploymentControllerTest > POST /api/v1/deployments/deploy - 실제 Elasticsearch와 통합 배포 테스트 FAILED
+    java.lang.AssertionError at DeploymentControllerTest.java:380
+
+DeploymentControllerTest > POST /api/v1/deployments/deploy - 색인 없을 때 배포 실패 FAILED
+    java.lang.AssertionError at DeploymentControllerTest.java:353
+
+2025-08-03 17:15:46.481 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+Hibernate: drop table if exists async_tasks cascade 
+Hibernate: drop table if exists deployment_history cascade 
+Hibernate: drop table if exists evaluation_queries cascade 
+Hibernate: drop table if exists evaluation_reports cascade 
+Hibernate: drop table if exists index_environments cascade 
+Hibernate: drop table if exists products cascade 
+Hibernate: drop table if exists query_product_mappings cascade 
+Hibernate: drop table if exists stopword_dictionaries cascade 
+Hibernate: drop table if exists stopword_dictionary_snapshots cascade 
+Hibernate: drop table if exists synonym_dictionaries cascade 
+Hibernate: drop table if exists synonym_dictionary_snapshots cascade 
+Hibernate: drop table if exists typo_correction_dictionaries cascade 
+Hibernate: drop table if exists typo_correction_dictionary_snapshots cascade 
+Hibernate: drop table if exists user_dictionaries cascade 
+Hibernate: drop table if exists user_dictionary_snapshots cascade 
+2025-08-03 17:15:46.493 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-08-03 17:15:46.495 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+
+> Task :test FAILED
+
+10 tests completed, 5 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file:///C:/Users/lyj/Desktop/cursor_workspace/search-admin-be-2/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1m 3s
+5 actionable tasks: 2 executed, 3 up-to-date
