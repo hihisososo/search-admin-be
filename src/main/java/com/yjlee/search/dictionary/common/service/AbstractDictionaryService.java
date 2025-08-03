@@ -69,7 +69,12 @@ public abstract class AbstractDictionaryService<
   }
 
   public PageResponse<ListResponse> getList(
-      int page, int size, String sortBy, String sortDir, String keyword, DictionaryEnvironmentType environment) {
+      int page,
+      int size,
+      String sortBy,
+      String sortDir,
+      String keyword,
+      DictionaryEnvironmentType environment) {
     log.info(
         "{} 사전 목록 조회 - 환경: {}, 페이지: {}, 크기: {}, 정렬: {} {}, 검색어: {}",
         getDictionaryType(),
@@ -99,7 +104,11 @@ public abstract class AbstractDictionaryService<
       resultPage = snapshots.map(this::convertToListResponse);
     }
 
-    log.info("{} 사전 목록 조회 완료 - 환경: {}, 전체: {}개", getDictionaryType(), environment, resultPage.getTotalElements());
+    log.info(
+        "{} 사전 목록 조회 완료 - 환경: {}, 전체: {}개",
+        getDictionaryType(),
+        environment,
+        resultPage.getTotalElements());
 
     return PageResponse.from(resultPage);
   }
@@ -111,12 +120,16 @@ public abstract class AbstractDictionaryService<
       T entity =
           getRepository()
               .findById(id)
-              .orElseThrow(() -> new EntityNotFoundException(getDictionaryType() + " 사전을 찾을 수 없습니다: " + id));
+              .orElseThrow(
+                  () -> new EntityNotFoundException(getDictionaryType() + " 사전을 찾을 수 없습니다: " + id));
       return convertToResponse(entity);
     } else {
       S snapshot =
           findSnapshotByOriginalIdAndEnvironment(id, environment)
-              .orElseThrow(() -> new EntityNotFoundException(getDictionaryType() + " 사전 스냅샷을 찾을 수 없습니다: " + id));
+              .orElseThrow(
+                  () ->
+                      new EntityNotFoundException(
+                          getDictionaryType() + " 사전 스냅샷을 찾을 수 없습니다: " + id));
       return convertToResponse(snapshot);
     }
   }
@@ -127,7 +140,8 @@ public abstract class AbstractDictionaryService<
     T entity =
         getRepository()
             .findById(id)
-            .orElseThrow(() -> new EntityNotFoundException(getDictionaryType() + " 사전을 찾을 수 없습니다: " + id));
+            .orElseThrow(
+                () -> new EntityNotFoundException(getDictionaryType() + " 사전을 찾을 수 없습니다: " + id));
 
     updateEntity(entity, request);
     T updated = getRepository().save(entity);
@@ -190,7 +204,9 @@ public abstract class AbstractDictionaryService<
 
     List<S> prodSnapshots =
         devSnapshots.stream()
-            .map(devSnapshot -> createSnapshotFromSnapshot(DictionaryEnvironmentType.PROD, devSnapshot))
+            .map(
+                devSnapshot ->
+                    createSnapshotFromSnapshot(DictionaryEnvironmentType.PROD, devSnapshot))
             .toList();
 
     getSnapshotRepository().saveAll(prodSnapshots);
@@ -208,10 +224,7 @@ public abstract class AbstractDictionaryService<
     String[] allowedFields = {"keyword", "createdAt", "updatedAt"};
 
     if (!Arrays.asList(allowedFields).contains(sortBy)) {
-      log.warn(
-          "허용되지 않은 정렬 필드: {}. 기본값 {} 사용",
-          sortBy,
-          isSnapshot ? "createdAt" : "updatedAt");
+      log.warn("허용되지 않은 정렬 필드: {}. 기본값 {} 사용", sortBy, isSnapshot ? "createdAt" : "updatedAt");
       sortBy = isSnapshot ? "createdAt" : "updatedAt";
     }
 

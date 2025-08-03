@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.user.service;
 
-import com.yjlee.search.dictionary.common.service.AbstractDictionaryService;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.dictionary.common.service.AbstractDictionaryService;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
@@ -151,8 +151,7 @@ public class UserDictionaryServiceV2
   @Override
   protected Optional<UserDictionarySnapshot> findSnapshotByOriginalIdAndEnvironment(
       Long originalId, DictionaryEnvironmentType environment) {
-    return snapshotRepository.findByOriginalDictionaryIdAndEnvironmentType(
-        originalId, environment);
+    return snapshotRepository.findByOriginalDictionaryIdAndEnvironmentType(originalId, environment);
   }
 
   @Override

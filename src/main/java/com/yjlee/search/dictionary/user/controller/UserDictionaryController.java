@@ -69,7 +69,8 @@ public class UserDictionaryController {
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId) {
 
     log.debug("사용자 사전 상세 조회: {}", dictionaryId);
-    UserDictionaryResponse response = userDictionaryService.get(dictionaryId, DictionaryEnvironmentType.CURRENT);
+    UserDictionaryResponse response =
+        userDictionaryService.get(dictionaryId, DictionaryEnvironmentType.CURRENT);
     return ResponseEntity.ok(response);
   }
 
@@ -86,8 +87,7 @@ public class UserDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.debug("사용자 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
-    UserDictionaryResponse response =
-        userDictionaryService.create(request, environment);
+    UserDictionaryResponse response = userDictionaryService.create(request, environment);
     return ResponseEntity.ok(response);
   }
 
