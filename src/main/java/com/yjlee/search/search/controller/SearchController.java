@@ -7,7 +7,9 @@ import com.yjlee.search.search.dto.SearchParams;
 import com.yjlee.search.search.dto.SearchSimulationParams;
 import com.yjlee.search.search.service.SearchService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springdoc.core.annotations.ParameterObject;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -28,7 +30,7 @@ public class SearchController {
   @Operation(summary = "상품 검색")
   @GetMapping
   public ResponseEntity<SearchExecuteResponse> search(
-      @ModelAttribute SearchParams params, HttpServletRequest httpRequest) {
+      @ParameterObject SearchParams params, HttpServletRequest httpRequest) {
     return ResponseEntity.ok(searchService.executeSearch(params, httpRequest));
   }
 
@@ -42,7 +44,7 @@ public class SearchController {
   @Operation(summary = "상품 검색 시뮬레이션")
   @GetMapping("/simulation")
   public ResponseEntity<SearchExecuteResponse> searchSimulation(
-      @ModelAttribute SearchSimulationParams params, HttpServletRequest httpRequest) {
+      @ParameterObject SearchSimulationParams params, HttpServletRequest httpRequest) {
     return ResponseEntity.ok(searchService.executeSearchSimulation(params, httpRequest));
   }
 
