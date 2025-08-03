@@ -1,0 +1,405 @@
+Initialized native services in: C:\Users\lyj\.gradle\native
+Initialized jansi services in: C:\Users\lyj\.gradle\native
+Found daemon DaemonInfo{pid=12284, address=[6e638ee9-3358-46a8-a5d7-def8152476d6 port:65160, addresses:[/127.0.0.1]], state=Idle, lastBusy=1754208507993, context=DefaultDaemonContext[uid=5aa07ae9-86ec-4ab8-ab2f-4bf2d3e19ba5,javaHome=C:\Program Files\Java\jdk-17,javaVersion=17,javaVendor=Oracle Corporation,daemonRegistryDir=C:\Users\lyj\.gradle\daemon,pid=12284,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]} however its context does not match the desired criteria.
+At least one daemon option is different.
+Wanted: DaemonRequestContext{jvmCriteria=C:\Program Files\Java\jdk-17 (no JDK specified, using current Java home), daemonOpts=[-XX:MaxMetaspaceSize=384m, -XX:+HeapDumpOnOutOfMemoryError, -Xms256m, -Xmx512m, -Dfile.encoding=x-windows-949, -Duser.country=US, -Duser.language=en, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=5aa07ae9-86ec-4ab8-ab2f-4bf2d3e19ba5,javaHome=C:\Program Files\Java\jdk-17,javaVersion=17,javaVendor=Oracle Corporation,daemonRegistryDir=C:\Users\lyj\.gradle\daemon,pid=12284,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]
+
+  Looking for a different daemon...
+Found daemon DaemonInfo{pid=1840, address=[e5f647e1-11e2-46f5-afd6-e80eb14ba7e1 port:53544, addresses:[/127.0.0.1]], state=Idle, lastBusy=1754208505640, context=DefaultDaemonContext[uid=0c2a2309-48cc-4886-b84e-7b3e4401ec74,javaHome=C:\Program Files\Java\jdk-17,javaVersion=17,javaVendor=Oracle Corporation,daemonRegistryDir=C:\Users\lyj\.gradle\daemon,pid=1840,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=384m,-XX:+HeapDumpOnOutOfMemoryError,-Xms256m,-Xmx512m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]} however its context does not match the desired criteria.
+At least one daemon option is different.
+Wanted: DaemonRequestContext{jvmCriteria=C:\Program Files\Java\jdk-17 (no JDK specified, using current Java home), daemonOpts=[-XX:MaxMetaspaceSize=384m, -XX:+HeapDumpOnOutOfMemoryError, -Xms256m, -Xmx512m, -Dfile.encoding=x-windows-949, -Duser.country=US, -Duser.language=en, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=0c2a2309-48cc-4886-b84e-7b3e4401ec74,javaHome=C:\Program Files\Java\jdk-17,javaVersion=17,javaVendor=Oracle Corporation,daemonRegistryDir=C:\Users\lyj\.gradle\daemon,pid=1840,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=384m,-XX:+HeapDumpOnOutOfMemoryError,-Xms256m,-Xmx512m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]
+
+  Looking for a different daemon...
+The client will now receive all logging from the daemon (pid: 16472). The daemon log file: C:\Users\lyj\.gradle\daemon\8.14.2\daemon-16472.out.log
+Starting 5th build in daemon [uptime: 1 mins 16.131 secs, performance: 98%, GC rate: 0.22/s, heap usage: 8% of 512 MiB, non-heap usage: 16% of 384 MiB]
+Using 12 worker leases.
+Now considering [C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2] as hierarchies to watch
+Watching the file system is configured to be enabled if available
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\settings.gradle'.
+Projects loaded. Root project using build file 'C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build.gradle'.
+Included projects: [root project 'search-admin-be']
+
+> Configure project :
+Evaluating root project 'search-admin-be' using build file 'C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build.gradle'.
+Resolved plugin [id: 'java']
+Resolved plugin [id: 'org.springframework.boot', version: '3.5.3']
+Resolved plugin [id: 'io.spring.dependency-management', version: '1.1.7']
+Resolved plugin [id: 'com.diffplug.spotless', version: '6.25.0']
+Resolved plugin [id: 'jacoco']
+Applying dependency management to configuration 'annotationProcessor' in project 'search-admin-be'
+Applying dependency management to configuration 'apiElements' in project 'search-admin-be'
+Applying dependency management to configuration 'archives' in project 'search-admin-be'
+Applying dependency management to configuration 'bootArchives' in project 'search-admin-be'
+Applying dependency management to configuration 'compileClasspath' in project 'search-admin-be'
+Applying dependency management to configuration 'compileOnly' in project 'search-admin-be'
+Applying dependency management to configuration 'default' in project 'search-admin-be'
+Applying dependency management to configuration 'developmentOnly' in project 'search-admin-be'
+Applying dependency management to configuration 'implementation' in project 'search-admin-be'
+Applying dependency management to configuration 'mainSourceElements' in project 'search-admin-be'
+Applying dependency management to configuration 'productionRuntimeClasspath' in project 'search-admin-be'
+Applying dependency management to configuration 'runtimeClasspath' in project 'search-admin-be'
+Applying dependency management to configuration 'runtimeElements' in project 'search-admin-be'
+Applying dependency management to configuration 'runtimeOnly' in project 'search-admin-be'
+Applying dependency management to configuration 'testAndDevelopmentOnly' in project 'search-admin-be'
+Applying dependency management to configuration 'testAnnotationProcessor' in project 'search-admin-be'
+Applying dependency management to configuration 'testCompileClasspath' in project 'search-admin-be'
+Applying dependency management to configuration 'testCompileOnly' in project 'search-admin-be'
+Applying dependency management to configuration 'testImplementation' in project 'search-admin-be'
+Applying dependency management to configuration 'testResultsElementsForTest' in project 'search-admin-be'
+Applying dependency management to configuration 'testRuntimeClasspath' in project 'search-admin-be'
+Applying dependency management to configuration 'testRuntimeOnly' in project 'search-admin-be'
+Applying dependency management to configuration 'jacocoAgent' in project 'search-admin-be'
+Applying dependency management to configuration 'jacocoAnt' in project 'search-admin-be'
+Applying dependency management to configuration 'coverageDataElementsForTest' in project 'search-admin-be'
+All projects evaluated.
+Task name matched 'test'
+Selected primary task 'test' from project :
+Resolving global dependency management for project 'search-admin-be'
+Excluding [commons-logging:commons-logging]
+Excluding []
+Excluding []
+Excluding []
+Excluding [commons-logging:commons-logging]
+Excluding []
+Excluding [commons-logging:commons-logging]
+Tasks to be executed: [task ':compileJava', task ':processResources', task ':classes', task ':compileTestJava', task ':processTestResources', task ':testClasses', task ':test']
+Tasks that were excluded: []
+Resolve mutations for :compileJava (Thread[Execution worker,5,main]) started.
+:compileJava (Thread[included builds,5,main]) started.
+
+> Task :compileJava
+Custom actions are attached to task ':compileJava'.
+Caching disabled for task ':compileJava' because:
+  Build cache is disabled
+Task ':compileJava' is not up-to-date because:
+  Output property 'destinationDirectory' file C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\classes\java\main has been removed.
+  Output property 'destinationDirectory' file C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\classes\java\main\com has been removed.
+  Output property 'destinationDirectory' file C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\classes\java\main\com\yjlee has been removed.
+  and more...
+The input changes require a full rebuild for incremental task ':compileJava'.
+Compilation mode: in-process compilation
+Full recompilation is required because no incremental change information is available. This is usually caused by clean builds or changing compiler arguments.
+Compiling with toolchain 'C:\Program Files\Java\jdk-17'.
+Compiling with JDK Java compiler API.
+Note: C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\src\main\java\com\yjlee\search\common\converter\JsonbConverter.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+Class dependency analysis for incremental compilation took 0.386 secs.
+Created classpath snapshot for incremental compilation in 0.542 secs.
+Resolve mutations for :processResources (Thread[included builds,5,main]) started.
+:processResources (Thread[included builds,5,main]) started.
+
+> Task :processResources
+Caching disabled for task ':processResources' because:
+  Build cache is disabled
+  Not worth caching
+Task ':processResources' is not up-to-date because:
+  Task has failed previously.
+Resolve mutations for :classes (Thread[included builds,5,main]) started.
+:classes (Thread[included builds,5,main]) started.
+
+> Task :classes
+Skipping task ':classes' as it has no actions.
+Resolve mutations for :compileTestJava (Thread[included builds,5,main]) started.
+:compileTestJava (Thread[included builds,5,main]) started.
+
+> Task :compileTestJava
+Custom actions are attached to task ':compileTestJava'.
+Caching disabled for task ':compileTestJava' because:
+  Build cache is disabled
+Task ':compileTestJava' is not up-to-date because:
+  Output property 'destinationDirectory' file C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\classes\java\test has been removed.
+  Output property 'destinationDirectory' file C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\classes\java\test\com has been removed.
+  Output property 'destinationDirectory' file C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\classes\java\test\com\yjlee has been removed.
+  and more...
+The input changes require a full rebuild for incremental task ':compileTestJava'.
+Compilation mode: in-process compilation
+Full recompilation is required because no incremental change information is available. This is usually caused by clean builds or changing compiler arguments.
+Compiling with toolchain 'C:\Program Files\Java\jdk-17'.
+Compiling with JDK Java compiler API.
+Class dependency analysis for incremental compilation took 0.045 secs.
+Created classpath snapshot for incremental compilation in 0.129 secs.
+Resolve mutations for :processTestResources (Thread[Execution worker Thread 4,5,main]) started.
+:processTestResources (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :processTestResources
+Caching disabled for task ':processTestResources' because:
+  Build cache is disabled
+  Not worth caching
+Task ':processTestResources' is not up-to-date because:
+  Value of input property 'rootSpec$1.filteringCharset' has changed for task ':processTestResources'
+Resolve mutations for :testClasses (Thread[Execution worker Thread 4,5,main]) started.
+:testClasses (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :testClasses
+Skipping task ':testClasses' as it has no actions.
+Resolve mutations for :test (Thread[Execution worker Thread 4,5,main]) started.
+:test (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :test
+Custom actions are attached to task ':test'.
+Caching disabled for task ':test' because:
+  Build cache is disabled
+Task ':test' is not up-to-date because:
+  Task has failed previously.
+Starting process 'Gradle Test Executor 1'. Working directory: C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2 Command: C:\Program Files\Java\jdk-17\bin\java.exe -Dorg.gradle.internal.worker.tmpdir=C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\tmp\test\work -javaagent:C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\tmp\.cache\expanded\zip_cde35f471dab581134460fc9a50e2c59\jacocoagent.jar=destfile=build/jacoco/test.exec,append=true,inclnolocationclasses=false,dumponexit=true,output=file,jmx=false @C:\Users\lyj\.gradle\.tmp\gradle-worker-classpath2294218539245027538txt -Xmx512m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -ea worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 1'
+Successfully started process 'Gradle Test Executor 1'
+
+Gradle Test Executor 1 started executing tests.
+
+> Task :test
+
+DeploymentControllerTest STANDARD_OUT
+    17:12:45.419 [Test worker] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.yjlee.search.deployment.controller.DeploymentControllerTest]: DeploymentControllerTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+    17:12:46.147 [Test worker] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.yjlee.search.SearchAdminBeApplication for test class com.yjlee.search.deployment.controller.DeploymentControllerTest
+    17:12:46.652 [Test worker] INFO org.testcontainers.images.PullPolicy -- Image pull policy will be performed by: DefaultPullPolicy()
+    17:12:46.668 [Test worker] INFO org.testcontainers.utility.ImageNameSubstitutor -- Image name substitution will be performed by: DefaultImageNameSubstitutor (composite of 'ConfigurationFileImageNameSubstitutor' and 'PrefixingImageNameSubstitutor')
+    17:12:46.730 [Test worker] INFO org.testcontainers.DockerClientFactory -- Testcontainers version: 1.20.4
+    17:12:47.573 [Test worker] INFO org.testcontainers.dockerclient.DockerClientProviderStrategy -- Loaded org.testcontainers.dockerclient.NpipeSocketClientProviderStrategy from ~/.testcontainers.properties, will try it first
+    17:12:48.339 [Test worker] INFO org.testcontainers.dockerclient.DockerClientProviderStrategy -- Found Docker environment with local Npipe socket (npipe:////./pipe/docker_engine)
+    17:12:48.342 [Test worker] INFO org.testcontainers.DockerClientFactory -- Docker host IP address is localhost
+    17:12:48.372 [Test worker] INFO org.testcontainers.DockerClientFactory -- Connected to docker: 
+      Server Version: 28.2.2
+      API Version: 1.50
+      Operating System: Docker Desktop
+      Total Memory: 7619 MB
+      Labels: 
+        com.docker.desktop.address=npipe://\\.\pipe\docker_cli
+    17:12:48.420 [Test worker] INFO tc.testcontainers/ryuk:0.11.0 -- Creating container for image: testcontainers/ryuk:0.11.0
+    17:12:48.772 [Test worker] INFO tc.testcontainers/ryuk:0.11.0 -- Container testcontainers/ryuk:0.11.0 is starting: 572c20b274b74981bf554269ec1bc7fec4206906cc8929b83f1252bfc7df6dfe
+    17:12:49.417 [Test worker] INFO tc.testcontainers/ryuk:0.11.0 -- Container testcontainers/ryuk:0.11.0 started in PT0.997779S
+    17:12:49.425 [Test worker] INFO org.testcontainers.utility.RyukResourceReaper -- Ryuk started - will monitor and terminate Testcontainers containers on JVM exit
+    17:12:49.426 [Test worker] INFO org.testcontainers.DockerClientFactory -- Checking the system...
+    17:12:49.426 [Test worker] INFO org.testcontainers.DockerClientFactory -- ?? Docker server version should be at least 1.6.0
+    17:12:49.427 [Test worker] INFO tc.hihisososo/elasticsearch-nori:8.18.3 -- Creating container for image: hihisososo/elasticsearch-nori:8.18.3
+    17:12:50.225 [Test worker] WARN tc.hihisososo/elasticsearch-nori:8.18.3 -- Reuse was requested but the environment does not support the reuse of containers
+    To enable reuse of containers, you must set 'testcontainers.reuse.enable=true' in a file located at C:\Users\lyj\.testcontainers.properties
+    17:12:50.397 [Test worker] INFO tc.hihisososo/elasticsearch-nori:8.18.3 -- Container hihisososo/elasticsearch-nori:8.18.3 is starting: d694a776b954d9f2f6558b128124dae7e089ece9702ba62e8b92387d8fe9baae
+    17:13:32.225 [Test worker] INFO tc.hihisososo/elasticsearch-nori:8.18.3 -- Container hihisososo/elasticsearch-nori:8.18.3 started in PT42.7977936S
+
+      .   ____          _            __ _ _
+     /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+    ( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+     \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+      '  |____| .__|_| |_|_| |_\__, | / / / /
+     =========|_|==============|___/=/_/_/_/
+
+     :: Spring Boot ::                (v3.5.3)
+
+    2025-08-03 17:13:34.170 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.2.Final
+    2025-08-03 17:13:34.382 [Test worker] INFO  c.y.s.d.c.DeploymentControllerTest - Starting DeploymentControllerTest using Java 17.0.10 with PID 20596 (started by lyj in C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2)
+    2025-08-03 17:13:34.384 [Test worker] DEBUG c.y.s.d.c.DeploymentControllerTest - Running with Spring Boot v3.5.3, Spring v6.2.8
+    2025-08-03 17:13:34.387 [Test worker] INFO  c.y.s.d.c.DeploymentControllerTest - The following 1 profile is active: "test"
+    2025-08-03 17:13:37.226 [Test worker] INFO  o.s.b.f.s.DefaultListableBeanFactory - Overriding bean definition for bean 'ssmClient' with a different definition: replacing [Root bean: class=null; scope=; abstract=false; lazyInit=null; autowireMode=3; dependencyCheck=0; autowireCandidate=true; primary=true; fallback=false; factoryBeanName=com.yjlee.search.common.config.TestAwsConfig; factoryMethodName=ssmClient; initMethodNames=null; destroyMethodNames=[(inferred)]; defined in class path resource [com/yjlee/search/common/config/TestAwsConfig.class]] with [Root bean: class=null; scope=; abstract=false; lazyInit=null; autowireMode=3; dependencyCheck=0; autowireCandidate=true; primary=false; fallback=false; factoryBeanName=awsConfig; factoryMethodName=ssmClient; initMethodNames=null; destroyMethodNames=[(inferred)]; defined in class path resource [com/yjlee/search/config/AwsConfig.class]]
+    2025-08-03 17:13:38.836 [Test worker] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+    2025-08-03 17:13:39.251 [Test worker] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 385 ms. Found 15 JPA repository interfaces.
+    2025-08-03 17:13:40.983 [Test worker] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+    2025-08-03 17:13:41.202 [Test worker] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.6.18.Final
+    2025-08-03 17:13:41.295 [Test worker] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+    2025-08-03 17:13:42.315 [Test worker] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+    2025-08-03 17:13:42.437 [Test worker] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+    2025-08-03 17:13:43.197 [Test worker] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:testdb user=SA
+    2025-08-03 17:13:43.203 [Test worker] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+    2025-08-03 17:13:43.271 [Test worker] WARN  org.hibernate.orm.deprecation - HHH90000025: H2Dialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+    2025-08-03 17:13:43.323 [Test worker] INFO  o.hibernate.orm.connections.pooling - HHH10001005: Database info:
+    	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+    	Database driver: undefined/unknown
+    	Database version: 2.3.232
+    	Autocommit mode: undefined/unknown
+    	Isolation level: undefined/unknown
+    	Minimum pool size: undefined/unknown
+    	Maximum pool size: undefined/unknown
+    2025-08-03 17:13:46.811 [Test worker] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+    Hibernate: drop table if exists async_tasks cascade 
+    Hibernate: drop table if exists deployment_history cascade 
+    Hibernate: drop table if exists evaluation_queries cascade 
+    Hibernate: drop table if exists evaluation_reports cascade 
+    Hibernate: drop table if exists index_environments cascade 
+    Hibernate: drop table if exists products cascade 
+    Hibernate: drop table if exists query_product_mappings cascade 
+    Hibernate: drop table if exists stopword_dictionaries cascade 
+    Hibernate: drop table if exists stopword_dictionary_snapshots cascade 
+    Hibernate: drop table if exists synonym_dictionaries cascade 
+    Hibernate: drop table if exists synonym_dictionary_snapshots cascade 
+    Hibernate: drop table if exists typo_correction_dictionaries cascade 
+    Hibernate: drop table if exists typo_correction_dictionary_snapshots cascade 
+    Hibernate: drop table if exists user_dictionaries cascade 
+    Hibernate: drop table if exists user_dictionary_snapshots cascade 
+    Hibernate: create table async_tasks (progress integer not null, completed_at timestamp(6), created_at timestamp(6) not null, id bigint generated by default as identity, started_at timestamp(6), updated_at timestamp(6) not null, message varchar(1000), error_message TEXT, result TEXT, status enum ('COMPLETED','FAILED','IN_PROGRESS','PENDING') not null, task_type enum ('CANDIDATE_GENERATION','LLM_EVALUATION','QUERY_GENERATION') not null, primary key (id))
+    Hibernate: create table deployment_history (created_at timestamp(6), deployment_time timestamp(6), document_count bigint, id bigint generated by default as identity, description varchar(255), version varchar(255) not null, deployment_type enum ('DEPLOYMENT','INDEXING') not null, status enum ('FAILED','IN_PROGRESS','SUCCESS') not null, primary key (id))
+    Hibernate: create table evaluation_queries (count integer not null, created_at timestamp(6) not null, id bigint generated by default as identity, updated_at timestamp(6) not null, query varchar(500) not null unique, primary key (id))
+    Hibernate: create table evaluation_reports (average_precision float(53) not null, average_recall float(53) not null, averagef1score float(53) not null, total_correct_documents integer not null, total_queries integer not null, total_relevant_documents integer not null, total_retrieved_documents integer not null, created_at timestamp(6) not null, id bigint generated by default as identity, detailed_results TEXT, report_name varchar(255) not null, primary key (id))
+    Hibernate: create table index_environments (is_indexing boolean not null, created_at timestamp(6), document_count bigint, id bigint generated by default as identity, index_date timestamp(6), updated_at timestamp(6), index_name varchar(255) not null, version varchar(255), environment_type enum ('DEV','PROD') not null unique, index_status enum ('ACTIVE','FAILED','INACTIVE','INDEXING') not null, primary key (id))
+    Hibernate: create table products (rating numeric(3,1), review_count integer, category_id bigint not null, created_at timestamp(6), id bigint generated by default as identity, price bigint, reg_month varchar(20), reg_date varchar(50), category_name varchar(100) not null, name varchar(500) not null unique, thumbnail_url varchar(1000), specs TEXT, primary key (id))
+    Hibernate: create table query_product_mappings (evaluation_query_id bigint not null, id bigint generated by default as identity, evaluation_source varchar(20), evaluation_reason TEXT, product_id varchar(255) not null, relevance_status enum ('IRRELEVANT','RELEVANT','UNSPECIFIED'), primary key (id))
+    Hibernate: create table stopword_dictionaries (created_at timestamp(6), id bigint generated by default as identity, updated_at timestamp(6), description varchar(500), keyword varchar(1000) not null, primary key (id))
+    Hibernate: create table stopword_dictionary_snapshots (created_at timestamp(6), id bigint generated by default as identity, original_dictionary_id bigint not null, updated_at timestamp(6), description varchar(500), keyword varchar(1000) not null, environment_type enum ('CURRENT','DEV','PROD') not null, primary key (id))
+    Hibernate: create table synonym_dictionaries (created_at timestamp(6), id bigint generated by default as identity, updated_at timestamp(6), description varchar(500), keyword varchar(1000) not null, primary key (id))
+    Hibernate: create table synonym_dictionary_snapshots (created_at timestamp(6), id bigint generated by default as identity, original_dictionary_id bigint not null, updated_at timestamp(6), description varchar(500), keyword varchar(1000) not null, environment_type enum ('CURRENT','DEV','PROD') not null, primary key (id))
+    Hibernate: create table typo_correction_dictionaries (created_at timestamp(6), id bigint generated by default as identity, updated_at timestamp(6), corrected_word varchar(100) not null, keyword varchar(100) not null, description varchar(500), primary key (id))
+    Hibernate: create table typo_correction_dictionary_snapshots (created_at timestamp(6), id bigint generated by default as identity, original_dictionary_id bigint not null, updated_at timestamp(6), corrected_word varchar(100) not null, keyword varchar(100) not null, description varchar(500), environment_type enum ('CURRENT','DEV','PROD') not null, primary key (id))
+    Hibernate: create table user_dictionaries (created_at timestamp(6), id bigint generated by default as identity, updated_at timestamp(6), description varchar(500), keyword varchar(1000) not null, primary key (id))
+    Hibernate: create table user_dictionary_snapshots (created_at timestamp(6), id bigint generated by default as identity, original_dictionary_id bigint not null, updated_at timestamp(6), description varchar(500), keyword varchar(1000) not null, environment_type enum ('CURRENT','DEV','PROD') not null, primary key (id))
+    Hibernate: alter table if exists query_product_mappings add constraint FKp9s7dbeu1471pk6o1npwosc2o foreign key (evaluation_query_id) references evaluation_queries
+    2025-08-03 17:13:46.993 [Test worker] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+    2025-08-03 17:13:47.654 [Test worker] INFO  o.s.d.j.r.query.QueryEnhancerFactory - Hibernate is in classpath; If applicable, HQL parser will be used.
+    2025-08-03 17:13:49.038 [Test worker] INFO  c.y.s.config.ElasticsearchConfig - Connecting to Elasticsearch at http://localhost:54048
+    2025-08-03 17:13:51.196 [Test worker] INFO  com.yjlee.search.config.AwsConfig - AWS 자격 증명 제공자 초기화 중...
+    2025-08-03 17:13:51.196 [Test worker] INFO  com.yjlee.search.config.AwsConfig - 환경변수에서 AWS 자격 증명 사용
+    2025-08-03 17:13:51.208 [Test worker] INFO  com.yjlee.search.config.AwsConfig - SSM 클라이언트 초기화 - 리전: ap-northeast-2
+
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :test
+    2025-08-03 17:13:54.252 [Test worker] INFO  c.yjlee.search.config.SwaggerConfig - Initializing Swagger OpenAPI documentation
+    2025-08-03 17:13:54.938 [Test worker] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+    2025-08-03 17:13:56.547 [Test worker] INFO  o.s.b.a.h.H2ConsoleAutoConfiguration - H2 console available at '/h2-console'. Database available at 'jdbc:h2:mem:testdb'
+    2025-08-03 17:13:56.639 [Test worker] INFO  o.s.b.t.m.w.SpringBootMockServletContext - Initializing Spring TestDispatcherServlet ''
+    2025-08-03 17:13:56.639 [Test worker] INFO  o.s.t.w.s.TestDispatcherServlet - Initializing Servlet ''
+    2025-08-03 17:13:56.652 [Test worker] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 1 endpoint beneath base path '/actuator'
+    2025-08-03 17:13:56.684 [Test worker] INFO  o.s.t.w.s.TestDispatcherServlet - Completed initialization in 45 ms
+    2025-08-03 17:13:56.853 [Test worker] INFO  c.y.s.d.c.DeploymentControllerTest - Started DeploymentControllerTest in 24.429 seconds (process running for 74.645)
+
+DeploymentControllerTest > GET /api/v1/deployment/history - 배포 이력 조회 STANDARD_OUT
+    Hibernate: select dh1_0.id,dh1_0.created_at,dh1_0.deployment_time,dh1_0.deployment_type,dh1_0.description,dh1_0.document_count,dh1_0.status,dh1_0.version from deployment_history dh1_0
+    Hibernate: select ie1_0.id,ie1_0.created_at,ie1_0.document_count,ie1_0.environment_type,ie1_0.index_date,ie1_0.index_name,ie1_0.index_status,ie1_0.is_indexing,ie1_0.updated_at,ie1_0.version from index_environments ie1_0
+    2025-08-03 17:13:58.873 [Test worker] INFO  c.y.s.d.s.ElasticsearchIndexService - products-search alias 신규 생성 완료: products_search_prod_test
+    Hibernate: insert into index_environments (created_at,document_count,environment_type,index_date,index_name,index_status,is_indexing,updated_at,version,id) values (?,?,?,?,?,?,?,?,?,default)
+    Hibernate: insert into index_environments (created_at,document_count,environment_type,index_date,index_name,index_status,is_indexing,updated_at,version,id) values (?,?,?,?,?,?,?,?,?,default)
+    Hibernate: insert into deployment_history (created_at,deployment_time,deployment_type,description,document_count,status,version,id) values (?,?,?,?,?,?,?,default)
+    Hibernate: insert into deployment_history (created_at,deployment_time,deployment_type,description,document_count,status,version,id) values (?,?,?,?,?,?,?,default)
+    2025-08-03 17:13:59.100 [Test worker] INFO  c.y.s.c.WebConfig$RequestLoggingInterceptor - Request started - Method: GET, URI: /api/v1/deployment/history, RemoteAddr: 127.0.0.1, UserAgent: null
+    Hibernate: select dh1_0.id,dh1_0.created_at,dh1_0.deployment_time,dh1_0.deployment_type,dh1_0.description,dh1_0.document_count,dh1_0.status,dh1_0.version from deployment_history dh1_0 where (? is null or dh1_0.status=?) and (? is null or dh1_0.deployment_type=?) order by dh1_0.created_at desc,dh1_0.created_at desc fetch first ? rows only
+    2025-08-03 17:13:59.328 [Test worker] INFO  c.y.s.c.WebConfig$RequestLoggingInterceptor - Request completed - Status: 200, Duration: 228ms, ContentType: application/json
+
+    MockHttpServletRequest:
+          HTTP Method = GET
+          Request URI = /api/v1/deployment/history
+           Parameters = {page=[0], size=[10], sort=[createdAt,desc]}
+              Headers = []
+                 Body = null
+        Session Attrs = {}
+
+    Handler:
+                 Type = com.yjlee.search.deployment.controller.DeploymentManagementController
+               Method = com.yjlee.search.deployment.controller.DeploymentManagementController#getDeploymentHistory(Pageable, DeploymentStatus, DeploymentType)
+
+    Async:
+        Async started = false
+         Async result = null
+
+    Resolved Exception:
+                 Type = null
+
+    ModelAndView:
+            View name = null
+                 View = null
+                Model = null
+
+    FlashMap:
+           Attributes = null
+
+    MockHttpServletResponse:
+               Status = 200
+        Error message = null
+              Headers = [Vary:"Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", X-Trace-ID:"f6f95d7a", Content-Type:"application/json"]
+         Content type = application/json
+                 Body = {"deploymentHistories":[{"id":2,"deploymentType":"DEPLOYMENT","deploymentTypeDescription":"배포","status":"SUCCESS","statusDescription":"성공","version":"v0","documentCount":500,"description":"테스트 배포 1","deploymentTime":"2025-08-02T17:23:58.9877906","createdAt":"2025-08-03T17:13:58.98779"},{"id":1,"deploymentType":"INDEXING","deploymentTypeDescription":"색인","status":"SUCCESS","statusDescription":"성공","version":"v1","documentCount":1000,"description":"테스트 색인 1","deploymentTime":"2025-08-03T16:13:58.9847767","createdAt":"2025-08-03T17:13:58.985791"}],"pagination":{"content":[{"id":2,"deploymentType":"DEPLOYMENT","deploymentTypeDescription":"배포","status":"SUCCESS","statusDescription":"성공","version":"v0","documentCount":500,"description":"테스트 배포 1","deploymentTime":"2025-08-02T17:23:58.9877906","createdAt":"2025-08-03T17:13:58.98779"},{"id":1,"deploymentType":"INDEXING","deploymentTypeDescription":"색인","status":"SUCCESS","statusDescription":"성공","version":"v1","documentCount":1000,"description":"테스트 색인 1","deploymentTime":"2025-08-03T16:13:58.9847767","createdAt":"2025-08-03T17:13:58.985791"}],"page":0,"size":10,"totalElements":2,"totalPages":1}}
+        Forwarded URL = null
+       Redirected URL = null
+              Cookies = []
+    2025-08-03 17:13:59.568 [Test worker] INFO  c.y.s.d.s.ElasticsearchIndexService - 인덱스 삭제 완료: products_search_dev_test
+    2025-08-03 17:13:59.620 [Test worker] INFO  c.y.s.d.s.ElasticsearchIndexService - 인덱스 삭제 완료: products_search_prod_test
+
+    MockHttpServletRequest:
+          HTTP Method = GET
+          Request URI = /api/v1/deployment/history
+           Parameters = {page=[0], size=[10], sort=[createdAt,desc]}
+              Headers = []
+                 Body = null
+        Session Attrs = {}
+
+    Handler:
+                 Type = com.yjlee.search.deployment.controller.DeploymentManagementController
+               Method = com.yjlee.search.deployment.controller.DeploymentManagementController#getDeploymentHistory(Pageable, DeploymentStatus, DeploymentType)
+
+    Async:
+        Async started = false
+         Async result = null
+
+    Resolved Exception:
+                 Type = null
+
+    ModelAndView:
+            View name = null
+                 View = null
+                Model = null
+
+    FlashMap:
+           Attributes = null
+
+    MockHttpServletResponse:
+               Status = 200
+        Error message = null
+              Headers = [Vary:"Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", X-Trace-ID:"f6f95d7a", Content-Type:"application/json"]
+         Content type = application/json
+                 Body = {"deploymentHistories":[{"id":2,"deploymentType":"DEPLOYMENT","deploymentTypeDescription":"배포","status":"SUCCESS","statusDescription":"성공","version":"v0","documentCount":500,"description":"테스트 배포 1","deploymentTime":"2025-08-02T17:23:58.9877906","createdAt":"2025-08-03T17:13:58.98779"},{"id":1,"deploymentType":"INDEXING","deploymentTypeDescription":"색인","status":"SUCCESS","statusDescription":"성공","version":"v1","documentCount":1000,"description":"테스트 색인 1","deploymentTime":"2025-08-03T16:13:58.9847767","createdAt":"2025-08-03T17:13:58.985791"}],"pagination":{"content":[{"id":2,"deploymentType":"DEPLOYMENT","deploymentTypeDescription":"배포","status":"SUCCESS","statusDescription":"성공","version":"v0","documentCount":500,"description":"테스트 배포 1","deploymentTime":"2025-08-02T17:23:58.9877906","createdAt":"2025-08-03T17:13:58.98779"},{"id":1,"deploymentType":"INDEXING","deploymentTypeDescription":"색인","status":"SUCCESS","statusDescription":"성공","version":"v1","documentCount":1000,"description":"테스트 색인 1","deploymentTime":"2025-08-03T16:13:58.9847767","createdAt":"2025-08-03T17:13:58.985791"}],"page":0,"size":10,"totalElements":2,"totalPages":1}}
+        Forwarded URL = null
+       Redirected URL = null
+              Cookies = []
+
+DeploymentControllerTest > GET /api/v1/deployment/history - 배포 이력 조회 FAILED
+    java.lang.AssertionError: JSON path "$.deploymentHistories[0].version" expected:<v1> but was:<v0>
+        at org.springframework.test.util.AssertionErrors.fail(AssertionErrors.java:61)
+        at org.springframework.test.util.AssertionErrors.assertEquals(AssertionErrors.java:128)
+        at org.springframework.test.util.JsonPathExpectationsHelper.assertValue(JsonPathExpectationsHelper.java:172)
+        at org.springframework.test.web.servlet.result.JsonPathResultMatchers.lambda$value$2(JsonPathResultMatchers.java:112)
+        at org.springframework.test.web.servlet.MockMvc$1.andExpect(MockMvc.java:214)
+        at com.yjlee.search.deployment.controller.DeploymentControllerTest.getDeploymentHistories(DeploymentControllerTest.java:271)
+
+Gradle Test Executor 1 finished executing tests.
+2025-08-03 17:14:01.174 [SpringApplicationShutdownHook] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+Hibernate: drop table if exists async_tasks cascade 
+Hibernate: drop table if exists deployment_history cascade 
+Hibernate: drop table if exists evaluation_queries cascade 
+Hibernate: drop table if exists evaluation_reports cascade 
+Hibernate: drop table if exists index_environments cascade 
+Hibernate: drop table if exists products cascade 
+Hibernate: drop table if exists query_product_mappings cascade 
+Hibernate: drop table if exists stopword_dictionaries cascade 
+Hibernate: drop table if exists stopword_dictionary_snapshots cascade 
+Hibernate: drop table if exists synonym_dictionaries cascade 
+Hibernate: drop table if exists synonym_dictionary_snapshots cascade 
+Hibernate: drop table if exists typo_correction_dictionaries cascade 
+Hibernate: drop table if exists typo_correction_dictionary_snapshots cascade 
+Hibernate: drop table if exists user_dictionaries cascade 
+Hibernate: drop table if exists user_dictionary_snapshots cascade 
+2025-08-03 17:14:01.189 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-08-03 17:14:01.191 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+
+> Task :test
+
+1 test completed, 1 failed
+Finished generating test XML results (0.011 secs) into: C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\test-results\test
+Generating HTML test report...
+Finished generating test html results (0.024 secs) into: C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2\build\reports\tests\test
+
+> Task :test FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/lyj/Desktop/cursor_workspace/search-admin-be-2/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file:///C:/Users/lyj/Desktop/cursor_workspace/search-admin-be-2/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1m 40s
+5 actionable tasks: 5 executed
+Watched directory hierarchies: [C:\Users\lyj\Desktop\cursor_workspace\search-admin-be-2]
