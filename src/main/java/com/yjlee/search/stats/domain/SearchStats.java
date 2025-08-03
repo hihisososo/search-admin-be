@@ -1,14 +1,11 @@
-package com.yjlee.search.stats.dto;
+package com.yjlee.search.stats.domain;
 
 import lombok.Builder;
 import lombok.Value;
-import lombok.extern.jackson.Jacksonized;
 
 @Value
 @Builder
-@Jacksonized
-public class StatsResponse {
-
+public class SearchStats {
   long totalSearchCount;
   long totalDocumentCount;
   double searchFailureRate;
@@ -17,5 +14,4 @@ public class StatsResponse {
   double successRate;
   long clickCount;
   double clickThroughRate;
-  String period;
 }
