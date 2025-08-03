@@ -4,8 +4,12 @@ import java.time.LocalDateTime;
 
 public interface BaseDictionaryResponse {
   Long getId();
+
   String getKeyword();
+
   String getDescription();
+
   LocalDateTime getCreatedAt();
+
   LocalDateTime getUpdatedAt();
 }

@@ -5,10 +5,16 @@ import java.time.LocalDateTime;
 
 public interface DictionarySnapshotEntity {
   Long getId();
+
   String getKeyword();
+
   String getDescription();
+
   Long getOriginalDictionaryId();
+
   DictionaryEnvironmentType getEnvironmentType();
+
   LocalDateTime getCreatedAt();
+
   LocalDateTime getUpdatedAt();
 }
