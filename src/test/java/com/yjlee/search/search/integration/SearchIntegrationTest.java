@@ -1,4 +1,4 @@
-package com.yjlee.search.integration;
+package com.yjlee.search.search.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,9 +39,9 @@ import org.springframework.util.StreamUtils;
 
 @AutoConfigureMockMvc
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class SearchIntegrationTest extends BaseIntegrationTest {
+class SearchControllerTest extends BaseIntegrationTest {
 
-  private static final Logger log = LoggerFactory.getLogger(SearchIntegrationTest.class);
+  private static final Logger log = LoggerFactory.getLogger(SearchControllerTest.class);
 
   @Autowired private ElasticsearchClient elasticsearchClient;
 
