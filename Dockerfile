@@ -21,7 +21,7 @@ RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
     echo '        -Delastic.apm.secret_token=${ELASTIC_APM_SECRET_TOKEN} \' >> /app/entrypoint.sh && \
     echo '        -Delastic.apm.environment=${SPRING_PROFILES_ACTIVE:-prod} \' >> /app/entrypoint.sh && \
     echo '        -Delastic.apm.log_level=INFO \' >> /app/entrypoint.sh && \
-    echo '        -Delastic.apm.transaction_sample_rate=0.1 \' >> /app/entrypoint.sh && \
+    echo '        -Delastic.apm.transaction_sample_rate=1.0 \' >> /app/entrypoint.sh && \
     echo '        -Delastic.apm.capture_body=off \' >> /app/entrypoint.sh && \
     echo '        -jar /app/app.jar' >> /app/entrypoint.sh && \
     echo 'else' >> /app/entrypoint.sh && \

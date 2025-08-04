@@ -22,7 +22,7 @@ if [ "${ELASTIC_APM_ENABLED}" = "true" ]; then
     JAVA_OPTS="${JAVA_OPTS} -Delastic.apm.secret_token=${ELASTIC_APM_SECRET_TOKEN}"
     JAVA_OPTS="${JAVA_OPTS} -Delastic.apm.environment=${SPRING_PROFILES_ACTIVE:-prod}"
     JAVA_OPTS="${JAVA_OPTS} -Delastic.apm.log_level=INFO"
-    JAVA_OPTS="${JAVA_OPTS} -Delastic.apm.transaction_sample_rate=0.1"
+    JAVA_OPTS="${JAVA_OPTS} -Delastic.apm.transaction_sample_rate=1.0"
     JAVA_OPTS="${JAVA_OPTS} -Delastic.apm.capture_body=off"
     JAVA_OPTS="${JAVA_OPTS} -Delastic.apm.sanitize_field_names=*password*,*secret*,*token*,*key*"
 else
