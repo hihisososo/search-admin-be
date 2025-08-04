@@ -8,6 +8,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_APPLICATION_NAME=search-admin-be
       - DATABASE_URL=${DATABASE_URL}
       - DATABASE_USERNAME=${DATABASE_USERNAME}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
@@ -18,6 +19,9 @@ services:
       - AWS_DICTIONARY_EC2_INSTANCE_IDS=${AWS_DICTIONARY_EC2_INSTANCE_IDS}
       - AWS_REGION=${AWS_REGION}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ELASTIC_APM_ENABLED=${ELASTIC_APM_ENABLED}
+      - ELASTIC_APM_SERVER_URL=${ELASTIC_APM_SERVER_URL}
+      - ELASTIC_APM_SECRET_TOKEN=${ELASTIC_APM_SECRET_TOKEN}
       - JAVA_OPTS=-Xmx384m -Xms128m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:+UseStringDeduplication
     restart: unless-stopped
     deploy:
