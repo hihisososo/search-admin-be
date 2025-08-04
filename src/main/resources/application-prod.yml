@@ -13,9 +13,6 @@ spring:
 elasticsearch:
   host: ${ELASTICSEARCH_HOST}
   port: ${ELASTICSEARCH_PORT:9200}
-  scheme: ${ELASTICSEARCH_SCHEME:http}
-  username: ${ELASTICSEARCH_USERNAME}
-  password: ${ELASTICSEARCH_PASSWORD}
 
 logging:
   level:
@@ -34,12 +31,14 @@ management:
     tags:
       application: ${spring.application.name}
       environment: prod
+  health:
+    elasticsearch:
+      enabled: false
 
-# Elastic APM 설정 (환경변수로 주입)
 elastic:
   apm:
     enabled: ${ELASTIC_APM_ENABLED:false}
-    service-name: ${spring.application.name}
+    service-name: search-admin-be
     server-url: ${ELASTIC_APM_SERVER_URL:}
     secret-token: ${ELASTIC_APM_SECRET_TOKEN:}
     environment: prod
