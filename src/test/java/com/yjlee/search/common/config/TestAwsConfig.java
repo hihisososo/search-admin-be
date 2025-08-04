@@ -16,5 +16,4 @@ public class TestAwsConfig {
   public SsmClient ssmClient() {
     return Mockito.mock(SsmClient.class);
   }
-
 }
