@@ -13,7 +13,7 @@ spring:
 elasticsearch:
   host: ${ELASTICSEARCH_HOST}
   port: ${ELASTICSEARCH_PORT:9200}
-  scheme: ${ELASTICSEARCH_SCHEME:https}
+  scheme: ${ELASTICSEARCH_SCHEME:http}
   username: ${ELASTICSEARCH_USERNAME}
   password: ${ELASTICSEARCH_PASSWORD}
 
