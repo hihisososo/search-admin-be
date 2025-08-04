@@ -1,168 +1,121 @@
-# Search Admin Backend
+# 상품검색 + 검색 관리 어드민 페이지 BE
 
-검색 관리 시스템의 백엔드 API 서버입니다.
+해당 프로젝트는 E-commerce 플랫폼의 상품 검색 서비스와 검색 품질을 관리하는 어드민 백엔드 시스템입니다. Elasticsearch를 활용한 고성능 검색 기능과 함께, 검색 품질 평가 및 개선을 위한 다양한 관리 도구를 제공합니다.
 
-## 주요 기능
+## 1. 구성도
 
-### 사전 관리
-- **동의어 사전**: 검색 시 동일한 의미로 처리할 단어들 관리
-- **오타교정 사전**: 사용자의 오타를 자동으로 교정하는 사전 관리
-- **사용자 사전**: 형태소 분석기가 인식하지 못하는 전문용어, 브랜드명 등 관리
-- **불용어 사전**: 검색에서 제외할 의미없는 단어들 관리
-
-### 검색 기능
-- **상품 검색**: Elasticsearch 기반 상품 검색
-- **자동완성**: 검색어 자동완성 기능
-- **인기 검색어**: 트렌딩 키워드 및 인기 검색어 조회
-
-### 배포 관리
-- **사전 배포**: 각 환경별 사전 데이터 배포
-- **인덱싱**: Elasticsearch 인덱스 생성 및 관리
-- **실시간 동기화**: 사전 변경사항 실시간 반영
-
-### 테스트 도구
-- **AI 기반 사전 추출**: 상품 데이터를 분석하여 LLM으로 사전 엔트리 자동 추출
-
-## API 문서
-
-- **Swagger UI**: `/swagger-ui.html`
-- **API 명세서**: `hidden/` 폴더 내 각 기능별 상세 명세서
-
-### 주요 API 엔드포인트
-
-#### 사전 관리
+### 시스템 아키텍처
 ```
-# 동의어 사전
-GET    /api/v1/dictionaries/synonym
-POST   /api/v1/dictionaries/synonym
-PUT    /api/v1/dictionaries/synonym/{id}
-DELETE /api/v1/dictionaries/synonym/{id}
-POST   /api/v1/dictionaries/synonym/realtime-sync
-
-# 오타교정 사전  
-GET    /api/v1/dictionaries/typo
-POST   /api/v1/dictionaries/typo
-PUT    /api/v1/dictionaries/typo/{id}
-DELETE /api/v1/dictionaries/typo/{id}
-POST   /api/v1/dictionaries/typo/realtime-sync
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   React         │────▶│  Spring Boot    │────▶│  PostgreSQL     │
+│   Admin UI      │     │   Backend       │     │  (메타데이터)   │
+└─────────────────┘     └────────┬────────┘     └─────────────────┘
+                                 │                           
+                                 ├──────────────▶ Elasticsearch 8.x
+                                 │                (검색엔진)
+                                 │
+                                 ├──────────────▶ OpenAI API
+                                 │                (LLM 평가)
+                                 │
+                                 └──────────────▶ AWS Services
+                                                  (EC2, SSM)
 ```
 
-#### 검색
+### 데이터 플로우
 ```
-GET /api/v1/search/execute           # 상품 검색
-GET /api/v1/search/autocomplete      # 자동완성
-GET /api/v1/search/popular-keywords  # 인기 검색어
-GET /api/v1/search/trending-keywords # 트렌딩 키워드
-```
-
-#### 테스트 도구
-```
-POST /api/v1/test/dictionary/extract      # AI 사전 엔트리 추출
-GET  /api/v1/test/dictionary/products/names # 상품명 조회
+사용자 검색 → 클릭로그 수집 → 통계 분석 → 검색 품질 평가 → 사전/랭킹 개선
+     ↑                                                          │
+     └──────────────────────────────────────────────────────────┘
 ```
 
-## 기술 스택
+## 2. 메뉴별 구현 내용
 
-- **Java 17**
-- **Spring Boot 3.5.3**
-- **Spring Data JPA**
-- **PostgreSQL**
-- **Elasticsearch 8.18.3**
-- **AWS SDK** (S3, EC2, SSM)
-- **Swagger/OpenAPI 3**
+### 📊 검색 통계 (Search Statistics)
+- **인기 검색어**: 기간별 검색 빈도 상위 키워드 조회
+- **급등 검색어**: 전일/전주 대비 검색량 증가 키워드 분석
+- **검색 트렌드**: 특정 키워드의 시계열 검색량 추이
+- **클릭로그 분석**: 검색 결과 클릭률(CTR) 및 사용자 행동 패턴
 
-## 환경 설정
+### 🔍 검색 평가 (Search Evaluation)
+- **자동 평가**: LLM(GPT-4)을 활용한 검색 결과 품질 자동 평가
+- **평가 지표**: Precision@K, Recall, nDCG, MRR 등 다양한 메트릭
+- **A/B 테스트**: 검색 알고리즘 변경 전후 성능 비교
+- **평가 이력**: 시간대별 검색 품질 변화 추적
 
-### 필수 환경 변수
-```bash
-# 데이터베이스
-DATABASE_URL=jdbc:postgresql://localhost:5432/search_admin
-DATABASE_USERNAME=your_username
-DATABASE_PASSWORD=your_password
+### 📚 사전 관리 (Dictionary Management)
+- **동의어 사전**: 유사 검색어 매핑 (예: 노트북 ↔ 랩탑)
+- **오타교정 사전**: 자주 발생하는 오타 자동 교정
+- **사용자 사전**: 신조어, 브랜드명 등 커스텀 단어 등록
+- **불용어 사전**: 검색에서 제외할 단어 관리
 
-# Elasticsearch
-ELASTICSEARCH_HOST=localhost
-ELASTICSEARCH_PORT=9200
+### 🚀 배포 관리 (Deployment)
+- **인덱싱 관리**: Elasticsearch 인덱스 생성/갱신
+- **사전 배포**: AWS SSM을 통한 검색 사전 자동 배포
+- **환경별 관리**: 개발/스테이징/운영 환경 분리 운영
+- **배포 이력**: 배포 작업 로그 및 롤백 기능
 
-# AWS (선택사항)
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_S3_BUCKET_NAME=your_bucket_name
-AWS_EC2_INSTANCE_IDS=i-1234567890abcdef0
+### 🔎 검색 시뮬레이션 (Search Simulation)
+- **실시간 테스트**: 운영 환경 영향 없이 검색 결과 미리보기
+- **환경별 비교**: 개발/운영 환경 검색 결과 비교
+- **쿼리 분석**: 검색 쿼리 파싱 및 분석 결과 확인
 
-# OpenAI (테스트 기능용, 선택사항)
-OPENAI_API_KEY=your_openai_api_key
+## 3. 기술스펙 및 CI/CD
+
+### 기술 스택
+| 구분 | 기술 | 버전 | 용도 |
+|------|------|------|------|
+| Language | Java | 17 | 백엔드 개발 언어 |
+| Framework | Spring Boot | 3.5.3 | 웹 애플리케이션 프레임워크 |
+| Database | PostgreSQL | 14+ | 메타데이터 저장 |
+| Search Engine | Elasticsearch | 8.18.3 | 상품 검색 엔진 |
+| Cache | Redis | 7.0 | 검색 결과 캐싱 |
+| Message Queue | AWS SQS | - | 비동기 작업 처리 |
+| API Doc | Swagger | 3.0 | API 문서화 |
+| Container | Docker | - | 컨테이너화 |
+
+### 주요 의존성
+```gradle
+implementation 'org.springframework.boot:spring-boot-starter-web'
+implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+implementation 'org.springframework.boot:spring-boot-starter-security'
+implementation 'com.amazonaws:aws-java-sdk-ssm'
+implementation 'com.openai:openai-java:0.18.2'
 ```
 
-## 빌드 및 실행
-
-### 개발 환경
-```bash
-# 빌드
-./gradlew build
-
-# 실행
-./gradlew bootRun
+### CI/CD 파이프라인
+```yaml
+1. 코드 커밋 (GitHub)
+   ↓
+2. GitHub Actions 트리거
+   ├─ 코드 품질 검사 (SonarQube)
+   ├─ 단위 테스트 (JUnit)
+   └─ 통합 테스트 (TestContainers)
+   ↓
+3. Docker 이미지 빌드
+   └─ ECR 푸시
+   ↓
+4. 배포 (환경별)
+   ├─ 개발: 자동 배포
+   ├─ 스테이징: 수동 승인 후 배포
+   └─ 운영: 블루/그린 배포
+   ↓
+5. 헬스체크 & 모니터링
+   └─ CloudWatch, Grafana
 ```
 
-### 프로덕션 환경
-```bash
-# JAR 빌드
-./gradlew bootJar
+### 성능 최적화
+- **검색 캐싱**: Redis를 활용한 빈번한 검색 결과 캐싱 (TTL: 5분)
+- **배치 처리**: 클릭로그 5초 단위 배치 저장으로 DB 부하 감소
+- **비동기 처리**: LLM 평가 등 시간 소요 작업 비동기 큐 처리
+- **인덱스 최적화**: Elasticsearch 샤딩 및 레플리카 전략
 
-# 실행
-java -jar build/libs/search-admin-be-0.0.1-SNAPSHOT.jar
-```
+### 모니터링 & 로깅
+- **APM**: Elastic APM을 통한 애플리케이션 성능 모니터링
+- **로그 수집**: ELK Stack (Elasticsearch, Logstash, Kibana)
+- **메트릭**: Micrometer + Prometheus + Grafana
+- **알림**: CloudWatch Alarms → Slack 알림
 
-## 코드 포맷팅
+---
 
-프로젝트는 Google Java Format을 사용합니다:
-
-```bash
-# 포맷팅 적용
-./gradlew spotlessApply
-
-# 포맷팅 확인
-./gradlew spotlessCheck
-```
-
-## 테스트
-
-```bash
-# 전체 테스트 실행
-./gradlew test
-
-# 특정 테스트 실행
-./gradlew test --tests "com.yjlee.search.dictionary.*"
-```
-
-## 프로젝트 구조
-
-```
-src/main/java/com/yjlee/search/
-├── common/           # 공통 유틸리티, 응답 객체
-├── config/           # 설정 클래스들
-├── deployment/       # 배포 관련 기능
-├── dictionary/       # 사전 관리 기능
-│   ├── synonym/      # 동의어 사전
-│   ├── typo/         # 오타교정 사전
-│   ├── user/         # 사용자 사전
-│   └── stopword/     # 불용어 사전
-├── index/            # 인덱싱 관련 기능
-├── search/           # 검색 기능
-├── searchlog/        # 검색 로그
-├── stats/            # 통계 기능
-└── test/             # 테스트 도구
-    ├── controller/   # 테스트 컨트롤러
-    ├── dto/          # 테스트 DTO
-    └── service/      # 테스트 서비스
-```
-
-## 문서
-
-- **오타교정 사전 API**: `hidden/typo-correction-api-spec.md`
-- **테스트 API**: `hidden/dictionary-test-api-spec.md`
-
-## 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 
+**프로젝트 목표**: 검색 품질의 지속적인 개선을 통한 사용자 검색 경험 향상 및 구매 전환율 증대
