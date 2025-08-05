@@ -1,0 +1,61 @@
+{
+  "index": {
+    "number_of_shards": "1",
+    "number_of_replicas": "0",
+    "analysis": {
+      "filter": {
+        "edge_ngram_filter": {
+          "type": "edge_ngram",
+          "min_gram": 1,
+          "max_gram": 20
+        },
+        "jamo_filter": {
+          "type": "icu_transform",
+          "id": "Hangul-Jamo"
+        },
+        "remove_empty_filter": {
+          "type": "length",
+          "min": 1
+        }
+      },
+      "analyzer": {
+        "autocomplete_index_analyzer": {
+          "type": "custom",
+          "tokenizer": "icu_tokenizer",
+          "filter": [
+            "lowercase",
+            "icu_normalizer",
+            "edge_ngram_filter"
+          ]
+        },
+        "autocomplete_search_analyzer": {
+          "type": "custom",
+          "tokenizer": "icu_tokenizer",
+          "filter": [
+            "lowercase",
+            "icu_normalizer"
+          ]
+        },
+        "jamo_analyzer": {
+          "type": "custom",
+          "tokenizer": "icu_tokenizer",
+          "filter": [
+            "jamo_filter",
+            "remove_empty_filter",
+            "lowercase",
+            "edge_ngram_filter"
+          ]
+        },
+        "jamo_search_analyzer": {
+          "type": "custom",
+          "tokenizer": "icu_tokenizer",
+          "filter": [
+            "jamo_filter",
+            "remove_empty_filter",
+            "lowercase"
+          ]
+        }
+      }
+    }
+  }
+}

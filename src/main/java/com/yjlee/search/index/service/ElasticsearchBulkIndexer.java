@@ -111,6 +111,26 @@ public class ElasticsearchBulkIndexer {
     return documents.size();
   }
 
+  public int indexAutocompleteToSpecific(List<AutocompleteDocument> documents, String indexName)
+      throws IOException {
+    if (documents.isEmpty()) return 0;
+
+    BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
+
+    for (int i = 0; i < documents.size(); i++) {
+      AutocompleteDocument document = documents.get(i);
+      String docId = String.valueOf(System.currentTimeMillis() + i);
+
+      bulkBuilder.operations(
+          op -> op.index(idx -> idx.index(indexName).id(docId).document(document)));
+    }
+
+    BulkResponse response = elasticsearchClient.bulk(bulkBuilder.build());
+    logErrors(response, "자동완성");
+
+    return documents.size();
+  }
+
   private void logErrors(BulkResponse response, String documentType) {
     if (response.errors()) {
       log.warn("일부 {} 문서 색인 실패", documentType);
