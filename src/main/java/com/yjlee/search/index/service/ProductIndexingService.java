@@ -28,12 +28,18 @@ public class ProductIndexingService {
   private final ProductDocumentFactory documentFactory;
   private final AutocompleteDocumentFactory autocompleteFactory;
 
+  private IndexingProgressCallback progressCallback;
+
   private static final int BATCH_SIZE = 1000;
 
   public int indexAllProducts() throws IOException {
     log.info("전체 상품 색인 시작");
     clearExistingIndexes();
     return processAllProducts(null);
+  }
+
+  public void setProgressCallback(IndexingProgressCallback callback) {
+    this.progressCallback = callback;
   }
 
   public int indexProductsToIndex(String indexName) throws IOException {
@@ -97,6 +103,11 @@ public class ProductIndexingService {
       log.info(
           "배치 {} 완료: {} 건 색인됨 (진행률: {}/{})", pageNumber + 1, indexed, totalIndexed, totalProducts);
 
+      // 진행률 콜백 호출
+      if (progressCallback != null) {
+        progressCallback.onProgress((long) totalIndexed, totalProducts);
+      }
+
       pageNumber++;
     }
 
@@ -147,5 +158,10 @@ public class ProductIndexingService {
     } catch (Exception e) {
       log.warn("autocomplete 인덱스 데이터 삭제 중 오류: {}", e.getMessage());
     }
+  }
+
+  @FunctionalInterface
+  public interface IndexingProgressCallback {
+    void onProgress(Long indexedCount, Long totalCount);
   }
 }
