@@ -1,0 +1,28 @@
+{
+  "properties": {
+    "name": {
+      "type": "text",
+      "analyzer": "autocomplete_index_analyzer",
+      "search_analyzer": "autocomplete_search_analyzer",
+      "fields": {
+        "keyword": {
+          "type": "keyword"
+        },
+        "jamo": {
+          "type": "text",
+          "analyzer": "jamo_analyzer",
+          "search_analyzer": "jamo_search_analyzer"
+        }
+      }
+    },
+    "weight": {
+      "type": "float"
+    },
+    "category": {
+      "type": "keyword"
+    },
+    "brand": {
+      "type": "keyword"
+    }
+  }
+}

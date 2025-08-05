@@ -41,6 +41,8 @@ public class ESFields {
   // 인덱스명 및 Alias
   public static final String PRODUCTS_SEARCH_ALIAS = "products-search";
   public static final String AUTOCOMPLETE_INDEX = "autocomplete";
+  public static final String AUTOCOMPLETE_SEARCH_ALIAS = "autocomplete-search";
+  public static final String AUTOCOMPLETE_INDEX_PREFIX = "autocomplete";
   public static final String PRODUCTS_INDEX_PREFIX = "products";
   public static final String SEARCH_LOGS_INDEX = "search-logs";
   public static final String SIMULATION_INDEX_PREFIX = "simulation-";

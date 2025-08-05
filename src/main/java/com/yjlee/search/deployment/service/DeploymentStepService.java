@@ -26,6 +26,12 @@ public class DeploymentStepService {
     logCurrentAliasState("배포 전");
     try {
       elasticsearchIndexService.updateProductsSearchAlias(devIndexName);
+
+      // 자동완성 인덱스 alias도 함께 업데이트
+      String autocompleteIndexName =
+          elasticsearchIndexService.getAutocompleteIndexNameFromProductIndex(devIndexName);
+      elasticsearchIndexService.updateAutocompleteSearchAlias(autocompleteIndexName);
+      log.info("Alias 업데이트 완료: autocomplete-search -> {}", autocompleteIndexName);
     } catch (Exception e) {
       log.error("Alias 업데이트 실패", e);
       throw new RuntimeException("Alias 업데이트 실패: " + e.getMessage(), e);

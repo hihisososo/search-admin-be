@@ -1,5 +1,6 @@
 package com.yjlee.search.search.service;
 
+import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.config.IndexNameProvider;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -19,7 +20,7 @@ public class IndexResolver {
   }
 
   public String resolveAutocompleteIndex() {
-    return indexNameProvider.getAutocompleteIndex();
+    return ESFields.AUTOCOMPLETE_SEARCH_ALIAS;
   }
 
   public String resolveProductIndex(IndexEnvironment.EnvironmentType environmentType) {
