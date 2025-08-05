@@ -30,13 +30,15 @@ app:
   deployment:
     application-path: /home/ec2-user/search-admin-be
     git-branch: ${GIT_BRANCH:main}
+  log-generator:
+    enabled: ${LOG_GENERATOR_ENABLED:false}
 
 openai:
   api:
     key: ${OPENAI_API_KEY}
     url: https://api.openai.com/v1/chat/completions
     embedding: https://api.openai.com/v1/embeddings
-
+  
 logging:
   level:
     com.yjlee.search: DEBUG

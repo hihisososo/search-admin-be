@@ -6,7 +6,7 @@ import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
-import com.yjlee.search.dictionary.user.service.UserDictionaryServiceV2;
+import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class ProdEnvironmentStrategy implements EnvironmentDeploymentStrategy {
 
   private final SynonymDictionaryService synonymDictionaryService;
-  private final UserDictionaryServiceV2 userDictionaryService;
+  private final UserDictionaryService userDictionaryService;
   private final StopwordDictionaryService stopwordDictionaryService;
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
   private final ElasticsearchSynonymService elasticsearchSynonymService;

@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,15 +16,13 @@ public class SearchExecuteRequest {
   @Schema(description = "검색어", example = "아이폰", required = true)
   private String query;
 
-  @NotNull(message = "페이지 번호는 필수입니다")
-  @Min(value = 1, message = "페이지 번호는 1 이상이어야 합니다")
-  @Schema(description = "페이지 번호", example = "1", required = true)
-  private Integer page;
+  @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다")
+  @Schema(description = "페이지 번호 (0부터 시작)", example = "0", defaultValue = "0")
+  private Integer page = 0;
 
-  @NotNull(message = "페이지 크기는 필수입니다")
   @Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다")
-  @Schema(description = "페이지 크기", example = "10", required = true)
-  private Integer size;
+  @Schema(description = "페이지 크기", example = "10", defaultValue = "10")
+  private Integer size = 10;
 
   @Valid
   @Schema(description = "정렬 옵션")

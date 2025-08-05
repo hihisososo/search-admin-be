@@ -9,7 +9,7 @@ import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
-import com.yjlee.search.dictionary.user.service.UserDictionaryServiceV2;
+import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import com.yjlee.search.index.service.ProductIndexingService;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -28,7 +28,7 @@ public class IndexingExecutionService {
   private final DeploymentHistoryRepository deploymentHistoryRepository;
   private final ProductIndexingService productIndexingService;
   private final SynonymDictionaryService synonymDictionaryService;
-  private final UserDictionaryServiceV2 userDictionaryService;
+  private final UserDictionaryService userDictionaryService;
   private final StopwordDictionaryService stopwordDictionaryService;
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
   private final UserDictionaryRepository userDictionaryRepository;
@@ -56,6 +56,13 @@ public class IndexingExecutionService {
       // 5. 새 인덱스 생성 및 데이터 색인
       String newIndexName =
           elasticsearchIndexService.createNewIndex(version, DictionaryEnvironmentType.DEV);
+
+      // 진행률 콜백 설정
+      productIndexingService.setProgressCallback(
+          (indexedCount, totalCount) -> {
+            updateIndexingProgress(environmentId, indexedCount, totalCount);
+          });
+
       int documentCount = indexProductsToNewIndex(newIndexName);
 
       // 6. 완료 처리
@@ -92,6 +99,17 @@ public class IndexingExecutionService {
             .orElseThrow(() -> new IllegalStateException("이력을 찾을 수 없습니다"));
     history.complete(LocalDateTime.now(), (long) documentCount);
     deploymentHistoryRepository.save(history);
+  }
+
+  @Transactional
+  public void updateIndexingProgress(Long environmentId, Long indexedCount, Long totalCount) {
+    indexEnvironmentRepository
+        .findById(environmentId)
+        .ifPresent(
+            env -> {
+              env.updateIndexingProgress(indexedCount, totalCount);
+              indexEnvironmentRepository.save(env);
+            });
   }
 
   @Transactional
