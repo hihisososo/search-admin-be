@@ -17,6 +17,9 @@ public class EnvironmentInfoResponse {
   private LocalDateTime indexDate;
   private String version;
   private Boolean isIndexing;
+  private Integer indexingProgress;
+  private Long indexedDocumentCount;
+  private Long totalDocumentCount;
 
   public static EnvironmentInfoResponse from(IndexEnvironment environment) {
     return EnvironmentInfoResponse.builder()
@@ -29,6 +32,9 @@ public class EnvironmentInfoResponse {
         .indexDate(environment.getIndexDate())
         .version(environment.getVersion())
         .isIndexing(environment.getIsIndexing())
+        .indexingProgress(environment.getIndexingProgress())
+        .indexedDocumentCount(environment.getIndexedDocumentCount())
+        .totalDocumentCount(environment.getTotalDocumentCount())
         .build();
   }
 }

@@ -44,6 +44,12 @@ public class IndexEnvironment {
   @Column(name = "is_indexing", nullable = false)
   private Boolean isIndexing;
 
+  @Column(name = "indexed_document_count")
+  private Long indexedDocumentCount;
+
+  @Column(name = "total_document_count")
+  private Long totalDocumentCount;
+
   @CreationTimestamp
   @Column(name = "created_at")
   private LocalDateTime createdAt;
@@ -87,6 +93,8 @@ public class IndexEnvironment {
   public void startIndexing() {
     this.isIndexing = true;
     this.indexStatus = IndexStatus.INDEXING;
+    this.indexedDocumentCount = 0L;
+    this.totalDocumentCount = null;
   }
 
   public void completeIndexing(String version, Long documentCount) {
@@ -95,10 +103,27 @@ public class IndexEnvironment {
     this.version = version;
     this.documentCount = documentCount;
     this.indexDate = LocalDateTime.now();
+    this.indexedDocumentCount = documentCount;
+    this.totalDocumentCount = documentCount;
   }
 
   public void failIndexing() {
     this.isIndexing = false;
     this.indexStatus = IndexStatus.FAILED;
+  }
+
+  public void updateIndexingProgress(Long indexedCount, Long totalCount) {
+    this.indexedDocumentCount = indexedCount;
+    this.totalDocumentCount = totalCount;
+  }
+
+  public Integer getIndexingProgress() {
+    if (totalDocumentCount == null || totalDocumentCount == 0) {
+      return 0;
+    }
+    if (indexedDocumentCount == null) {
+      return 0;
+    }
+    return (int) ((indexedDocumentCount * 100) / totalDocumentCount);
   }
 }

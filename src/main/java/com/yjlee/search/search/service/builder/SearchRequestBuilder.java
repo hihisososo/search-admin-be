@@ -33,7 +33,7 @@ public class SearchRequestBuilder {
             .map(ProductSortOrder::getSortOrder)
             .orElse(SortOrder.Desc);
 
-    int from = (request.getPage() - 1) * request.getSize();
+    int from = request.getPage() * request.getSize();
 
     SearchRequest.Builder searchBuilder =
         new SearchRequest.Builder()

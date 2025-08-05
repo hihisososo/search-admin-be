@@ -10,11 +10,11 @@ import lombok.Setter;
 @Schema(description = "검색 로그 조회 요청")
 public class SearchLogListRequest {
 
-  @Schema(description = "페이지 번호 (최소 1)", example = "1", defaultValue = "1")
-  private Integer page = 1;
+  @Schema(description = "페이지 번호 (0부터 시작)", example = "0", defaultValue = "0")
+  private Integer page = 0;
 
-  @Schema(description = "페이지 크기 (1~100)", example = "50", defaultValue = "50")
-  private Integer size = 50;
+  @Schema(description = "페이지 크기 (1~100)", example = "10", defaultValue = "10")
+  private Integer size = 10;
 
   @Schema(description = "조회 시작 날짜", example = "2025-01-20T00:00:00")
   private LocalDateTime startDate;

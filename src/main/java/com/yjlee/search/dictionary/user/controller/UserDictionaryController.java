@@ -6,7 +6,7 @@ import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryUpdateRequest;
-import com.yjlee.search.dictionary.user.service.UserDictionaryServiceV2;
+import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserDictionaryController {
 
-  private final UserDictionaryServiceV2 userDictionaryService;
+  private final UserDictionaryService userDictionaryService;
 
   @Operation(
       summary = "사용자 사전 목록 조회",
@@ -33,8 +33,8 @@ public class UserDictionaryController {
   @ApiResponses({@ApiResponse(responseCode = "200", description = "성공")})
   @GetMapping
   public ResponseEntity<PageResponse<UserDictionaryListResponse>> getUserDictionaries(
-      @Parameter(description = "페이지 번호") @RequestParam(defaultValue = "1") int page,
-      @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size,
+      @Parameter(description = "페이지 번호 (0부터 시작)") @RequestParam(defaultValue = "0") int page,
+      @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "10") int size,
       @Parameter(description = "키워드 검색어") @RequestParam(required = false) String search,
       @Parameter(description = "정렬 필드 (keyword, createdAt, updatedAt)")
           @RequestParam(defaultValue = "updatedAt")
@@ -55,7 +55,7 @@ public class UserDictionaryController {
         environment);
 
     PageResponse<UserDictionaryListResponse> response =
-        userDictionaryService.getList(page - 1, size, sortBy, sortDir, search, environment);
+        userDictionaryService.getList(page, size, sortBy, sortDir, search, environment);
     return ResponseEntity.ok(response);
   }
 

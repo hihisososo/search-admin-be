@@ -40,7 +40,7 @@ public class LLMService {
     headers.set("Authorization", "Bearer " + openaiApiKey);
 
     Map<String, Object> requestBody = new HashMap<>();
-    requestBody.put("model", "gpt-4o-mini");
+    requestBody.put("model", "gpt-4.1-nano");
     requestBody.put("messages", Arrays.asList(Map.of("role", "user", "content", prompt)));
     requestBody.put("temperature", 0);
 
