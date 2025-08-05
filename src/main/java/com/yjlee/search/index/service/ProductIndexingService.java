@@ -82,6 +82,13 @@ public class ProductIndexingService {
     int totalIndexed = 0;
     int pageNumber = 0;
 
+    // 자동완성 인덱스 이름 추출 (targetIndex가 products-v1.0.0 형태일 때 autocomplete-v1.0.0 형태로 변환)
+    String autocompleteIndex = null;
+    if (targetIndex != null) {
+      String version = targetIndex.replace(ESFields.PRODUCTS_INDEX_PREFIX + "-", "");
+      autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-" + version;
+    }
+
     while (true) {
       Page<Product> productPage = productRepository.findAll(PageRequest.of(pageNumber, BATCH_SIZE));
       if (productPage.isEmpty()) break;
@@ -91,6 +98,11 @@ public class ProductIndexingService {
       int indexed;
       if (targetIndex != null) {
         indexed = bulkIndexer.indexProductsToSpecific(documents, targetIndex);
+
+        // 자동완성 문서도 버전이 있는 인덱스에 색인
+        List<AutocompleteDocument> autocompleteDocuments =
+            productPage.getContent().stream().map(autocompleteFactory::create).toList();
+        bulkIndexer.indexAutocompleteToSpecific(autocompleteDocuments, autocompleteIndex);
       } else {
         indexed = bulkIndexer.indexProducts(documents);
 
