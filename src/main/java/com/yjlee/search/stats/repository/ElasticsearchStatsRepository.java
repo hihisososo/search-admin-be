@@ -170,14 +170,14 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     Map<String, Aggregation> aggregations =
         Map.of(
             "total_searches", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp"))),
-            "total_documents", Aggregation.of(a -> a.sum(s -> s.field("resultCount"))),
+            "total_documents", Aggregation.of(a -> a.sum(s -> s.field("result_count"))),
             "search_failures",
-                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("resultCount").value(0)))),
+                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("result_count").value(0)))),
             "errors",
-                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("isError").value(true)))),
+                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("is_error").value(true)))),
             "successful_searches",
-                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("isError").value(false)))),
-            "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("responseTimeMs"))));
+                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("is_error").value(false)))),
+            "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("response_time_ms"))));
 
     return SearchRequest.of(
         s ->
@@ -202,12 +202,12 @@ public class ElasticsearchStatsRepository implements StatsRepository {
                                                 d.field("timestamp")
                                                     .gte(from.toString())
                                                     .lte(to.toString())))))
-                    .must(Query.of(q -> q.term(t -> t.field("isError").value(false)))));
+                    .must(Query.of(q -> q.term(t -> t.field("is_error").value(false)))));
 
     Map<String, Aggregation> aggregations =
         Map.of(
             "keywords",
-            Aggregation.of(a -> a.terms(t -> t.field("searchKeyword.keyword").size(limit))));
+            Aggregation.of(a -> a.terms(t -> t.field("search_keyword.keyword").size(limit))));
 
     return SearchRequest.of(
         s ->
@@ -226,7 +226,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     Map<String, Aggregation> subAggregations =
         Map.of(
             "search_count", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp"))),
-            "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("responseTimeMs"))));
+            "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("response_time_ms"))));
 
     Map<String, Aggregation> aggregations =
         Map.of(
