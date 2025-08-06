@@ -100,14 +100,12 @@
     ```
     
 - 실제 검색 예시
-
- 
-
-![자동완성 검색 예시 1](./images/autocomplete-example-1.png)
-
-![자동완성 검색 예시 2](./images/autocomplete-example-2.png)
-
-![자동완성 검색 예시 3](./images/autocomplete-example-3.png)
+    
+    <img src="./images/autocomplete-example-1.png" alt="자동완성 검색 예시 1" width="300">
+    
+    <img src="./images/autocomplete-example-2.png" alt="자동완성 검색 예시 2" width="300">
+    
+    <img src="./images/autocomplete-example-3.png" alt="자동완성 검색 예시 3" width="300">
 
 ### 상품검색
 
@@ -263,4 +261,4 @@
     
 - 실제 검색 내용
     
-    ![상품 검색 예시](./images/product-search-example.png)
+    <img src="./images/product-search-example.png" alt="상품 검색 예시" width="800">
