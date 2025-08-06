@@ -32,7 +32,8 @@ public class ESFields {
   public static final String MODEL_BIGRAM_WEIGHTED = MODEL_BIGRAM + "^1.0";
 
   // 검색용 필드 리스트
-  public static final List<String> CROSS_FIELDS_MAIN = List.of(NAME_WEIGHTED, SPECS_WEIGHTED, MODEL_BIGRAM_WEIGHTED);
+  public static final List<String> CROSS_FIELDS_MAIN =
+      List.of(NAME_WEIGHTED, SPECS_WEIGHTED, MODEL_BIGRAM_WEIGHTED);
   public static final List<String> CROSS_FIELDS_BIGRAM =
       List.of(NAME_BIGRAM_WEIGHTED, SPECS_BIGRAM_WEIGHTED);
 

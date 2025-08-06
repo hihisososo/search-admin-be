@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @Tag(name = "Stopword Dictionary Management", description = "불용어 사전 관리 API")
 @RestController
-@RequestMapping("/api/v1/dictionaries/stopword")
+@RequestMapping("/api/v1/dictionaries/stopwords")
 @RequiredArgsConstructor
 public class StopwordDictionaryController {
 

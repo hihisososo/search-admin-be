@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @Tag(name = "User Dictionary Management", description = "사용자 사전 관리 API")
 @RestController
-@RequestMapping("/api/v1/dictionaries/user")
+@RequestMapping("/api/v1/dictionaries/users")
 @RequiredArgsConstructor
 public class UserDictionaryController {
 
@@ -139,8 +139,7 @@ public class UserDictionaryController {
   @PostMapping("/analyze")
   public ResponseEntity<AnalyzeTextResponse> analyzeText(
       @RequestBody @Valid AnalyzeTextRequest request,
-      @Parameter(description = "환경 타입 (DEV: 개발, PROD: 운영)")
-          @RequestParam(defaultValue = "DEV")
+      @Parameter(description = "환경 타입 (DEV: 개발, PROD: 운영)") @RequestParam(defaultValue = "DEV")
           DictionaryEnvironmentType environment) {
 
     log.debug("형태소 분석 요청: {} - 환경: {}", request.getText(), environment);

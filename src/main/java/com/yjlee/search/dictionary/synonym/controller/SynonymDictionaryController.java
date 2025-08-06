@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @Tag(name = "Synonym Dictionary Management", description = "유의어 사전 관리 API")
 @RestController
-@RequestMapping("/api/v1/dictionaries/synonym")
+@RequestMapping("/api/v1/dictionaries/synonyms")
 @RequiredArgsConstructor
 public class SynonymDictionaryController {
 

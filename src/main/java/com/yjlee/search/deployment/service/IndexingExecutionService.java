@@ -89,6 +89,11 @@ public class IndexingExecutionService {
 
     // 환경 업데이트
     devEnvironment.setIndexName(newIndexName);
+    // autocomplete 인덱스명도 설정
+    if (newIndexName != null && newIndexName.startsWith("products-v")) {
+      String indexVersion = newIndexName.substring("products-v".length());
+      devEnvironment.setAutocompleteIndexName("autocomplete-v" + indexVersion);
+    }
     devEnvironment.completeIndexing(version, (long) documentCount);
     indexEnvironmentRepository.save(devEnvironment);
 

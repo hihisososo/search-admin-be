@@ -43,15 +43,23 @@ public class DeploymentManagementService {
 
     List<EnvironmentInfoResponse> responses =
         environments.stream()
-            .map(env -> {
-              EnvironmentInfoResponse response = EnvironmentInfoResponse.from(env);
-              // autocomplete 인덱스명 설정
-              if (env.getIndexName() != null && env.getIndexName().startsWith("products-v")) {
-                String version = env.getIndexName().substring("products-v".length());
-                response.setAutocompleteIndexName("autocomplete-v" + version);
-              }
-              return response;
-            })
+            .map(
+                env ->
+                    EnvironmentInfoResponse.builder()
+                        .environmentType(env.getEnvironmentType().name())
+                        .environmentDescription(env.getEnvironmentType().getDescription())
+                        .indexName(env.getIndexName())
+                        .autocompleteIndexName(env.getAutocompleteIndexName())
+                        .documentCount(env.getDocumentCount())
+                        .indexStatus(env.getIndexStatus().name())
+                        .indexStatusDescription(env.getIndexStatus().getDescription())
+                        .indexDate(env.getIndexDate())
+                        .version(env.getVersion())
+                        .isIndexing(env.getIsIndexing())
+                        .indexingProgress(env.getIndexingProgress())
+                        .indexedDocumentCount(env.getIndexedDocumentCount())
+                        .totalDocumentCount(env.getTotalDocumentCount())
+                        .build())
             .toList();
 
     return EnvironmentListResponse.of(responses);

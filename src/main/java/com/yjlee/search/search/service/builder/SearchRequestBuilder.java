@@ -53,12 +53,12 @@ public class SearchRequestBuilder {
     String keywordLower = keyword.toLowerCase();
     String keywordNoSpace = keyword.replaceAll("\\s+", "");
     String keywordNoSpaceLower = keywordNoSpace.toLowerCase();
-    
+
     // 색인할 때와 똑같이 변환
     String keywordJamo = KoreanTextUtils.decomposeHangul(keywordLower);
     String keywordJamoNoSpace = KoreanTextUtils.decomposeHangul(keywordNoSpaceLower);
     String keywordChosung = KoreanTextUtils.extractChosung(keywordLower);
-    
+
     return SearchRequest.of(
         s ->
             s.index(indexName)

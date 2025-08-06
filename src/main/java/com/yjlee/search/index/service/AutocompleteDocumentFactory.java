@@ -1,7 +1,6 @@
 package com.yjlee.search.index.service;
 
 import com.yjlee.search.common.util.KoreanTextUtils;
-import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
