@@ -16,14 +16,14 @@ public class SearchParams {
   @NotBlank
   private String query;
 
-  @Schema(description = "페이지 번호", example = "1", required = true)
-  @Min(1)
-  private Integer page;
+  @Schema(description = "페이지 번호 (0부터 시작)", example = "0", defaultValue = "0")
+  @Min(0)
+  private Integer page = 0;
 
-  @Schema(description = "페이지 크기", example = "20", required = true)
+  @Schema(description = "페이지 크기", example = "20", defaultValue = "20")
   @Min(1)
   @Max(100)
-  private Integer size;
+  private Integer size = 20;
 
   @Schema(description = "정렬 필드", example = "score", defaultValue = "score")
   private String sortField = "score";

@@ -11,6 +11,7 @@ public class EnvironmentInfoResponse {
   private String environmentType;
   private String environmentDescription;
   private String indexName;
+  private String autocompleteIndexName;
   private Long documentCount;
   private String indexStatus;
   private String indexStatusDescription;

@@ -70,7 +70,7 @@ public class QueryBuilder {
                             .fields(ESFields.CROSS_FIELDS_BIGRAM)
                             .type(TextQueryType.CrossFields)
                             .operator(Operator.And)
-                            .boost(6.0f))));
+                            .boost(5.0f))));
   }
 
   private List<Query> buildBoostingQueries(String query) {

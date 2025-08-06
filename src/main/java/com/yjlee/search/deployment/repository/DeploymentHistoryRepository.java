@@ -16,8 +16,7 @@ public interface DeploymentHistoryRepository extends JpaRepository<DeploymentHis
   @Query(
       "SELECT dh FROM DeploymentHistory dh "
           + "WHERE (:status IS NULL OR dh.status = :status) "
-          + "AND (:deploymentType IS NULL OR dh.deploymentType = :deploymentType) "
-          + "ORDER BY dh.createdAt DESC")
+          + "AND (:deploymentType IS NULL OR dh.deploymentType = :deploymentType)")
   Page<DeploymentHistory> findByFilters(
       @Param("status") DeploymentHistory.DeploymentStatus status,
       @Param("deploymentType") DeploymentHistory.DeploymentType deploymentType,

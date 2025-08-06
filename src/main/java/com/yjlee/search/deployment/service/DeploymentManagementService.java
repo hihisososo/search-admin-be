@@ -42,7 +42,17 @@ public class DeploymentManagementService {
     updateEnvironmentDocumentCounts(environments);
 
     List<EnvironmentInfoResponse> responses =
-        environments.stream().map(EnvironmentInfoResponse::from).toList();
+        environments.stream()
+            .map(env -> {
+              EnvironmentInfoResponse response = EnvironmentInfoResponse.from(env);
+              // autocomplete 인덱스명 설정
+              if (env.getIndexName() != null && env.getIndexName().startsWith("products-v")) {
+                String version = env.getIndexName().substring("products-v".length());
+                response.setAutocompleteIndexName("autocomplete-v" + version);
+              }
+              return response;
+            })
+            .toList();
 
     return EnvironmentListResponse.of(responses);
   }
@@ -201,11 +211,17 @@ public class DeploymentManagementService {
       Pageable pageable,
       DeploymentHistory.DeploymentStatus status,
       DeploymentHistory.DeploymentType deploymentType) {
-    Page<DeploymentHistory> histories =
-        deploymentHistoryRepository.findByFilters(status, deploymentType, pageable);
-    Page<DeploymentHistoryResponse> responses = histories.map(DeploymentHistoryResponse::from);
+    try {
+      log.debug("배포 이력 조회 - status: {}, deploymentType: {}", status, deploymentType);
+      Page<DeploymentHistory> histories =
+          deploymentHistoryRepository.findByFilters(status, deploymentType, pageable);
+      Page<DeploymentHistoryResponse> responses = histories.map(DeploymentHistoryResponse::from);
 
-    return DeploymentHistoryListResponse.of(responses);
+      return DeploymentHistoryListResponse.of(responses);
+    } catch (Exception e) {
+      log.error("배포 이력 조회 중 오류 발생", e);
+      throw e;
+    }
   }
 
   @Transactional(readOnly = false)
@@ -242,7 +258,7 @@ public class DeploymentManagementService {
   }
 
   private String generateVersion() {
-    return "products-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+    return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
   }
 
   private DeploymentHistory createIndexingHistory(String version, String description) {

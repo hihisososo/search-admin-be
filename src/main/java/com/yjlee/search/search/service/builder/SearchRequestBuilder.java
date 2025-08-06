@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.common.util.KoreanTextUtils;
 import com.yjlee.search.search.dto.*;
 import java.util.Map;
 import java.util.Optional;
@@ -49,13 +50,55 @@ public class SearchRequestBuilder {
   }
 
   public SearchRequest buildAutocompleteSearchRequest(String indexName, String keyword) {
+    String keywordLower = keyword.toLowerCase();
+    String keywordNoSpace = keyword.replaceAll("\\s+", "");
+    String keywordNoSpaceLower = keywordNoSpace.toLowerCase();
+    
+    // 색인할 때와 똑같이 변환
+    String keywordJamo = KoreanTextUtils.decomposeHangul(keywordLower);
+    String keywordJamoNoSpace = KoreanTextUtils.decomposeHangul(keywordNoSpaceLower);
+    String keywordChosung = KoreanTextUtils.extractChosung(keywordLower);
+    
     return SearchRequest.of(
         s ->
             s.index(indexName)
                 .query(
                     q ->
-                        q.match(
-                            m -> m.field(ESFields.NAME_ICU).operator(Operator.And).query(keyword)))
+                        q.bool(
+                            b ->
+                                b.should(
+                                        should ->
+                                            should.match(
+                                                m ->
+                                                    m.field("name_jamo")
+                                                        .query(keywordJamo)
+                                                        .operator(Operator.And)
+                                                        .boost(3.0f)))
+                                    .should(
+                                        should ->
+                                            should.match(
+                                                m ->
+                                                    m.field("name_jamo_no_space")
+                                                        .query(keywordJamoNoSpace)
+                                                        .operator(Operator.And)
+                                                        .boost(3.0f)))
+                                    .should(
+                                        should ->
+                                            should.match(
+                                                m ->
+                                                    m.field("name_chosung")
+                                                        .query(keywordChosung)
+                                                        .operator(Operator.And)
+                                                        .boost(2.0f)))
+                                    .should(
+                                        should ->
+                                            should.match(
+                                                m ->
+                                                    m.field("name_nori")
+                                                        .query(keywordLower)
+                                                        .operator(Operator.And)
+                                                        .boost(1.0f)))
+                                    .minimumShouldMatch("1")))
                 .size(10));
   }
 

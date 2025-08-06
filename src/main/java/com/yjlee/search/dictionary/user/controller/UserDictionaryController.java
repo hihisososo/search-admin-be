@@ -2,6 +2,8 @@ package com.yjlee.search.dictionary.user.controller;
 
 import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.dictionary.user.dto.AnalyzeTextRequest;
+import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
@@ -125,5 +127,24 @@ public class UserDictionaryController {
     log.info("사용자 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
     userDictionaryService.delete(dictionaryId, environment);
     return ResponseEntity.noContent().build();
+  }
+
+  @Operation(
+      summary = "형태소 분석",
+      description = "입력된 텍스트를 Nori 형태소 분석기로 분석합니다. 개발/운영 환경의 사용자 사전이 적용됩니다.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "성공"),
+    @ApiResponse(responseCode = "400", description = "잘못된 요청")
+  })
+  @PostMapping("/analyze")
+  public ResponseEntity<AnalyzeTextResponse> analyzeText(
+      @RequestBody @Valid AnalyzeTextRequest request,
+      @Parameter(description = "환경 타입 (DEV: 개발, PROD: 운영)")
+          @RequestParam(defaultValue = "DEV")
+          DictionaryEnvironmentType environment) {
+
+    log.debug("형태소 분석 요청: {} - 환경: {}", request.getText(), environment);
+    AnalyzeTextResponse response = userDictionaryService.analyzeText(request, environment);
+    return ResponseEntity.ok(response);
   }
 }

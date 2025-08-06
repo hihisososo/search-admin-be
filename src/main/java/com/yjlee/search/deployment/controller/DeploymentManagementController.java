@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -92,7 +93,7 @@ public class DeploymentManagementController {
   })
   @GetMapping("/history")
   public ResponseEntity<DeploymentHistoryListResponse> getDeploymentHistory(
-      @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+      @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
           Pageable pageable,
       @Parameter(description = "배포 상태 필터") @RequestParam(required = false)
           DeploymentHistory.DeploymentStatus status,
@@ -100,12 +101,14 @@ public class DeploymentManagementController {
           DeploymentHistory.DeploymentType deploymentType) {
 
     try {
+      log.info("배포 이력 조회 요청 - status: {}, deploymentType: {}, pageable: {}", 
+              status, deploymentType, pageable);
       DeploymentHistoryListResponse response =
           deploymentManagementService.getDeploymentHistory(pageable, status, deploymentType);
       return ResponseEntity.ok(response);
     } catch (Exception e) {
       log.error("배포 이력 조회 실패", e);
-      throw new RuntimeException("배포 이력 조회에 실패했습니다.");
+      throw new RuntimeException("배포 이력 조회에 실패했습니다: " + e.getMessage(), e);
     }
   }
 }

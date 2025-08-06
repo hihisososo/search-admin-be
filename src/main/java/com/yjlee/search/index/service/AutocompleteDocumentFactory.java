@@ -1,5 +1,6 @@
 package com.yjlee.search.index.service;
 
+import com.yjlee.search.common.util.KoreanTextUtils;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
@@ -10,16 +11,30 @@ import org.springframework.stereotype.Component;
 public class AutocompleteDocumentFactory {
 
   public AutocompleteDocument create(Product product) {
+    String name = product.getName();
+    String nameLower = name.toLowerCase();
+    String nameNoSpace = name.replaceAll("\\s+", "");
+    String nameNoSpaceLower = nameNoSpace.toLowerCase();
     return AutocompleteDocument.builder()
-        .name(product.getName())
-        .nameIcu(TextPreprocessor.preprocess(product.getName()))
+        .name(nameLower)
+        .nameJamo(KoreanTextUtils.decomposeHangul(nameLower))
+        .nameChosung(KoreanTextUtils.extractChosung(nameLower))
+        .nameNori(nameLower)
+        .nameJamoNoSpace(KoreanTextUtils.decomposeHangul(nameNoSpaceLower))
         .build();
   }
 
   public AutocompleteDocument createFromProductDocument(ProductDocument productDocument) {
+    String name = productDocument.getNameRaw();
+    String nameLower = name.toLowerCase();
+    String nameNoSpace = name.replaceAll("\\s+", "");
+    String nameNoSpaceLower = nameNoSpace.toLowerCase();
     return AutocompleteDocument.builder()
-        .name(productDocument.getNameRaw())
-        .nameIcu(productDocument.getName())
+        .name(nameLower)
+        .nameJamo(KoreanTextUtils.decomposeHangul(nameLower))
+        .nameChosung(KoreanTextUtils.extractChosung(nameLower))
+        .nameNori(nameLower)
+        .nameJamoNoSpace(KoreanTextUtils.decomposeHangul(nameNoSpaceLower))
         .build();
   }
 }

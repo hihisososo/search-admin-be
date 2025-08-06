@@ -117,8 +117,8 @@ public class SearchService {
   private SearchExecuteRequest buildSearchRequest(SearchParams params) {
     SearchExecuteRequest request = new SearchExecuteRequest();
     request.setQuery(params.getQuery());
-    request.setPage(params.getPage());
-    request.setSize(params.getSize());
+    request.setPage(params.getPage() != null ? params.getPage() : 0);
+    request.setSize(params.getSize() != null ? params.getSize() : 20);
 
     if (params.getSortField() != null || params.getSortOrder() != null) {
       ProductSortDto sort = new ProductSortDto();
@@ -151,8 +151,8 @@ public class SearchService {
     request.setEnvironmentType(params.getEnvironmentType());
     request.setExplain(params.isExplain());
     request.setQuery(params.getQuery());
-    request.setPage(params.getPage());
-    request.setSize(params.getSize());
+    request.setPage(params.getPage() != null ? params.getPage() : 0);
+    request.setSize(params.getSize() != null ? params.getSize() : 20);
 
     if (params.getSortField() != null || params.getSortOrder() != null) {
       ProductSortDto sort = new ProductSortDto();

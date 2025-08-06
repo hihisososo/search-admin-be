@@ -28,9 +28,14 @@
       "type": "keyword",
       "index": false
     },
-
     "model": {
-      "type": "keyword"
+      "type": "keyword",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
     },
     "name": {
       "type": "text",

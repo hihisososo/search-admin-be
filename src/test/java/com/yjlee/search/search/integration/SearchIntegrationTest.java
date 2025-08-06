@@ -211,7 +211,8 @@ class SearchControllerTest extends BaseIntegrationTest {
         .forEach(
             hit -> {
               var doc = hit.source();
-              log.info("Autocomplete - name: {}, nameIcu: {}", doc.getName(), doc.getNameIcu());
+              log.info("Autocomplete - name: {}, nameJamo: {}, nameChosung: {}", 
+                      doc.getName(), doc.getNameJamo(), doc.getNameChosung());
             });
   }
 
@@ -414,7 +415,12 @@ class SearchControllerTest extends BaseIntegrationTest {
   }
 
   private AutocompleteDocument createAutocomplete(String keyword, int weight) {
-    return AutocompleteDocument.builder().name(keyword).nameIcu(keyword).build();
+    return AutocompleteDocument.builder()
+        .name(keyword)
+        .nameJamo(keyword)
+        .nameChosung(keyword)
+        .nameNori(keyword)
+        .build();
   }
 
   private String loadResourceFile(String path) throws IOException {

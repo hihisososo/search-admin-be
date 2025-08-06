@@ -13,6 +13,15 @@ public class AutocompleteDocument {
 
   String name;
 
-  @JsonProperty("name_icu")
-  String nameIcu;
+  @JsonProperty("name_jamo")
+  String nameJamo;
+  
+  @JsonProperty("name_chosung")
+  String nameChosung;
+  
+  @JsonProperty("name_nori")
+  String nameNori;
+  
+  @JsonProperty("name_jamo_no_space")
+  String nameJamoNoSpace;
 }
