@@ -211,8 +211,11 @@ class SearchControllerTest extends BaseIntegrationTest {
         .forEach(
             hit -> {
               var doc = hit.source();
-              log.info("Autocomplete - name: {}, nameJamo: {}, nameChosung: {}", 
-                      doc.getName(), doc.getNameJamo(), doc.getNameChosung());
+              log.info(
+                  "Autocomplete - name: {}, nameJamo: {}, nameChosung: {}",
+                  doc.getName(),
+                  doc.getNameJamo(),
+                  doc.getNameChosung());
             });
   }
 

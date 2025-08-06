@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @Tag(name = "Typo Correction Dictionary Management", description = "오타교정 사전 관리 API")
 @RestController
-@RequestMapping("/api/v1/dictionaries/typo")
+@RequestMapping("/api/v1/dictionaries/typos")
 @RequiredArgsConstructor
 public class TypoCorrectionDictionaryController {
 

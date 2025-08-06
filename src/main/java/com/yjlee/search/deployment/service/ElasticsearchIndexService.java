@@ -56,16 +56,20 @@ public class ElasticsearchIndexService {
     String productMappingJson = createProductIndexMapping();
     String productSettingsJson = createProductIndexSettings(version, environmentType);
 
-    CreateIndexRequest productRequest = CreateIndexRequest.of(
-        i -> i.index(productIndexName)
-            .mappings(
-                TypeMapping.of(
-                    m -> m.withJson(
-                        new ByteArrayInputStream(productMappingJson.getBytes()))))
-            .settings(
-                IndexSettings.of(
-                    s -> s.withJson(
-                        new ByteArrayInputStream(productSettingsJson.getBytes())))));
+    CreateIndexRequest productRequest =
+        CreateIndexRequest.of(
+            i ->
+                i.index(productIndexName)
+                    .mappings(
+                        TypeMapping.of(
+                            m ->
+                                m.withJson(
+                                    new ByteArrayInputStream(productMappingJson.getBytes()))))
+                    .settings(
+                        IndexSettings.of(
+                            s ->
+                                s.withJson(
+                                    new ByteArrayInputStream(productSettingsJson.getBytes())))));
 
     elasticsearchClient.indices().create(productRequest);
     log.info(
@@ -82,17 +86,21 @@ public class ElasticsearchIndexService {
     String autocompleteMappingJson = createAutocompleteIndexMapping();
     String autocompleteSettingsJson = createAutocompleteIndexSettings(version);
 
-    CreateIndexRequest autocompleteRequest = CreateIndexRequest.of(
-        i -> i.index(autocompleteIndexName)
-            .mappings(
-                TypeMapping.of(
-                    m -> m.withJson(
-                        new ByteArrayInputStream(autocompleteMappingJson.getBytes()))))
-            .settings(
-                IndexSettings.of(
-                    s -> s.withJson(
-                        new ByteArrayInputStream(
-                            autocompleteSettingsJson.getBytes())))));
+    CreateIndexRequest autocompleteRequest =
+        CreateIndexRequest.of(
+            i ->
+                i.index(autocompleteIndexName)
+                    .mappings(
+                        TypeMapping.of(
+                            m ->
+                                m.withJson(
+                                    new ByteArrayInputStream(autocompleteMappingJson.getBytes()))))
+                    .settings(
+                        IndexSettings.of(
+                            s ->
+                                s.withJson(
+                                    new ByteArrayInputStream(
+                                        autocompleteSettingsJson.getBytes())))));
 
     elasticsearchClient.indices().create(autocompleteRequest);
     log.info("새 자동완성 인덱스 생성 완료 - 인덱스: {}", autocompleteIndexName);
@@ -116,21 +124,24 @@ public class ElasticsearchIndexService {
 
   public void updateProductsSearchAlias(String newIndexName) throws IOException {
     // 현재 products-search alias가 연결된 모든 인덱스 조회
-    var getAliasRequest = co.elastic.clients.elasticsearch.indices.GetAliasRequest.of(
-        a -> a.name(ESFields.PRODUCTS_SEARCH_ALIAS));
+    var getAliasRequest =
+        co.elastic.clients.elasticsearch.indices.GetAliasRequest.of(
+            a -> a.name(ESFields.PRODUCTS_SEARCH_ALIAS));
 
     try {
       var aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
 
       // atomic alias update를 위한 액션 리스트 생성
-      var actions = new java.util.ArrayList<co.elastic.clients.elasticsearch.indices.update_aliases.Action>();
+      var actions =
+          new java.util.ArrayList<co.elastic.clients.elasticsearch.indices.update_aliases.Action>();
 
       // 기존 alias 제거 액션들 추가
       for (String existingIndex : aliasResponse.result().keySet()) {
         if (!existingIndex.equals(newIndexName)) {
           actions.add(
               co.elastic.clients.elasticsearch.indices.update_aliases.Action.of(
-                  a -> a.remove(r -> r.index(existingIndex).alias(ESFields.PRODUCTS_SEARCH_ALIAS))));
+                  a ->
+                      a.remove(r -> r.index(existingIndex).alias(ESFields.PRODUCTS_SEARCH_ALIAS))));
           log.info("기존 alias 제거 예정: {} -> {}", existingIndex, ESFields.PRODUCTS_SEARCH_ALIAS);
         }
       }
@@ -142,8 +153,9 @@ public class ElasticsearchIndexService {
 
       // atomic update 실행
       if (!actions.isEmpty()) {
-        var updateRequest = co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest.of(
-            u -> u.actions(actions));
+        var updateRequest =
+            co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest.of(
+                u -> u.actions(actions));
         elasticsearchClient.indices().updateAliases(updateRequest);
         log.info(
             "products-search alias atomic 업데이트 완료: {} ({}개 액션 실행)", newIndexName, actions.size());
@@ -154,7 +166,8 @@ public class ElasticsearchIndexService {
     } catch (co.elastic.clients.elasticsearch._types.ElasticsearchException e) {
       if (e.response().status() == 404) {
         // alias가 존재하지 않는 경우, 새로 생성
-        var putAliasRequest = PutAliasRequest.of(a -> a.index(newIndexName).name(ESFields.PRODUCTS_SEARCH_ALIAS));
+        var putAliasRequest =
+            PutAliasRequest.of(a -> a.index(newIndexName).name(ESFields.PRODUCTS_SEARCH_ALIAS));
         elasticsearchClient.indices().putAlias(putAliasRequest);
         log.info("products-search alias 신규 생성 완료: {}", newIndexName);
       } else {
@@ -171,8 +184,9 @@ public class ElasticsearchIndexService {
   /** 현재 products-search alias가 연결된 인덱스들을 조회 */
   public java.util.Set<String> getCurrentAliasIndices() throws IOException {
     try {
-      var getAliasRequest = co.elastic.clients.elasticsearch.indices.GetAliasRequest.of(
-          a -> a.name(ESFields.PRODUCTS_SEARCH_ALIAS));
+      var getAliasRequest =
+          co.elastic.clients.elasticsearch.indices.GetAliasRequest.of(
+              a -> a.name(ESFields.PRODUCTS_SEARCH_ALIAS));
       var aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
       java.util.Set<String> indices = aliasResponse.result().keySet();
       log.info("현재 {} alias가 연결된 인덱스들: {}", ESFields.PRODUCTS_SEARCH_ALIAS, indices);
@@ -206,7 +220,8 @@ public class ElasticsearchIndexService {
 
   private String createAutocompleteIndexMapping() throws IOException {
     try {
-      var resource = resourceLoader.getResource("classpath:elasticsearch/autocomplete-mapping.json");
+      var resource =
+          resourceLoader.getResource("classpath:elasticsearch/autocomplete-mapping.json");
       return StreamUtils.copyToString(
           resource.getInputStream(), java.nio.charset.StandardCharsets.UTF_8);
     } catch (Exception e) {
@@ -219,11 +234,13 @@ public class ElasticsearchIndexService {
       String version, DictionaryEnvironmentType environmentType) throws IOException {
     try {
       var resource = resourceLoader.getResource("classpath:elasticsearch/product-settings.json");
-      String settingsTemplate = StreamUtils.copyToString(
-          resource.getInputStream(), java.nio.charset.StandardCharsets.UTF_8);
+      String settingsTemplate =
+          StreamUtils.copyToString(
+              resource.getInputStream(), java.nio.charset.StandardCharsets.UTF_8);
 
       String userDictPath = "/usr/share/elasticsearch/config/analysis/user/" + version + ".txt";
-      String stopwordDictPath = "/usr/share/elasticsearch/config/analysis/stopword/" + version + ".txt";
+      String stopwordDictPath =
+          "/usr/share/elasticsearch/config/analysis/stopword/" + version + ".txt";
       String synonymSetName = getSynonymSetName(environmentType);
 
       return settingsTemplate
@@ -238,15 +255,16 @@ public class ElasticsearchIndexService {
 
   private String createAutocompleteIndexSettings(String version) throws IOException {
     try {
-      var resource = resourceLoader.getResource("classpath:elasticsearch/autocomplete-settings.json");
-      String settingsTemplate = StreamUtils.copyToString(
-          resource.getInputStream(), java.nio.charset.StandardCharsets.UTF_8);
+      var resource =
+          resourceLoader.getResource("classpath:elasticsearch/autocomplete-settings.json");
+      String settingsTemplate =
+          StreamUtils.copyToString(
+              resource.getInputStream(), java.nio.charset.StandardCharsets.UTF_8);
 
       // 상품 인덱스와 동일한 버전의 사전 경로 사용
       String userDictPath = "/usr/share/elasticsearch/config/analysis/user/" + version + ".txt";
 
-      return settingsTemplate
-          .replace("{USER_DICT_PATH}", userDictPath);
+      return settingsTemplate.replace("{USER_DICT_PATH}", userDictPath);
     } catch (Exception e) {
       log.error("자동완성 설정 파일 읽기 실패", e);
       throw new IOException("자동완성 설정 파일을 읽을 수 없습니다.", e);
@@ -255,22 +273,25 @@ public class ElasticsearchIndexService {
 
   public void updateAutocompleteSearchAlias(String newIndexName) throws IOException {
     // 현재 autocomplete-search alias가 연결된 모든 인덱스 조회
-    var getAliasRequest = co.elastic.clients.elasticsearch.indices.GetAliasRequest.of(
-        a -> a.name(ESFields.AUTOCOMPLETE_SEARCH_ALIAS));
+    var getAliasRequest =
+        co.elastic.clients.elasticsearch.indices.GetAliasRequest.of(
+            a -> a.name(ESFields.AUTOCOMPLETE_SEARCH_ALIAS));
 
     try {
       var aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
 
       // atomic alias update를 위한 액션 리스트 생성
-      var actions = new java.util.ArrayList<co.elastic.clients.elasticsearch.indices.update_aliases.Action>();
+      var actions =
+          new java.util.ArrayList<co.elastic.clients.elasticsearch.indices.update_aliases.Action>();
 
       // 기존 alias 제거 액션들 추가
       for (String existingIndex : aliasResponse.result().keySet()) {
         if (!existingIndex.equals(newIndexName)) {
           actions.add(
               co.elastic.clients.elasticsearch.indices.update_aliases.Action.of(
-                  a -> a.remove(
-                      r -> r.index(existingIndex).alias(ESFields.AUTOCOMPLETE_SEARCH_ALIAS))));
+                  a ->
+                      a.remove(
+                          r -> r.index(existingIndex).alias(ESFields.AUTOCOMPLETE_SEARCH_ALIAS))));
           log.info("기존 alias 제거 예정: {} -> {}", existingIndex, ESFields.AUTOCOMPLETE_SEARCH_ALIAS);
         }
       }
@@ -278,12 +299,14 @@ public class ElasticsearchIndexService {
       // 새 인덱스에 alias 추가 액션
       actions.add(
           co.elastic.clients.elasticsearch.indices.update_aliases.Action.of(
-              a -> a.add(add -> add.index(newIndexName).alias(ESFields.AUTOCOMPLETE_SEARCH_ALIAS))));
+              a ->
+                  a.add(add -> add.index(newIndexName).alias(ESFields.AUTOCOMPLETE_SEARCH_ALIAS))));
 
       // atomic update 실행
       if (!actions.isEmpty()) {
-        var updateRequest = co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest.of(
-            u -> u.actions(actions));
+        var updateRequest =
+            co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest.of(
+                u -> u.actions(actions));
         elasticsearchClient.indices().updateAliases(updateRequest);
         log.info(
             "autocomplete-search alias atomic 업데이트 완료: {} ({}개 액션 실행)",
@@ -296,7 +319,8 @@ public class ElasticsearchIndexService {
     } catch (co.elastic.clients.elasticsearch._types.ElasticsearchException e) {
       if (e.response().status() == 404) {
         // alias가 존재하지 않는 경우, 새로 생성
-        var putAliasRequest = PutAliasRequest.of(a -> a.index(newIndexName).name(ESFields.AUTOCOMPLETE_SEARCH_ALIAS));
+        var putAliasRequest =
+            PutAliasRequest.of(a -> a.index(newIndexName).name(ESFields.AUTOCOMPLETE_SEARCH_ALIAS));
         elasticsearchClient.indices().putAlias(putAliasRequest);
         log.info("autocomplete-search alias 신규 생성 완료: {}", newIndexName);
       } else {

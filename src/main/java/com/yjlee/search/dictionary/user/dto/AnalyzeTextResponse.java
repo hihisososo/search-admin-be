@@ -14,11 +14,11 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AnalyzeTextResponse {
-  
+
   String environment;
   String originalText;
   List<TokenInfo> tokens;
-  
+
   @Getter
   @Builder
   @NoArgsConstructor

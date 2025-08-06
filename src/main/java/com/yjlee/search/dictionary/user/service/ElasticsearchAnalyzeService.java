@@ -20,30 +20,29 @@ public class ElasticsearchAnalyzeService {
 
   private final ElasticsearchClient elasticsearchClient;
 
-  public List<AnalyzeTextResponse.TokenInfo> analyzeText(String text, DictionaryEnvironmentType environment) {
+  public List<AnalyzeTextResponse.TokenInfo> analyzeText(
+      String text, DictionaryEnvironmentType environment) {
     try {
       String indexName = getIndexName(environment);
-      
-      AnalyzeRequest analyzeRequest = AnalyzeRequest.of(a -> a
-          .index(indexName)
-          .field("name_nori")
-          .text(text)
-      );
+
+      AnalyzeRequest analyzeRequest =
+          AnalyzeRequest.of(a -> a.index(indexName).field("name_nori").text(text));
 
       AnalyzeResponse response = elasticsearchClient.indices().analyze(analyzeRequest);
-      
+
       List<AnalyzeTextResponse.TokenInfo> tokens = new ArrayList<>();
       for (AnalyzeToken token : response.tokens()) {
-        tokens.add(AnalyzeTextResponse.TokenInfo.builder()
-            .token(token.token())
-            .type(token.type())
-            .position((int) token.position())
-            .startOffset((int) token.startOffset())
-            .endOffset((int) token.endOffset())
-            .positionLengthTags(new ArrayList<>())
-            .build());
+        tokens.add(
+            AnalyzeTextResponse.TokenInfo.builder()
+                .token(token.token())
+                .type(token.type())
+                .position((int) token.position())
+                .startOffset((int) token.startOffset())
+                .endOffset((int) token.endOffset())
+                .positionLengthTags(new ArrayList<>())
+                .build());
       }
-      
+
       return tokens;
     } catch (IOException e) {
       log.error("형태소 분석 중 오류 발생", e);
@@ -61,5 +60,4 @@ public class ElasticsearchAnalyzeService {
         return "products-dev";
     }
   }
-
 }

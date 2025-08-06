@@ -1,7 +1,6 @@
 package com.yjlee.search.index.service;
 
 import com.yjlee.search.common.util.KoreanTextUtils;
-import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
@@ -16,7 +15,7 @@ public class AutocompleteDocumentFactory {
     String nameNoSpace = name.replaceAll("\\s+", "");
     String nameNoSpaceLower = nameNoSpace.toLowerCase();
     return AutocompleteDocument.builder()
-        .name(nameLower)
+        .name(name)
         .nameJamo(KoreanTextUtils.decomposeHangul(nameLower))
         .nameChosung(KoreanTextUtils.extractChosung(nameLower))
         .nameNori(nameLower)
@@ -30,7 +29,7 @@ public class AutocompleteDocumentFactory {
     String nameNoSpace = name.replaceAll("\\s+", "");
     String nameNoSpaceLower = nameNoSpace.toLowerCase();
     return AutocompleteDocument.builder()
-        .name(nameLower)
+        .name(name)
         .nameJamo(KoreanTextUtils.decomposeHangul(nameLower))
         .nameChosung(KoreanTextUtils.extractChosung(nameLower))
         .nameNori(nameLower)

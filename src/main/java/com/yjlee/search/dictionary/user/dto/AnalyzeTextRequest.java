@@ -12,7 +12,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AnalyzeTextRequest {
-  
+
   @NotBlank(message = "분석할 텍스트는 필수입니다")
   String text;
 }

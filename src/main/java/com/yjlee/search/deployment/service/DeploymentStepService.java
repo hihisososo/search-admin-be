@@ -54,6 +54,7 @@ public class DeploymentStepService {
       IndexEnvironment prodEnvironment, IndexEnvironment devEnvironment) {
 
     prodEnvironment.setIndexName(devEnvironment.getIndexName());
+    prodEnvironment.setAutocompleteIndexName(devEnvironment.getAutocompleteIndexName());
     prodEnvironment.setVersion(devEnvironment.getVersion());
     prodEnvironment.setDocumentCount(devEnvironment.getDocumentCount());
     prodEnvironment.setIndexStatus(IndexEnvironment.IndexStatus.ACTIVE);

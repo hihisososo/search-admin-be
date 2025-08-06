@@ -28,6 +28,9 @@ public class IndexEnvironment {
   @Column(name = "index_name", nullable = false)
   private String indexName;
 
+  @Column(name = "autocomplete_index_name")
+  private String autocompleteIndexName;
+
   @Column(name = "document_count")
   private Long documentCount;
 
