@@ -13,6 +13,7 @@ import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import com.yjlee.search.index.service.ProductIndexingService;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -85,7 +86,13 @@ public class IndexingExecutionService {
             .findById(environmentId)
             .orElseThrow(() -> new IllegalStateException("환경을 찾을 수 없습니다"));
 
-    deleteOldDevIndexSafely(devEnvironment.getIndexName());
+    // 운영 환경에서 사용 중인 인덱스인지 확인
+    String oldIndexName = devEnvironment.getIndexName();
+    if (oldIndexName != null && !isIndexUsedInProduction(oldIndexName)) {
+      deleteOldDevIndexSafely(oldIndexName);
+    } else if (oldIndexName != null) {
+      log.info("기존 개발 인덱스가 운영에서 사용 중이므로 삭제하지 않음: {}", oldIndexName);
+    }
 
     // 환경 업데이트
     devEnvironment.setIndexName(newIndexName);
@@ -240,6 +247,26 @@ public class IndexingExecutionService {
       } catch (Exception e) {
         log.warn("기존 개발 인덱스 삭제 실패 (무시하고 계속 진행): {}", e.getMessage());
       }
+    }
+  }
+
+  private boolean isIndexUsedInProduction(String indexName) {
+    try {
+      Optional<IndexEnvironment> prodEnvironment =
+          indexEnvironmentRepository.findByEnvironmentType(
+              IndexEnvironment.EnvironmentType.PROD);
+      if (prodEnvironment.isPresent()) {
+        String prodIndexName = prodEnvironment.get().getIndexName();
+        boolean isUsed = indexName.equals(prodIndexName);
+        if (isUsed) {
+          log.info("인덱스 {}가 운영 환경에서 사용 중", indexName);
+        }
+        return isUsed;
+      }
+      return false;
+    } catch (Exception e) {
+      log.warn("운영 환경 확인 중 오류 발생, 안전을 위해 삭제하지 않음: {}", e.getMessage());
+      return true; // 오류 발생 시 안전을 위해 삭제하지 않음
     }
   }
 }
