@@ -76,12 +76,26 @@ public class SearchRequestBuilder {
                                                         .boost(3.0f)))
                                     .should(
                                         should ->
+                                            should.matchPhrasePrefix(
+                                                m ->
+                                                    m.field("name_jamo")
+                                                        .query(keywordJamo)
+                                                        .boost(5.0f)))
+                                    .should(
+                                        should ->
                                             should.match(
                                                 m ->
                                                     m.field("name_jamo_no_space")
                                                         .query(keywordJamoNoSpace)
                                                         .operator(Operator.And)
                                                         .boost(3.0f)))
+                                    .should(
+                                        should ->
+                                            should.matchPhrasePrefix(
+                                                m ->
+                                                    m.field("name_jamo_no_space")
+                                                        .query(keywordJamoNoSpace)
+                                                        .boost(5.0f)))
                                     .should(
                                         should ->
                                             should.match(
@@ -92,14 +106,30 @@ public class SearchRequestBuilder {
                                                         .boost(2.0f)))
                                     .should(
                                         should ->
+                                            should.matchPhrasePrefix(
+                                                m ->
+                                                    m.field("name_chosung")
+                                                        .query(keywordChosung)
+                                                        .boost(4.0f)))
+                                    .should(
+                                        should ->
                                             should.match(
                                                 m ->
                                                     m.field("name_nori")
                                                         .query(keywordLower)
                                                         .operator(Operator.And)
                                                         .boost(1.0f)))
+                                    .should(
+                                        should ->
+                                            should.matchPhrasePrefix(
+                                                m ->
+                                                    m.field("name_nori")
+                                                        .query(keywordLower)
+                                                        .boost(2.0f)))
                                     .minimumShouldMatch("1")))
-                .size(10));
+                .size(10)
+                .sort(sort -> sort.score(sc -> sc.order(SortOrder.Desc)))
+                .sort(sort -> sort.field(f -> f.field("name.keyword").order(SortOrder.Asc))));
   }
 
   public Map<String, Aggregation> buildAggregations() {

@@ -16,7 +16,7 @@ public class AutocompleteDocumentFactory {
     String nameNoSpace = name.replaceAll("\\s+", "");
     String nameNoSpaceLower = nameNoSpace.toLowerCase();
     return AutocompleteDocument.builder()
-        .name(nameLower)
+        .name(name)
         .nameJamo(KoreanTextUtils.decomposeHangul(nameLower))
         .nameChosung(KoreanTextUtils.extractChosung(nameLower))
         .nameNori(nameLower)
@@ -30,7 +30,7 @@ public class AutocompleteDocumentFactory {
     String nameNoSpace = name.replaceAll("\\s+", "");
     String nameNoSpaceLower = nameNoSpace.toLowerCase();
     return AutocompleteDocument.builder()
-        .name(nameLower)
+        .name(name)
         .nameJamo(KoreanTextUtils.decomposeHangul(nameLower))
         .nameChosung(KoreanTextUtils.extractChosung(nameLower))
         .nameNori(nameLower)
