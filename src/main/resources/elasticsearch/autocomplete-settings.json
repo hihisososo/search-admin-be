@@ -10,6 +10,13 @@
           "max_gram": 50
         }
       },
+      "tokenizer": {
+        "userdic_nori_tokenizer": {
+          "type": "nori_tokenizer",
+          "user_dictionary": "{USER_DICT_PATH}",
+          "decompound_mode": "mixed"
+        }
+      },
       "analyzer": {
         "edge_ngram_analyzer": {
           "type": "custom",
@@ -24,7 +31,7 @@
         },
         "nori_analyzer": {
           "type": "custom",
-          "tokenizer": "nori_tokenizer"
+          "tokenizer": "userdic_nori_tokenizer"
         }
       }
     }

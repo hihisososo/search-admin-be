@@ -266,7 +266,7 @@ public class DeploymentManagementService {
   }
 
   private String generateVersion() {
-    return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+    return "v" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
   }
 
   private DeploymentHistory createIndexingHistory(String version, String description) {
