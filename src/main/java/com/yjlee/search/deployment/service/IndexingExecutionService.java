@@ -253,8 +253,7 @@ public class IndexingExecutionService {
   private boolean isIndexUsedInProduction(String indexName) {
     try {
       Optional<IndexEnvironment> prodEnvironment =
-          indexEnvironmentRepository.findByEnvironmentType(
-              IndexEnvironment.EnvironmentType.PROD);
+          indexEnvironmentRepository.findByEnvironmentType(IndexEnvironment.EnvironmentType.PROD);
       if (prodEnvironment.isPresent()) {
         String prodIndexName = prodEnvironment.get().getIndexName();
         boolean isUsed = indexName.equals(prodIndexName);
