@@ -5,6 +5,8 @@ import co.elastic.clients.elasticsearch.indices.AnalyzeRequest;
 import co.elastic.clients.elasticsearch.indices.AnalyzeResponse;
 import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 public class ElasticsearchAnalyzeService {
 
   private final ElasticsearchClient elasticsearchClient;
+  private final IndexEnvironmentRepository indexEnvironmentRepository;
 
   public List<AnalyzeTextResponse.TokenInfo> analyzeText(
       String text, DictionaryEnvironmentType environment) {
@@ -26,7 +29,7 @@ public class ElasticsearchAnalyzeService {
       String indexName = getIndexName(environment);
 
       AnalyzeRequest analyzeRequest =
-          AnalyzeRequest.of(a -> a.index(indexName).field("name_nori").text(text));
+          AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_index_analyzer").text(text));
 
       AnalyzeResponse response = elasticsearchClient.indices().analyze(analyzeRequest);
 
@@ -51,13 +54,15 @@ public class ElasticsearchAnalyzeService {
   }
 
   private String getIndexName(DictionaryEnvironmentType environment) {
-    switch (environment) {
-      case DEV:
-        return "products-dev";
-      case PROD:
-        return "products-prod";
-      default:
-        return "products-dev";
-    }
+    IndexEnvironment.EnvironmentType envType =
+        environment == DictionaryEnvironmentType.PROD
+            ? IndexEnvironment.EnvironmentType.PROD
+            : IndexEnvironment.EnvironmentType.DEV;
+
+    return indexEnvironmentRepository
+        .findByEnvironmentType(envType)
+        .map(IndexEnvironment::getIndexName)
+        .orElseThrow(
+            () -> new RuntimeException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."));
   }
 }
