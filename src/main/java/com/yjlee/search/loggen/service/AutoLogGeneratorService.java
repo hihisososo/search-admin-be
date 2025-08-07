@@ -144,8 +144,8 @@ public class AutoLogGeneratorService {
           restTemplate.getForEntity(searchUrl, SearchExecuteResponse.class);
 
       String sessionId = null;
-      if (searchResponse.getBody() != null) {
-        sessionId = searchResponse.getBody().getSessionId();
+      if (searchResponse.getBody() != null && searchResponse.getBody().getMeta() != null) {
+        sessionId = searchResponse.getBody().getMeta().getSearchSessionId();
       }
 
       if (searchResponse.getStatusCode().is2xxSuccessful()
