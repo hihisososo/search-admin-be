@@ -125,7 +125,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
                       .query(Query.of(q -> q.bool(boolQuery)))
                       .aggregations(
                           "unique_sessions",
-                          Aggregation.of(a -> a.cardinality(c -> c.field("session_id.keyword")))));
+                          Aggregation.of(a -> a.cardinality(c -> c.field("session_id")))));
 
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
 
@@ -208,7 +208,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
                       .query(Query.of(q -> q.bool(boolQuery)))
                       .aggregations(
                           "unique_sessions",
-                          Aggregation.of(a -> a.cardinality(c -> c.field("session_id.keyword")))));
+                          Aggregation.of(a -> a.cardinality(c -> c.field("session_id")))));
 
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
 
