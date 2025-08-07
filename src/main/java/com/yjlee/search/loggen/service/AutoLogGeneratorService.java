@@ -82,10 +82,11 @@ public class AutoLogGeneratorService {
                                                   f ->
                                                       f.randomScore(
                                                           rs ->
-                                                              rs.seed(
-                                                                  String.valueOf(
-                                                                      System
-                                                                          .currentTimeMillis()))))))));
+                                                              rs.field("_seq_no")
+                                                                  .seed(
+                                                                      String.valueOf(
+                                                                          System
+                                                                              .currentTimeMillis()))))))));
 
       SearchResponse<JsonNode> response = esClient.search(request, JsonNode.class);
 

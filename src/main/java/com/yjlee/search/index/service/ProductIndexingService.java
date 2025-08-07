@@ -130,18 +130,15 @@ public class ProductIndexingService {
   private List<ProductDocument> createDocumentsWithEmbeddings(List<Product> products) {
     List<ProductDocument> documents = products.stream().map(documentFactory::create).toList();
 
-    // 벡터 생성 임시 비활성화 (성능 이슈)
-    // List<String> texts =
-    // documents.stream().map(documentConverter::createSearchableText).toList();
-    // List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
+    List<String> texts =
+        documents.stream().map(documentConverter::createSearchableText).toList();
+    List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
 
     return documents.stream()
         .map(
             doc -> {
-              // int index = documents.indexOf(doc);
-              // List<Float> embedding = index < embeddings.size() ? embeddings.get(index) :
-              // List.of();
-              List<Float> embedding = List.of(); // 빈 벡터 사용
+              int index = documents.indexOf(doc);
+              List<Float> embedding = index < embeddings.size() ? embeddings.get(index) : List.of();
               return documentConverter.convert(doc, embedding);
             })
         .toList();

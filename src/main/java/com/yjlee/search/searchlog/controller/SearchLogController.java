@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,7 +30,7 @@ public class SearchLogController {
   })
   @GetMapping
   public ResponseEntity<SearchLogListResponse> getSearchLogs(
-      @ModelAttribute SearchLogListRequest request) {
+      @ParameterObject SearchLogListRequest request) {
     try {
       log.info(
           "검색 로그 조회 요청 - 페이지: {}, 크기: {}, 키워드: {}",

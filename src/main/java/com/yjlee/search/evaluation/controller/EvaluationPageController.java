@@ -59,7 +59,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/evaluation")
 @RequiredArgsConstructor
-@Tag(name = "검색 평가 페이지", description = "검색 평가 관리 API")
+@Tag(name = "Search Evaluation Management", description = "검색 평가 관리 API")
 public class EvaluationPageController {
 
   private final EvaluationQueryService evaluationQueryService;
