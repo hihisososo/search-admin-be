@@ -24,7 +24,7 @@ public class ClickLogService {
 
   public ClickLogResponse logClick(ClickLogRequest request) {
     try {
-      LocalDateTime now = LocalDateTime.now();
+      LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
       String indexName = CLICK_LOG_INDEX_PREFIX + now.format(INDEX_DATE_FORMATTER);
 
       ClickLogDocument document =

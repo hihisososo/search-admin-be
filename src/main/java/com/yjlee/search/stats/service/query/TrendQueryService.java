@@ -46,6 +46,9 @@ public class TrendQueryService {
 
     for (TrendData trend : trends) {
       String label = trend.getLabel();
+      log.debug("Trend data - label: {}, timestamp: {}, searchCount: {}, avgResponseTime: {}", 
+          label, trend.getTimestamp(), trend.getSearchCount(), trend.getAverageResponseTime());
+      
       if (trendDataMap.containsKey(label)) {
         trendDataMap.put(
             label,
@@ -57,6 +60,8 @@ public class TrendQueryService {
                 .averageResponseTime(trend.getAverageResponseTime())
                 .label(label)
                 .build());
+      } else {
+        log.warn("Label not found in trendDataMap: {}, available keys: {}", label, trendDataMap.keySet());
       }
     }
 
