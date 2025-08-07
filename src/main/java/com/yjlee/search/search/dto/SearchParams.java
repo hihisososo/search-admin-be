@@ -42,4 +42,7 @@ public class SearchParams {
 
   @Schema(description = "최대 가격", example = "100000")
   private Long priceTo;
+
+  @Schema(description = "검색 세션 ID (FE에서 생성하여 전달)", example = "session-123456")
+  private String searchSessionId;
 }

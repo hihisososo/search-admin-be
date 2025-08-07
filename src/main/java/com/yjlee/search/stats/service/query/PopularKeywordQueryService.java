@@ -70,12 +70,16 @@ public class PopularKeywordQueryService {
                   int previousRank =
                       previousRanks.getOrDefault(current.getKeyword(), lastPreviousRank);
                   int rankChange = previousRank - current.getRank();
-                  return new RankChangeKeyword(current, rankChange);
+                  PopularKeywordResponse.RankChangeStatus changeStatus =
+                      previousRanks.containsKey(current.getKeyword())
+                          ? null
+                          : PopularKeywordResponse.RankChangeStatus.NEW;
+                  return new RankChangeKeyword(current, rankChange, changeStatus);
                 })
             .filter(item -> item.rankChange > 0) // 순위가 상승한 키워드만
             .sorted((a, b) -> Integer.compare(b.rankChange, a.rankChange)) // 순위 변동량 큰 순
             .limit(limit)
-            .map(item -> convertToResponse(item.keywordStats))
+            .map(item -> convertToResponseWithStatus(item.keywordStats, item.changeStatus))
             .collect(Collectors.toList());
 
     String period = from.toLocalDate() + " ~ " + to.toLocalDate();
@@ -144,13 +148,31 @@ public class PopularKeywordQueryService {
         .build();
   }
 
+  private PopularKeywordResponse.KeywordStats convertToResponseWithStatus(
+      KeywordStats stats, PopularKeywordResponse.RankChangeStatus changeStatus) {
+    return PopularKeywordResponse.KeywordStats.builder()
+        .keyword(stats.getKeyword())
+        .count(stats.getSearchCount())
+        .clickCount(stats.getClickCount())
+        .clickThroughRate(stats.getClickThroughRate())
+        .percentage(stats.getPercentage())
+        .rank(stats.getRank())
+        .changeStatus(changeStatus)
+        .build();
+  }
+
   private static class RankChangeKeyword {
     private final KeywordStats keywordStats;
     private final int rankChange;
+    private final PopularKeywordResponse.RankChangeStatus changeStatus;
 
-    public RankChangeKeyword(KeywordStats keywordStats, int rankChange) {
+    public RankChangeKeyword(
+        KeywordStats keywordStats,
+        int rankChange,
+        PopularKeywordResponse.RankChangeStatus changeStatus) {
       this.keywordStats = keywordStats;
       this.rankChange = rankChange;
+      this.changeStatus = changeStatus;
     }
   }
 }

@@ -62,4 +62,9 @@ public class SearchLogDocument {
   @JsonProperty("error_message")
   @JsonAlias("errorMessage")
   private String errorMessage;
+
+  /** 검색 세션 ID */
+  @JsonProperty("session_id")
+  @JsonAlias("sessionId")
+  private String sessionId;
 }

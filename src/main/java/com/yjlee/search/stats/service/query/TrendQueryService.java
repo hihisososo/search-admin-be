@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +28,7 @@ public class TrendQueryService {
     String period = from.toLocalDate() + " ~ " + to.toLocalDate();
 
     List<LocalDateTime> allTimestamps = generateAllTimestamps(from, to, interval);
-    
+
     Map<String, TrendResponse.TrendData> trendDataMap = new LinkedHashMap<>();
     for (LocalDateTime timestamp : allTimestamps) {
       String label = formatLabel(timestamp, interval);

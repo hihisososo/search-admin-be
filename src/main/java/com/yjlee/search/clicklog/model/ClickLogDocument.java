@@ -27,4 +27,8 @@ public class ClickLogDocument {
   @JsonProperty("index_name")
   @JsonAlias("indexName")
   private String indexName;
+
+  @JsonProperty("session_id")
+  @JsonAlias("sessionId")
+  private String sessionId;
 }

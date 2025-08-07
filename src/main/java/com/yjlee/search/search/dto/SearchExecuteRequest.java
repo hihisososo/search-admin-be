@@ -34,4 +34,7 @@ public class SearchExecuteRequest {
 
   @Schema(description = "오타교정 적용 여부", example = "true", defaultValue = "true")
   private Boolean applyTypoCorrection = true;
+
+  @Schema(description = "검색 세션 ID (FE에서 생성하여 전달)", example = "session-123456")
+  private String searchSessionId;
 }

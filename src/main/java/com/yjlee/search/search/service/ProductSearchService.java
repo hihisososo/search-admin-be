@@ -44,6 +44,6 @@ public class ProductSearchService {
     SearchResponse<JsonNode> response = queryExecutor.execute(searchRequest);
     long took = System.currentTimeMillis() - startTime;
 
-    return responseBuilder.buildSearchResponse(request, response, took, withExplain);
+    return responseBuilder.buildSearchResponse(request, response, took, withExplain, searchRequest);
   }
 }

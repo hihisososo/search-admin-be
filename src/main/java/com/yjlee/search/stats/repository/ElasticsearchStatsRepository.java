@@ -31,7 +31,8 @@ public class ElasticsearchStatsRepository implements StatsRepository {
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
 
       long clickCount = getClickCount(from, to);
-      return parseStatsResponse(response, clickCount);
+      long searchesWithClicks = getSearchesWithClicks(from, to);
+      return parseStatsResponse(response, clickCount, searchesWithClicks);
 
     } catch (Exception e) {
       log.error("통계 조회 실패: {}", e.getMessage(), e);
@@ -111,6 +112,35 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     }
   }
 
+  // 클릭이 발생한 고유 검색 세션 수 조회
+  private long getSearchesWithClicks(LocalDateTime from, LocalDateTime to) {
+    try {
+      BoolQuery boolQuery = buildDateRangeQuery(from, to, "click-logs-*");
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index("click-logs-*")
+                      .size(0)
+                      .query(Query.of(q -> q.bool(boolQuery)))
+                      .aggregations(
+                          "unique_sessions",
+                          Aggregation.of(a -> a.cardinality(c -> c.field("session_id.keyword")))));
+
+      SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
+
+      var cardinalityAgg = response.aggregations().get("unique_sessions");
+      if (cardinalityAgg != null && cardinalityAgg.isCardinality()) {
+        return (long) cardinalityAgg.cardinality().value();
+      }
+      return 0L;
+
+    } catch (Exception e) {
+      log.error("클릭 발생 세션 수 조회 실패: {}", e.getMessage(), e);
+      return 0L;
+    }
+  }
+
   @Override
   public long getClickCountForKeyword(String keyword, LocalDateTime from, LocalDateTime to) {
     try {
@@ -145,6 +175,90 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
     } catch (Exception e) {
       log.error("키워드별 클릭 횟수 조회 실패: {}", e.getMessage(), e);
+      return 0L;
+    }
+  }
+
+  // 특정 키워드로 검색 후 클릭이 발생한 세션 수
+  private long getSearchesWithClicksForKeyword(
+      String keyword, LocalDateTime from, LocalDateTime to) {
+    try {
+      BoolQuery boolQuery =
+          BoolQuery.of(
+              b ->
+                  b.must(
+                          Query.of(
+                              q ->
+                                  q.range(
+                                      r ->
+                                          r.date(
+                                              d ->
+                                                  d.field("timestamp")
+                                                      .gte(from.toString())
+                                                      .lte(to.toString())))))
+                      .must(
+                          Query.of(
+                              q -> q.term(t -> t.field("searchKeyword.keyword").value(keyword)))));
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index("click-logs-*")
+                      .size(0)
+                      .query(Query.of(q -> q.bool(boolQuery)))
+                      .aggregations(
+                          "unique_sessions",
+                          Aggregation.of(a -> a.cardinality(c -> c.field("session_id.keyword")))));
+
+      SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
+
+      var cardinalityAgg = response.aggregations().get("unique_sessions");
+      if (cardinalityAgg != null && cardinalityAgg.isCardinality()) {
+        return (long) cardinalityAgg.cardinality().value();
+      }
+      return 0L;
+
+    } catch (Exception e) {
+      log.error("키워드별 클릭 세션 수 조회 실패 - 키워드: {}", keyword, e);
+      return 0L;
+    }
+  }
+
+  // 특정 키워드의 검색 횟수
+  private long getSearchCountForKeyword(String keyword, LocalDateTime from, LocalDateTime to) {
+    try {
+      BoolQuery boolQuery =
+          BoolQuery.of(
+              b ->
+                  b.must(
+                          Query.of(
+                              q ->
+                                  q.range(
+                                      r ->
+                                          r.date(
+                                              d ->
+                                                  d.field("timestamp")
+                                                      .gte(from.toString())
+                                                      .lte(to.toString())))))
+                      .must(
+                          Query.of(
+                              q -> q.term(t -> t.field("searchKeyword.keyword").value(keyword))))
+                      .must(Query.of(q -> q.term(t -> t.field("isError").value(false)))));
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index("search-logs-*")
+                      .size(0)
+                      .query(Query.of(q -> q.bool(boolQuery)))
+                      .aggregations(
+                          "total", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp")))));
+
+      SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
+      return extractLongValue(response.aggregations(), "total", "value");
+
+    } catch (Exception e) {
+      log.error("키워드별 검색 횟수 조회 실패 - 키워드: {}", keyword, e);
       return 0L;
     }
   }
@@ -248,7 +362,8 @@ public class ElasticsearchStatsRepository implements StatsRepository {
                 .aggregations(aggregations));
   }
 
-  private SearchStats parseStatsResponse(SearchResponse<Void> response, long clickCount) {
+  private SearchStats parseStatsResponse(
+      SearchResponse<Void> response, long clickCount, long searchesWithClicks) {
     var aggs = response.aggregations();
 
     long totalSearches = extractLongValue(aggs, "total_searches", "value");
@@ -262,7 +377,9 @@ public class ElasticsearchStatsRepository implements StatsRepository {
         totalSearches > 0 ? (double) searchFailures / totalSearches * 100 : 0.0;
     double successRate =
         totalSearches > 0 ? (double) successfulSearches / totalSearches * 100 : 0.0;
-    double clickThroughRate = totalSearches > 0 ? (double) clickCount / totalSearches * 100 : 0.0;
+    // CTR: 클릭이 발생한 검색의 비율 (최대 100%)
+    double clickThroughRate =
+        totalSearches > 0 ? (double) searchesWithClicks / totalSearches * 100 : 0.0;
 
     return SearchStats.builder()
         .totalSearchCount(totalSearches)
@@ -294,8 +411,11 @@ public class ElasticsearchStatsRepository implements StatsRepository {
           String keyword = bucket.key().stringValue();
           long searchCount = bucket.docCount();
           long clickCount = getClickCountForKeyword(keyword, from, to);
+          long searchesWithClicksForKeyword = getSearchesWithClicksForKeyword(keyword, from, to);
           double percentage = totalCount > 0 ? (double) searchCount / totalCount * 100 : 0.0;
-          double ctr = searchCount > 0 ? (double) clickCount / searchCount * 100 : 0.0;
+          // CTR: 해당 키워드로 검색 후 클릭한 비율 (최대 100%)
+          double ctr =
+              searchCount > 0 ? (double) searchesWithClicksForKeyword / searchCount * 100 : 0.0;
 
           keywords.add(
               KeywordStats.builder()

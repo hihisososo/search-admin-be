@@ -33,6 +33,7 @@ public class ClickLogService {
               .searchKeyword(request.getSearchKeyword())
               .clickedProductId(request.getClickedProductId())
               .indexName(request.getIndexName())
+              .sessionId(request.getSessionId())
               .build();
 
       IndexRequest<ClickLogDocument> indexRequest =
