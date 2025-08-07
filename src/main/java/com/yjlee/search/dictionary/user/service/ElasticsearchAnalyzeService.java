@@ -54,15 +54,15 @@ public class ElasticsearchAnalyzeService {
   }
 
   private String getIndexName(DictionaryEnvironmentType environment) {
-    IndexEnvironment.EnvironmentType envType = 
-        environment == DictionaryEnvironmentType.PROD 
-            ? IndexEnvironment.EnvironmentType.PROD 
+    IndexEnvironment.EnvironmentType envType =
+        environment == DictionaryEnvironmentType.PROD
+            ? IndexEnvironment.EnvironmentType.PROD
             : IndexEnvironment.EnvironmentType.DEV;
-    
+
     return indexEnvironmentRepository
         .findByEnvironmentType(envType)
         .map(IndexEnvironment::getIndexName)
-        .orElseThrow(() -> new RuntimeException(
-            environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."));
+        .orElseThrow(
+            () -> new RuntimeException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."));
   }
 }
