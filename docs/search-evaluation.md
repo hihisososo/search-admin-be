@@ -1,8 +1,14 @@
 ## 검색평가
 
 #### 개요
+- 검색 품질을 정량적으로 평가할 수 있는 기능입니다
+- 검색어 -> 정답 문서셋 구축 후 Precision, Recall 평가하도록 구현하였고, Precision, Recall 로 평가하도록 한 이유는 아래와 같습니다
+  - 유저 데이터가 없으므로, CTR 등 유저 데이터 기반 평가가 불가 
+  - NDCG 처럼 검색된 문서에 연관도 점수를 차등 부여하는 방식은, 짧은 키워드 나열 위주인 상품명 데이터에서는 효과적인 연관도 차등 부여가 힘들다고 판단하였습니다
+- 참고한 문서는 아래와 같습니다
+  - https://www.elastic.co/search-labs/blog/evaluating-search-relevance-part-2 (LLM 을 통한 연관도 평가)
 
-- 검색 품질을 정량적으로 평가할 수 있는 기능
-- 클릭 데이터 등, 초기 유저 데이터가 없는 상황에서 정량적 평가를 위해 검색어 -> 정답 문서셋 구축 후 Precision, Recall 평가
-- LLM 을 검색어 -> 정답 문서셋 평가에 사용 (참고자료)
--- https://www.elastic.co/search-labs/blog/evaluating-search-relevance-part-2 (LLM 을 통한 relevance 평가)
+#### 기능
+- 쿼리 생성
+  - 색인된 ES 문서에서 랜덤하게 아래 프롬프트를 이용해, 쿼리를 추천합니다
+- 
