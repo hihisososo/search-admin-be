@@ -12,6 +12,7 @@ import com.yjlee.search.search.dto.SearchExecuteResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -101,52 +102,120 @@ public class AutoLogGeneratorService {
   }
 
   private String extractKeyword(JsonNode doc) {
-    List<String> keywords = new ArrayList<>();
+    String brandName = doc.has(ESFields.BRAND_NAME) ? doc.get(ESFields.BRAND_NAME).asText() : null;
+    String categoryName =
+        doc.has(ESFields.CATEGORY_NAME) ? doc.get(ESFields.CATEGORY_NAME).asText() : null;
+    String productName = doc.has(ESFields.NAME) ? doc.get(ESFields.NAME).asText() : null;
 
-    if (doc.has(ESFields.NAME)) {
-      String productName = doc.get(ESFields.NAME).asText();
-      String[] words = productName.split("\\s+");
+    List<String> productWords = new ArrayList<>();
+    if (productName != null) {
+      String cleanedName =
+          productName.replaceAll("[\\[\\](){}]", " ").replaceAll("\\s+", " ").trim();
+      String[] words = cleanedName.split("\\s+");
       for (String word : words) {
-        if (word.length() > 2) {
-          keywords.add(word);
+        if (word.length() > 2 && !word.matches("\\d+개입|\\d+팩|\\d+매|\\d+ml|\\d+g|\\d+kg")) {
+          productWords.add(word);
         }
       }
     }
 
-    if (doc.has(ESFields.BRAND_NAME)) {
-      keywords.add(doc.get(ESFields.BRAND_NAME).asText());
-    }
-
-    if (doc.has(ESFields.CATEGORY_NAME)) {
-      keywords.add(doc.get(ESFields.CATEGORY_NAME).asText());
-    }
-
+    List<String> models = new ArrayList<>();
     if (doc.has(ESFields.MODEL) && doc.get(ESFields.MODEL).isArray()) {
       for (JsonNode model : doc.get(ESFields.MODEL)) {
-        keywords.add(model.asText());
+        String modelText = model.asText();
+        if (!modelText.isEmpty() && !modelText.equals("null")) {
+          models.add(modelText);
+        }
       }
     }
 
-    if (keywords.isEmpty()) {
-      return "상품";
+    double rand = random.nextDouble();
+
+    if (rand < 0.3) {
+      List<String> singleKeywords = new ArrayList<>();
+      if (brandName != null && !brandName.isEmpty()) singleKeywords.add(brandName);
+      if (categoryName != null && !categoryName.isEmpty()) singleKeywords.add(categoryName);
+      singleKeywords.addAll(productWords);
+      singleKeywords.addAll(models);
+
+      if (!singleKeywords.isEmpty()) {
+        return singleKeywords.get(random.nextInt(singleKeywords.size()));
+      }
+    } else if (rand < 0.7) {
+      List<String> combinations = new ArrayList<>();
+
+      if (brandName != null && categoryName != null) {
+        combinations.add(brandName + " " + categoryName);
+      }
+
+      if (brandName != null && !productWords.isEmpty()) {
+        combinations.add(brandName + " " + productWords.get(0));
+      }
+
+      if (categoryName != null && !productWords.isEmpty()) {
+        String productWord = productWords.get(random.nextInt(productWords.size()));
+        if (!productWord.equals(categoryName)) {
+          combinations.add(categoryName + " " + productWord);
+        }
+      }
+
+      if (!models.isEmpty() && brandName != null) {
+        combinations.add(brandName + " " + models.get(0));
+      }
+
+      if (!combinations.isEmpty()) {
+        return combinations.get(random.nextInt(combinations.size()));
+      }
+    } else if (rand < 0.9) {
+      List<String> tripleKeywords = new ArrayList<>();
+
+      if (brandName != null && categoryName != null && !productWords.isEmpty()) {
+        tripleKeywords.add(brandName + " " + categoryName + " " + productWords.get(0));
+      }
+
+      if (brandName != null && !models.isEmpty() && !productWords.isEmpty()) {
+        tripleKeywords.add(brandName + " " + models.get(0) + " " + productWords.get(0));
+      }
+
+      if (!tripleKeywords.isEmpty()) {
+        return tripleKeywords.get(random.nextInt(tripleKeywords.size()));
+      }
+    } else {
+      if (productName != null && productName.length() > 3 && productName.length() < 50) {
+        String cleanedFullName =
+            productName.replaceAll("[\\[\\](){}]", " ").replaceAll("\\s+", " ").trim();
+        if (cleanedFullName.split("\\s+").length <= 5) {
+          return cleanedFullName;
+        }
+      }
     }
 
-    return keywords.get(random.nextInt(keywords.size()));
+    if (brandName != null && !brandName.isEmpty()) {
+      return brandName;
+    }
+    if (categoryName != null && !categoryName.isEmpty()) {
+      return categoryName;
+    }
+    if (!productWords.isEmpty()) {
+      return productWords.get(0);
+    }
+
+    return "상품";
   }
 
   private void searchAndClick(String indexName, String keyword, JsonNode originalDoc) {
     try {
       String baseUrl = "http://localhost:" + serverPort;
 
+      String sessionId = UUID.randomUUID().toString();
       String searchUrl =
-          baseUrl + "/api/v1/search?query=" + keyword + "&size=20&sortField=score&sortOrder=desc";
+          baseUrl
+              + "/api/v1/search?query="
+              + keyword
+              + "&size=20&sortField=score&sortOrder=desc&searchSessionId="
+              + sessionId;
       ResponseEntity<SearchExecuteResponse> searchResponse =
           restTemplate.getForEntity(searchUrl, SearchExecuteResponse.class);
-
-      String sessionId = null;
-      if (searchResponse.getBody() != null && searchResponse.getBody().getMeta() != null) {
-        sessionId = searchResponse.getBody().getMeta().getSearchSessionId();
-      }
 
       if (searchResponse.getStatusCode().is2xxSuccessful()
           && searchResponse.getBody() != null
