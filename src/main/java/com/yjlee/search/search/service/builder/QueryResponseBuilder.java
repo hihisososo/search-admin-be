@@ -1,5 +1,6 @@
 package com.yjlee.search.search.service.builder;
 
+import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.explain.Explanation;
 import co.elastic.clients.elasticsearch.core.search.Hit;
@@ -28,7 +29,8 @@ public class QueryResponseBuilder {
       SearchExecuteRequest request,
       SearchResponse<JsonNode> response,
       long took,
-      boolean withExplain) {
+      boolean withExplain,
+      SearchRequest searchRequest) {
 
     List<ProductDto> products = extractProducts(response, withExplain);
     Map<String, List<AggregationBucketDto>> aggregationResults = extractAggregations(response);
@@ -44,7 +46,10 @@ public class QueryResponseBuilder {
             .size(request.getSize())
             .totalPages(totalPages)
             .processingTime(took)
+            .searchSessionId(request.getSearchSessionId())
             .build();
+
+    String queryDsl = convertSearchRequestToJson(searchRequest);
 
     log.info("상품 검색 완료 - 검색어: {}, 소요시간: {}ms, 결과수: {}", request.getQuery(), took, products.size());
 
@@ -52,7 +57,16 @@ public class QueryResponseBuilder {
         .hits(hits)
         .aggregations(aggregationResults)
         .meta(meta)
+        .queryDsl(queryDsl)
         .build();
+  }
+
+  public SearchExecuteResponse buildSearchResponse(
+      SearchExecuteRequest request,
+      SearchResponse<JsonNode> response,
+      long took,
+      boolean withExplain) {
+    return buildSearchResponse(request, response, took, withExplain, null);
   }
 
   public AutocompleteResponse buildAutocompleteResponse(
@@ -164,5 +178,22 @@ public class QueryResponseBuilder {
               return result;
             })
         .orElse(new HashMap<>());
+  }
+
+  private String convertSearchRequestToJson(SearchRequest searchRequest) {
+    if (searchRequest == null) {
+      return null;
+    }
+
+    try {
+      StringWriter writer = new StringWriter();
+      JsonGenerator generator = jsonpMapper.jsonProvider().createGenerator(writer);
+      searchRequest.serialize(generator, jsonpMapper);
+      generator.close();
+      return writer.toString();
+    } catch (Exception e) {
+      log.warn("SearchRequest JSON 변환 실패: {}", e.getMessage());
+      return null;
+    }
   }
 }

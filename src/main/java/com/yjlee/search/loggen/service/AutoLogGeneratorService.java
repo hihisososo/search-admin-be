@@ -138,9 +138,15 @@ public class AutoLogGeneratorService {
     try {
       String baseUrl = "http://localhost:" + serverPort;
 
-      String searchUrl = baseUrl + "/api/v1/search?keyword=" + keyword + "&size=20&sort=RELEVANCE";
+      String searchUrl =
+          baseUrl + "/api/v1/search?query=" + keyword + "&size=20&sortField=score&sortOrder=desc";
       ResponseEntity<SearchExecuteResponse> searchResponse =
           restTemplate.getForEntity(searchUrl, SearchExecuteResponse.class);
+
+      String sessionId = null;
+      if (searchResponse.getBody() != null) {
+        sessionId = searchResponse.getBody().getSessionId();
+      }
 
       if (searchResponse.getStatusCode().is2xxSuccessful()
           && searchResponse.getBody() != null
@@ -149,26 +155,66 @@ public class AutoLogGeneratorService {
           && !searchResponse.getBody().getHits().getData().isEmpty()) {
 
         List<ProductDto> products = searchResponse.getBody().getHits().getData();
-        ProductDto clickedProduct = products.get(random.nextInt(Math.min(10, products.size())));
 
-        ClickLogRequest clickRequest =
-            ClickLogRequest.builder()
-                .searchKeyword(keyword)
-                .clickedProductId(clickedProduct.getId())
-                .indexName(ESFields.PRODUCTS_SEARCH_ALIAS)
-                .build();
+        // 현실적인 CTR 시뮬레이션 (약 30-40% 클릭률)
+        double clickProbability = 0.35;
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<ClickLogRequest> entity = new HttpEntity<>(clickRequest, headers);
+        // 키워드별로 다른 클릭률 적용
+        if (keyword.length() <= 2) {
+          clickProbability = 0.25; // 짧은 키워드는 낮은 CTR
+        } else if (keyword.contains("브랜드") || keyword.contains("명품")) {
+          clickProbability = 0.45; // 브랜드 관련 키워드는 높은 CTR
+        }
 
-        String clickUrl = baseUrl + "/api/v1/click-logs";
-        restTemplate.postForEntity(clickUrl, entity, Object.class);
+        // 확률적으로 클릭 여부 결정
+        if (random.nextDouble() < clickProbability) {
+          // 상위 랭킹 상품을 더 많이 클릭하도록 가중치 적용
+          int maxPosition = Math.min(10, products.size());
+          int clickPosition = getWeightedRandomPosition(maxPosition);
+          ProductDto clickedProduct = products.get(clickPosition);
 
-        log.info("로그 생성 완료 - 키워드: {}, 클릭 상품: {}", keyword, clickedProduct.getId());
+          ClickLogRequest clickRequest =
+              ClickLogRequest.builder()
+                  .searchKeyword(keyword)
+                  .clickedProductId(clickedProduct.getId())
+                  .indexName(ESFields.PRODUCTS_SEARCH_ALIAS)
+                  .sessionId(sessionId)
+                  .build();
+
+          HttpHeaders headers = new HttpHeaders();
+          headers.setContentType(MediaType.APPLICATION_JSON);
+          HttpEntity<ClickLogRequest> entity = new HttpEntity<>(clickRequest, headers);
+
+          String clickUrl = baseUrl + "/api/v1/click-logs";
+          restTemplate.postForEntity(clickUrl, entity, Object.class);
+
+          log.info(
+              "클릭 로그 생성 - 키워드: {}, 클릭 상품: {}, 순위: {}",
+              keyword,
+              clickedProduct.getId(),
+              clickPosition + 1);
+        } else {
+          log.info("검색만 수행 (클릭 없음) - 키워드: {}", keyword);
+        }
       }
     } catch (Exception e) {
       log.error("검색 및 클릭 로그 생성 실패", e);
     }
+  }
+
+  private int getWeightedRandomPosition(int maxPosition) {
+    // 상위 순위에 더 높은 가중치 부여
+    // 1위: 40%, 2-3위: 30%, 4-6위: 20%, 7-10위: 10%
+    double rand = random.nextDouble();
+    if (rand < 0.4) {
+      return 0; // 1위
+    } else if (rand < 0.7 && maxPosition > 1) {
+      return 1 + random.nextInt(Math.min(2, maxPosition - 1)); // 2-3위
+    } else if (rand < 0.9 && maxPosition > 3) {
+      return 3 + random.nextInt(Math.min(3, maxPosition - 3)); // 4-6위
+    } else if (maxPosition > 6) {
+      return 6 + random.nextInt(maxPosition - 6); // 7위 이하
+    }
+    return random.nextInt(maxPosition);
   }
 }

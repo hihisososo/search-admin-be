@@ -39,4 +39,7 @@ public class SearchLogResponse {
 
   @Schema(description = "에러 메시지", example = "null")
   private String errorMessage;
+
+  @Schema(description = "실행된 Elasticsearch 쿼리 DSL")
+  private String queryDsl;
 }

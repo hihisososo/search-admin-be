@@ -25,4 +25,7 @@ public class ClickLogRequest {
   @NotBlank
   @Schema(description = "검색 인덱스명", example = "products")
   private String indexName;
+
+  @Schema(description = "검색 세션 ID", example = "550e8400-e29b-41d4-a716-446655440000")
+  private String sessionId;
 }

@@ -130,8 +130,7 @@ public class ProductIndexingService {
   private List<ProductDocument> createDocumentsWithEmbeddings(List<Product> products) {
     List<ProductDocument> documents = products.stream().map(documentFactory::create).toList();
 
-    List<String> texts =
-        documents.stream().map(documentConverter::createSearchableText).toList();
+    List<String> texts = documents.stream().map(documentConverter::createSearchableText).toList();
     List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
 
     return documents.stream()

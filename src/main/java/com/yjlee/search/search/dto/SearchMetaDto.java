@@ -20,4 +20,7 @@ public class SearchMetaDto {
 
   @Schema(description = "처리 시간(ms)", example = "23")
   private Long processingTime;
+
+  @Schema(description = "검색 세션 ID", example = "session-123456")
+  private String searchSessionId;
 }

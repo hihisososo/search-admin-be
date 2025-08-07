@@ -9,6 +9,7 @@ import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import com.yjlee.search.searchlog.service.SearchLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -79,6 +80,10 @@ public class SearchService {
     LocalDateTime requestTime = LocalDateTime.now();
     String clientIp = httpRequestUtils.getClientIp(httpRequest);
     String userAgent = httpRequestUtils.getUserAgent(httpRequest);
+    String sessionId =
+        request.getSearchSessionId() != null
+            ? request.getSearchSessionId()
+            : UUID.randomUUID().toString();
     long startTime = System.currentTimeMillis();
 
     try {
@@ -86,13 +91,29 @@ public class SearchService {
       long responseTime = System.currentTimeMillis() - startTime;
 
       collectSearchLog(
-          request, requestTime, clientIp, userAgent, responseTime, response, false, null);
+          request,
+          requestTime,
+          clientIp,
+          userAgent,
+          responseTime,
+          response,
+          false,
+          null,
+          sessionId);
       return response;
 
     } catch (Exception e) {
       long responseTime = System.currentTimeMillis() - startTime;
       collectSearchLog(
-          request, requestTime, clientIp, userAgent, responseTime, null, true, e.getMessage());
+          request,
+          requestTime,
+          clientIp,
+          userAgent,
+          responseTime,
+          null,
+          true,
+          e.getMessage(),
+          sessionId);
       throw new SearchException("상품 검색 실패", e);
     }
   }
@@ -105,10 +126,19 @@ public class SearchService {
       long responseTime,
       SearchExecuteResponse response,
       boolean isError,
-      String errorMessage) {
+      String errorMessage,
+      String sessionId) {
     try {
       searchLogService.collectSearchLog(
-          request, requestTime, clientIp, userAgent, responseTime, response, isError, errorMessage);
+          request,
+          requestTime,
+          clientIp,
+          userAgent,
+          responseTime,
+          response,
+          isError,
+          errorMessage,
+          sessionId);
     } catch (Exception e) {
       log.warn("Failed to collect search log: {}", e.getMessage());
     }
@@ -119,6 +149,7 @@ public class SearchService {
     request.setQuery(params.getQuery());
     request.setPage(params.getPage() != null ? params.getPage() : 0);
     request.setSize(params.getSize() != null ? params.getSize() : 20);
+    request.setSearchSessionId(params.getSearchSessionId());
 
     if (params.getSortField() != null || params.getSortOrder() != null) {
       ProductSortDto sort = new ProductSortDto();

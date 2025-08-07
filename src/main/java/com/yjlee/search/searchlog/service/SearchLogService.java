@@ -381,7 +381,8 @@ public class SearchLogService {
       long responseTimeMs,
       SearchExecuteResponse response,
       boolean isError,
-      String errorMessage) {
+      String errorMessage,
+      String sessionId) {
 
     String keyword =
         request.getQuery() != null && !request.getQuery().trim().isEmpty()
@@ -391,6 +392,9 @@ public class SearchLogService {
     Long resultCount =
         response != null && response.getHits() != null ? response.getHits().getTotal() : 0L;
 
+    String queryDsl =
+        response != null && response.getQueryDsl() != null ? response.getQueryDsl() : null;
+
     SearchLogDocument searchLog =
         SearchLogDocument.builder()
             .timestamp(timestamp)
@@ -398,16 +402,17 @@ public class SearchLogService {
             .indexName("products")
             .responseTimeMs(responseTimeMs)
             .resultCount(resultCount)
-            .queryDsl("product_search")
+            .queryDsl(queryDsl)
             .clientIp(clientIp)
             .userAgent(userAgent)
             .isError(isError)
             .errorMessage(errorMessage)
+            .sessionId(sessionId)
             .build();
 
     saveSearchLog(searchLog);
 
-    log.debug("검색 로그 수집 완료 - 키워드: {}, 결과수: {}", keyword, resultCount);
+    log.debug("검색 로그 수집 완료 - 키워드: {}, 결과수: {}, 세션: {}", keyword, resultCount, sessionId);
   }
 
   public SearchLogListResponse getSearchLogs(SearchLogListRequest request) {
@@ -558,7 +563,34 @@ public class SearchLogService {
         .userAgent(doc.getUserAgent())
         .isError(doc.getIsError())
         .errorMessage(doc.getErrorMessage())
+        .queryDsl(doc.getQueryDsl())
         .build();
+  }
+
+  public SearchLogResponse getSearchLogDetail(String logId) {
+    log.info("검색 로그 상세 조회 - ID: {}", logId);
+
+    try {
+      String indexPattern = INDEX_PREFIX + "*";
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s -> s.index(indexPattern).query(Query.of(q -> q.ids(i -> i.values(logId)))).size(1));
+
+      SearchResponse<SearchLogDocument> response =
+          elasticsearchClient.search(searchRequest, SearchLogDocument.class);
+
+      if (response.hits().hits().isEmpty()) {
+        log.warn("검색 로그를 찾을 수 없음 - ID: {}", logId);
+        return null;
+      }
+
+      return convertToResponse(response.hits().hits().get(0));
+
+    } catch (Exception e) {
+      log.error("검색 로그 상세 조회 실패 - ID: {}", logId, e);
+      throw new RuntimeException("검색 로그 상세 조회 실패: " + e.getMessage(), e);
+    }
   }
 
   private String getSortField(String sort) {
