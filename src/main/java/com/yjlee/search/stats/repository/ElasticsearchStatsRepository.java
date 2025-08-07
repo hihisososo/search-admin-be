@@ -11,6 +11,7 @@ import com.yjlee.search.stats.domain.KeywordStats;
 import com.yjlee.search.stats.domain.SearchStats;
 import com.yjlee.search.stats.domain.TrendData;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -451,7 +452,14 @@ public class ElasticsearchStatsRepository implements StatsRepository {
         var buckets = dateHistAgg.buckets().array();
 
         for (var bucket : buckets) {
-          LocalDateTime timestamp = LocalDateTime.parse(bucket.keyAsString().substring(0, 19));
+          String keyAsString = bucket.keyAsString();
+          LocalDateTime timestamp;
+          if (keyAsString.contains("+") || keyAsString.contains("-")) {
+            // 시간대 정보가 있으면 LocalDateTime으로 변환
+            timestamp = ZonedDateTime.parse(keyAsString).toLocalDateTime();
+          } else {
+            timestamp = LocalDateTime.parse(keyAsString.substring(0, 19));
+          }
           long searchCount = extractLongValue(bucket.aggregations(), "search_count", "value");
           double avgResponseTime =
               extractDoubleValue(bucket.aggregations(), "avg_response_time", "value");

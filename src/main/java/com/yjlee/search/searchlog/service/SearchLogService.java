@@ -103,7 +103,7 @@ public class SearchLogService {
           .fromDate(fromDate)
           .toDate(toDate)
           .totalCount(keywordsWithRankChange.size())
-          .lastUpdated(LocalDateTime.now())
+          .lastUpdated(LocalDateTime.now(java.time.ZoneOffset.UTC))
           .build();
 
     } catch (Exception e) {
@@ -289,7 +289,7 @@ public class SearchLogService {
           .previousFromDate(previousFromDate)
           .previousToDate(previousToDate)
           .totalCount(finalResult.size())
-          .lastUpdated(LocalDateTime.now())
+          .lastUpdated(LocalDateTime.now(java.time.ZoneOffset.UTC))
           .build();
 
     } catch (Exception e) {
@@ -344,7 +344,17 @@ public class SearchLogService {
                 BoolQuery.of(
                     b ->
                         b.filter(Query.of(f -> f.term(t -> t.field("isError").value(false))))
-                            .filter(Query.of(f -> f.exists(e -> e.field("searchKeyword")))))));
+                            .filter(Query.of(f -> f.exists(e -> e.field("searchKeyword"))))
+                            .filter(
+                                Query.of(
+                                    f ->
+                                        f.range(
+                                            r ->
+                                                r.date(
+                                                    d ->
+                                                        d.field("timestamp")
+                                                            .gte(fromDate.toString())
+                                                            .lte(toDate.toString()))))))));
   }
 
   private String generateIndexPattern(LocalDateTime fromDate, LocalDateTime toDate) {

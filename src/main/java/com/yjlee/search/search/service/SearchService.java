@@ -77,7 +77,7 @@ public class SearchService {
   private SearchExecuteResponse executeWithLogging(
       SearchExecuteRequest request, HttpServletRequest httpRequest, SearchExecutor executor) {
 
-    LocalDateTime requestTime = LocalDateTime.now();
+    LocalDateTime requestTime = LocalDateTime.now(java.time.ZoneOffset.UTC);
     String clientIp = httpRequestUtils.getClientIp(httpRequest);
     String userAgent = httpRequestUtils.getUserAgent(httpRequest);
     String sessionId =
