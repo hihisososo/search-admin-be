@@ -29,7 +29,7 @@ public class ElasticsearchAnalyzeService {
       String indexName = getIndexName(environment);
 
       AnalyzeRequest analyzeRequest =
-          AnalyzeRequest.of(a -> a.index(indexName).field("name_nori").text(text));
+          AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_index_analyzer").text(text));
 
       AnalyzeResponse response = elasticsearchClient.indices().analyze(analyzeRequest);
 
