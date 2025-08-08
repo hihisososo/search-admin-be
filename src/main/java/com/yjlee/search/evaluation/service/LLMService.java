@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 @Slf4j
 @Service
@@ -35,6 +36,14 @@ public class LLMService {
   }
 
   private String performAPICall(String prompt) throws Exception {
+    // 연결/읽기 타임아웃을 적용한 로컬 RestTemplate 사용(추가 의존성 없이 java.net 기반)
+    int connectTimeoutMs = 5000;
+    int readTimeoutMs = 20000;
+    SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+    requestFactory.setConnectTimeout(connectTimeoutMs);
+    requestFactory.setReadTimeout(readTimeoutMs);
+    RestTemplate timedRestTemplate = new RestTemplate(requestFactory);
+
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);
     headers.set("Authorization", "Bearer " + openaiApiKey);
@@ -46,7 +55,7 @@ public class LLMService {
 
     HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
     ResponseEntity<String> response =
-        restTemplate.exchange(openaiApiUrl, HttpMethod.POST, entity, String.class);
+        timedRestTemplate.exchange(openaiApiUrl, HttpMethod.POST, entity, String.class);
 
     JsonNode jsonNode = objectMapper.readTree(response.getBody());
     return jsonNode.path("choices").get(0).path("message").path("content").asText();

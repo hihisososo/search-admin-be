@@ -1,4 +1,4 @@
-package com.yjlee.search.dictionary.synonym.recommendation.dto;
+package com.yjlee.search.dictionary.stopword.recommendation.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,8 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SynonymRecommendationRequest {
-
+public class StopwordRecommendationRequest {
   @Builder.Default private Integer sampleSize = 100;
 }
 
