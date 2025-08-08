@@ -140,29 +140,15 @@ public class SynonymDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.info("동의어 사전 실시간 반영 요청 - 환경: {}", environment.getDescription());
+    elasticsearchSynonymService.updateSynonymSetRealtime(environment);
 
-    try {
-      elasticsearchSynonymService.updateSynonymSetRealtime(environment);
+    Map<String, Object> response = new HashMap<>();
+    response.put("success", true);
+    response.put("message", "동의어 사전 실시간 반영 완료");
+    response.put("environment", environment.getDescription());
+    response.put("timestamp", System.currentTimeMillis());
 
-      Map<String, Object> response = new HashMap<>();
-      response.put("success", true);
-      response.put("message", "동의어 사전 실시간 반영 완료");
-      response.put("environment", environment.getDescription());
-      response.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.ok(response);
-
-    } catch (Exception e) {
-      log.error("동의어 사전 실시간 반영 실패", e);
-
-      Map<String, Object> errorResponse = new HashMap<>();
-      errorResponse.put("success", false);
-      errorResponse.put("message", "동의어 사전 실시간 반영 실패: " + e.getMessage());
-      errorResponse.put("environment", environment.getDescription());
-      errorResponse.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.internalServerError().body(errorResponse);
-    }
+    return ResponseEntity.ok(response);
   }
 
   @Operation(summary = "동의어 사전 동기화 상태 조회", description = "동의어 사전의 동기화 상태 조회")
@@ -170,28 +156,15 @@ public class SynonymDictionaryController {
   public ResponseEntity<Map<String, Object>> getSynonymSyncStatus() {
 
     log.info("동의어 사전 동기화 상태 조회 요청");
+    String synonymStatus =
+        elasticsearchSynonymService.getSynonymSetStatus(DictionaryEnvironmentType.DEV);
 
-    try {
-      String synonymStatus =
-          elasticsearchSynonymService.getSynonymSetStatus(DictionaryEnvironmentType.DEV);
+    Map<String, Object> response = new HashMap<>();
+    response.put("success", true);
+    response.put("synonymStatus", synonymStatus);
+    response.put("lastSyncTime", System.currentTimeMillis());
+    response.put("timestamp", System.currentTimeMillis());
 
-      Map<String, Object> response = new HashMap<>();
-      response.put("success", true);
-      response.put("synonymStatus", synonymStatus);
-      response.put("lastSyncTime", System.currentTimeMillis());
-      response.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.ok(response);
-
-    } catch (Exception e) {
-      log.error("동의어 사전 동기화 상태 조회 실패", e);
-
-      Map<String, Object> errorResponse = new HashMap<>();
-      errorResponse.put("success", false);
-      errorResponse.put("message", "상태 조회 실패: " + e.getMessage());
-      errorResponse.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.internalServerError().body(errorResponse);
-    }
+    return ResponseEntity.ok(response);
   }
 }

@@ -33,13 +33,8 @@ public class DeploymentManagementController {
   })
   @GetMapping("/environments")
   public ResponseEntity<EnvironmentListResponse> getEnvironments() {
-    try {
-      EnvironmentListResponse response = deploymentManagementService.getEnvironments();
-      return ResponseEntity.ok(response);
-    } catch (Exception e) {
-      log.error("환경 정보 조회 실패", e);
-      throw new RuntimeException("환경 정보 조회에 실패했습니다.");
-    }
+    EnvironmentListResponse response = deploymentManagementService.getEnvironments();
+    return ResponseEntity.ok(response);
   }
 
   @Operation(summary = "색인 실행", description = "개발 환경에서 색인을 실행합니다.")
@@ -70,19 +65,12 @@ public class DeploymentManagementController {
   @PostMapping("/deploy")
   public ResponseEntity<DeploymentOperationResponse> executeDeployment(
       @RequestBody DeploymentRequest request) {
+    DeploymentOperationResponse response = deploymentManagementService.executeDeployment(request);
 
-    try {
-      DeploymentOperationResponse response = deploymentManagementService.executeDeployment(request);
-
-      if (response.isSuccess()) {
-        return ResponseEntity.ok(response);
-      } else {
-        return ResponseEntity.badRequest().body(response);
-      }
-    } catch (Exception e) {
-      log.error("배포 실행 실패", e);
-      return ResponseEntity.internalServerError()
-          .body(DeploymentOperationResponse.failure("배포 실행 중 오류가 발생했습니다."));
+    if (response.isSuccess()) {
+      return ResponseEntity.ok(response);
+    } else {
+      return ResponseEntity.badRequest().body(response);
     }
   }
 
@@ -101,18 +89,13 @@ public class DeploymentManagementController {
       @Parameter(description = "배포 유형 필터") @RequestParam(required = false)
           DeploymentHistory.DeploymentType deploymentType) {
 
-    try {
-      log.info(
-          "배포 이력 조회 요청 - status: {}, deploymentType: {}, pageable: {}",
-          status,
-          deploymentType,
-          pageable);
-      DeploymentHistoryListResponse response =
-          deploymentManagementService.getDeploymentHistory(pageable, status, deploymentType);
-      return ResponseEntity.ok(response);
-    } catch (Exception e) {
-      log.error("배포 이력 조회 실패", e);
-      throw new RuntimeException("배포 이력 조회에 실패했습니다: " + e.getMessage(), e);
-    }
+    log.info(
+        "배포 이력 조회 요청 - status: {}, deploymentType: {}, pageable: {}",
+        status,
+        deploymentType,
+        pageable);
+    DeploymentHistoryListResponse response =
+        deploymentManagementService.getDeploymentHistory(pageable, status, deploymentType);
+    return ResponseEntity.ok(response);
   }
 }
