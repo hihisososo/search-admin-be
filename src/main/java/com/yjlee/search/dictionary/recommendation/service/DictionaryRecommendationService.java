@@ -2,26 +2,26 @@ package com.yjlee.search.dictionary.recommendation.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.common.util.PromptTemplateLoader;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService;
-import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import com.yjlee.search.dictionary.recommendation.dto.RecommendationListResponse;
 import com.yjlee.search.dictionary.recommendation.dto.RecommendationRequest;
 import com.yjlee.search.dictionary.recommendation.dto.RecommendationResponse;
 import com.yjlee.search.dictionary.recommendation.model.DictionaryRecommendation;
 import com.yjlee.search.dictionary.recommendation.repository.DictionaryRecommendationRepository;
+import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
+import com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService;
 import com.yjlee.search.evaluation.service.LLMService;
-import java.util.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +43,7 @@ public class DictionaryRecommendationService {
 
   @Transactional
   public RecommendationResponse generateRecommendations(RecommendationRequest request) {
-    String[] lastScrollIdHolder = new String[] { null };
+    String[] lastScrollIdHolder = new String[] {null};
     try {
       // 처리 상한 설정 (DTO 기반), 기본 1000
       int maxToProcess = 1000;
@@ -53,45 +53,52 @@ public class DictionaryRecommendationService {
       log.info("추천 생성 요청 - 처리 상한: {}건", maxToProcess);
 
       // 인덱스 조회 및 초기 스크롤 검색
-      String indexName = indexEnvironmentRepository
-          .findByEnvironmentType(IndexEnvironment.EnvironmentType.DEV)
-          .map(IndexEnvironment::getIndexName)
-          .orElseThrow(() -> new RuntimeException("DEV 환경을 찾을 수 없습니다"));
+      String indexName =
+          indexEnvironmentRepository
+              .findByEnvironmentType(IndexEnvironment.EnvironmentType.DEV)
+              .map(IndexEnvironment::getIndexName)
+              .orElseThrow(() -> new RuntimeException("DEV 환경을 찾을 수 없습니다"));
 
       int pageSize = Math.min(1000, maxToProcess);
-      SearchResponse<com.fasterxml.jackson.databind.JsonNode> searchResponse = elasticsearchClient.search(
-          s -> s.index(indexName)
-              .size(pageSize)
-              .query(q -> q.matchAll(m -> m))
-              .source(src -> src.filter(f -> f.includes("name")))
-              .scroll(sc -> sc.time("10m")),
-          com.fasterxml.jackson.databind.JsonNode.class);
+      SearchResponse<com.fasterxml.jackson.databind.JsonNode> searchResponse =
+          elasticsearchClient.search(
+              s ->
+                  s.index(indexName)
+                      .size(pageSize)
+                      .query(q -> q.matchAll(m -> m))
+                      .source(src -> src.filter(f -> f.includes("name")))
+                      .scroll(sc -> sc.time("10m")),
+              com.fasterxml.jackson.databind.JsonNode.class);
 
       lastScrollIdHolder[0] = searchResponse.scrollId();
 
-      long totalHits = Optional.ofNullable(searchResponse.hits())
-          .map(h -> h.total())
-          .map(t -> t.value())
-          .orElse(-1L);
+      long totalHits =
+          Optional.ofNullable(searchResponse.hits())
+              .map(h -> h.total())
+              .map(t -> t.value())
+              .orElse(-1L);
 
       int totalProcessedProducts = 0;
       int totalGenerated = 0;
       int totalNewSaved = 0;
       // 페이지 번호는 로그에 사용하지 않음 (간결 로그 유지)
 
-      List<co.elastic.clients.elasticsearch.core.search.Hit<com.fasterxml.jackson.databind.JsonNode>> hits =
-          searchResponse.hits().hits();
+      List<
+              co.elastic.clients.elasticsearch.core.search.Hit<
+                  com.fasterxml.jackson.databind.JsonNode>>
+          hits = searchResponse.hits().hits();
 
       while (hits != null && !hits.isEmpty()) {
         // 현재 페이지 상품명 추출
-        List<String> productNamesPage = hits.stream()
-            .map(co.elastic.clients.elasticsearch.core.search.Hit::source)
-            .filter(Objects::nonNull)
-            .map(source -> source.get("name"))
-            .filter(Objects::nonNull)
-            .map(com.fasterxml.jackson.databind.JsonNode::asText)
-            .filter(name -> !name.isEmpty())
-            .collect(Collectors.toList());
+        List<String> productNamesPage =
+            hits.stream()
+                .map(co.elastic.clients.elasticsearch.core.search.Hit::source)
+                .filter(Objects::nonNull)
+                .map(source -> source.get("name"))
+                .filter(Objects::nonNull)
+                .map(com.fasterxml.jackson.databind.JsonNode::asText)
+                .filter(name -> !name.isEmpty())
+                .collect(Collectors.toList());
 
         totalProcessedProducts += productNamesPage.size();
 
@@ -100,24 +107,26 @@ public class DictionaryRecommendationService {
 
         List<RecommendedWord> pageRecommendations =
             batches.parallelStream()
-                .map(batch -> {
-                  try {
-                    String prompt = buildPrompt(batch);
-                    String llmResponse = llmService.callLLMAPI(prompt);
-                    writeRawLLMResponseToFile(llmResponse);
-                    return parseRecommendations(llmResponse);
-                  } catch (Exception e) {
-                    log.warn("배치 처리 실패, 빈 결과로 대체: {}", e.getMessage());
-                    return Collections.<RecommendedWord>emptyList();
-                  }
-                })
+                .map(
+                    batch -> {
+                      try {
+                        String prompt = buildPrompt(batch);
+                        String llmResponse = llmService.callLLMAPI(prompt);
+                        writeRawLLMResponseToFile(llmResponse);
+                        return parseRecommendations(llmResponse);
+                      } catch (Exception e) {
+                        log.warn("배치 처리 실패, 빈 결과로 대체: {}", e.getMessage());
+                        return Collections.<RecommendedWord>emptyList();
+                      }
+                    })
                 .flatMap(List::stream)
                 .collect(Collectors.toList());
 
         // 영숫자만으로 이루어진 단어는 제외 (모델명/코드 등으로 간주)
-        pageRecommendations = pageRecommendations.stream()
-            .filter(w -> !w.word.matches("(?i)^[a-z0-9]+$"))
-            .collect(Collectors.toList());
+        pageRecommendations =
+            pageRecommendations.stream()
+                .filter(w -> !w.word.matches("(?i)^[a-z0-9]+$"))
+                .collect(Collectors.toList());
 
         totalGenerated += pageRecommendations.size();
 
@@ -144,8 +153,11 @@ public class DictionaryRecommendationService {
                 .scrollId(lastScrollIdHolder[0])
                 .scroll(s -> s.time("10m"))
                 .build();
-        co.elastic.clients.elasticsearch.core.ScrollResponse<com.fasterxml.jackson.databind.JsonNode> scrollResponse =
-            elasticsearchClient.scroll(scrollReq, com.fasterxml.jackson.databind.JsonNode.class);
+        co.elastic.clients.elasticsearch.core.ScrollResponse<
+                com.fasterxml.jackson.databind.JsonNode>
+            scrollResponse =
+                elasticsearchClient.scroll(
+                    scrollReq, com.fasterxml.jackson.databind.JsonNode.class);
         lastScrollIdHolder[0] = scrollResponse.scrollId();
         hits = scrollResponse.hits().hits();
       }
@@ -192,11 +204,15 @@ public class DictionaryRecommendationService {
       Path dir = Paths.get("logs", "llm-responses");
       Files.createDirectories(dir);
       Path file = dir.resolve("llm_responses.log");
-      String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-      StringBuilder entry = new StringBuilder()
-          .append("===== LLM RESPONSE [").append(timestamp).append("] =====\n")
-          .append(content == null ? "" : content)
-          .append("\n\n");
+      String timestamp =
+          LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+      StringBuilder entry =
+          new StringBuilder()
+              .append("===== LLM RESPONSE [")
+              .append(timestamp)
+              .append("] =====\n")
+              .append(content == null ? "" : content)
+              .append("\n\n");
       byte[] bytes = entry.toString().getBytes(StandardCharsets.UTF_8);
       synchronized (llmLogFileLock) {
         Files.write(file, bytes, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
@@ -205,16 +221,13 @@ public class DictionaryRecommendationService {
       log.warn("LLM 응답 파일 기록 실패: {}", e.getMessage());
     }
   }
-  
 
   private String buildPrompt(List<String> productNames) {
     // 프롬프트 템플릿 로드
     String promptTemplate = promptTemplateLoader.loadTemplate("dictionary-recommendation.txt");
 
     // 상품명 목록 생성 (최대 20개)
-    List<String> limitedProductNames = productNames.stream()
-        .limit(20)
-        .collect(Collectors.toList());
+    List<String> limitedProductNames = productNames.stream().limit(20).collect(Collectors.toList());
 
     StringBuilder productNamesList = new StringBuilder();
     for (String name : limitedProductNames) {
@@ -234,7 +247,8 @@ public class DictionaryRecommendationService {
 
     try {
       // JSON 응답 파싱
-      com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+      com.fasterxml.jackson.databind.ObjectMapper mapper =
+          new com.fasterxml.jackson.databind.ObjectMapper();
       com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(llmResponse);
 
       if (rootNode.isArray()) {
@@ -320,10 +334,8 @@ public class DictionaryRecommendationService {
       }
 
       // 새로 저장
-      DictionaryRecommendation recommendation = DictionaryRecommendation.builder()
-          .word(base.word)
-          .reason(base.description)
-          .build();
+      DictionaryRecommendation recommendation =
+          DictionaryRecommendation.builder().word(base.word).reason(base.description).build();
       recommendation.setRecommendationCount(count);
 
       newlySavedRecommendations.add(recommendationRepository.save(recommendation));
@@ -342,22 +354,25 @@ public class DictionaryRecommendationService {
         if (candidate.isEmpty()) {
           continue;
         }
-        String original = candidate.contains(" ") ? candidate.substring(0, candidate.indexOf(" ")) : candidate;
+        String original =
+            candidate.contains(" ") ? candidate.substring(0, candidate.indexOf(" ")) : candidate;
 
         // 노리 분석기로 원형 단어 분석 (DEV 환경)
-        List<AnalyzeTextResponse.TokenInfo> tokens = analyzeService.analyzeText(original,
-            DictionaryEnvironmentType.DEV);
+        List<AnalyzeTextResponse.TokenInfo> tokens =
+            analyzeService.analyzeText(original, DictionaryEnvironmentType.DEV);
 
         // 복합명사인지 확인 (description에서 판단하거나 공백 포함 여부로 판단)
-        boolean isCompound = word.description.contains("복합명사") ||
-            word.description.contains("복합") ||
-            word.word.matches(".*[a-zA-Z가-힣]+[a-zA-Z가-힣]+.*");
+        boolean isCompound =
+            word.description.contains("복합명사")
+                || word.description.contains("복합")
+                || word.word.matches(".*[a-zA-Z가-힣]+[a-zA-Z가-힣]+.*");
 
         // 추천어 토큰과 분석 토큰 기반 처리 분기
-        List<String> recTokensList = Arrays.stream(candidate.split("\\s+"))
-            .map(String::trim)
-            .filter(t -> !t.isEmpty())
-            .collect(Collectors.toList());
+        List<String> recTokensList =
+            Arrays.stream(candidate.split("\\s+"))
+                .map(String::trim)
+                .filter(t -> !t.isEmpty())
+                .collect(Collectors.toList());
         boolean candidateLooksCompound = recTokensList.size() >= 2 || isCompound;
 
         if (candidateLooksCompound) {
@@ -399,21 +414,23 @@ public class DictionaryRecommendationService {
     return filteredWords;
   }
 
-  private record RecommendedWord(String word, String description) {
-  }
+  private record RecommendedWord(String word, String description) {}
 
   @Transactional(readOnly = true)
   public RecommendationListResponse getRecommendations() {
-    List<DictionaryRecommendation> recommendations = recommendationRepository.findAllByOrderByRecommendationCountDesc();
+    List<DictionaryRecommendation> recommendations =
+        recommendationRepository.findAllByOrderByRecommendationCountDesc();
 
-    List<RecommendationListResponse.RecommendationDetail> details = recommendations.stream()
-        .map(
-            r -> RecommendationListResponse.RecommendationDetail.builder()
-                .word(r.getWord())
-                .reason(r.getReason())
-                .recommendationCount(r.getRecommendationCount())
-                .build())
-        .collect(Collectors.toList());
+    List<RecommendationListResponse.RecommendationDetail> details =
+        recommendations.stream()
+            .map(
+                r ->
+                    RecommendationListResponse.RecommendationDetail.builder()
+                        .word(r.getWord())
+                        .reason(r.getReason())
+                        .recommendationCount(r.getRecommendationCount())
+                        .build())
+            .collect(Collectors.toList());
 
     return RecommendationListResponse.builder()
         .totalCount(details.size())
