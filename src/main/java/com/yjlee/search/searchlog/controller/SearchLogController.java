@@ -33,25 +33,20 @@ public class SearchLogController {
   @GetMapping
   public ResponseEntity<SearchLogListResponse> getSearchLogs(
       @ParameterObject SearchLogListRequest request) {
-    try {
-      log.info(
-          "검색 로그 조회 요청 - 페이지: {}, 크기: {}, 키워드: {}",
-          request.getPage(),
-          request.getSize(),
-          request.getKeyword());
-      SearchLogListResponse response = searchLogService.getSearchLogs(request);
-      log.info(
-          "검색 로그 조회 완료 - 실제 페이지: {}/{}, 크기: {}, 조회된 건수: {}, 총 건수: {}",
-          response.getCurrentPage(),
-          response.getTotalPages(),
-          response.getSize(),
-          response.getContent().size(),
-          response.getTotalElements());
-      return ResponseEntity.ok(response);
-    } catch (Exception e) {
-      log.error("검색 로그 조회 실패", e);
-      return ResponseEntity.internalServerError().build();
-    }
+    log.info(
+        "검색 로그 조회 요청 - 페이지: {}, 크기: {}, 키워드: {}",
+        request.getPage(),
+        request.getSize(),
+        request.getKeyword());
+    SearchLogListResponse response = searchLogService.getSearchLogs(request);
+    log.info(
+        "검색 로그 조회 완료 - 실제 페이지: {}/{}, 크기: {}, 조회된 건수: {}, 총 건수: {}",
+        response.getCurrentPage(),
+        response.getTotalPages(),
+        response.getSize(),
+        response.getContent().size(),
+        response.getTotalElements());
+    return ResponseEntity.ok(response);
   }
 
   @Operation(summary = "검색 로그 상세 조회", description = "특정 검색 로그의 상세 정보를 조회합니다.")
@@ -63,20 +58,15 @@ public class SearchLogController {
   @GetMapping("/{logId}")
   public ResponseEntity<SearchLogResponse> getSearchLogDetail(
       @Parameter(description = "검색 로그 ID", required = true) @PathVariable String logId) {
-    try {
-      log.info("검색 로그 상세 조회 요청 - ID: {}", logId);
-      SearchLogResponse response = searchLogService.getSearchLogDetail(logId);
+    log.info("검색 로그 상세 조회 요청 - ID: {}", logId);
+    SearchLogResponse response = searchLogService.getSearchLogDetail(logId);
 
-      if (response == null) {
-        log.warn("검색 로그를 찾을 수 없음 - ID: {}", logId);
-        return ResponseEntity.notFound().build();
-      }
-
-      log.info("검색 로그 상세 조회 완료 - ID: {}", logId);
-      return ResponseEntity.ok(response);
-    } catch (Exception e) {
-      log.error("검색 로그 상세 조회 실패 - ID: {}", logId, e);
-      return ResponseEntity.internalServerError().build();
+    if (response == null) {
+      log.warn("검색 로그를 찾을 수 없음 - ID: {}", logId);
+      return ResponseEntity.notFound().build();
     }
+
+    log.info("검색 로그 상세 조회 완료 - ID: {}", logId);
+    return ResponseEntity.ok(response);
   }
 }

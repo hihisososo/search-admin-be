@@ -6,13 +6,17 @@ spring:
       max-lifetime: 900000
       maximum-pool-size: 20
       minimum-idle: 5
+  jpa:
+    hibernate:
+      ddl-auto: validate
   output:
     ansi:
       enabled: never
 
-elasticsearch:
-  host: ${ELASTICSEARCH_HOST}
-  port: ${ELASTICSEARCH_PORT:9200}
+app:
+  elasticsearch:
+    host: ${ELASTICSEARCH_HOST}
+    port: ${ELASTICSEARCH_PORT:9200}
 
 logging:
   level:

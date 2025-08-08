@@ -142,29 +142,15 @@ public class TypoCorrectionDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.info("오타교정 사전 실시간 반영 요청 - 환경: {}", environment.getDescription());
+    searchService.updateTypoCorrectionCacheRealtime(environment);
 
-    try {
-      searchService.updateTypoCorrectionCacheRealtime(environment);
+    Map<String, Object> response = new HashMap<>();
+    response.put("success", true);
+    response.put("message", "오타교정 사전 실시간 반영 완료");
+    response.put("environment", environment.getDescription());
+    response.put("timestamp", System.currentTimeMillis());
 
-      Map<String, Object> response = new HashMap<>();
-      response.put("success", true);
-      response.put("message", "오타교정 사전 실시간 반영 완료");
-      response.put("environment", environment.getDescription());
-      response.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.ok(response);
-
-    } catch (Exception e) {
-      log.error("오타교정 사전 실시간 반영 실패", e);
-
-      Map<String, Object> errorResponse = new HashMap<>();
-      errorResponse.put("success", false);
-      errorResponse.put("message", "오타교정 사전 실시간 반영 실패: " + e.getMessage());
-      errorResponse.put("environment", environment.getDescription());
-      errorResponse.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.internalServerError().body(errorResponse);
-    }
+    return ResponseEntity.ok(response);
   }
 
   @Operation(summary = "오타교정 사전 동기화 상태 조회", description = "오타교정 사전의 동기화 상태 조회")
@@ -172,27 +158,14 @@ public class TypoCorrectionDictionaryController {
   public ResponseEntity<Map<String, Object>> getTypoCorrectionSyncStatus() {
 
     log.info("오타교정 사전 동기화 상태 조회 요청");
+    String typoCorrectionStatus = searchService.getTypoCorrectionCacheStatus();
 
-    try {
-      String typoCorrectionStatus = searchService.getTypoCorrectionCacheStatus();
+    Map<String, Object> response = new HashMap<>();
+    response.put("success", true);
+    response.put("typoCorrectionStatus", typoCorrectionStatus);
+    response.put("lastSyncTime", System.currentTimeMillis());
+    response.put("timestamp", System.currentTimeMillis());
 
-      Map<String, Object> response = new HashMap<>();
-      response.put("success", true);
-      response.put("typoCorrectionStatus", typoCorrectionStatus);
-      response.put("lastSyncTime", System.currentTimeMillis());
-      response.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.ok(response);
-
-    } catch (Exception e) {
-      log.error("오타교정 사전 동기화 상태 조회 실패", e);
-
-      Map<String, Object> errorResponse = new HashMap<>();
-      errorResponse.put("success", false);
-      errorResponse.put("message", "상태 조회 실패: " + e.getMessage());
-      errorResponse.put("timestamp", System.currentTimeMillis());
-
-      return ResponseEntity.internalServerError().body(errorResponse);
-    }
+    return ResponseEntity.ok(response);
   }
 }
