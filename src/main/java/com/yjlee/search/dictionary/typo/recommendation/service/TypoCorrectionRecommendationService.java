@@ -80,13 +80,14 @@ public class TypoCorrectionRecommendationService {
       }
 
       // 3) 허용된 교정어 후보: 글자 포함(한글/영문), 길이>=2, 빈도순 상위
-      List<String> allowedCorrections = tokenFrequency.entrySet().stream()
-          .filter(e -> containsLetter(e.getKey()))
-          .filter(e -> e.getKey().length() >= 2)
-          .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-          .map(Map.Entry::getKey)
-          .limit(1000)
-          .collect(Collectors.toList());
+      List<String> allowedCorrections =
+          tokenFrequency.entrySet().stream()
+              .filter(e -> containsLetter(e.getKey()))
+              .filter(e -> e.getKey().length() >= 2)
+              .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+              .map(Map.Entry::getKey)
+              .limit(1000)
+              .collect(Collectors.toList());
 
       // 4) 프롬프트 구성: 상품명 + 허용 교정어 목록을 함께 전달
       String template = promptTemplateLoader.loadTemplate("typo-recommendation.txt");
@@ -99,7 +100,8 @@ public class TypoCorrectionRecommendationService {
       int createdTotal = 0;
 
       for (int i = 0; i < productNames.size(); i += nameBatchSize) {
-        List<String> nameBatch = productNames.subList(i, Math.min(i + nameBatchSize, productNames.size()));
+        List<String> nameBatch =
+            productNames.subList(i, Math.min(i + nameBatchSize, productNames.size()));
         StringBuilder nb = new StringBuilder();
         nameBatch.forEach(n -> nb.append("- ").append(n).append("\n"));
         String prompt = template.replace("{PRODUCT_NAMES}", nb.toString().trim());
@@ -118,16 +120,15 @@ public class TypoCorrectionRecommendationService {
           if (typo.equalsIgnoreCase(corr)) continue;
 
           String key = typo + "," + corr;
-          Optional<TypoCorrectionRecommendation> existing = recommendationRepository.findByPair(key);
+          Optional<TypoCorrectionRecommendation> existing =
+              recommendationRepository.findByPair(key);
           if (existing.isPresent()) {
             TypoCorrectionRecommendation r = existing.get();
             r.setRecommendationCount(r.getRecommendationCount() + 1);
             recommendationRepository.save(r);
           } else {
-            TypoCorrectionRecommendation r = TypoCorrectionRecommendation.builder()
-                .pair(key)
-                .reason(c.reason)
-                .build();
+            TypoCorrectionRecommendation r =
+                TypoCorrectionRecommendation.builder().pair(key).reason(c.reason).build();
             r.setRecommendationCount(1);
             recommendationRepository.save(r);
             createdTotal++;

@@ -48,55 +48,61 @@ public class SynonymTermRecommendationService {
 
   @Transactional
   public void generate(GenerateRequest request) {
-    int sampleLimit = request != null && request.getSampleSize() != null ? request.getSampleSize() : 1000;
+    int sampleLimit =
+        request != null && request.getSampleSize() != null ? request.getSampleSize() : 1000;
 
     try {
       log.info("[SynonymGen] 시작 - sampleLimit: {}", sampleLimit);
-      String indexName = indexEnvironmentRepository
-          .findByEnvironmentType(IndexEnvironment.EnvironmentType.DEV)
-          .map(IndexEnvironment::getIndexName)
-          .orElseThrow(() -> new RuntimeException("DEV 환경을 찾을 수 없습니다"));
+      String indexName =
+          indexEnvironmentRepository
+              .findByEnvironmentType(IndexEnvironment.EnvironmentType.DEV)
+              .map(IndexEnvironment::getIndexName)
+              .orElseThrow(() -> new RuntimeException("DEV 환경을 찾을 수 없습니다"));
 
       int pageSize = Math.min(1000, sampleLimit);
-      SearchResponse<JsonNode> searchResponse = elasticsearchClient.search(
-          s -> s.index(indexName)
-              .size(pageSize)
-              .query(q -> q.matchAll(m -> m))
-              .source(src -> src.filter(f -> f.includes("name")))
-              .scroll(sc -> sc.time("5m")),
-          JsonNode.class);
+      SearchResponse<JsonNode> searchResponse =
+          elasticsearchClient.search(
+              s ->
+                  s.index(indexName)
+                      .size(pageSize)
+                      .query(q -> q.matchAll(m -> m))
+                      .source(src -> src.filter(f -> f.includes("name")))
+                      .scroll(sc -> sc.time("5m")),
+              JsonNode.class);
 
-      List<co.elastic.clients.elasticsearch.core.search.Hit<JsonNode>> hits = searchResponse.hits().hits();
+      List<co.elastic.clients.elasticsearch.core.search.Hit<JsonNode>> hits =
+          searchResponse.hits().hits();
       log.info("[SynonymGen] ES 조회 완료 - hits: {}", hits.size());
 
       // 1) 상품명에서 Nori 토큰 수집
-      List<String> names = hits.stream()
-          .map(co.elastic.clients.elasticsearch.core.search.Hit::source)
-          .filter(Objects::nonNull)
-          .map(src -> src.get("name"))
-          .filter(Objects::nonNull)
-          .map(JsonNode::asText)
-          .filter(s -> s != null && !s.isBlank())
-          .limit(sampleLimit)
-          .collect(Collectors.toList());
+      List<String> names =
+          hits.stream()
+              .map(co.elastic.clients.elasticsearch.core.search.Hit::source)
+              .filter(Objects::nonNull)
+              .map(src -> src.get("name"))
+              .filter(Objects::nonNull)
+              .map(JsonNode::asText)
+              .filter(s -> s != null && !s.isBlank())
+              .limit(sampleLimit)
+              .collect(Collectors.toList());
       log.info("[SynonymGen] 상품명 수집 - names: {}", names.size());
 
       Map<String, Integer> termFrequency = new HashMap<>();
       for (String name : names) {
         for (String token : analyzeWithNori(indexName, name)) {
           String normalized = normalizeToken(token);
-          if (normalized == null)
-            continue;
+          if (normalized == null) continue;
           termFrequency.merge(normalized, 1, Integer::sum);
         }
       }
       log.info("[SynonymGen] 토큰 빈도 수집 완료 - uniqueTerms: {}", termFrequency.size());
 
       // 2) 모든 term을 빈도순으로 정렬하여 후보로 사용
-      List<String> candidateTerms = termFrequency.entrySet().stream()
-          .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-          .map(Map.Entry::getKey)
-          .collect(Collectors.toList());
+      List<String> candidateTerms =
+          termFrequency.entrySet().stream()
+              .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+              .map(Map.Entry::getKey)
+              .collect(Collectors.toList());
       log.info("[SynonymGen] 후보 term 선별 - candidates(all): {}", candidateTerms.size());
 
       // 3) LLM 호출을 빈도순으로 배치 처리하며 목표 생성 수량 달성 시 조기 종료
@@ -106,12 +112,14 @@ public class SynonymTermRecommendationService {
       final int batchSize = 15;
       log.info("[SynonymGen] LLM 순차 처리 시작 - desired: {}", desired);
       for (int i = 0; i < candidateTerms.size(); i += batchSize) {
-        List<String> batch = candidateTerms.subList(i, Math.min(i + batchSize, candidateTerms.size()));
+        List<String> batch =
+            candidateTerms.subList(i, Math.min(i + batchSize, candidateTerms.size()));
         List<TermSynonymResult> parsed = callOneBatch(batch, temperature);
-        List<TermSynonymResult> filtered = parsed.stream()
-            .map(this::applyServerPostProcessing)
-            .filter(r -> r != null && r.synonyms != null && !r.synonyms.isEmpty())
-            .collect(Collectors.toList());
+        List<TermSynonymResult> filtered =
+            parsed.stream()
+                .map(this::applyServerPostProcessing)
+                .filter(r -> r != null && r.synonyms != null && !r.synonyms.isEmpty())
+                .collect(Collectors.toList());
         int created = saveRecommendations(filtered);
         createdTotal += created;
         log.info("[SynonymGen] 배치 저장 - lastCreated: {}, createdTotal: {}", created, createdTotal);
@@ -141,25 +149,29 @@ public class SynonymTermRecommendationService {
 
   @Transactional(readOnly = true)
   public ListResponse list() {
-    List<SynonymTermRecommendation> all = recommendationRepository.findAllByOrderByRecommendationCountDesc();
-    Map<String, List<SynonymTermRecommendation>> byBase = all.stream()
-        .collect(
-            Collectors.groupingBy(
-                SynonymTermRecommendation::getBaseTerm,
-                LinkedHashMap::new,
-                Collectors.toList()));
+    List<SynonymTermRecommendation> all =
+        recommendationRepository.findAllByOrderByRecommendationCountDesc();
+    Map<String, List<SynonymTermRecommendation>> byBase =
+        all.stream()
+            .collect(
+                Collectors.groupingBy(
+                    SynonymTermRecommendation::getBaseTerm,
+                    LinkedHashMap::new,
+                    Collectors.toList()));
 
     List<ItemResponse> items = new ArrayList<>();
     for (Map.Entry<String, List<SynonymTermRecommendation>> e : byBase.entrySet()) {
       String base = e.getKey();
-      List<ItemResponse.SynonymItem> synonyms = e.getValue().stream()
-          .map(
-              r -> ItemResponse.SynonymItem.builder()
-                  .term(r.getSynonymTerm())
-                  .reason(r.getReason())
-                  .recommendationCount(r.getRecommendationCount())
-                  .build())
-          .collect(Collectors.toList());
+      List<ItemResponse.SynonymItem> synonyms =
+          e.getValue().stream()
+              .map(
+                  r ->
+                      ItemResponse.SynonymItem.builder()
+                          .term(r.getSynonymTerm())
+                          .reason(r.getReason())
+                          .recommendationCount(r.getRecommendationCount())
+                          .build())
+              .collect(Collectors.toList());
       items.add(ItemResponse.builder().baseTerm(base).synonyms(synonyms).build());
     }
 
@@ -167,7 +179,8 @@ public class SynonymTermRecommendationService {
   }
 
   private List<String> analyzeWithNori(String indexName, String text) throws Exception {
-    AnalyzeRequest req = AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_index_analyzer").text(text));
+    AnalyzeRequest req =
+        AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_index_analyzer").text(text));
     AnalyzeResponse resp = elasticsearchClient.indices().analyze(req);
     List<String> out = new ArrayList<>();
     for (AnalyzeToken t : resp.tokens()) {
@@ -177,19 +190,15 @@ public class SynonymTermRecommendationService {
   }
 
   private String normalizeToken(String token) {
-    if (token == null)
-      return null;
+    if (token == null) return null;
     String s = token.trim().toLowerCase(Locale.ROOT);
-    if (s.length() < 2)
-      return null;
-    if (s.chars().anyMatch(Character::isWhitespace))
-      return null;
+    if (s.length() < 2) return null;
+    if (s.chars().anyMatch(Character::isWhitespace)) return null;
     // 숫자/기호만으로 이루어진 토큰 제외
     boolean hasLetter = s.chars().anyMatch(Character::isLetter);
     boolean hasDigit = s.chars().anyMatch(Character::isDigit);
     boolean hasOther = s.chars().anyMatch(ch -> !Character.isLetterOrDigit(ch));
-    if (!hasLetter && (hasDigit || hasOther))
-      return null;
+    if (!hasLetter && (hasDigit || hasOther)) return null;
     return s;
   }
 
@@ -217,57 +226,60 @@ public class SynonymTermRecommendationService {
   }
 
   private String previewOf(String text, int maxLen) {
-    if (text == null)
-      return "null";
+    if (text == null) return "null";
     String oneLine = text.replaceAll("\r?\n", " ").trim();
     return oneLine.length() <= maxLen ? oneLine : oneLine.substring(0, maxLen) + "...";
   }
 
   private String summarizeBatch(List<TermSynonymResult> results, int maxLen) {
-    if (results == null || results.isEmpty())
-      return "[]";
-    String summary = results.stream()
-        .map(
-            r -> {
-              String syns = r.synonyms == null
-                  ? ""
-                  : r.synonyms.stream()
-                      .map(
-                          s -> s.term
-                              + (s.reason == null || s.reason.isBlank()
-                                  ? ""
-                                  : "(" + s.reason + ")"))
-                      .collect(Collectors.joining(", "));
-              return r.baseTerm + " -> [" + syns + "]";
-            })
-        .collect(Collectors.joining("; "));
+    if (results == null || results.isEmpty()) return "[]";
+    String summary =
+        results.stream()
+            .map(
+                r -> {
+                  String syns =
+                      r.synonyms == null
+                          ? ""
+                          : r.synonyms.stream()
+                              .map(
+                                  s ->
+                                      s.term
+                                          + (s.reason == null || s.reason.isBlank()
+                                              ? ""
+                                              : "(" + s.reason + ")"))
+                              .collect(Collectors.joining(", "));
+                  return r.baseTerm + " -> [" + syns + "]";
+                })
+            .collect(Collectors.joining("; "));
     return summary.length() <= maxLen ? summary : summary.substring(0, maxLen) + "...";
   }
 
   private void appendSynonymRecommendationsLog(
       List<TermSynonymResult> results, List<String> batchTerms) {
     try {
-      if (results == null)
-        return;
+      if (results == null) return;
       Path logPath = Path.of("logs", "llm-responses", "llm_synonym_responses.log");
       Files.createDirectories(logPath.getParent());
       String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
       String batchLine = String.join(", ", batchTerms);
-      String body = results.stream()
-          .map(
-              r -> {
-                String syns = r.synonyms == null
-                    ? ""
-                    : r.synonyms.stream()
-                        .map(
-                            s -> s.term
-                                + (s.reason == null || s.reason.isBlank()
-                                    ? ""
-                                    : "(" + s.reason + ")"))
-                        .collect(Collectors.joining(", "));
-                return r.baseTerm + " -> [" + syns + "]";
-              })
-          .collect(Collectors.joining("; "));
+      String body =
+          results.stream()
+              .map(
+                  r -> {
+                    String syns =
+                        r.synonyms == null
+                            ? ""
+                            : r.synonyms.stream()
+                                .map(
+                                    s ->
+                                        s.term
+                                            + (s.reason == null || s.reason.isBlank()
+                                                ? ""
+                                                : "(" + s.reason + ")"))
+                                .collect(Collectors.joining(", "));
+                    return r.baseTerm + " -> [" + syns + "]";
+                  })
+              .collect(Collectors.joining("; "));
       String line = String.format("%s | terms=[%s] | %s%n", timestamp, batchLine, body);
       Files.write(
           logPath,
@@ -283,7 +295,8 @@ public class SynonymTermRecommendationService {
   private List<TermSynonymResult> parseLLMJson(String resp) {
     List<TermSynonymResult> out = new ArrayList<>();
     try {
-      com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+      com.fasterxml.jackson.databind.ObjectMapper mapper =
+          new com.fasterxml.jackson.databind.ObjectMapper();
       com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(resp);
       if (root.isArray()) {
         for (com.fasterxml.jackson.databind.JsonNode n : root) {
@@ -293,12 +306,10 @@ public class SynonymTermRecommendationService {
             for (com.fasterxml.jackson.databind.JsonNode s : n.path("synonyms")) {
               String st = s.path("term").asText("");
               String rs = s.path("reason").asText("");
-              if (!st.isBlank())
-                synonyms.add(new Synonym(st, rs));
+              if (!st.isBlank()) synonyms.add(new Synonym(st, rs));
             }
           }
-          if (!term.isBlank())
-            out.add(new TermSynonymResult(term, synonyms));
+          if (!term.isBlank()) out.add(new TermSynonymResult(term, synonyms));
         }
       }
     } catch (Exception e) {
@@ -309,18 +320,15 @@ public class SynonymTermRecommendationService {
   }
 
   private TermSynonymResult applyServerPostProcessing(TermSynonymResult input) {
-    if (input == null || input.synonyms == null)
-      return null;
+    if (input == null || input.synonyms == null) return null;
     String base = normalizeToken(input.baseTerm);
-    if (base == null)
-      return null;
+    if (base == null) return null;
 
     // 정규화 및 중복 제거
     LinkedHashMap<String, Synonym> unique = new LinkedHashMap<>();
     for (Synonym s : input.synonyms) {
       String norm = normalizeToken(s.term);
-      if (norm == null)
-        continue;
+      if (norm == null) continue;
       unique.putIfAbsent(norm, new Synonym(norm, s.reason));
     }
 
@@ -328,8 +336,7 @@ public class SynonymTermRecommendationService {
     unique.remove(base);
 
     // 그룹 필터: 서로 다른 토큰 2개 미만이면 제외 (base와 후보 합쳐서)
-    if (unique.isEmpty())
-      return null;
+    if (unique.isEmpty()) return null;
 
     // 저장 상한: 최대 3개
     List<Synonym> limited = unique.values().stream().limit(3).collect(Collectors.toList());
@@ -353,11 +360,12 @@ public class SynonymTermRecommendationService {
                   updated.incrementAndGet();
                 },
                 () -> {
-                  SynonymTermRecommendation entity = SynonymTermRecommendation.builder()
-                      .baseTerm(base)
-                      .synonymTerm(syn)
-                      .reason(reason)
-                      .build();
+                  SynonymTermRecommendation entity =
+                      SynonymTermRecommendation.builder()
+                          .baseTerm(base)
+                          .synonymTerm(syn)
+                          .reason(reason)
+                          .build();
                   entity.setRecommendationCount(1);
                   recommendationRepository.save(entity);
                   created.incrementAndGet();
@@ -368,34 +376,34 @@ public class SynonymTermRecommendationService {
     return created.get();
   }
 
-  private record TermSynonymResult(String baseTerm, List<Synonym> synonyms) {
-  }
+  private record TermSynonymResult(String baseTerm, List<Synonym> synonyms) {}
 
-  private record Synonym(String term, String reason) {
-  }
+  private record Synonym(String term, String reason) {}
 
   /** 추천 결과를 유의어 사전 포맷으로 병합한다. 예: "삼성,samsung,샘숭" */
   private void mergeRecommendationsIntoDictionary(DictionaryEnvironmentType environment) {
     // 추천 테이블에서 baseTerm별 후보를 모아 사전 룰 문자열을 구성
-    List<SynonymTermRecommendation> all = recommendationRepository.findAllByOrderByRecommendationCountDesc();
-    Map<String, List<SynonymTermRecommendation>> grouped = all.stream()
-        .collect(Collectors.groupingBy(SynonymTermRecommendation::getBaseTerm));
+    List<SynonymTermRecommendation> all =
+        recommendationRepository.findAllByOrderByRecommendationCountDesc();
+    Map<String, List<SynonymTermRecommendation>> grouped =
+        all.stream().collect(Collectors.groupingBy(SynonymTermRecommendation::getBaseTerm));
 
     // 기존 동일 base로 시작하는 규칙은 일단 삭제 후 재작성 (충돌 방지)
     for (Map.Entry<String, List<SynonymTermRecommendation>> e : grouped.entrySet()) {
       String base = e.getKey();
-      List<String> syns = e.getValue().stream()
-          .sorted(
-              Comparator.comparingInt(SynonymTermRecommendation::getRecommendationCount)
-                  .reversed())
-          .map(SynonymTermRecommendation::getSynonymTerm)
-          .distinct()
-          .toList();
-      if (syns.isEmpty())
-        continue;
+      List<String> syns =
+          e.getValue().stream()
+              .sorted(
+                  Comparator.comparingInt(SynonymTermRecommendation::getRecommendationCount)
+                      .reversed())
+              .map(SynonymTermRecommendation::getSynonymTerm)
+              .distinct()
+              .toList();
+      if (syns.isEmpty()) continue;
 
-      String rule = java.util.stream.Stream.concat(java.util.stream.Stream.of(base), syns.stream())
-          .collect(java.util.stream.Collectors.joining(","));
+      String rule =
+          java.util.stream.Stream.concat(java.util.stream.Stream.of(base), syns.stream())
+              .collect(java.util.stream.Collectors.joining(","));
 
       // 중복 제거 전략: 동일 base로 시작하는 기존 엔트리를 제거하고 하나로 재생성
       synonymDictionaryRepository.deleteByKeywordStartingWithIgnoreCase(base + ",");
