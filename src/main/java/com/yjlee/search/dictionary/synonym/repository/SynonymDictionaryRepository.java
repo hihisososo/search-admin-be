@@ -16,4 +16,7 @@ public interface SynonymDictionaryRepository extends JpaRepository<SynonymDictio
 
   // 전체 조회 (키워드 오름차순 정렬)
   List<SynonymDictionary> findAllByOrderByKeywordAsc();
+
+  // 특정 base로 시작하는 규칙 제거/검색
+  void deleteByKeywordStartingWithIgnoreCase(String keywordPrefix);
 }

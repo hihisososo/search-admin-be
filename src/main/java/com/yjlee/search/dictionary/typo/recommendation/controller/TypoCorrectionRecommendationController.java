@@ -35,5 +35,3 @@ public class TypoCorrectionRecommendationController {
     return ResponseEntity.ok(recommendationService.getRecommendations());
   }
 }
-
-

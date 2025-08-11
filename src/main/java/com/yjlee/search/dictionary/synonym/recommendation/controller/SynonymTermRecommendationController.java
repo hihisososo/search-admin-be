@@ -23,7 +23,11 @@ public class SynonymTermRecommendationController {
   @Operation(summary = "유의어(term) 추천 생성", description = "상품명 코퍼스에서 term을 추출하여 완전동의어를 추천합니다")
   public ResponseEntity<Void> generate(@RequestBody(required = false) GenerateRequest request) {
     if (request == null) request = GenerateRequest.builder().build();
-    log.info("유의어(term) 추천 요청 - sampleSize: {}, topKTerms: {}", request.getSampleSize(), request.getTopKTerms());
+    log.info(
+        "유의어(term) 추천 요청 - sampleSize: {}, temperature: {}, desiredRecommendationCount: {}",
+        request.getSampleSize(),
+        request.getTemperature(),
+        request.getDesiredRecommendationCount());
     service.generate(request);
     return ResponseEntity.ok().build();
   }
@@ -33,6 +37,20 @@ public class SynonymTermRecommendationController {
   public ResponseEntity<ListResponse> list() {
     return ResponseEntity.ok(service.list());
   }
+
+  @PostMapping("/merge-to-dictionary")
+  @Operation(
+      summary = "추천 결과를 유의어 사전에 병합",
+      description = "추천된 항목을 'base => syn1,syn2' 포맷으로 현재 사전에 병합합니다")
+  public ResponseEntity<Void> mergeToDictionary(
+      @RequestParam(name = "env", required = false) String env) {
+    com.yjlee.search.common.enums.DictionaryEnvironmentType environment =
+        "prod".equalsIgnoreCase(env)
+            ? com.yjlee.search.common.enums.DictionaryEnvironmentType.PROD
+            : "dev".equalsIgnoreCase(env)
+                ? com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV
+                : com.yjlee.search.common.enums.DictionaryEnvironmentType.CURRENT;
+    service.mergeToDictionary(environment);
+    return ResponseEntity.ok().build();
+  }
 }
-
-

@@ -10,9 +10,8 @@ import org.springframework.stereotype.Repository;
 public interface SynonymTermRecommendationRepository
     extends JpaRepository<SynonymTermRecommendation, Long> {
 
-  Optional<SynonymTermRecommendation> findByBaseTermAndSynonymTerm(String baseTerm, String synonymTerm);
+  Optional<SynonymTermRecommendation> findByBaseTermAndSynonymTerm(
+      String baseTerm, String synonymTerm);
 
   List<SynonymTermRecommendation> findAllByOrderByRecommendationCountDesc();
 }
-
-

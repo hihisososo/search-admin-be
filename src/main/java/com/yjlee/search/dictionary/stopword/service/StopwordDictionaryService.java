@@ -79,7 +79,7 @@ public class StopwordDictionaryService {
       int page, int size, String search, String sortBy, String sortDir) {
 
     Sort sort = createSort(sortBy, sortDir, false);
-    Pageable pageable = PageRequest.of(Math.max(0, page - 1), size, sort);
+    Pageable pageable = PageRequest.of(Math.max(0, page), size, sort);
 
     Page<StopwordDictionary> dictionaryPage;
     if (search != null && !search.trim().isEmpty()) {
@@ -102,7 +102,7 @@ public class StopwordDictionaryService {
       DictionaryEnvironmentType environmentType) {
 
     Sort sort = createSort(sortBy, sortDir, true);
-    Pageable pageable = PageRequest.of(Math.max(0, page - 1), size, sort);
+    Pageable pageable = PageRequest.of(Math.max(0, page), size, sort);
 
     Page<StopwordDictionarySnapshot> snapshotPage;
     if (search != null && !search.trim().isEmpty()) {
@@ -167,8 +167,7 @@ public class StopwordDictionaryService {
         stopwordDictionaryRepository
             .findById(dictionaryId)
             .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 불용어 사전입니다: " + dictionaryId));
-
-    stopwordDictionaryRepository.deleteById(dictionaryId);
+    stopwordDictionaryRepository.delete(existing);
     log.info("불용어 사전 삭제 완료: {} - 환경: {}", dictionaryId, environment);
   }
 

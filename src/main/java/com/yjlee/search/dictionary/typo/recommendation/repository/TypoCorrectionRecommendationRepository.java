@@ -10,7 +10,6 @@ import org.springframework.stereotype.Repository;
 public interface TypoCorrectionRecommendationRepository
     extends JpaRepository<TypoCorrectionRecommendation, String> {
   Optional<TypoCorrectionRecommendation> findByPair(String pair);
+
   List<TypoCorrectionRecommendation> findAllByOrderByRecommendationCountDesc();
 }
-
-

@@ -12,7 +12,9 @@ public final class SynonymTermRecommendationDtos {
   @AllArgsConstructor
   public static class GenerateRequest {
     @Builder.Default private Integer sampleSize = 1000;
-    @Builder.Default private Integer topKTerms = 200; // 빈도 상위 K개 term 추출
+    private Double temperature;
+    // 목표로 하는 유의어 추천 엔트리 개수( baseTerm+synonymTerm 쌍 ). null이면 한 번만 수행
+    private Integer desiredRecommendationCount;
   }
 
   @Data
@@ -43,5 +45,3 @@ public final class SynonymTermRecommendationDtos {
     private List<ItemResponse> items;
   }
 }
-
-

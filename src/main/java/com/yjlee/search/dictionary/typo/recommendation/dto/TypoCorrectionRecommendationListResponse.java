@@ -21,5 +21,3 @@ public class TypoCorrectionRecommendationListResponse {
     private Integer recommendationCount;
   }
 }
-
-

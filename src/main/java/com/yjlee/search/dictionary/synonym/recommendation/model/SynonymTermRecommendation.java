@@ -29,5 +29,3 @@ public class SynonymTermRecommendation {
   @Column(name = "recommendation_count", nullable = false)
   private int recommendationCount = 0;
 }
-
-

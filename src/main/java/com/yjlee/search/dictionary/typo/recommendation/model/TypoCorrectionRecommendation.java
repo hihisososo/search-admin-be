@@ -23,5 +23,3 @@ public class TypoCorrectionRecommendation {
   @Column(name = "reason", length = 500)
   private String reason;
 }
-
-

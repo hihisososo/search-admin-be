@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TypoCorrectionRecommendationRequest {
-  @Builder.Default private Integer sampleSize = 100;
+  @Builder.Default private Integer sampleSize = 1000;
+  private Double temperature;
+  private Integer desiredRecommendationCount;
 }
-
-
