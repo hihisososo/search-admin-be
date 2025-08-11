@@ -79,7 +79,7 @@ public class SynonymDictionaryService {
       int page, int size, String search, String sortBy, String sortDir) {
 
     Sort sort = createSort(sortBy, sortDir, false);
-    Pageable pageable = PageRequest.of(Math.max(0, page - 1), size, sort);
+    Pageable pageable = PageRequest.of(Math.max(0, page), size, sort);
 
     Page<SynonymDictionary> dictionaryPage;
     if (search != null && !search.trim().isEmpty()) {
@@ -102,7 +102,7 @@ public class SynonymDictionaryService {
       DictionaryEnvironmentType environmentType) {
 
     Sort sort = createSort(sortBy, sortDir, true);
-    Pageable pageable = PageRequest.of(Math.max(0, page - 1), size, sort);
+    Pageable pageable = PageRequest.of(Math.max(0, page), size, sort);
 
     Page<SynonymDictionarySnapshot> snapshotPage;
     if (search != null && !search.trim().isEmpty()) {

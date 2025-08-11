@@ -38,7 +38,7 @@ public class TypoCorrectionDictionaryController {
   @GetMapping
   public ResponseEntity<PageResponse<TypoCorrectionDictionaryListResponse>>
       getTypoCorrectionDictionaries(
-          @Parameter(description = "페이지 번호") @RequestParam(defaultValue = "1") int page,
+          @Parameter(description = "페이지 번호 (0부터 시작)") @RequestParam(defaultValue = "0") int page,
           @Parameter(description = "페이지 크기") @RequestParam(defaultValue = "20") int size,
           @Parameter(description = "키워드 검색어") @RequestParam(required = false) String search,
           @Parameter(description = "정렬 필드 (keyword, createdAt, updatedAt)")
