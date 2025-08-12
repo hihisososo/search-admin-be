@@ -65,6 +65,8 @@ public class TypoCorrectionDictionaryController {
     return ResponseEntity.ok(response);
   }
 
+  
+
   @Operation(summary = "오타교정 사전 상세 조회", description = "특정 오타교정 사전의 상세 정보를 조회합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
