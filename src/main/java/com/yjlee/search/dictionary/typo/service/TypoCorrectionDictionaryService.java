@@ -8,8 +8,11 @@ import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryResponse;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.typo.model.TypoCorrectionDictionary;
 import com.yjlee.search.dictionary.typo.model.TypoCorrectionDictionarySnapshot;
+import com.yjlee.search.dictionary.typo.recommendation.model.TypoCorrectionRecommendation;
+import com.yjlee.search.dictionary.typo.recommendation.repository.TypoCorrectionRecommendationRepository;
 import com.yjlee.search.dictionary.typo.repository.TypoCorrectionDictionaryRepository;
 import com.yjlee.search.dictionary.typo.repository.TypoCorrectionDictionarySnapshotRepository;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +30,7 @@ public class TypoCorrectionDictionaryService {
 
   private final TypoCorrectionDictionaryRepository repository;
   private final TypoCorrectionDictionarySnapshotRepository snapshotRepository;
+  private final TypoCorrectionRecommendationRepository recommendationRepository;
 
   /** 오타교정 사전 생성 */
   @Transactional
@@ -291,6 +295,83 @@ public class TypoCorrectionDictionaryService {
 
     return Sort.by(direction, sortBy);
   }
+
+  /**
+   * 저장된 오타 교정어 추천을 현재 사전으로 일괄 반영 - recommendationCount < minRecommendationCount 인 항목은 건너뜀 - 이미 동일
+   * 키워드가 사전에 존재하면 건너뜀 - deleteAfterInsert=true 이면 성공 반영된 추천은 추천 테이블에서 삭제
+   */
+  @Transactional
+  public PromotionResult promoteRecommendationsToCurrentDictionary(
+      int minRecommendationCount, boolean deleteAfterInsert) {
+    List<TypoCorrectionRecommendation> recommendations =
+        recommendationRepository.findAllByOrderByRecommendationCountDesc();
+
+    int total = 0;
+    int inserted = 0;
+    int skippedExists = 0;
+    int skippedMalformed = 0;
+    int skippedBelow = 0;
+    List<String> deleteIds = new ArrayList<>();
+
+    for (TypoCorrectionRecommendation rec : recommendations) {
+      total++;
+      if (rec.getRecommendationCount() < minRecommendationCount) {
+        skippedBelow++;
+        continue;
+      }
+
+      String pair = rec.getPair();
+      if (pair == null) {
+        skippedMalformed++;
+        continue;
+      }
+      String[] parts = pair.split(",", 2);
+      if (parts.length != 2) {
+        skippedMalformed++;
+        continue;
+      }
+      String typo = parts[0].trim();
+      String correction = parts[1].trim();
+      if (typo.isEmpty() || correction.isEmpty()) {
+        skippedMalformed++;
+        continue;
+      }
+
+      if (repository.existsByKeyword(typo)) {
+        skippedExists++;
+        continue;
+      }
+
+      TypoCorrectionDictionary entity =
+          TypoCorrectionDictionary.builder()
+              .keyword(typo)
+              .correctedWord(correction)
+              .description(rec.getReason())
+              .build();
+      repository.save(entity);
+      inserted++;
+      if (deleteAfterInsert) {
+        deleteIds.add(rec.getPair());
+      }
+    }
+
+    int deleted = 0;
+    if (deleteAfterInsert && !deleteIds.isEmpty()) {
+      recommendationRepository.deleteAllByIdInBatch(deleteIds);
+      deleted = deleteIds.size();
+    }
+
+    return new PromotionResult(
+        total, inserted, skippedExists, skippedMalformed, skippedBelow, deleted);
+  }
+
+  public record PromotionResult(
+      int total,
+      int inserted,
+      int skippedExists,
+      int skippedMalformed,
+      int skippedBelowMinCount,
+      int deleted) {}
 
   /** Entity to Response 변환 */
   private TypoCorrectionDictionaryResponse convertToResponse(TypoCorrectionDictionary entity) {

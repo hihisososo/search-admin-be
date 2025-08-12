@@ -12,4 +12,6 @@ public interface TypoCorrectionRecommendationRepository
   Optional<TypoCorrectionRecommendation> findByPair(String pair);
 
   List<TypoCorrectionRecommendation> findAllByOrderByRecommendationCountDesc();
+
+  void deleteAllByIdInBatch(Iterable<String> ids);
 }
