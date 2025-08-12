@@ -12,8 +12,8 @@ import com.yjlee.search.dictionary.typo.recommendation.model.TypoCorrectionRecom
 import com.yjlee.search.dictionary.typo.recommendation.repository.TypoCorrectionRecommendationRepository;
 import com.yjlee.search.dictionary.typo.repository.TypoCorrectionDictionaryRepository;
 import com.yjlee.search.dictionary.typo.repository.TypoCorrectionDictionarySnapshotRepository;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -297,10 +297,8 @@ public class TypoCorrectionDictionaryService {
   }
 
   /**
-   * 저장된 오타 교정어 추천을 현재 사전으로 일괄 반영
-   * - recommendationCount < minRecommendationCount 인 항목은 건너뜀
-   * - 이미 동일 키워드가 사전에 존재하면 건너뜀
-   * - deleteAfterInsert=true 이면 성공 반영된 추천은 추천 테이블에서 삭제
+   * 저장된 오타 교정어 추천을 현재 사전으로 일괄 반영 - recommendationCount < minRecommendationCount 인 항목은 건너뜀 - 이미 동일
+   * 키워드가 사전에 존재하면 건너뜀 - deleteAfterInsert=true 이면 성공 반영된 추천은 추천 테이블에서 삭제
    */
   @Transactional
   public PromotionResult promoteRecommendationsToCurrentDictionary(
@@ -363,7 +361,8 @@ public class TypoCorrectionDictionaryService {
       deleted = deleteIds.size();
     }
 
-    return new PromotionResult(total, inserted, skippedExists, skippedMalformed, skippedBelow, deleted);
+    return new PromotionResult(
+        total, inserted, skippedExists, skippedMalformed, skippedBelow, deleted);
   }
 
   public record PromotionResult(
