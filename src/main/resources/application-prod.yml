@@ -18,7 +18,6 @@ app:
     host: ${ELASTICSEARCH_HOST}
     port: ${ELASTICSEARCH_PORT:9200}
   log-generator:
-    enabled: ${LOG_GENERATOR_ENABLED:true}
     events-per-second: 1
 
 logging:

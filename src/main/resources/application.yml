@@ -31,7 +31,6 @@ app:
     application-path: /home/ec2-user/search-admin-be
     git-branch: ${GIT_BRANCH:main}
   log-generator:
-    enabled: ${LOG_GENERATOR_ENABLED:false}
     events-per-second: ${LOG_GENERATOR_EPS:10}
 
 openai:
