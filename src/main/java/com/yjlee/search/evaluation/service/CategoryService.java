@@ -6,7 +6,9 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
+import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.index.dto.ProductDocument;
+import com.yjlee.search.search.service.IndexResolver;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -19,13 +21,16 @@ import org.springframework.stereotype.Service;
 public class CategoryService {
 
   private final ElasticsearchClient elasticsearchClient;
+  private final IndexResolver indexResolver;
 
   public CategoryListResponse listCategories(int size) {
     try {
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+
       SearchRequest request =
           SearchRequest.of(
               s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
+                  s.index(indexName)
                       .size(0)
                       .aggregations(
                           "categories",
