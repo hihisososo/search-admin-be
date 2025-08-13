@@ -324,10 +324,8 @@ public class EvaluationReportService {
         Set<String> relevant = getRelevantDocuments(q.getQuery());
         Set<String> retrieved = getRetrievedDocuments(q.getQuery(), retrievalSize);
         Set<String> correct = getIntersection(relevant, retrieved);
-        List<String> missingIds =
-            relevant.stream().filter(id -> !retrieved.contains(id)).toList();
-        List<String> wrongIds =
-            retrieved.stream().filter(id -> !relevant.contains(id)).toList();
+        List<String> missingIds = relevant.stream().filter(id -> !retrieved.contains(id)).toList();
+        List<String> wrongIds = retrieved.stream().filter(id -> !relevant.contains(id)).toList();
 
         Map<String, ProductDocument> productMap =
             getProductsBulk(new ArrayList<>(union(missingIds, wrongIds)));
@@ -361,7 +359,8 @@ public class EvaluationReportService {
         // 점수 계산 재사용
         double precision = retrieved.isEmpty() ? 0.0 : (double) correct.size() / retrieved.size();
         double recall = relevant.isEmpty() ? 0.0 : (double) correct.size() / relevant.size();
-        double f1 = (precision + recall) == 0.0 ? 0.0 : 2 * precision * recall / (precision + recall);
+        double f1 =
+            (precision + recall) == 0.0 ? 0.0 : 2 * precision * recall / (precision + recall);
 
         out.add(
             PersistedQueryEvaluationDetail.builder()
