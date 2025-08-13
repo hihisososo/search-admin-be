@@ -24,6 +24,8 @@ app:
   elasticsearch:
     host: localhost
     port: 9200
+  log-generator:
+    enabled: false
   aws:
     access-key: test-access-key
     secret-key: test-secret-key

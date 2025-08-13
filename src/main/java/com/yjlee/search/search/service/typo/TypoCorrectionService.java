@@ -1,6 +1,7 @@
 package com.yjlee.search.search.service.typo;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,6 +16,8 @@ public class TypoCorrectionService {
 
   private final TypoCorrectionDictionaryService dictionaryService;
   private final Map<String, String> cache = new ConcurrentHashMap<>();
+  private volatile DictionaryEnvironmentType activeEnvironmentType =
+      DictionaryEnvironmentType.CURRENT;
 
   public String applyTypoCorrection(String query) {
     if (query == null || query.trim().isEmpty()) {
@@ -22,7 +25,7 @@ public class TypoCorrectionService {
     }
 
     if (cache.isEmpty()) {
-      loadCache();
+      loadCache(activeEnvironmentType);
     }
 
     String[] words = query.split("\\s+");
@@ -39,12 +42,27 @@ public class TypoCorrectionService {
     return result.toString();
   }
 
-  private void loadCache() {
+  private void loadCache(DictionaryEnvironmentType environmentType) {
     try {
       var response =
-          dictionaryService.getTypoCorrectionDictionaries(1, 1000, null, "keyword", "asc", null);
+          dictionaryService.getTypoCorrectionDictionaries(
+              0, // 첫 페이지부터 로딩
+              10000, // 충분히 큰 페이지 크기(사전 규모에 맞춰 조정 가능)
+              null,
+              "keyword",
+              "asc",
+              environmentType);
 
-      response.getContent().forEach(dict -> cache.put(dict.getKeyword(), dict.getCorrectedWord()));
+      response
+          .getContent()
+          .forEach(
+              dict -> {
+                String key = TextPreprocessor.preprocess(dict.getKeyword());
+                String value = TextPreprocessor.preprocess(dict.getCorrectedWord());
+                if (key != null && !key.isBlank() && value != null && !value.isBlank()) {
+                  cache.put(key, value);
+                }
+              });
 
     } catch (Exception e) {
       log.error("Failed to load typo correction dictionary", e);
@@ -53,10 +71,16 @@ public class TypoCorrectionService {
 
   public void updateCacheRealtime(DictionaryEnvironmentType environmentType) {
     cache.clear();
-    loadCache();
+    if (environmentType != null) {
+      activeEnvironmentType = environmentType;
+    } else {
+      activeEnvironmentType = DictionaryEnvironmentType.CURRENT;
+    }
+    loadCache(activeEnvironmentType);
   }
 
   public String getCacheStatus() {
-    return String.format("Cache size: %d", cache.size());
+    return String.format(
+        "Env: %s, Cache size: %d", activeEnvironmentType.name(), cache.size());
   }
 }
