@@ -1,8 +1,5 @@
 ## 검색평가 API 명세 (FE 전달용)
 
-### 공통 사항
-- 평가 관련 ES 조회는 모두 DEV 인덱스로 고정 동작합니다.
-- 후보군 저장 시 DB에 `productName`, `productSpecs`를 함께 저장하여 사후 확인이 가능합니다.
 
 ### 1) 카테고리 리스트 조회
 - 메서드/경로: GET `/api/v1/evaluation/categories`
@@ -40,6 +37,7 @@
   - 응답: `SearchLogListResponse`
 - 상세: GET `/api/v1/search-logs/{logId}`
   - 응답: `SearchLogResponse`
+
 
 ### 5) 평가 쿼리 목록 조회 (집계 포함)
 - 메서드/경로: GET `/api/v1/evaluation/queries`
@@ -124,5 +122,7 @@
 ]
 ```
 - 비고: API 응답 스키마는 기존과 동일하며 저장되는 히스토리(JSON)만 상품명/스펙 포함으로 변경
+
+=======
 
 
