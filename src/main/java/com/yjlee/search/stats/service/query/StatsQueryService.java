@@ -24,7 +24,7 @@ public class StatsQueryService {
     return StatsResponse.builder()
         .totalSearchCount(stats.getTotalSearchCount())
         .totalDocumentCount(stats.getTotalDocumentCount())
-        .searchFailureRate(stats.getSearchFailureRate())
+        .zeroHitRate(stats.getZeroHitRate())
         .errorCount(stats.getErrorCount())
         .averageResponseTimeMs(stats.getAverageResponseTimeMs())
         .successRate(stats.getSuccessRate())

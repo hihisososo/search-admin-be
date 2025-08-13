@@ -57,9 +57,10 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   @Override
   public List<TrendData> getTrends(LocalDateTime from, LocalDateTime to, String interval) {
     try {
-      SearchRequest searchRequest = buildTrendsSearchRequest(from, to, interval);
+      // interval은 day만 지원 (고정)
+      SearchRequest searchRequest = buildTrendsSearchRequest(from, to, "day");
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
-      return parseTrendsResponse(response, interval);
+      return parseTrendsResponse(response, "day");
 
     } catch (Exception e) {
       log.error("추이 조회 실패: {}", e.getMessage(), e);
@@ -225,44 +226,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     }
   }
 
-  // 특정 키워드의 검색 횟수
-  private long getSearchCountForKeyword(String keyword, LocalDateTime from, LocalDateTime to) {
-    try {
-      BoolQuery boolQuery =
-          BoolQuery.of(
-              b ->
-                  b.must(
-                          Query.of(
-                              q ->
-                                  q.range(
-                                      r ->
-                                          r.date(
-                                              d ->
-                                                  d.field("timestamp")
-                                                      .gte(from.toString())
-                                                      .lte(to.toString())))))
-                      .must(
-                          Query.of(
-                              q -> q.term(t -> t.field("searchKeyword.keyword").value(keyword))))
-                      .must(Query.of(q -> q.term(t -> t.field("isError").value(false)))));
-
-      SearchRequest searchRequest =
-          SearchRequest.of(
-              s ->
-                  s.index("search-logs-*")
-                      .size(0)
-                      .query(Query.of(q -> q.bool(boolQuery)))
-                      .aggregations(
-                          "total", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp")))));
-
-      SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
-      return extractLongValue(response.aggregations(), "total", "value");
-
-    } catch (Exception e) {
-      log.error("키워드별 검색 횟수 조회 실패 - 키워드: {}", keyword, e);
-      return 0L;
-    }
-  }
+  // (removed) getSearchCountForKeyword: 현재 미사용
 
   private BoolQuery buildDateRangeQuery(LocalDateTime from, LocalDateTime to, String index) {
     return BoolQuery.of(
@@ -334,13 +298,17 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
   private SearchRequest buildTrendsSearchRequest(
       LocalDateTime from, LocalDateTime to, String interval) {
-    String dateHistogramInterval = "hour".equals(interval) ? "1h" : "1d";
+    // day 전용
+    String dateHistogramInterval = "1d";
 
     BoolQuery boolQuery = buildDateRangeQuery(from, to, "search-logs-*");
 
     Map<String, Aggregation> subAggregations =
         Map.of(
             "search_count", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp"))),
+            "error_count",
+                Aggregation.of(
+                    a -> a.filter(f -> f.term(t -> t.field("is_error").value(true)))),
             "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("response_time_ms"))));
 
     Map<String, Aggregation> aggregations =
@@ -374,8 +342,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     long successfulSearches = extractLongValue(aggs, "successful_searches", "doc_count");
     double avgResponseTime = extractDoubleValue(aggs, "avg_response_time", "value");
 
-    double searchFailureRate =
-        totalSearches > 0 ? (double) searchFailures / totalSearches * 100 : 0.0;
+    double zeroHitRate = totalSearches > 0 ? (double) searchFailures / totalSearches * 100 : 0.0;
     double successRate =
         totalSearches > 0 ? (double) successfulSearches / totalSearches * 100 : 0.0;
     // CTR: 클릭이 발생한 검색의 비율 (최대 100%)
@@ -385,7 +352,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     return SearchStats.builder()
         .totalSearchCount(totalSearches)
         .totalDocumentCount(totalDocuments)
-        .searchFailureRate(Math.round(searchFailureRate * 100.0) / 100.0)
+        .zeroHitRate(Math.round(zeroHitRate * 100.0) / 100.0)
         .errorCount(errors)
         .averageResponseTimeMs(Math.round(avgResponseTime * 100.0) / 100.0)
         .successRate(Math.round(successRate * 100.0) / 100.0)
@@ -441,10 +408,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     var timeBucketsAgg = aggs.get("time_buckets");
 
     List<TrendData> trendData = new ArrayList<>();
-    DateTimeFormatter formatter =
-        "hour".equals(interval)
-            ? DateTimeFormatter.ofPattern("yyyy-MM-dd HH:00")
-            : DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     if (timeBucketsAgg != null && timeBucketsAgg._kind().jsonValue().equals("date_histogram")) {
       try {
@@ -453,6 +417,9 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
         for (var bucket : buckets) {
           String keyAsString = bucket.keyAsString();
+          if (keyAsString == null) {
+            continue;
+          }
           LocalDateTime timestamp;
           if (keyAsString.contains("+") || keyAsString.contains("-")) {
             // 시간대 정보가 있으면 LocalDateTime으로 변환
@@ -464,16 +431,13 @@ public class ElasticsearchStatsRepository implements StatsRepository {
           double avgResponseTime =
               extractDoubleValue(bucket.aggregations(), "avg_response_time", "value");
 
-          // 시간대별 클릭 수는 별도 쿼리로 조회해야 함
-          long clickCount = 0L; // TODO: 시간대별 클릭 수 조회 구현
-          double ctr = searchCount > 0 ? (double) clickCount / searchCount * 100 : 0.0;
+          long errorCount = extractLongValue(bucket.aggregations(), "error_count", "doc_count");
 
           trendData.add(
               TrendData.builder()
                   .timestamp(timestamp)
                   .searchCount(searchCount)
-                  .clickCount(clickCount)
-                  .clickThroughRate(Math.round(ctr * 100.0) / 100.0)
+                  .errorCount(errorCount)
                   .averageResponseTime(Math.round(avgResponseTime * 100.0) / 100.0)
                   .label(timestamp.format(formatter))
                   .build());

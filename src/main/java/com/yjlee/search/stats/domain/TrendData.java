@@ -9,8 +9,7 @@ import lombok.Value;
 public class TrendData {
   LocalDateTime timestamp;
   long searchCount;
-  long clickCount;
-  double clickThroughRate;
+  long errorCount;
   double averageResponseTime;
   String label;
 }

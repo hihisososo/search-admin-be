@@ -11,7 +11,7 @@ public class StatsResponse {
 
   long totalSearchCount;
   long totalDocumentCount;
-  double searchFailureRate;
+  double zeroHitRate;
   long errorCount;
   double averageResponseTimeMs;
   double successRate;
