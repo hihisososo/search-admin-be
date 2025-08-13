@@ -2,18 +2,27 @@ package com.yjlee.search.dictionary.typo.recommendation.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
-import com.yjlee.search.common.util.PromptTemplateLoader;
+import co.elastic.clients.elasticsearch.core.ScrollResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonParser;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.typo.recommendation.dto.TypoCorrectionRecommendationListResponse;
 import com.yjlee.search.dictionary.typo.recommendation.dto.TypoCorrectionRecommendationRequest;
 import com.yjlee.search.dictionary.typo.recommendation.model.TypoCorrectionRecommendation;
 import com.yjlee.search.dictionary.typo.recommendation.repository.TypoCorrectionRecommendationRepository;
+import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.evaluation.service.LLMService;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +34,17 @@ public class TypoCorrectionRecommendationService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final TypoCorrectionRecommendationRepository recommendationRepository;
+  // prompt 기반은 더 이상 사용하지 않으므로 의존성 제거
+  // private final PromptTemplateLoader promptTemplateLoader;
+
+  @Value("${app.recommendation.typo.parallelism:4}")
+  private int parallelism;
+  
   private final LLMService llmService;
   private final PromptTemplateLoader promptTemplateLoader;
+
+  // 남아있는 유틸 메서드/상수 제거 (LLM 모드)
+  // no-op placeholders removed (LLM 모드 단순화)
 
   @Transactional
   public void generateRecommendations(TypoCorrectionRecommendationRequest request) {
@@ -43,7 +61,7 @@ public class TypoCorrectionRecommendationService {
               .orElseThrow(() -> new RuntimeException("DEV 환경을 찾을 수 없습니다"));
 
       int pageSize = Math.min(1000, sampleLimit);
-      SearchResponse<com.fasterxml.jackson.databind.JsonNode> searchResponse =
+      SearchResponse<JsonNode> searchResponse =
           elasticsearchClient.search(
               s ->
                   s.index(indexName)
@@ -51,92 +69,132 @@ public class TypoCorrectionRecommendationService {
                       .query(q -> q.matchAll(m -> m))
                       .source(src -> src.filter(f -> f.includes("name")))
                       .scroll(sc -> sc.time("10m")),
-              com.fasterxml.jackson.databind.JsonNode.class);
+              JsonNode.class);
 
-      List<
-              co.elastic.clients.elasticsearch.core.search.Hit<
-                  com.fasterxml.jackson.databind.JsonNode>>
-          hits = searchResponse.hits().hits();
-      List<String> productNames =
-          hits.stream()
-              .map(co.elastic.clients.elasticsearch.core.search.Hit::source)
-              .filter(Objects::nonNull)
-              .map(src -> src.get("name"))
-              .filter(Objects::nonNull)
-              .map(com.fasterxml.jackson.databind.JsonNode::asText)
-              .filter(s -> s != null && !s.isEmpty())
-              .limit(sampleLimit)
-              .collect(Collectors.toList());
-
-      // 2) 공백 기준 토큰 수집 및 빈도 집계 (Nori 미사용)
-      Map<String, Integer> tokenFrequency = new HashMap<>();
-      for (String name : productNames) {
-        if (name == null || name.isBlank()) continue;
-        for (String raw : name.split("\\s+")) {
-          String norm = normalizeToken(raw);
-          if (norm == null) continue;
-          tokenFrequency.merge(norm, 1, Integer::sum);
+      List<String> productNames = new ArrayList<>();
+      final String[] currentScrollIdHolder = new String[] { searchResponse.scrollId() };
+      List<Hit<JsonNode>> hits = searchResponse.hits().hits();
+      while (hits != null && !hits.isEmpty() && productNames.size() < sampleLimit) {
+        for (Hit<JsonNode> h : hits) {
+          JsonNode src = h.source();
+          if (src != null && src.get("name") != null) {
+            String name = src.get("name").asText();
+            if (name != null && !name.isEmpty()) {
+              productNames.add(name);
+              if (productNames.size() >= sampleLimit) break;
+            }
+          }
+        }
+        if (productNames.size() >= sampleLimit) break;
+        if (currentScrollIdHolder[0] == null || currentScrollIdHolder[0].isEmpty()) break;
+        ScrollResponse<JsonNode> scrollResp =
+            elasticsearchClient.scroll(
+                s -> s.scrollId(currentScrollIdHolder[0]).scroll(sc -> sc.time("2m")), JsonNode.class);
+        currentScrollIdHolder[0] = scrollResp.scrollId();
+        hits = scrollResp.hits().hits();
+      }
+      if (currentScrollIdHolder[0] != null && !currentScrollIdHolder[0].isEmpty()) {
+        try {
+          elasticsearchClient.clearScroll(c -> c.scrollId(currentScrollIdHolder[0]));
+        } catch (Exception ignore) {
         }
       }
 
-      // 3) 허용된 교정어 후보: 글자 포함(한글/영문), 길이>=2, 빈도순 상위
-      List<String> allowedCorrections =
-          tokenFrequency.entrySet().stream()
-              .filter(e -> containsLetter(e.getKey()))
-              .filter(e -> e.getKey().length() >= 2)
-              .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-              .map(Map.Entry::getKey)
-              .limit(1000)
-              .collect(Collectors.toList());
-
-      // 4) 프롬프트 구성: 상품명 + 허용 교정어 목록을 함께 전달
-      String template = promptTemplateLoader.loadTemplate("typo-recommendation.txt");
-      StringBuilder namesBuf = new StringBuilder();
-      productNames.forEach(n -> namesBuf.append("- ").append(n).append("\n"));
-
-      Double temperature = request != null ? request.getTemperature() : null;
+      // 2) LLM 기반 배치 추천 생성 (상품명 20개씩)
       Integer desired = request != null ? request.getDesiredRecommendationCount() : null;
-      final int nameBatchSize = 20; // 상품명은 20줄씩만 전달
-      int createdTotal = 0;
+      Double temperature = request != null ? request.getTemperature() : null;
+      String template = promptTemplateLoader.loadTemplate("typo-recommendation.txt");
+      final int nameBatchSize = 10; // 타임아웃 완화: 배치 크기 축소
+      AtomicInteger createdTotal = new AtomicInteger(0);
+      AtomicBoolean stop = new AtomicBoolean(false);
+      final int totalBatches = (productNames.size() + nameBatchSize - 1) / nameBatchSize;
+      AtomicInteger processedBatches = new AtomicInteger(0);
+
+      // 동시성 완화: 타임아웃 빈도 줄이기 위해 병렬도도 완만하게 적용
+      ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, Math.min(4, parallelism)));
+      List<Future<?>> futures = new ArrayList<>();
 
       for (int i = 0; i < productNames.size(); i += nameBatchSize) {
-        List<String> nameBatch =
+        final List<String> nameBatch =
             productNames.subList(i, Math.min(i + nameBatchSize, productNames.size()));
-        StringBuilder nb = new StringBuilder();
-        nameBatch.forEach(n -> nb.append("- ").append(n).append("\n"));
-        String prompt = template.replace("{PRODUCT_NAMES}", nb.toString().trim());
+        futures.add(
+            executor.submit(
+                () -> {
+                  if (stop.get()) return;
+                  try {
+                    StringBuilder nb = new StringBuilder();
+                    nameBatch.forEach(n -> nb.append("- ").append(n).append("\n"));
+                    String prompt = template.replace("{PRODUCT_NAMES}", nb.toString().trim());
+                    String llmResp = llmService.callLLMAPI(prompt, temperature);
+                    List<PairCandidate> candidates = parseCandidatesStrict(llmResp);
 
-        String llmResp = llmService.callLLMAPI(prompt, temperature);
-        List<PairCandidate> candidates = parseCandidates(llmResp);
+                    for (PairCandidate c : candidates) {
+                      if (stop.get()) break;
+                      if (c.pair == null || c.pair.isBlank()) continue;
+                      String[] parts = c.pair.split(",", 2);
+                      if (parts.length != 2) continue;
+                      String typo = parts[0].trim();
+                      String corr = parts[1].trim();
+                      if (typo.isEmpty() || corr.isEmpty()) continue;
+                      if (typo.equalsIgnoreCase(corr)) continue;
 
-        // 최소한의 형식만 검증하고 저장
-        for (PairCandidate c : candidates) {
-          if (c.pair == null || c.pair.isBlank()) continue;
-          String[] parts = c.pair.split(",", 2);
-          if (parts.length != 2) continue;
-          String typo = parts[0].trim();
-          String corr = parts[1].trim();
-          if (typo.isEmpty() || corr.isEmpty()) continue;
-          if (typo.equalsIgnoreCase(corr)) continue;
-
-          String key = typo + "," + corr;
-          Optional<TypoCorrectionRecommendation> existing =
-              recommendationRepository.findByPair(key);
-          if (existing.isPresent()) {
-            TypoCorrectionRecommendation r = existing.get();
-            r.setRecommendationCount(r.getRecommendationCount() + 1);
-            recommendationRepository.save(r);
-          } else {
-            TypoCorrectionRecommendation r =
-                TypoCorrectionRecommendation.builder().pair(key).reason(c.reason).build();
-            r.setRecommendationCount(1);
-            recommendationRepository.save(r);
-            createdTotal++;
-          }
-          if (desired != null && desired > 0 && createdTotal >= desired) break;
-        }
-        if (desired != null && desired > 0 && createdTotal >= desired) break;
+                      String key = typo + "," + corr;
+                      Optional<TypoCorrectionRecommendation> existing =
+                          recommendationRepository.findByPair(key);
+                      if (existing.isPresent()) {
+                        TypoCorrectionRecommendation r = existing.get();
+                        r.setRecommendationCount(r.getRecommendationCount() + 1);
+                        recommendationRepository.save(r);
+                      } else {
+                        if (desired != null && desired > 0
+                            && createdTotal.get() >= desired) {
+                          stop.set(true);
+                          break;
+                        }
+                        TypoCorrectionRecommendation r =
+                            TypoCorrectionRecommendation.builder()
+                                .pair(key)
+                                .reason(c.reason)
+                                .build();
+                        r.setRecommendationCount(1);
+                        recommendationRepository.save(r);
+                        int cur = createdTotal.incrementAndGet();
+                        if (cur % 50 == 0 || (desired != null && desired > 0 && cur >= desired)) {
+                          if (desired != null && desired > 0) {
+                            log.info("오타 추천 누적 생성: {}개/{}개", cur, desired);
+                          } else {
+                            log.info("오타 추천 누적 생성: {}개", cur);
+                          }
+                        }
+                        if (desired != null && desired > 0 && cur >= desired) {
+                          stop.set(true);
+                          break;
+                        }
+                      }
+                    }
+                  } catch (Exception e) {
+                    log.warn("오타 교정어 배치 처리 실패 - 계속 진행합니다", e);
+                  } finally {
+                    int done = processedBatches.incrementAndGet();
+                    int made = createdTotal.get();
+                    if (desired != null && desired > 0) {
+                      log.info("오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개/목표 {}개", done, totalBatches, made, desired);
+                    } else {
+                      log.info("오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개", done, totalBatches, made);
+                    }
+                  }
+                }));
+        if (stop.get()) break;
       }
+
+      for (Future<?> f : futures) {
+        try {
+          f.get();
+        } catch (Exception e) {
+          log.warn("추천 작업 대기 중 오류 - 계속 진행합니다", e);
+        }
+      }
+      executor.shutdownNow();
 
     } catch (Exception e) {
       log.error("오타 교정어 추천 생성 실패", e);
@@ -144,14 +202,14 @@ public class TypoCorrectionRecommendationService {
     }
   }
 
+  @SuppressWarnings("unused")
   private List<PairCandidate> parseCandidates(String resp) {
     List<PairCandidate> out = new ArrayList<>();
     try {
-      com.fasterxml.jackson.databind.ObjectMapper mapper =
-          new com.fasterxml.jackson.databind.ObjectMapper();
-      com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(resp);
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode root = mapper.readTree(resp);
       if (root.isArray()) {
-        for (com.fasterxml.jackson.databind.JsonNode n : root) {
+        for (JsonNode n : root) {
           String typo = n.path("typo").asText("");
           String correction = n.path("correction").asText("");
           String reason = n.path("reason").asText("");
@@ -179,9 +237,96 @@ public class TypoCorrectionRecommendationService {
     return out;
   }
 
-  private List<PairCandidate> callOneBatch(List<String> batchTokens, Double temperature) {
-    // not used in current flow
-    return Collections.emptyList();
+  // 보다 엄격한 파서: JSON 우선, 실패 시 객체 정규식, 마지막으로 라인 파싱
+  private List<PairCandidate> parseCandidatesStrict(String resp) {
+    List<PairCandidate> out = new ArrayList<>();
+    if (resp == null || resp.isBlank()) return out;
+    String payload = resp.trim();
+    int l = payload.indexOf('[');
+    int r = payload.lastIndexOf(']');
+    ObjectMapper mapper = new ObjectMapper()
+        .enable(JsonParser.Feature.ALLOW_COMMENTS);
+    if (l >= 0 && r > l) {
+      String json = payload.substring(l, r + 1);
+      try {
+        JsonNode root = mapper.readTree(json);
+        if (root.isArray()) {
+          for (JsonNode n : root) {
+            String typo = n.path("typo").asText("");
+            String correction = n.path("correction").asText("");
+            String reason = n.path("reason").asText("");
+            addIfValid(out, typo, correction, reason);
+          }
+          return out;
+        }
+      } catch (Exception ignore) { }
+    }
+
+    // 객체 라인 정규식 추출
+    try {
+      java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+          "\\{\\s*\\\"typo\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"\\s*,\\s*\\\"correction\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"(?:\\s*,\\s*\\\"reason\\\"\\s*:\\s*\\\"([^\\\"]*)\\\")?[^}]*}"
+      );
+      java.util.regex.Matcher m = p.matcher(payload);
+      boolean any = false;
+      while (m.find()) {
+        any = true;
+        String typo = m.group(1);
+        String correction = m.group(2);
+        String reason = m.groupCount() >= 3 && m.group(3) != null ? m.group(3) : "";
+        addIfValid(out, typo, correction, reason);
+      }
+      if (any) return out;
+    } catch (Exception ignore) {}
+
+    // 마지막 라인 파싱: "a,b|reason"
+    for (String line : payload.split("\n")) {
+      String s = line.trim();
+      if (s.isEmpty()) continue;
+      if (s.startsWith("{")) continue; // JSON 조각 무시
+      String pair = s;
+      String reason = "";
+      int bar = s.indexOf('|');
+      if (bar >= 0) {
+        pair = s.substring(0, bar).trim();
+        reason = s.substring(bar + 1).trim();
+      }
+      int comma = pair.indexOf(',');
+      if (comma <= 0 || comma >= pair.length() - 1) continue;
+      String typo = pair.substring(0, comma).trim();
+      String correction = pair.substring(comma + 1).trim();
+      addIfValid(out, typo, correction, reason);
+    }
+    return out;
+  }
+
+  private void addIfValid(List<PairCandidate> out, String typo, String correction, String reason) {
+    if (typo == null || correction == null) return;
+    typo = typo.trim();
+    correction = correction.trim();
+    if (typo.isEmpty() || correction.isEmpty()) return;
+    if (typo.equalsIgnoreCase(correction)) return;
+    if (!isSingleToken(typo) || !isSingleToken(correction)) return;
+    if (isMixedScript(typo, correction)) return;
+    out.add(new PairCandidate(typo + "," + correction, reason == null ? "" : reason));
+  }
+
+  private boolean isSingleToken(String s) {
+    return s != null && s.matches("[0-9A-Za-z가-힣]+");
+  }
+
+  private boolean hasKorean(String s) {
+    if (s == null) return false;
+    return s.codePoints().anyMatch(cp -> cp >= 0xAC00 && cp <= 0xD7A3);
+  }
+
+  private boolean hasLatin(String s) {
+    if (s == null) return false;
+    return s.codePoints().anyMatch(cp -> cp <= 0x7F && Character.isAlphabetic(cp));
+  }
+
+  private boolean isMixedScript(String a, String b) {
+    return (hasKorean(a) && hasLatin(b)) || (hasLatin(a) && hasKorean(b));
   }
 
   @Transactional(readOnly = true)
@@ -206,40 +351,17 @@ public class TypoCorrectionRecommendationService {
 
   private record PairCandidate(String pair, String reason) {}
 
-  private String normalizeToken(String raw) {
-    if (raw == null) return null;
-    String s = raw.trim();
-    if (s.isEmpty()) return null;
-    if (s.chars().anyMatch(Character::isWhitespace)) return null;
-    // 공백/특수문자 제거, 소문자화는 하지 않음(한글 보존)
-    String cleaned = s.replaceAll("[^0-9A-Za-z가-힣]", "");
-    if (cleaned.isEmpty()) return null;
-    return cleaned;
-  }
+  
 
-  private boolean containsHangul(String s) {
-    if (s == null) return false;
-    return s.codePoints().anyMatch(cp -> cp >= 0xAC00 && cp <= 0xD7A3);
-  }
+  // helper 제거 (LLM 모드에선 미사용)
 
-  private boolean containsDigit(String s) {
-    if (s == null) return false;
-    return s.chars().anyMatch(Character::isDigit);
-  }
+  
 
-  private boolean containsLatin(String s) {
-    if (s == null) return false;
-    return s.codePoints().anyMatch(cp -> (cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z'));
-  }
+  
 
-  private boolean isMostlyNumeric(String s) {
-    if (s == null || s.isEmpty()) return false;
-    long digits = s.chars().filter(Character::isDigit).count();
-    return digits * 2 >= s.length(); // 절반 이상 숫자면 숫자성 오타로 간주해 제외
-  }
+  
 
-  private boolean containsLetter(String s) {
-    if (s == null) return false;
-    return s.codePoints().anyMatch(Character::isLetter);
-  }
+  
+
+  
 }

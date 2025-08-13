@@ -49,8 +49,8 @@ public class LLMService {
 
   private String performAPICall(String prompt, Double temperature) throws Exception {
     // 연결/읽기 타임아웃을 적용한 로컬 RestTemplate 사용(추가 의존성 없이 java.net 기반)
-    int connectTimeoutMs = 5000;
-    int readTimeoutMs = 20000;
+    int connectTimeoutMs = 8000;
+    int readTimeoutMs = 45000;
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
     requestFactory.setConnectTimeout(connectTimeoutMs);
     requestFactory.setReadTimeout(readTimeoutMs);
