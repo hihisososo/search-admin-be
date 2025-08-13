@@ -307,8 +307,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
         Map.of(
             "search_count", Aggregation.of(a -> a.valueCount(v -> v.field("timestamp"))),
             "error_count",
-                Aggregation.of(
-                    a -> a.filter(f -> f.term(t -> t.field("is_error").value(true)))),
+                Aggregation.of(a -> a.filter(f -> f.term(t -> t.field("is_error").value(true)))),
             "avg_response_time", Aggregation.of(a -> a.avg(avg -> avg.field("response_time_ms"))));
 
     Map<String, Aggregation> aggregations =

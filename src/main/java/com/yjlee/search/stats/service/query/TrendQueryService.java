@@ -73,19 +73,25 @@ public class TrendQueryService {
     List<TrendResponse.TrendData> trendDataList = new ArrayList<>(trendDataMap.values());
 
     return TrendResponse.builder()
-        .searchVolumeData(trendDataList.stream()
-            .map(d -> TrendResponse.TrendData.builder()
-                .timestamp(d.getTimestamp())
-                .searchCount(d.getSearchCount())
-                .errorCount(d.getErrorCount())
-                .build())
-            .toList())
-        .responseTimeData(trendDataList.stream()
-            .map(d -> TrendResponse.TrendData.builder()
-                .timestamp(d.getTimestamp())
-                .averageResponseTime(d.getAverageResponseTime())
-                .build())
-            .toList())
+        .searchVolumeData(
+            trendDataList.stream()
+                .map(
+                    d ->
+                        TrendResponse.TrendData.builder()
+                            .timestamp(d.getTimestamp())
+                            .searchCount(d.getSearchCount())
+                            .errorCount(d.getErrorCount())
+                            .build())
+                .toList())
+        .responseTimeData(
+            trendDataList.stream()
+                .map(
+                    d ->
+                        TrendResponse.TrendData.builder()
+                            .timestamp(d.getTimestamp())
+                            .averageResponseTime(d.getAverageResponseTime())
+                            .build())
+                .toList())
         .period(period)
         .interval("day")
         .build();
