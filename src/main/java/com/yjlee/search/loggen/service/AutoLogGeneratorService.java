@@ -42,7 +42,8 @@ public class AutoLogGeneratorService {
 
   @Scheduled(fixedDelay = 1000)
   public void generateLogs() {
-    boolean enabled = Boolean.parseBoolean(System.getProperty("app.log-generator.enabled", "false"));
+    boolean enabled =
+        Boolean.parseBoolean(System.getProperty("app.log-generator.enabled", "false"));
     if (!enabled) return;
 
     int count = Math.max(0, eventsPerSecond);
