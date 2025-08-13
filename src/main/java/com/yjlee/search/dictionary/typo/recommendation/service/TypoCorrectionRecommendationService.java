@@ -1,19 +1,19 @@
 package com.yjlee.search.dictionary.typo.recommendation.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.ScrollResponse;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonParser;
+import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.typo.recommendation.dto.TypoCorrectionRecommendationListResponse;
 import com.yjlee.search.dictionary.typo.recommendation.dto.TypoCorrectionRecommendationRequest;
 import com.yjlee.search.dictionary.typo.recommendation.model.TypoCorrectionRecommendation;
 import com.yjlee.search.dictionary.typo.recommendation.repository.TypoCorrectionRecommendationRepository;
-import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.evaluation.service.LLMService;
 import java.util.*;
 import java.util.concurrent.*;
@@ -34,12 +34,13 @@ public class TypoCorrectionRecommendationService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final TypoCorrectionRecommendationRepository recommendationRepository;
+
   // prompt 기반은 더 이상 사용하지 않으므로 의존성 제거
   // private final PromptTemplateLoader promptTemplateLoader;
 
   @Value("${app.recommendation.typo.parallelism:4}")
   private int parallelism;
-  
+
   private final LLMService llmService;
   private final PromptTemplateLoader promptTemplateLoader;
 
@@ -72,7 +73,7 @@ public class TypoCorrectionRecommendationService {
               JsonNode.class);
 
       List<String> productNames = new ArrayList<>();
-      final String[] currentScrollIdHolder = new String[] { searchResponse.scrollId() };
+      final String[] currentScrollIdHolder = new String[] {searchResponse.scrollId()};
       List<Hit<JsonNode>> hits = searchResponse.hits().hits();
       while (hits != null && !hits.isEmpty() && productNames.size() < sampleLimit) {
         for (Hit<JsonNode> h : hits) {
@@ -89,7 +90,8 @@ public class TypoCorrectionRecommendationService {
         if (currentScrollIdHolder[0] == null || currentScrollIdHolder[0].isEmpty()) break;
         ScrollResponse<JsonNode> scrollResp =
             elasticsearchClient.scroll(
-                s -> s.scrollId(currentScrollIdHolder[0]).scroll(sc -> sc.time("2m")), JsonNode.class);
+                s -> s.scrollId(currentScrollIdHolder[0]).scroll(sc -> sc.time("2m")),
+                JsonNode.class);
         currentScrollIdHolder[0] = scrollResp.scrollId();
         hits = scrollResp.hits().hits();
       }
@@ -111,7 +113,8 @@ public class TypoCorrectionRecommendationService {
       AtomicInteger processedBatches = new AtomicInteger(0);
 
       // 동시성 완화: 타임아웃 빈도 줄이기 위해 병렬도도 완만하게 적용
-      ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, Math.min(4, parallelism)));
+      ExecutorService executor =
+          Executors.newFixedThreadPool(Math.max(1, Math.min(4, parallelism)));
       List<Future<?>> futures = new ArrayList<>();
 
       for (int i = 0; i < productNames.size(); i += nameBatchSize) {
@@ -146,8 +149,7 @@ public class TypoCorrectionRecommendationService {
                         r.setRecommendationCount(r.getRecommendationCount() + 1);
                         recommendationRepository.save(r);
                       } else {
-                        if (desired != null && desired > 0
-                            && createdTotal.get() >= desired) {
+                        if (desired != null && desired > 0 && createdTotal.get() >= desired) {
                           stop.set(true);
                           break;
                         }
@@ -178,7 +180,12 @@ public class TypoCorrectionRecommendationService {
                     int done = processedBatches.incrementAndGet();
                     int made = createdTotal.get();
                     if (desired != null && desired > 0) {
-                      log.info("오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개/목표 {}개", done, totalBatches, made, desired);
+                      log.info(
+                          "오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개/목표 {}개",
+                          done,
+                          totalBatches,
+                          made,
+                          desired);
                     } else {
                       log.info("오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개", done, totalBatches, made);
                     }
@@ -244,8 +251,7 @@ public class TypoCorrectionRecommendationService {
     String payload = resp.trim();
     int l = payload.indexOf('[');
     int r = payload.lastIndexOf(']');
-    ObjectMapper mapper = new ObjectMapper()
-        .enable(JsonParser.Feature.ALLOW_COMMENTS);
+    ObjectMapper mapper = new ObjectMapper().enable(JsonParser.Feature.ALLOW_COMMENTS);
     if (l >= 0 && r > l) {
       String json = payload.substring(l, r + 1);
       try {
@@ -259,14 +265,15 @@ public class TypoCorrectionRecommendationService {
           }
           return out;
         }
-      } catch (Exception ignore) { }
+      } catch (Exception ignore) {
+      }
     }
 
     // 객체 라인 정규식 추출
     try {
-      java.util.regex.Pattern p = java.util.regex.Pattern.compile(
-          "\\{\\s*\\\"typo\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"\\s*,\\s*\\\"correction\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"(?:\\s*,\\s*\\\"reason\\\"\\s*:\\s*\\\"([^\\\"]*)\\\")?[^}]*}"
-      );
+      java.util.regex.Pattern p =
+          java.util.regex.Pattern.compile(
+              "\\{\\s*\\\"typo\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"\\s*,\\s*\\\"correction\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"(?:\\s*,\\s*\\\"reason\\\"\\s*:\\s*\\\"([^\\\"]*)\\\")?[^}]*}");
       java.util.regex.Matcher m = p.matcher(payload);
       boolean any = false;
       while (m.find()) {
@@ -277,7 +284,8 @@ public class TypoCorrectionRecommendationService {
         addIfValid(out, typo, correction, reason);
       }
       if (any) return out;
-    } catch (Exception ignore) {}
+    } catch (Exception ignore) {
+    }
 
     // 마지막 라인 파싱: "a,b|reason"
     for (String line : payload.split("\n")) {
@@ -351,17 +359,6 @@ public class TypoCorrectionRecommendationService {
 
   private record PairCandidate(String pair, String reason) {}
 
-  
-
   // helper 제거 (LLM 모드에선 미사용)
 
-  
-
-  
-
-  
-
-  
-
-  
 }

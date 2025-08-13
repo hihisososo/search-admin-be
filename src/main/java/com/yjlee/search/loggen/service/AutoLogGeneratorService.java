@@ -47,8 +47,7 @@ public class AutoLogGeneratorService {
   public void generateLogs() {
     boolean enabled =
         Boolean.parseBoolean(
-            System.getProperty(
-                "app.log-generator.enabled", String.valueOf(enabledByConfig)));
+            System.getProperty("app.log-generator.enabled", String.valueOf(enabledByConfig)));
     if (!enabled) return;
 
     int count = Math.max(0, eventsPerSecond);

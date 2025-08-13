@@ -80,7 +80,6 @@ public class TypoCorrectionService {
   }
 
   public String getCacheStatus() {
-    return String.format(
-        "Env: %s, Cache size: %d", activeEnvironmentType.name(), cache.size());
+    return String.format("Env: %s, Cache size: %d", activeEnvironmentType.name(), cache.size());
   }
 }

@@ -25,11 +25,11 @@ public final class EditDistance {
         if (curr[j] < best) best = curr[j];
       }
       if (best > maxDistance) return best;
-      int[] tmp = prev; prev = curr; curr = tmp;
+      int[] tmp = prev;
+      prev = curr;
+      curr = tmp;
     }
 
     return prev[m];
   }
 }
-
-
