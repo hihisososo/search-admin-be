@@ -12,6 +12,49 @@
 - 쿼리 생성
   - 색인된 ES 문서에서 랜덤하게 아래 프롬프트를 이용해, 쿼리를 추천합니다
 - 
+
+### 신규 API (FE 전달용)
+
+#### 1) 쿼리 후보군 프리뷰 (저장 안 함)
+- 메서드/경로: POST `/api/v1/evaluation/queries/preview-candidates`
+- 설명: 팝업에서 쿼리를 입력하고, 다양한 검색 옵션(벡터/형태소/바이그램)별 상위 후보 ID를 미리 확인.
+- 요청 바디 예시
+```
+{
+  "query": "삼성 27인치 모니터 100Hz",
+  "useVector": true,
+  "useMorph": true,
+  "useBigram": true,
+  "perMethodLimit": 50,
+  "vectorField": "name_specs_vector",        // 선택, 기본 name_specs_vector
+  "vectorMinScore": 0.85                      // 선택, 기본 0.85
+}
+```
+- 응답 예시
+```
+{
+  "query": "삼성 27인치 모니터 100Hz",
+  "vectorIds": ["123", "456"],
+  "morphIds": ["789"],
+  "bigramIds": ["234"]
+}
+```
+
+#### 2) 쿼리 LLM 자동 추천(기존 동작 유지)
+- 메서드/경로: POST `/api/v1/evaluation/queries/generate-async`
+- 설명: 생성된 쿼리는 내부적으로 후보군을 자동 매칭하여 저장함.
+
+#### 3) 선택 쿼리 후보군 재생성(기존 후보군 삭제 후 다시 생성)
+- 메서드/경로: POST `/api/v1/evaluation/candidates/generate-async`
+- 요청 바디 예시
+```
+{
+  "queryIds": [1,2,3],
+  "generateForAllQueries": false
+}
+```
+- 설명: 지정된 쿼리들의 기존 후보군을 삭제하고 벡터/형태소/바이그램 조합으로 다시 생성하여 저장.
+
  
 #### 라벨링 운영 개요(간단 요약)
 - 목적: LLM의 1차 자동 판단으로 라벨링 피로를 낮추고, 사용자는 애매한 사례만 빠르게 검수합니다.

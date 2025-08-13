@@ -12,6 +12,8 @@ import com.yjlee.search.evaluation.dto.BulkDeleteRequest;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse;
 import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse.EvaluationQueryDto;
+import com.yjlee.search.evaluation.dto.CandidatePreviewRequest;
+import com.yjlee.search.evaluation.dto.CandidatePreviewResponse;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
 import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
 import com.yjlee.search.evaluation.dto.QueryDocumentMappingResponse;
@@ -26,6 +28,7 @@ import com.yjlee.search.evaluation.service.CategoryService;
 import com.yjlee.search.evaluation.service.EvaluationCandidateService;
 import com.yjlee.search.evaluation.service.EvaluationQueryService;
 import com.yjlee.search.evaluation.service.EvaluationStatisticsService;
+import com.yjlee.search.evaluation.service.SearchBasedGroundTruthService;
 import com.yjlee.search.evaluation.service.QuerySuggestService;
 import com.yjlee.search.evaluation.util.PaginationUtils;
 import com.yjlee.search.index.dto.ProductDocument;
@@ -53,6 +56,7 @@ public class EvaluationSetController {
   private final QuerySuggestService querySuggestService;
   private final CategoryService categoryService;
   private final EvaluationStatisticsService evaluationStatisticsService;
+  private final SearchBasedGroundTruthService groundTruthService;
 
   @GetMapping("/queries")
   @Operation(summary = "평가 쿼리 리스트 조회")
@@ -79,6 +83,29 @@ public class EvaluationSetController {
             .hasPrevious(pagedResult.isHasPrevious())
             .build();
     return ResponseEntity.ok(response);
+  }
+
+  @PostMapping("/queries/preview-candidates")
+  @Operation(summary = "쿼리 후보군 프리뷰 (저장 안 함)")
+  public ResponseEntity<CandidatePreviewResponse> previewCandidates(
+      @Valid @RequestBody CandidatePreviewRequest request) {
+    var r =
+        groundTruthService.previewCandidateIds(
+            request.getQuery(),
+            request.getUseVector() != null && request.getUseVector(),
+            request.getUseMorph() == null || request.getUseMorph(),
+            request.getUseBigram() == null || request.getUseBigram(),
+            request.getPerMethodLimit() != null ? request.getPerMethodLimit() : 50,
+            request.getVectorField(),
+            request.getVectorMinScore());
+
+    return ResponseEntity.ok(
+        CandidatePreviewResponse.builder()
+            .query(request.getQuery())
+            .vectorIds(r.getVectorIds())
+            .morphIds(r.getMorphIds())
+            .bigramIds(r.getBigramIds())
+            .build());
   }
 
   @GetMapping("/queries/recommend")
