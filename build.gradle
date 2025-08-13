@@ -46,6 +46,7 @@ dependencies {
 	implementation 'software.amazon.awssdk:url-connection-client'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'io.micrometer:micrometer-registry-prometheus'
+	implementation 'co.elastic.apm:apm-agent-api:1.49.0'
 
 
 	compileOnly 'org.projectlombok:lombok'

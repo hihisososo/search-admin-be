@@ -35,17 +35,22 @@ public class AutoLogGeneratorService {
   @Value("${server.port:8080}")
   private int serverPort;
 
+  @Value("${app.log-generator.enabled:false}")
+  private boolean enabledByConfig;
+
+  @Value("${app.log-generator.events-per-second:10}")
+  private int eventsPerSecond;
+
   private final Random random = new Random();
 
   @Scheduled(fixedDelay = 1000)
   public void generateLogs() {
-    boolean enabled =
-        Boolean.parseBoolean(System.getProperty("app.log-generator.enabled", "false"));
-    if (!enabled) {
+    if (!enabledByConfig) {
       return;
     }
 
-    for (int i = 0; i < 10; i++) {
+    int count = Math.max(0, eventsPerSecond);
+    for (int i = 0; i < count; i++) {
       Thread thread =
           new Thread(
               () -> {

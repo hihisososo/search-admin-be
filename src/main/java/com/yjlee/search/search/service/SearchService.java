@@ -1,5 +1,7 @@
 package com.yjlee.search.search.service;
 
+import co.elastic.apm.api.ElasticApm;
+import co.elastic.apm.api.Transaction;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.common.util.HttpRequestUtils;
 import com.yjlee.search.deployment.model.IndexEnvironment;
@@ -50,7 +52,6 @@ public class SearchService {
       String keyword, IndexEnvironment.EnvironmentType environmentType) {
 
     log.info("자동완성 시뮬레이션 요청 - 환경: {}, 키워드: {}", environmentType.getDescription(), keyword);
-
     String indexName = indexResolver.resolveAutocompleteIndex(environmentType);
     return autocompleteSearchService.search(indexName, keyword);
   }
@@ -85,6 +86,11 @@ public class SearchService {
             ? request.getSearchSessionId()
             : UUID.randomUUID().toString();
     long startTime = System.currentTimeMillis();
+
+    Transaction txn = ElasticApm.currentTransaction();
+    if (txn != null) {
+      txn.setLabel("search.query", request.getQuery());
+    }
 
     try {
       SearchExecuteResponse response = executor.execute();
