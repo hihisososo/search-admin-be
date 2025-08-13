@@ -22,9 +22,7 @@ public class TrendResponse {
   public static class TrendData {
     LocalDateTime timestamp;
     long searchCount;
-    long clickCount;
-    double clickThroughRate;
-    double averageResponseTime;
-    String label;
+    Long errorCount; // 현재 0 고정, 필드만 노출
+    Double averageResponseTime; // responseTimeData에서만 사용
   }
 }

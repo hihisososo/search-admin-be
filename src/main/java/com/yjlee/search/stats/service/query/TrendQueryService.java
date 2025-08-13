@@ -22,7 +22,9 @@ public class TrendQueryService {
   private final StatsRepository statsRepository;
 
   public TrendResponse getTrends(LocalDateTime from, LocalDateTime to, String interval) {
-    log.info("시계열 추이 조회 - 기간: {} ~ {}, 간격: {}", from, to, interval);
+    // interval은 day만 지원 (고정)
+    interval = "day";
+    log.info("시계열 추이 조회 - 기간: {} ~ {}, 간격: {}(고정)", from, to, interval);
 
     List<TrendData> trends = statsRepository.getTrends(from, to, interval);
     String period = from.toLocalDate() + " ~ " + to.toLocalDate();
@@ -37,10 +39,8 @@ public class TrendQueryService {
           TrendResponse.TrendData.builder()
               .timestamp(timestamp)
               .searchCount(0L)
-              .clickCount(0L)
-              .clickThroughRate(0.0)
+              .errorCount(0L)
               .averageResponseTime(0.0)
-              .label(label)
               .build());
     }
 
@@ -59,10 +59,8 @@ public class TrendQueryService {
             TrendResponse.TrendData.builder()
                 .timestamp(trend.getTimestamp())
                 .searchCount(trend.getSearchCount())
-                .clickCount(trend.getClickCount())
-                .clickThroughRate(trend.getClickThroughRate())
+                .errorCount(trend.getErrorCount())
                 .averageResponseTime(trend.getAverageResponseTime())
-                .label(label)
                 .build());
       } else {
         log.warn(
@@ -75,10 +73,27 @@ public class TrendQueryService {
     List<TrendResponse.TrendData> trendDataList = new ArrayList<>(trendDataMap.values());
 
     return TrendResponse.builder()
-        .searchVolumeData(trendDataList)
-        .responseTimeData(trendDataList)
+        .searchVolumeData(
+            trendDataList.stream()
+                .map(
+                    d ->
+                        TrendResponse.TrendData.builder()
+                            .timestamp(d.getTimestamp())
+                            .searchCount(d.getSearchCount())
+                            .errorCount(d.getErrorCount())
+                            .build())
+                .toList())
+        .responseTimeData(
+            trendDataList.stream()
+                .map(
+                    d ->
+                        TrendResponse.TrendData.builder()
+                            .timestamp(d.getTimestamp())
+                            .averageResponseTime(d.getAverageResponseTime())
+                            .build())
+                .toList())
         .period(period)
-        .interval(interval)
+        .interval("day")
         .build();
   }
 
@@ -105,11 +120,7 @@ public class TrendQueryService {
   }
 
   private String formatLabel(LocalDateTime timestamp, String interval) {
-    if ("hour".equalsIgnoreCase(interval)) {
-      return timestamp.format(DateTimeFormatter.ofPattern("MM-dd HH:mm"));
-    } else if ("day".equalsIgnoreCase(interval)) {
-      return timestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-    }
-    return timestamp.toString();
+    // day 전용 라벨
+    return timestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
   }
 }
