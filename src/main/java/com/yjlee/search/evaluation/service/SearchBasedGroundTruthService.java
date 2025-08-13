@@ -252,12 +252,7 @@ public class SearchBasedGroundTruthService {
   }
 
   private List<String> searchByVectorWithEmbedding(
-      float[] embedding,
-      String vectorField,
-      int size,
-      int k,
-      int numCandidates,
-      double minScore) {
+      float[] embedding, String vectorField, int size, int k, int numCandidates, double minScore) {
     try {
       List<Float> queryVector = new ArrayList<>();
       for (float f : embedding) {

@@ -12,5 +12,3 @@ public class CandidatePreviewResponse {
   private List<String> morphIds;
   private List<String> bigramIds;
 }
-
-

@@ -1,9 +1,9 @@
 package com.yjlee.search.evaluation.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 @Getter
 @NoArgsConstructor
@@ -18,5 +18,3 @@ public class CandidatePreviewRequest {
   private String vectorField;
   private Double vectorMinScore;
 }
-
-
