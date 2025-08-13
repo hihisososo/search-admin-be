@@ -36,50 +36,7 @@ public class SearchBasedGroundTruthService {
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final OpenAIEmbeddingService embeddingService;
 
-  /** 프리뷰용: 검색 옵션을 받아 방법별 후보 상품 ID 리스트를 반환 */
-  public PreviewCandidateIdsResult previewCandidateIds(
-      String query,
-      boolean useVector,
-      boolean useMorph,
-      boolean useBigram,
-      int perMethodLimit,
-      String vectorField,
-      Double vectorMinScore) {
-    float[] embedding = null;
-    if (useVector) {
-      try {
-        embedding = embeddingService.getEmbedding(query);
-      } catch (Exception e) {
-        log.warn("임베딩 생성 실패, 벡터 검색 건너뜀: {}", query);
-      }
-    }
-
-    List<String> vectorIds = new ArrayList<>();
-    List<String> morphIds = new ArrayList<>();
-    List<String> bigramIds = new ArrayList<>();
-
-    if (useVector && embedding != null) {
-      vectorIds =
-          searchByVectorWithEmbedding(
-              embedding,
-              vectorField != null ? vectorField : "name_specs_vector",
-              perMethodLimit,
-              perMethodLimit,
-              Math.min(200, perMethodLimit * 2),
-              vectorMinScore != null ? vectorMinScore : 0.85);
-    }
-
-    if (useMorph) {
-      morphIds = searchByCrossField(query, new String[] {"name", "specs"}, perMethodLimit);
-    }
-
-    if (useBigram) {
-      bigramIds =
-          searchByCrossField(query, new String[] {"name.bigram", "specs.bigram"}, perMethodLimit);
-    }
-
-    return new PreviewCandidateIdsResult(vectorIds, morphIds, bigramIds);
-  }
+  
 
   @Transactional
   public void generateCandidatesFromSearch() {
@@ -251,37 +208,7 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  private List<String> searchByVectorWithEmbedding(
-      float[] embedding, String vectorField, int size, int k, int numCandidates, double minScore) {
-    try {
-      List<Float> queryVector = new ArrayList<>();
-      for (float f : embedding) {
-        queryVector.add(f);
-      }
-
-      SearchRequest request =
-          SearchRequest.of(
-              s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
-                      .size(size)
-                      .minScore(minScore)
-                      .query(
-                          q ->
-                              q.knn(
-                                  kq ->
-                                      kq.field(vectorField)
-                                          .queryVector(queryVector)
-                                          .k(k)
-                                          .numCandidates(numCandidates))));
-
-      SearchResponse<ProductDocument> response =
-          elasticsearchClient.search(request, ProductDocument.class);
-      return extractProductIds(response);
-    } catch (Exception e) {
-      log.warn("Vector 검색 실패(custom): {}", vectorField, e);
-      return new ArrayList<>();
-    }
-  }
+  
 
   private List<String> searchByCrossField(String query, String[] fields) {
     try {
@@ -308,30 +235,7 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  private List<String> searchByCrossField(String query, String[] fields, int size) {
-    try {
-      SearchRequest request =
-          SearchRequest.of(
-              s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
-                      .size(size)
-                      .query(
-                          q ->
-                              q.multiMatch(
-                                  mm ->
-                                      mm.query(TextPreprocessor.preprocess(query))
-                                          .fields(fields[0], fields[1])
-                                          .operator(Operator.And)
-                                          .type(TextQueryType.CrossFields))));
-
-      SearchResponse<ProductDocument> response =
-          elasticsearchClient.search(request, ProductDocument.class);
-      return extractProductIds(response);
-    } catch (Exception e) {
-      log.warn("Cross field 검색 실패(custom): {}", String.join(", ", fields), e);
-      return new ArrayList<>();
-    }
-  }
+  
 
   private List<String> extractProductIds(SearchResponse<ProductDocument> response) {
     List<String> ids = new ArrayList<>();
@@ -341,11 +245,5 @@ public class SearchBasedGroundTruthService {
     return ids;
   }
 
-  @lombok.Getter
-  @lombok.AllArgsConstructor
-  public static class PreviewCandidateIdsResult {
-    private final List<String> vectorIds;
-    private final List<String> morphIds;
-    private final List<String> bigramIds;
-  }
+  
 }
