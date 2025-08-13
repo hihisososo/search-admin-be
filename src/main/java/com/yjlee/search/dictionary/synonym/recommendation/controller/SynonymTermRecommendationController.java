@@ -1,5 +1,6 @@
 package com.yjlee.search.dictionary.synonym.recommendation.controller;
 
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.synonym.recommendation.dto.SynonymTermRecommendationDtos.GenerateRequest;
 import com.yjlee.search.dictionary.synonym.recommendation.dto.SynonymTermRecommendationDtos.ListResponse;
 import com.yjlee.search.dictionary.synonym.recommendation.service.SynonymTermRecommendationService;
@@ -44,12 +45,12 @@ public class SynonymTermRecommendationController {
       description = "추천된 항목을 'base => syn1,syn2' 포맷으로 현재 사전에 병합합니다")
   public ResponseEntity<Void> mergeToDictionary(
       @RequestParam(name = "env", required = false) String env) {
-    com.yjlee.search.common.enums.DictionaryEnvironmentType environment =
+    DictionaryEnvironmentType environment =
         "prod".equalsIgnoreCase(env)
-            ? com.yjlee.search.common.enums.DictionaryEnvironmentType.PROD
+            ? DictionaryEnvironmentType.PROD
             : "dev".equalsIgnoreCase(env)
-                ? com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV
-                : com.yjlee.search.common.enums.DictionaryEnvironmentType.CURRENT;
+                ? DictionaryEnvironmentType.DEV
+                : DictionaryEnvironmentType.CURRENT;
     service.mergeToDictionary(environment);
     return ResponseEntity.ok().build();
   }

@@ -14,7 +14,6 @@ public class QueryStatsDto {
   private Long incorrectCount;
   private Long unspecifiedCount;
 
-  // JPA Constructor Query용 생성자
   public QueryStatsDto(
       String query,
       Long documentCount,
