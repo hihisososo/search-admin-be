@@ -1,7 +1,12 @@
 package com.yjlee.search.evaluation.service;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.MgetRequest;
+import co.elastic.clients.elasticsearch.core.MgetResponse;
+import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.EvaluationReport;
@@ -9,20 +14,27 @@ import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationReportRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
+import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
+import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.SearchService;
 import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,6 +51,8 @@ public class EvaluationReportService {
   private final EvaluationReportRepository evaluationReportRepository;
   private final SearchService searchService;
   private final ObjectMapper objectMapper;
+  private final ElasticsearchClient elasticsearchClient;
+  private final IndexResolver indexResolver;
   private final ExecutorService executorService = Executors.newFixedThreadPool(5);
 
   @PreDestroy
@@ -107,6 +121,10 @@ public class EvaluationReportService {
     double averageRecall = queries.isEmpty() ? 0.0 : totalRecall / queries.size();
     double averageF1Score = queries.isEmpty() ? 0.0 : totalF1Score / queries.size();
 
+    // 저장용 상세: 상품명/스펙 포함
+    List<PersistedQueryEvaluationDetail> persistedDetails =
+        buildPersistedDetails(queries, retrievalSize);
+
     EvaluationReport report =
         saveEvaluationReport(
             reportName,
@@ -117,7 +135,7 @@ public class EvaluationReportService {
             totalRelevantDocuments,
             totalRetrievedDocuments,
             totalCorrectDocuments,
-            queryDetails);
+            persistedDetails);
 
     log.info(
         "✅ 평가 실행 완료: Precision={:.3f}, Recall={:.3f}, F1={:.3f}",
@@ -235,14 +253,14 @@ public class EvaluationReportService {
       int totalRelevantDocs,
       int totalRetrievedDocs,
       int totalCorrectDocs,
-      List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails) {
+      List<PersistedQueryEvaluationDetail> queryDetails) {
     try {
       // JSON 직렬화 전 데이터 검증
       log.info("📝 리포트 저장 시작: {}, 쿼리 세부사항 {}개", reportName, queryDetails.size());
 
       // 각 쿼리 세부사항 검증
       for (int i = 0; i < queryDetails.size(); i++) {
-        EvaluationExecuteResponse.QueryEvaluationDetail detail = queryDetails.get(i);
+        PersistedQueryEvaluationDetail detail = queryDetails.get(i);
         if (detail == null) {
           log.warn("⚠️ null 쿼리 세부사항 발견: index {}", i);
           continue;
@@ -295,5 +313,122 @@ public class EvaluationReportService {
 
   public EvaluationReport getReportById(Long reportId) {
     return evaluationReportRepository.findById(reportId).orElse(null);
+  }
+
+  // 저장용 상세 생성: 상품명/스펙 포함
+  private List<PersistedQueryEvaluationDetail> buildPersistedDetails(
+      List<EvaluationQuery> queries, Integer retrievalSize) {
+    List<PersistedQueryEvaluationDetail> out = new ArrayList<>();
+    for (EvaluationQuery q : queries) {
+      try {
+        Set<String> relevant = getRelevantDocuments(q.getQuery());
+        Set<String> retrieved = getRetrievedDocuments(q.getQuery(), retrievalSize);
+        Set<String> correct = getIntersection(relevant, retrieved);
+        List<String> missingIds =
+            relevant.stream().filter(id -> !retrieved.contains(id)).toList();
+        List<String> wrongIds =
+            retrieved.stream().filter(id -> !relevant.contains(id)).toList();
+
+        Map<String, ProductDocument> productMap =
+            getProductsBulk(new ArrayList<>(union(missingIds, wrongIds)));
+
+        List<PersistedDocumentInfo> missingDocs =
+            missingIds.stream()
+                .map(
+                    id -> {
+                      ProductDocument p = productMap.get(id);
+                      return PersistedDocumentInfo.builder()
+                          .productId(id)
+                          .productName(p != null ? p.getNameRaw() : null)
+                          .productSpecs(p != null ? p.getSpecsRaw() : null)
+                          .build();
+                    })
+                .toList();
+
+        List<PersistedDocumentInfo> wrongDocs =
+            wrongIds.stream()
+                .map(
+                    id -> {
+                      ProductDocument p = productMap.get(id);
+                      return PersistedDocumentInfo.builder()
+                          .productId(id)
+                          .productName(p != null ? p.getNameRaw() : null)
+                          .productSpecs(p != null ? p.getSpecsRaw() : null)
+                          .build();
+                    })
+                .toList();
+
+        // 점수 계산 재사용
+        double precision = retrieved.isEmpty() ? 0.0 : (double) correct.size() / retrieved.size();
+        double recall = relevant.isEmpty() ? 0.0 : (double) correct.size() / relevant.size();
+        double f1 = (precision + recall) == 0.0 ? 0.0 : 2 * precision * recall / (precision + recall);
+
+        out.add(
+            PersistedQueryEvaluationDetail.builder()
+                .query(q.getQuery())
+                .precision(precision)
+                .recall(recall)
+                .f1Score(f1)
+                .relevantCount(relevant.size())
+                .retrievedCount(retrieved.size())
+                .correctCount(correct.size())
+                .missingDocuments(missingDocs)
+                .wrongDocuments(wrongDocs)
+                .build());
+      } catch (Exception e) {
+        log.warn("저장용 상세 생성 실패: {}", q.getQuery(), e);
+      }
+    }
+    return out;
+  }
+
+  private List<String> union(List<String> a, List<String> b) {
+    List<String> u = new ArrayList<>(a);
+    for (String x : b) if (!u.contains(x)) u.add(x);
+    return u;
+  }
+
+  private Map<String, ProductDocument> getProductsBulk(List<String> productIds) {
+    Map<String, ProductDocument> productMap = new HashMap<>();
+    if (productIds == null || productIds.isEmpty()) return productMap;
+    try {
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      MgetRequest.Builder builder = new MgetRequest.Builder().index(indexName);
+      for (String id : productIds) builder.ids(id);
+      MgetResponse<ProductDocument> response =
+          elasticsearchClient.mget(builder.build(), ProductDocument.class);
+      for (MultiGetResponseItem<ProductDocument> item : response.docs()) {
+        if (item.result() != null && item.result().found()) {
+          productMap.put(item.result().id(), item.result().source());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("제품 벌크 조회 실패: {}개", productIds.size(), e);
+    }
+    return productMap;
+  }
+
+  @Getter
+  @Builder
+  @AllArgsConstructor
+  private static class PersistedDocumentInfo {
+    private String productId;
+    private String productName;
+    private String productSpecs;
+  }
+
+  @Getter
+  @Builder
+  @AllArgsConstructor
+  private static class PersistedQueryEvaluationDetail {
+    private String query;
+    private Double precision;
+    private Double recall;
+    private Double f1Score;
+    private Integer relevantCount;
+    private Integer retrievedCount;
+    private Integer correctCount;
+    private List<PersistedDocumentInfo> missingDocuments;
+    private List<PersistedDocumentInfo> wrongDocuments;
   }
 }

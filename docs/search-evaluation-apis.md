@@ -100,4 +100,29 @@
 - 일괄 삭제: DELETE `/api/v1/evaluation/candidates`
   - 바디: `{ "ids": [1,2,3] }`
 
+### 7) 평가 실행 및 히스토리 저장 형식 변경
+- 메서드/경로: POST `/api/v1/evaluation/evaluate`
+- 설명: 평가 실행 시 저장되는 리포트의 상세(JSON)에 상품명/스펙이 포함되도록 변경됨
+- 저장(JSON) 구조 예시(detailedResults)
+```
+[
+  {
+    "query": "27인치 100Hz 모니터",
+    "precision": 0.80,
+    "recall": 0.70,
+    "f1Score": 0.75,
+    "relevantCount": 120,
+    "retrievedCount": 100,
+    "correctCount": 80,
+    "missingDocuments": [
+      { "productId": "A1", "productName": "삼성 27인치", "productSpecs": "27인치|100Hz" }
+    ],
+    "wrongDocuments": [
+      { "productId": "B2", "productName": "LG 24인치", "productSpecs": "24인치|60Hz" }
+    ]
+  }
+]
+```
+- 비고: API 응답 스키마는 기존과 동일하며 저장되는 히스토리(JSON)만 상품명/스펙 포함으로 변경
+
 
