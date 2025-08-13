@@ -22,6 +22,10 @@ docker compose down
 echo "🧹 이전 Docker 이미지 정리..."
 docker image prune -f
 
+# 사용하지 않는 Docker 볼륨 정리
+echo "🧽 사용하지 않는 Docker 볼륨 정리..."
+docker volume prune -f
+
 # 새 Docker 이미지 빌드
 echo "🏗️ 새 Docker 이미지 빌드..."
 docker build -t search-admin-be:latest .
