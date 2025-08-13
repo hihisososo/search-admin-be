@@ -332,7 +332,7 @@ public class LLMCandidateEvaluationService {
         .id(mapping.getId())
         .evaluationQuery(mapping.getEvaluationQuery())
         .productId(mapping.getProductId())
-        .relevanceStatus(RelevanceStatus.IRRELEVANT)
+        .relevanceStatus(RelevanceStatus.UNSPECIFIED)
         .evaluationReason("평가 실패: " + errorMessage + " (신뢰도: 0.00)")
         .evaluationSource(EVALUATION_SOURCE_LLM)
         .build();

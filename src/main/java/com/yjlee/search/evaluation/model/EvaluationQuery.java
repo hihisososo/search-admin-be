@@ -43,6 +43,10 @@ public class EvaluationQuery {
   @Column(nullable = false)
   Integer count;
 
+  @Column(nullable = false)
+  @Builder.Default
+  Boolean reviewed = false;
+
   @OneToMany(
       mappedBy = "evaluationQuery",
       cascade = CascadeType.ALL,

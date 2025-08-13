@@ -40,24 +40,19 @@ public class SearchBasedGroundTruthService {
   public void generateCandidatesFromSearch() {
     log.info("🔍 전체 모든 쿼리의 정답 후보군 생성 시작 (각 검색방식 100개씩, 최대 300개)");
 
-    // 1. 모든 기존 매핑 삭제
     log.info("기존 매핑 전체 삭제");
     queryProductMappingRepository.deleteAll();
 
-    // 2. 모든 쿼리 조회
     List<EvaluationQuery> queries = evaluationQueryRepository.findAll();
     log.info("총 처리할 쿼리: {}개", queries.size());
 
-    // 3. 벌크 임베딩 생성 (한번에 모든 쿼리)
     List<String> queryTexts =
         queries.stream().map(EvaluationQuery::getQuery).collect(Collectors.toList());
 
-    // 3. 벌크 임베딩 생성 (한번에 모든 쿼리)
     log.info("전체 모든 쿼리 벌크 임베딩 생성 시작: {}개", queryTexts.size());
     List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(queryTexts);
     log.info("벌크 임베딩 생성 완료");
 
-    // 4. 쿼리별로 후보 생성 (미리 생성한 임베딩 사용)
     List<QueryProductMapping> mappings = new ArrayList<>();
 
     for (int i = 0; i < queries.size(); i++) {
@@ -67,13 +62,12 @@ public class SearchBasedGroundTruthService {
         Set<String> allCandidates =
             collectCandidatesForQueryWithEmbedding(query.getQuery(), queryEmbedding);
 
-        // 각 후보를 개별 매핑으로 저장
         for (String productId : allCandidates) {
           QueryProductMapping mapping =
               QueryProductMapping.builder()
                   .evaluationQuery(query)
                   .productId(productId)
-                  .relevanceStatus(RelevanceStatus.UNSPECIFIED) // 미평가로 시작
+                  .relevanceStatus(RelevanceStatus.UNSPECIFIED)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
           mappings.add(mapping);
@@ -98,7 +92,6 @@ public class SearchBasedGroundTruthService {
     List<EvaluationQuery> queries = evaluationQueryRepository.findAllById(queryIds);
     log.info("총 처리할 쿼리: {}개", queries.size());
 
-    // 1. 선택된 쿼리들의 기존 매핑 삭제
     if (!queries.isEmpty()) {
       log.info("선택된 쿼리들의 기존 매핑 삭제: {}개", queries.size());
       for (EvaluationQuery query : queries) {
@@ -111,14 +104,12 @@ public class SearchBasedGroundTruthService {
       }
     }
 
-    // 2. 벌크 임베딩 생성 (선택된 쿼리들만)
     List<String> queryTexts =
         queries.stream().map(EvaluationQuery::getQuery).collect(Collectors.toList());
     log.info("선택된 쿼리의 벌크 임베딩 생성 시작: {}개", queryTexts.size());
     List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(queryTexts);
     log.info("벌크 임베딩 생성 완료");
 
-    // 3. 쿼리별로 후보 생성 (미리 생성한 임베딩 사용)
     List<QueryProductMapping> mappings = new ArrayList<>();
 
     for (int i = 0; i < queries.size(); i++) {
@@ -128,13 +119,12 @@ public class SearchBasedGroundTruthService {
         Set<String> allCandidates =
             collectCandidatesForQueryWithEmbedding(query.getQuery(), queryEmbedding);
 
-        // 각 후보를 개별 매핑으로 저장
         for (String productId : allCandidates) {
           QueryProductMapping mapping =
               QueryProductMapping.builder()
                   .evaluationQuery(query)
                   .productId(productId)
-                  .relevanceStatus(RelevanceStatus.UNSPECIFIED) // 미평가로 시작
+                  .relevanceStatus(RelevanceStatus.UNSPECIFIED)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
           mappings.add(mapping);
@@ -154,54 +144,35 @@ public class SearchBasedGroundTruthService {
         mappings.size());
   }
 
-  private Set<String> collectCandidatesForQuery(String query) {
-    Set<String> allCandidates = new LinkedHashSet<>();
+  /** 저장 없이 쿼리의 후보 상품 ID 집합을 계산하여 반환 (드라이런) 최대 300개 제한 로직을 그대로 따릅니다. */
+  public Set<String> getCandidateIdsForQuery(String query) {
+    try {
+      float[] embedding = null;
+      try {
+        embedding = embeddingService.getEmbedding(query);
+      } catch (Exception e) {
+        log.warn("임베딩 생성 실패, 임베딩 없이 후보 수집 진행: {}", query);
+      }
 
-    // 1. Vector 검색 (결합 컨텐츠: name + specs) - 100개
-    allCandidates.addAll(searchByVector(query, "name_specs_vector"));
-
-    // 2. 형태소분석 검색 (name) - 100개
-    allCandidates.addAll(searchByAnalyzer(query, "name"));
-
-    // 3. 형태소분석 검색 (specs) - 100개
-    allCandidates.addAll(searchByAnalyzer(query, "specs"));
-
-    // 4. Bigram 검색 (name) - 100개
-    allCandidates.addAll(searchByBigram(query, "name.bigram"));
-
-    // 5. Bigram 검색 (specs) - 100개
-    allCandidates.addAll(searchByBigram(query, "specs.bigram"));
-
-    // 최대 300개로 제한 (중복 제거된 상태에서)
-    return allCandidates.stream().limit(300).collect(Collectors.toCollection(LinkedHashSet::new));
+      return collectCandidatesForQueryWithEmbedding(query, embedding);
+    } catch (Exception e) {
+      log.warn("쿼리 후보 드라이런 실패: {}", query, e);
+      return new LinkedHashSet<>();
+    }
   }
 
   private Set<String> collectCandidatesForQueryWithEmbedding(String query, float[] queryEmbedding) {
     Set<String> allCandidates = new LinkedHashSet<>();
 
-    // 1. Vector 검색 (미리 생성한 임베딩 사용) - 100개
     if (queryEmbedding != null) {
       allCandidates.addAll(searchByVectorWithEmbedding(queryEmbedding, "name_specs_vector"));
     }
 
-    // 2. 형태소분석 cross field 검색 (name, specs) - 100개
     allCandidates.addAll(searchByCrossField(query, new String[] {"name", "specs"}));
 
-    // 3. Bigram cross field 검색 (name.bigram, specs.bigram) - 100개
     allCandidates.addAll(searchByCrossField(query, new String[] {"name.bigram", "specs.bigram"}));
 
-    // 최대 300개로 제한 (중복 제거된 상태에서)
     return allCandidates.stream().limit(300).collect(Collectors.toCollection(LinkedHashSet::new));
-  }
-
-  private List<String> searchByVector(String query, String vectorField) {
-    try {
-      float[] embedding = embeddingService.getEmbedding(query);
-      return searchByVectorWithEmbedding(embedding, vectorField);
-    } catch (Exception e) {
-      log.warn("Vector 검색 실패: {}", vectorField, e);
-      return new ArrayList<>();
-    }
   }
 
   private List<String> searchByVectorWithEmbedding(float[] embedding, String vectorField) {
@@ -215,7 +186,7 @@ public class SearchBasedGroundTruthService {
           SearchRequest.of(
               s ->
                   s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
-                      .size(100) // 100개로 수정
+                      .size(100)
                       .minScore(0.85)
                       .query(
                           q ->
@@ -235,55 +206,13 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  private List<String> searchByAnalyzer(String query, String field) {
-    try {
-      SearchRequest request =
-          SearchRequest.of(
-              s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
-                      .size(100) // 50에서 100으로 수정
-                      .query(
-                          q ->
-                              q.bool(
-                                  b -> b.must(m -> m.match(ma -> ma.field(field).query(query))))));
-
-      SearchResponse<ProductDocument> response =
-          elasticsearchClient.search(request, ProductDocument.class);
-      return extractProductIds(response);
-    } catch (Exception e) {
-      log.warn("형태소분석 검색 실패: {}", field, e);
-      return new ArrayList<>();
-    }
-  }
-
-  private List<String> searchByBigram(String query, String field) {
-    try {
-      SearchRequest request =
-          SearchRequest.of(
-              s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
-                      .size(100) // 50에서 100으로 수정
-                      .query(
-                          q ->
-                              q.bool(
-                                  b -> b.must(m -> m.match(ma -> ma.field(field).query(query))))));
-
-      SearchResponse<ProductDocument> response =
-          elasticsearchClient.search(request, ProductDocument.class);
-      return extractProductIds(response);
-    } catch (Exception e) {
-      log.warn("Bigram 검색 실패: {}", field, e);
-      return new ArrayList<>();
-    }
-  }
-
   private List<String> searchByCrossField(String query, String[] fields) {
     try {
       SearchRequest request =
           SearchRequest.of(
               s ->
                   s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
-                      .size(100) // 50에서 100으로 수정
+                      .size(100)
                       .query(
                           q ->
                               q.multiMatch(

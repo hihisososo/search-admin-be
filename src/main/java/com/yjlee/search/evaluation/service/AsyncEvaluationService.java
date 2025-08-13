@@ -3,9 +3,13 @@ package com.yjlee.search.evaluation.service;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
 import com.yjlee.search.evaluation.dto.GenerateQueriesRequest;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
+import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
 import com.yjlee.search.evaluation.model.AsyncTask;
 import com.yjlee.search.evaluation.model.AsyncTaskType;
+import com.yjlee.search.evaluation.model.EvaluationQuery;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -20,6 +24,67 @@ public class AsyncEvaluationService {
   private final QueryGenerationService queryGenerationService;
   private final SearchBasedGroundTruthService groundTruthService;
   private final LLMCandidateEvaluationService llmEvaluationService;
+  private final EvaluationQueryService evaluationQueryService;
+
+  public Long startLLMQueryGeneration(LLMQueryGenerateRequest request) {
+    AsyncTask task =
+        asyncTaskService.createTask(AsyncTaskType.QUERY_GENERATION, "LLM 쿼리 생성 준비 중...");
+    generateLLMQueriesAsync(task.getId(), request);
+    return task.getId();
+  }
+
+  @Async("evaluationTaskExecutor")
+  public void generateLLMQueriesAsync(Long taskId, LLMQueryGenerateRequest request) {
+    try {
+      asyncTaskService.updateProgress(taskId, 10, "LLM 쿼리 생성 시작...");
+
+      int target = request.getCount();
+      int minC = request.getMinCandidates() != null ? request.getMinCandidates() : 60;
+      int maxC = request.getMaxCandidates() != null ? request.getMaxCandidates() : 200;
+
+      List<String> pool =
+          (request.getCategory() == null || request.getCategory().isBlank())
+              ? queryGenerationService.generateQueriesPreview(target * 3)
+              : queryGenerationService.generateQueriesPreviewWithCategory(
+                  target * 3, request.getCategory());
+
+      List<String> accepted = new ArrayList<>();
+
+      for (String q : pool) {
+        if (accepted.size() >= target) break;
+        Set<String> ids = groundTruthService.getCandidateIdsForQuery(q);
+        int c = ids.size();
+        if (c >= minC && c <= maxC) {
+          EvaluationQuery eq = evaluationQueryService.createQuerySafely(q);
+          generateCandidatesForOne(eq);
+          accepted.add(q);
+          asyncTaskService.updateProgress(
+              taskId,
+              Math.min(80, 10 + (accepted.size() * 60 / target)),
+              String.format("생성/저장: %d/%d", accepted.size(), target));
+        }
+      }
+
+      asyncTaskService.updateProgress(taskId, 90, "정리 중...");
+      asyncTaskService.completeTask(
+          taskId,
+          QueryGenerationResult.builder()
+              .generatedCount(accepted.size())
+              .requestedCount(target)
+              .queries(accepted)
+              .build());
+    } catch (Exception e) {
+      asyncTaskService.failTask(taskId, "LLM 쿼리 생성 실패: " + e.getMessage());
+    }
+  }
+
+  private void generateCandidatesForOne(EvaluationQuery eq) {
+    try {
+      generateCandidatesAsync(
+          0L, GenerateCandidatesRequest.builder().queryIds(List.of(eq.getId())).build());
+    } catch (Exception ignored) {
+    }
+  }
 
   public Long startQueryGeneration(GenerateQueriesRequest request) {
     AsyncTask task = asyncTaskService.createTask(AsyncTaskType.QUERY_GENERATION, "쿼리 자동생성 준비 중...");
@@ -50,12 +115,10 @@ public class AsyncEvaluationService {
 
       asyncTaskService.updateProgress(taskId, 10, "쿼리 생성 시작...");
 
-      // 실제 쿼리 생성 (진행상황 업데이트를 위해 수정된 버전 필요)
       List<String> generatedQueries = generateQueriesWithProgress(taskId, request.getCount());
 
       asyncTaskService.updateProgress(taskId, 90, "생성된 쿼리 저장 중...");
 
-      // 결과 저장
       QueryGenerationResult result =
           QueryGenerationResult.builder()
               .generatedCount(generatedQueries.size())

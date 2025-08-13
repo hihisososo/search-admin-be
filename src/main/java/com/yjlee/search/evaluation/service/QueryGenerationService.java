@@ -79,6 +79,135 @@ public class QueryGenerationService {
     }
   }
 
+  /** 프리뷰용 쿼리 생성: 저장하지 않고 query-generation.txt 프롬프트로만 생성 결과를 반환 */
+  public List<String> generateQueriesPreview(int count) {
+    try {
+      log.info("[PREVIEW] 쿼리 생성 시작: {}개", count);
+
+      Set<String> generated = new HashSet<>();
+      int attempts = 0;
+      int maxAttempts = count * 5;
+
+      while (generated.size() < count && attempts < maxAttempts) {
+        int batchSize = 20;
+        List<ProductInfoDto> products = fetchRandomProducts(batchSize);
+
+        if (!products.isEmpty()) {
+          try {
+            String prompt = buildBulkQueryPrompt(products);
+            String response = llmService.callLLMAPI(prompt);
+            List<String> batchQueries = extractQueriesFromBulkResponse(response);
+
+            for (String q : batchQueries) {
+              if (q != null && !q.trim().isEmpty() && isValidQuery(q) && !generated.contains(q)) {
+                generated.add(q.trim());
+                if (generated.size() >= count) break;
+              }
+            }
+          } catch (Exception e) {
+            log.warn("[PREVIEW] 벌크 쿼리 생성 중 오류", e);
+          }
+        }
+        attempts++;
+      }
+
+      List<String> result = new ArrayList<>(generated);
+      log.info("[PREVIEW] 쿼리 생성 완료: {}개", result.size());
+      return result;
+
+    } catch (Exception e) {
+      log.error("[PREVIEW] 쿼리 생성 실패", e);
+      return new ArrayList<>();
+    }
+  }
+
+  /** 카테고리 옵션을 적용한 프리뷰 생성(저장 없음) */
+  public List<String> generateQueriesPreviewWithCategory(int count, String category) {
+    try {
+      log.info("[PREVIEW] 쿼리 생성(카테고리) 시작: {}개, category={} ", count, category);
+
+      Set<String> generated = new HashSet<>();
+      int attempts = 0;
+      int maxAttempts = count * 5;
+
+      while (generated.size() < count && attempts < maxAttempts) {
+        int batchSize = 20;
+        List<ProductInfoDto> products = fetchRandomProductsByCategory(batchSize, category);
+
+        if (!products.isEmpty()) {
+          try {
+            String prompt = buildBulkQueryPrompt(products);
+            String response = llmService.callLLMAPI(prompt);
+            List<String> batchQueries = extractQueriesFromBulkResponse(response);
+
+            for (String q : batchQueries) {
+              if (q != null && !q.trim().isEmpty() && isValidQuery(q) && !generated.contains(q)) {
+                generated.add(q.trim());
+                if (generated.size() >= count) break;
+              }
+            }
+          } catch (Exception e) {
+            log.warn("[PREVIEW] 벌크 쿼리 생성(카테고리) 오류", e);
+          }
+        }
+        attempts++;
+      }
+
+      List<String> result = new ArrayList<>(generated);
+      log.info("[PREVIEW] 쿼리 생성(카테고리) 완료: {}개", result.size());
+      return result;
+
+    } catch (Exception e) {
+      log.error("[PREVIEW] 쿼리 생성(카테고리) 실패", e);
+      return new ArrayList<>();
+    }
+  }
+
+  private List<ProductInfoDto> fetchRandomProductsByCategory(int count, String category) {
+    try {
+      SearchRequest request =
+          SearchRequest.of(
+              s ->
+                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
+                      .size(count)
+                      .query(
+                          q ->
+                              q.bool(
+                                  b ->
+                                      b.must(
+                                              m ->
+                                                  m.match(
+                                                      mm ->
+                                                          mm.field(ESFields.CATEGORY)
+                                                              .query(category)))
+                                          .must(
+                                              m ->
+                                                  m.functionScore(
+                                                      fs ->
+                                                          fs.functions(
+                                                              f -> f.randomScore(rs -> rs))))))
+                      .source(
+                          src ->
+                              src.filter(
+                                  f ->
+                                      f.includes(
+                                          ESFields.PRODUCT_NAME_RAW, ESFields.PRODUCT_SPECS_RAW))));
+
+      SearchResponse<ProductDocument> response =
+          elasticsearchClient.search(request, ProductDocument.class);
+
+      return response.hits().hits().stream()
+          .map(hit -> hit.source())
+          .filter(src -> src != null && isValidProduct(src))
+          .map(src -> new ProductInfoDto("", src.getNameRaw().trim(), src.getSpecsRaw()))
+          .collect(Collectors.toList());
+
+    } catch (Exception e) {
+      log.error("카테고리 랜덤 상품 조회 실패", e);
+      throw new RuntimeException("카테고리 랜덤 상품 조회 중 오류가 발생했습니다", e);
+    }
+  }
+
   private List<ProductInfoDto> fetchRandomProducts(int count) {
     try {
       SearchRequest request =
@@ -98,11 +227,9 @@ public class QueryGenerationService {
           elasticsearchClient.search(request, ProductDocument.class);
 
       return response.hits().hits().stream()
-          .filter(hit -> hit.source() != null && isValidProduct(hit.source()))
-          .map(
-              hit ->
-                  new ProductInfoDto(
-                      hit.id(), hit.source().getNameRaw().trim(), hit.source().getSpecsRaw()))
+          .map(hit -> hit.source())
+          .filter(src -> src != null && isValidProduct(src))
+          .map(src -> new ProductInfoDto("", src.getNameRaw().trim(), src.getSpecsRaw()))
           .collect(Collectors.toList());
 
     } catch (Exception e) {
