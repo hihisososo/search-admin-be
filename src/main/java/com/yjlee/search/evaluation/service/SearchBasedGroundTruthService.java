@@ -15,6 +15,7 @@ import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
+import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
 import java.util.ArrayList;
