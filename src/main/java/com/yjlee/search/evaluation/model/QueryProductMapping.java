@@ -38,6 +38,12 @@ public class QueryProductMapping {
   @Column(nullable = false)
   String productId;
 
+  @Column(name = "product_name", columnDefinition = "TEXT")
+  String productName;
+
+  @Column(name = "product_specs", columnDefinition = "TEXT")
+  String productSpecs;
+
   @Enumerated(EnumType.STRING)
   @Column(length = 20)
   @Builder.Default

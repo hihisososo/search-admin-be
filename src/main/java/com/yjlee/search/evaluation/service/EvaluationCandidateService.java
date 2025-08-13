@@ -5,7 +5,7 @@ import static com.yjlee.search.evaluation.constants.EvaluationConstants.EVALUATI
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.GetRequest;
 import co.elastic.clients.elasticsearch.core.GetResponse;
-import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.model.RelevanceStatus;
@@ -28,6 +28,7 @@ public class EvaluationCandidateService {
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final ElasticsearchClient elasticsearchClient;
+  private final com.yjlee.search.search.service.IndexResolver indexResolver;
 
   public List<QueryProductMapping> getQueryMappings(String query) {
     Optional<EvaluationQuery> evaluationQuery = evaluationQueryRepository.findByQuery(query);
@@ -39,8 +40,8 @@ public class EvaluationCandidateService {
 
   public ProductDocument getProductDetails(String productId) {
     try {
-      GetRequest request =
-          GetRequest.of(g -> g.index(ESFields.PRODUCTS_SEARCH_ALIAS).id(productId));
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      GetRequest request = GetRequest.of(g -> g.index(indexName).id(productId));
       GetResponse<ProductDocument> response =
           elasticsearchClient.get(request, ProductDocument.class);
       return response.found() ? response.source() : null;
@@ -65,10 +66,13 @@ public class EvaluationCandidateService {
     if (existingMapping.isPresent()) {
       return existingMapping.get();
     } else {
+      ProductDocument product = getProductDetails(productId.trim());
       QueryProductMapping mapping =
           QueryProductMapping.builder()
               .evaluationQuery(evaluationQuery)
               .productId(productId.trim())
+              .productName(product != null ? product.getNameRaw() : null)
+              .productSpecs(product != null ? product.getSpecsRaw() : null)
               .relevanceStatus(RelevanceStatus.UNSPECIFIED) // 미지정으로 시작
               .evaluationSource(EVALUATION_SOURCE_USER)
               .build();
@@ -96,16 +100,21 @@ public class EvaluationCandidateService {
               .id(mapping.getId())
               .evaluationQuery(evaluationQuery)
               .productId(productId)
+              .productName(mapping.getProductName())
+              .productSpecs(mapping.getProductSpecs())
               .relevanceStatus(relevanceStatus)
               .evaluationReason(reason)
               .evaluationSource(EVALUATION_SOURCE_USER)
               .build();
       return queryProductMappingRepository.save(updatedMapping);
     } else {
+      ProductDocument product = getProductDetails(productId.trim());
       QueryProductMapping mapping =
           QueryProductMapping.builder()
               .evaluationQuery(evaluationQuery)
               .productId(productId.trim())
+              .productName(product != null ? product.getNameRaw() : null)
+              .productSpecs(product != null ? product.getSpecsRaw() : null)
               .relevanceStatus(relevanceStatus)
               .evaluationReason(reason)
               .evaluationSource(EVALUATION_SOURCE_USER)
@@ -128,6 +137,8 @@ public class EvaluationCandidateService {
               .id(mapping.getId())
               .evaluationQuery(mapping.getEvaluationQuery())
               .productId(mapping.getProductId())
+              .productName(mapping.getProductName())
+              .productSpecs(mapping.getProductSpecs())
               .relevanceStatus(relevanceStatus)
               .evaluationReason(reason)
               .evaluationSource(EVALUATION_SOURCE_USER)

@@ -8,14 +8,15 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.util.TextPreprocessor;
+import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
+import com.yjlee.search.search.service.IndexResolver;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SearchBasedGroundTruthService {
 
   private final ElasticsearchClient elasticsearchClient;
+  private final IndexResolver indexResolver;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final OpenAIEmbeddingService embeddingService;
@@ -63,10 +65,13 @@ public class SearchBasedGroundTruthService {
             collectCandidatesForQueryWithEmbedding(query.getQuery(), queryEmbedding);
 
         for (String productId : allCandidates) {
+          ProductDocument product = fetchProduct(productId);
           QueryProductMapping mapping =
               QueryProductMapping.builder()
                   .evaluationQuery(query)
                   .productId(productId)
+                  .productName(product != null ? product.getNameRaw() : null)
+                  .productSpecs(product != null ? product.getSpecsRaw() : null)
                   .relevanceStatus(RelevanceStatus.UNSPECIFIED)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
@@ -120,10 +125,13 @@ public class SearchBasedGroundTruthService {
             collectCandidatesForQueryWithEmbedding(query.getQuery(), queryEmbedding);
 
         for (String productId : allCandidates) {
+          ProductDocument product = fetchProduct(productId);
           QueryProductMapping mapping =
               QueryProductMapping.builder()
                   .evaluationQuery(query)
                   .productId(productId)
+                  .productName(product != null ? product.getNameRaw() : null)
+                  .productSpecs(product != null ? product.getSpecsRaw() : null)
                   .relevanceStatus(RelevanceStatus.UNSPECIFIED)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
@@ -182,10 +190,11 @@ public class SearchBasedGroundTruthService {
         queryVector.add(f);
       }
 
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
       SearchRequest request =
           SearchRequest.of(
               s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
+                  s.index(indexName)
                       .size(100)
                       .minScore(0.85)
                       .query(
@@ -208,10 +217,11 @@ public class SearchBasedGroundTruthService {
 
   private List<String> searchByCrossField(String query, String[] fields) {
     try {
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
       SearchRequest request =
           SearchRequest.of(
               s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
+                  s.index(indexName)
                       .size(100)
                       .query(
                           q ->
@@ -237,5 +247,17 @@ public class SearchBasedGroundTruthService {
       ids.add(hit.id());
     }
     return ids;
+  }
+
+  private ProductDocument fetchProduct(String productId) {
+    try {
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      var res =
+          elasticsearchClient.get(g -> g.index(indexName).id(productId), ProductDocument.class);
+      return res.found() ? res.source() : null;
+    } catch (Exception e) {
+      log.warn("상품 상세 조회 실패: {}", productId);
+      return null;
+    }
   }
 }

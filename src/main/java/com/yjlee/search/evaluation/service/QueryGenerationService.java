@@ -5,10 +5,12 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.util.PromptTemplateLoader;
+import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.ProductInfoDto;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.index.dto.ProductDocument;
+import com.yjlee.search.search.service.IndexResolver;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 public class QueryGenerationService {
 
   private final ElasticsearchClient elasticsearchClient;
+  private final IndexResolver indexResolver;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final LLMService llmService;
   private final PromptTemplateLoader promptTemplateLoader;
@@ -165,10 +168,11 @@ public class QueryGenerationService {
 
   private List<ProductInfoDto> fetchRandomProductsByCategory(int count, String category) {
     try {
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
       SearchRequest request =
           SearchRequest.of(
               s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
+                  s.index(indexName)
                       .size(count)
                       .query(
                           q ->
@@ -210,10 +214,11 @@ public class QueryGenerationService {
 
   private List<ProductInfoDto> fetchRandomProducts(int count) {
     try {
+      String indexName2 = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
       SearchRequest request =
           SearchRequest.of(
               s ->
-                  s.index(ESFields.PRODUCTS_SEARCH_ALIAS)
+                  s.index(indexName2)
                       .size(count)
                       .query(q -> q.functionScore(fs -> fs.functions(f -> f.randomScore(rs -> rs))))
                       .source(
