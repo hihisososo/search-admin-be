@@ -36,8 +36,6 @@ public class SearchBasedGroundTruthService {
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final OpenAIEmbeddingService embeddingService;
 
-  
-
   @Transactional
   public void generateCandidatesFromSearch() {
     log.info("🔍 전체 모든 쿼리의 정답 후보군 생성 시작 (각 검색방식 100개씩, 최대 300개)");
@@ -208,8 +206,6 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  
-
   private List<String> searchByCrossField(String query, String[] fields) {
     try {
       SearchRequest request =
@@ -235,8 +231,6 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  
-
   private List<String> extractProductIds(SearchResponse<ProductDocument> response) {
     List<String> ids = new ArrayList<>();
     for (Hit<ProductDocument> hit : response.hits().hits()) {
@@ -244,6 +238,4 @@ public class SearchBasedGroundTruthService {
     }
     return ids;
   }
-
-  
 }

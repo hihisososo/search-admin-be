@@ -53,7 +53,6 @@ public class EvaluationSetController {
   private final QuerySuggestService querySuggestService;
   private final CategoryService categoryService;
   private final EvaluationStatisticsService evaluationStatisticsService;
-  
 
   @GetMapping("/queries")
   @Operation(summary = "평가 쿼리 리스트 조회")
@@ -81,8 +80,6 @@ public class EvaluationSetController {
             .build();
     return ResponseEntity.ok(response);
   }
-
-  
 
   @GetMapping("/queries/recommend")
   @Operation(summary = "평가 쿼리 추천")
