@@ -13,7 +13,7 @@ public class ESFields {
   public static final String PRICE = "price";
   public static final String RATING = "rating";
   public static final String REVIEW_COUNT = "review_count";
-  public static final String REGISTERED_MONTH = "registered_month";
+  public static final String REGISTERED_MONTH = "reg_month";
   public static final String PRODUCT_NAME_RAW = "name_raw";
   public static final String PRODUCT_SPECS_RAW = "specs_raw";
 
