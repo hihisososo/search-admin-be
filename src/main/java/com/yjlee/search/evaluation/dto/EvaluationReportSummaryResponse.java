@@ -25,5 +25,3 @@ public class EvaluationReportSummaryResponse {
   private Integer totalCorrectDocuments;
   private LocalDateTime createdAt;
 }
-
-
