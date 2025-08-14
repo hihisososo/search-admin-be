@@ -28,6 +28,8 @@ public class ProductIndexingService {
   private final ElasticsearchClient elasticsearchClient;
   private final ProductDocumentFactory documentFactory;
   private final AutocompleteDocumentFactory autocompleteFactory;
+  @Value("${app.indexing.skip-vector:true}")
+  private boolean skipVectorIndexing;
 
   @Value("${app.indexing.skip-vector:true}")
   private boolean skipVectorIndexing;
