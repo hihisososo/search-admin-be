@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,17 +34,8 @@ public class TypoCorrectionRecommendationService {
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final TypoCorrectionRecommendationRepository recommendationRepository;
 
-  // prompt 기반은 더 이상 사용하지 않으므로 의존성 제거
-  // private final PromptTemplateLoader promptTemplateLoader;
-
-  @Value("${app.recommendation.typo.parallelism:4}")
-  private int parallelism;
-
   private final LLMService llmService;
   private final PromptTemplateLoader promptTemplateLoader;
-
-  // 남아있는 유틸 메서드/상수 제거 (LLM 모드)
-  // no-op placeholders removed (LLM 모드 단순화)
 
   @Transactional
   public void generateRecommendations(TypoCorrectionRecommendationRequest request) {
@@ -113,8 +103,7 @@ public class TypoCorrectionRecommendationService {
       AtomicInteger processedBatches = new AtomicInteger(0);
 
       // 동시성 완화: 타임아웃 빈도 줄이기 위해 병렬도도 완만하게 적용
-      ExecutorService executor =
-          Executors.newFixedThreadPool(Math.max(1, Math.min(4, parallelism)));
+      ExecutorService executor = Executors.newFixedThreadPool(4);
       List<Future<?>> futures = new ArrayList<>();
 
       for (int i = 0; i < productNames.size(); i += nameBatchSize) {

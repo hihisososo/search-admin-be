@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -42,10 +43,10 @@ public class StatsController {
           LocalDateTime to) {
 
     if (from == null) {
-      from = LocalDateTime.now().minusDays(7);
+      from = LocalDateTime.now(ZoneOffset.UTC).minusDays(7);
     }
     if (to == null) {
-      to = LocalDateTime.now();
+      to = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     log.info("대시보드 통계 조회 - 기간: {} ~ {}", from, to);
@@ -73,10 +74,10 @@ public class StatsController {
           int limit) {
 
     if (from == null) {
-      from = LocalDateTime.now().minusDays(7);
+      from = LocalDateTime.now(ZoneOffset.UTC).minusDays(7);
     }
     if (to == null) {
-      to = LocalDateTime.now();
+      to = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     log.info("인기검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
@@ -104,10 +105,10 @@ public class StatsController {
           String interval) {
 
     if (from == null) {
-      from = LocalDateTime.now().minusDays(7);
+      from = LocalDateTime.now(ZoneOffset.UTC).minusDays(7);
     }
     if (to == null) {
-      to = LocalDateTime.now();
+      to = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     log.info("시계열 추이 조회 - 기간: {} ~ {}, 간격: {}", from, to, interval);
@@ -135,10 +136,10 @@ public class StatsController {
           int limit) {
 
     if (from == null) {
-      from = LocalDateTime.now().minusDays(7);
+      from = LocalDateTime.now(ZoneOffset.UTC).minusDays(7);
     }
     if (to == null) {
-      to = LocalDateTime.now();
+      to = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     log.info("급등검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);

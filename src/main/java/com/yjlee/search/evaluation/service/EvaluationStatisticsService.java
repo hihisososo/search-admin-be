@@ -32,8 +32,8 @@ public class EvaluationStatisticsService {
   private final EvaluationQueryService evaluationQueryService;
 
   public List<EvaluationQueryListResponse.EvaluationQueryDto> getQueriesWithStats(
-      String sortBy, String sortDirection) {
-    log.info("📊 쿼리 통계 조회: 정렬={} {}", sortBy, sortDirection);
+      String sortBy, String sortDirection, String queryFilter) {
+    log.info("📊 쿼리 통계 조회: 정렬={} {}, 필터={}", sortBy, sortDirection, queryFilter);
 
     // N+1 문제 해결: 한 번의 쿼리로 모든 통계 조회
     List<QueryStatsDto> statsData = queryProductMappingRepository.findQueryStats();
@@ -41,6 +41,14 @@ public class EvaluationStatisticsService {
         statsData.stream().collect(Collectors.toMap(QueryStatsDto::getQuery, stats -> stats));
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
+
+    if (queryFilter != null && !queryFilter.trim().isEmpty()) {
+      String lowered = queryFilter.toLowerCase();
+      queries =
+          queries.stream()
+              .filter(q -> q.getQuery() != null && q.getQuery().toLowerCase().contains(lowered))
+              .collect(Collectors.toList());
+    }
 
     List<EvaluationQueryListResponse.EvaluationQueryDto> queryDtos =
         queries.stream()

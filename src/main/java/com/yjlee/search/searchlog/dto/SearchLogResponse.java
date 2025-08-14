@@ -13,7 +13,7 @@ public class SearchLogResponse {
   @Schema(description = "로그 ID", example = "es_doc_id_123")
   private String id;
 
-  @Schema(description = "검색 실행 시간", example = "2025-01-23T14:30:25")
+  @Schema(description = "검색 실행 시간", example = "2025-01-23T14:30:25Z")
   private LocalDateTime timestamp;
 
   @Schema(description = "검색 키워드", example = "삼성 갤럭시")

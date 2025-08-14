@@ -25,12 +25,12 @@ public class AsyncTaskResponse {
   private String errorMessage;
   private String result;
 
-  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+  @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'")
   private LocalDateTime createdAt;
 
-  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+  @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'")
   private LocalDateTime startedAt;
 
-  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+  @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'")
   private LocalDateTime completedAt;
 }
