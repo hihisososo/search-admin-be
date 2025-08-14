@@ -2,33 +2,37 @@ package com.yjlee.search.evaluation.dto;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class EvaluationExecuteResponse {
+public class EvaluationReportDetailResponse {
 
-  private Long reportId;
+  private Long id;
   private String reportName;
+  private Integer totalQueries;
   private Double averagePrecision;
   private Double averageRecall;
   private Double averageF1Score;
-  private Integer totalQueries;
   private Integer totalRelevantDocuments;
   private Integer totalRetrievedDocuments;
   private Integer totalCorrectDocuments;
-  private List<QueryEvaluationDetail> queryDetails;
   private LocalDateTime createdAt;
+  private List<QueryDetail> queryDetails;
 
   @Getter
   @Setter
   @NoArgsConstructor
   @AllArgsConstructor
   @Builder
-  public static class QueryEvaluationDetail {
+  public static class QueryDetail {
     private String query;
     private Double precision;
     private Double recall;
@@ -51,3 +55,5 @@ public class EvaluationExecuteResponse {
     private String productSpecs;
   }
 }
+
+

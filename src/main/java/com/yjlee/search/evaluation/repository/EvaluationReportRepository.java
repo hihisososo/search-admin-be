@@ -18,4 +18,7 @@ public interface EvaluationReportRepository extends JpaRepository<EvaluationRepo
   List<EvaluationReport> findByReportNameContaining(String keyword);
 
   EvaluationReport findTopByOrderByCreatedAtDesc();
+
+  // 제목 검색(대소문자 무시) + 최신순 정렬
+  List<EvaluationReport> findByReportNameContainingIgnoreCaseOrderByCreatedAtDesc(String keyword);
 }
