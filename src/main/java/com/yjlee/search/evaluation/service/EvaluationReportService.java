@@ -421,9 +421,12 @@ public class EvaluationReportService {
   }
 
   @Transactional
-  public void deleteReport(Long reportId) {
-    if (!evaluationReportRepository.existsById(reportId)) return;
+  public boolean deleteReport(Long reportId) {
+    if (!evaluationReportRepository.existsById(reportId)) {
+      return false;
+    }
     evaluationReportRepository.deleteById(reportId);
+    return true;
   }
 
   // 저장용 상세 생성: 상품명/스펙 포함

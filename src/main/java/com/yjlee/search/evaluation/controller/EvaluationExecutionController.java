@@ -114,9 +114,12 @@ public class EvaluationExecutionController {
   }
 
   @DeleteMapping("/reports/{reportId}")
-  @Operation(summary = "평가 리포트 삭제")
+  @Operation(summary = "평가 리포트 단건 삭제")
   public ResponseEntity<Void> deleteReport(@PathVariable Long reportId) {
-    evaluationReportService.deleteReport(reportId);
+    boolean deleted = evaluationReportService.deleteReport(reportId);
+    if (!deleted) {
+      return ResponseEntity.notFound().build();
+    }
     return ResponseEntity.ok().build();
   }
 }
