@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,9 @@ public class ProductIndexingService {
   private final ElasticsearchClient elasticsearchClient;
   private final ProductDocumentFactory documentFactory;
   private final AutocompleteDocumentFactory autocompleteFactory;
+
+  @Value("${app.indexing.skip-vector:true}")
+  private boolean skipVectorIndexing;
 
   private IndexingProgressCallback progressCallback;
 
@@ -129,6 +133,11 @@ public class ProductIndexingService {
 
   private List<ProductDocument> createDocumentsWithEmbeddings(List<Product> products) {
     List<ProductDocument> documents = products.stream().map(documentFactory::create).toList();
+
+    if (skipVectorIndexing) {
+      // 임시 옵션: 벡터 색인 스킵 (매핑은 유지)
+      return documents;
+    }
 
     List<String> texts = documents.stream().map(documentConverter::createSearchableText).toList();
     List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);

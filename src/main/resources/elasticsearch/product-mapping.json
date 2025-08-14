@@ -18,7 +18,8 @@
       "fields": {
         "bigram": {
           "type": "text",
-          "analyzer": "bigram_analyzer"
+          "analyzer": "bigram_analyzer",
+          "search_analyzer": "standard"
         }
       },
       "analyzer": "nori_index_analyzer",
@@ -33,7 +34,8 @@
       "fields": {
         "bigram": {
           "type": "text",
-          "analyzer": "bigram_analyzer"
+          "analyzer": "bigram_analyzer",
+          "search_analyzer": "standard"
         }
       }
     },
@@ -42,7 +44,8 @@
       "fields": {
         "bigram": {
           "type": "text",
-          "analyzer": "bigram_analyzer"
+          "analyzer": "bigram_analyzer",
+          "search_analyzer": "standard"
         }
       },
       "analyzer": "nori_index_analyzer",

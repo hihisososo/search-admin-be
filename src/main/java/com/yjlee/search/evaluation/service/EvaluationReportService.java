@@ -37,8 +37,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -175,10 +175,14 @@ public class EvaluationReportService {
         (precision + recall) == 0.0 ? 0.0 : 2 * precision * recall / (precision + recall);
 
     List<String> missingIds =
-        relevantDocs.stream().filter(doc -> !retrievedDocs.contains(doc)).collect(Collectors.toList());
+        relevantDocs.stream()
+            .filter(doc -> !retrievedDocs.contains(doc))
+            .collect(Collectors.toList());
 
     List<String> wrongIds =
-        retrievedDocs.stream().filter(doc -> !relevantDocs.contains(doc)).collect(Collectors.toList());
+        retrievedDocs.stream()
+            .filter(doc -> !relevantDocs.contains(doc))
+            .collect(Collectors.toList());
 
     // 문서 정보 구성 (이름/스펙 포함)
     Map<String, ProductDocument> productMap =
@@ -344,8 +348,8 @@ public class EvaluationReportService {
     if (keyword == null || keyword.trim().isEmpty()) {
       return getAllReports();
     }
-    return evaluationReportRepository
-        .findByReportNameContainingIgnoreCaseOrderByCreatedAtDesc(keyword.trim());
+    return evaluationReportRepository.findByReportNameContainingIgnoreCaseOrderByCreatedAtDesc(
+        keyword.trim());
   }
 
   public EvaluationReport getReportById(Long reportId) {
@@ -359,7 +363,8 @@ public class EvaluationReportService {
     List<EvaluationReportDetailResponse.QueryDetail> details = new ArrayList<>();
     try {
       var type =
-          objectMapper.getTypeFactory()
+          objectMapper
+              .getTypeFactory()
               .constructCollectionType(List.class, PersistedQueryEvaluationDetail.class);
       List<PersistedQueryEvaluationDetail> raw =
           objectMapper.readValue(report.getDetailedResults(), type);
@@ -421,9 +426,12 @@ public class EvaluationReportService {
   }
 
   @Transactional
-  public void deleteReport(Long reportId) {
-    if (!evaluationReportRepository.existsById(reportId)) return;
+  public boolean deleteReport(Long reportId) {
+    if (!evaluationReportRepository.existsById(reportId)) {
+      return false;
+    }
     evaluationReportRepository.deleteById(reportId);
+    return true;
   }
 
   // 저장용 상세 생성: 상품명/스펙 포함

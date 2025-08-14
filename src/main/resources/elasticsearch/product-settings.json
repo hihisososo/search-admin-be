@@ -2,6 +2,7 @@
   "index": {
     "number_of_shards": "1",
     "number_of_replicas": "0",
+    "max_ngram_diff": "6",
     "analysis": {
       "filter": {
         "search_synonym_filter": {
@@ -41,7 +42,7 @@
         "bigram_tokenizer": {
           "type": "ngram",
           "min_gram": "2",
-          "max_gram": "2"
+          "max_gram": "8"
         },
         "userdic_nori_tokenizer": {
           "type": "nori_tokenizer",

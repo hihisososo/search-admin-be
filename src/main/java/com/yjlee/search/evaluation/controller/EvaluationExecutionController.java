@@ -4,9 +4,9 @@ import com.yjlee.search.evaluation.dto.AsyncTaskListResponse;
 import com.yjlee.search.evaluation.dto.AsyncTaskResponse;
 import com.yjlee.search.evaluation.dto.AsyncTaskStartResponse;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteRequest;
+import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportSummaryResponse;
-import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
 import com.yjlee.search.evaluation.model.EvaluationReport;
 import com.yjlee.search.evaluation.service.AsyncEvaluationService;
@@ -114,9 +114,12 @@ public class EvaluationExecutionController {
   }
 
   @DeleteMapping("/reports/{reportId}")
-  @Operation(summary = "평가 리포트 삭제")
+  @Operation(summary = "평가 리포트 단건 삭제")
   public ResponseEntity<Void> deleteReport(@PathVariable Long reportId) {
-    evaluationReportService.deleteReport(reportId);
+    boolean deleted = evaluationReportService.deleteReport(reportId);
+    if (!deleted) {
+      return ResponseEntity.notFound().build();
+    }
     return ResponseEntity.ok().build();
   }
 }
