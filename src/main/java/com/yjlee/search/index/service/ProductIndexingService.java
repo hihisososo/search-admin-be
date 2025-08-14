@@ -32,6 +32,9 @@ public class ProductIndexingService {
   @Value("${app.indexing.skip-vector:true}")
   private boolean skipVectorIndexing;
 
+  @Value("${app.indexing.skip-vector:true}")
+  private boolean skipVectorIndexing;
+
   private IndexingProgressCallback progressCallback;
 
   private static final int BATCH_SIZE = 1000;

@@ -16,7 +16,8 @@ import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationReportRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
-import com.yjlee.search.search.dto.SearchExecuteRequest;
+// import removed: SearchExecuteRequest no longer used here
+import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.SearchService;
@@ -242,17 +243,19 @@ public class EvaluationReportService {
 
   private Set<String> getRetrievedDocuments(String query, Integer retrievalSize) {
     try {
-      log.info("🔍 실제 검색 API 호출: {}, 검색 결과 개수: {}", query, retrievalSize);
+      log.info("🔍 DEV 환경으로 검색 API 호출: {}, 검색 결과 개수: {}", query, retrievalSize);
 
-      // 실제 검색 API와 동일한 조건으로 검색 요청 생성
-      SearchExecuteRequest searchRequest = new SearchExecuteRequest();
+      // 실제 검색 API와 동일하되, DEV 환경으로 고정하여 검색 요청 생성
+      SearchSimulationRequest searchRequest = new SearchSimulationRequest();
+      searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
+      searchRequest.setExplain(false);
       searchRequest.setQuery(query);
-      searchRequest.setPage(1);
+      // 평가 시 검색 결과는 1페이지(0-index)부터 수집해야 상위 결과와 비교가 됨
+      searchRequest.setPage(0);
       searchRequest.setSize(retrievalSize); // 설정된 개수만큼 결과 조회 (최대 300개)
-      searchRequest.setApplyTypoCorrection(true);
 
-      // 실제 검색 API 호출
-      SearchExecuteResponse searchResponse = searchService.searchProducts(searchRequest);
+      // 검색 API 호출 (DEV)
+      SearchExecuteResponse searchResponse = searchService.searchProductsSimulation(searchRequest);
 
       // 검색 결과에서 상품 ID 추출
       Set<String> retrievedProductIds =

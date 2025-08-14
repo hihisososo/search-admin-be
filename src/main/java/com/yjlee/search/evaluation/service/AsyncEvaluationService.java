@@ -41,27 +41,50 @@ public class AsyncEvaluationService {
       int target = request.getCount();
       int minC = request.getMinCandidates() != null ? request.getMinCandidates() : 60;
       int maxC = request.getMaxCandidates() != null ? request.getMaxCandidates() : 200;
-
-      List<String> pool =
-          (request.getCategory() == null || request.getCategory().isBlank())
-              ? queryGenerationService.generateQueriesPreview(target * 3)
-              : queryGenerationService.generateQueriesPreviewWithCategory(
-                  target * 3, request.getCategory());
-
       List<String> accepted = new ArrayList<>();
+      java.util.Set<String> tried = new java.util.HashSet<>();
+      int round = 0;
+      while (accepted.size() < target) {
+        round++;
+        int need = Math.max(5, (target - accepted.size()) * 3);
+        List<String> pool =
+            (request.getCategory() == null || request.getCategory().isBlank())
+                ? queryGenerationService.generateQueriesPreview(need)
+                : queryGenerationService.generateQueriesPreviewWithCategory(need, request.getCategory());
 
-      for (String q : pool) {
-        if (accepted.size() >= target) break;
-        Set<String> ids = groundTruthService.getCandidateIdsForQuery(q);
-        int c = ids.size();
-        if (c >= minC && c <= maxC) {
-          EvaluationQuery eq = evaluationQueryService.createQuerySafely(q);
-          generateCandidatesForOne(eq);
-          accepted.add(q);
+        int acceptedThisRound = 0;
+        for (String q : pool) {
+          if (accepted.size() >= target) break;
+          if (q == null || q.isBlank() || tried.contains(q)) continue;
+          tried.add(q);
+
+          // 전략별로 max보다 조금 더 크게 가져와 초과 여부까지 확인
+          Set<String> ids = groundTruthService.getCandidateIdsForQuery(q, maxC);
+          int c = ids.size();
+          if (c >= minC && c <= maxC) {
+            EvaluationQuery eq = evaluationQueryService.createQuerySafely(q);
+            generateCandidatesForOne(eq);
+            accepted.add(q);
+            acceptedThisRound++;
+            asyncTaskService.updateProgress(
+                taskId,
+                Math.min(80, 10 + (accepted.size() * 60 / target)),
+                String.format("생성/저장: %d/%d (round %d)", accepted.size(), target, round));
+          }
+        }
+
+        // 안전장치: 라운드가 계속 0개 수용이면 점진적으로 need를 키우며 재시도
+        if (acceptedThisRound == 0) {
           asyncTaskService.updateProgress(
               taskId,
-              Math.min(80, 10 + (accepted.size() * 60 / target)),
-              String.format("생성/저장: %d/%d", accepted.size(), target));
+              Math.min(79, 10 + (accepted.size() * 60 / target)),
+              String.format("라운드 %d에서 적합 쿼리 없음, 재시도", round));
+        }
+
+        // 무한 루프 방지 - 충분히 많은 라운드 수행 후에도 목표 미달이면 종료
+        if (round > 50 && accepted.size() < target) {
+          log.warn("LLM 쿼리 생성 목표 미달 - 요청: {}, 달성: {}", target, accepted.size());
+          break;
         }
       }
 

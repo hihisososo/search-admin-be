@@ -38,7 +38,7 @@ public class CategoryService {
                               a ->
                                   a.terms(
                                       t ->
-                                          t.field(ESFields.CATEGORY)
+                                          t.field(ESFields.CATEGORY_NAME)
                                               .size(size <= 0 ? 100 : size)))));
 
       SearchResponse<ProductDocument> response =
