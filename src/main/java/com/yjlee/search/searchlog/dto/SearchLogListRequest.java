@@ -16,10 +16,10 @@ public class SearchLogListRequest {
   @Schema(description = "페이지 크기 (1~100)", example = "10", defaultValue = "10")
   private Integer size = 10;
 
-  @Schema(description = "조회 시작 날짜", example = "2025-01-20T00:00:00")
+  @Schema(description = "조회 시작 날짜", example = "2025-01-20T00:00:00Z")
   private LocalDateTime startDate;
 
-  @Schema(description = "조회 종료 날짜", example = "2025-01-23T23:59:59")
+  @Schema(description = "조회 종료 날짜", example = "2025-01-23T23:59:59Z")
   private LocalDateTime endDate;
 
   @Schema(description = "검색 키워드 필터", example = "삼성")

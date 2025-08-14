@@ -26,9 +26,9 @@ public class TypoCorrectionDictionaryListResponse {
   @Schema(description = "설명", example = "삼성 브랜드 오타")
   private String description;
 
-  @Schema(description = "생성일시", example = "2024-01-01T00:00:00")
+  @Schema(description = "생성일시", example = "2024-01-01T00:00:00Z")
   private LocalDateTime createdAt;
 
-  @Schema(description = "수정일시", example = "2024-01-01T00:00:00")
+  @Schema(description = "수정일시", example = "2024-01-01T00:00:00Z")
   private LocalDateTime updatedAt;
 }

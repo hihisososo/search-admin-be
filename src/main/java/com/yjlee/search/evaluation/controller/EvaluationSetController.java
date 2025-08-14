@@ -60,10 +60,11 @@ public class EvaluationSetController {
       @RequestParam(defaultValue = DEFAULT_PAGE + "") int page,
       @RequestParam(defaultValue = DEFAULT_PAGE_SIZE + "") int size,
       @RequestParam(defaultValue = "createdAt") String sortBy,
-      @RequestParam(defaultValue = "DESC") String sortDirection) {
+      @RequestParam(defaultValue = "DESC") String sortDirection,
+      @RequestParam(required = false) String query) {
 
     List<EvaluationQueryDto> queriesWithStats =
-        evaluationStatisticsService.getQueriesWithStats(sortBy, sortDirection);
+        evaluationStatisticsService.getQueriesWithStats(sortBy, sortDirection, query);
 
     PaginationUtils.PagedResult<EvaluationQueryDto> pagedResult =
         PaginationUtils.paginate(queriesWithStats, page, size);

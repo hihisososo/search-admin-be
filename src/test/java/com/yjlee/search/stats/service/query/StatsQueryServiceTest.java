@@ -40,7 +40,7 @@ class StatsQueryServiceTest {
         SearchStats.builder()
             .totalSearchCount(1000L)
             .totalDocumentCount(50000L)
-            .searchFailureRate(2.5)
+            .zeroHitRate(2.5)
             .errorCount(25L)
             .averageResponseTimeMs(150.5)
             .successRate(97.5)
@@ -58,7 +58,7 @@ class StatsQueryServiceTest {
     assertThat(response).isNotNull();
     assertThat(response.getTotalSearchCount()).isEqualTo(1000L);
     assertThat(response.getTotalDocumentCount()).isEqualTo(50000L);
-    assertThat(response.getSearchFailureRate()).isEqualTo(2.5);
+    assertThat(response.getZeroHitRate()).isEqualTo(2.5);
     assertThat(response.getErrorCount()).isEqualTo(25L);
     assertThat(response.getAverageResponseTimeMs()).isEqualTo(150.5);
     assertThat(response.getSuccessRate()).isEqualTo(97.5);
@@ -76,7 +76,7 @@ class StatsQueryServiceTest {
         SearchStats.builder()
             .totalSearchCount(0L)
             .totalDocumentCount(0L)
-            .searchFailureRate(0.0)
+            .zeroHitRate(0.0)
             .errorCount(0L)
             .averageResponseTimeMs(0.0)
             .successRate(0.0)

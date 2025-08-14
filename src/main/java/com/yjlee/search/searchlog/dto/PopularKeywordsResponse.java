@@ -14,15 +14,15 @@ public class PopularKeywordsResponse {
   @Schema(description = "인기 검색어 목록")
   private List<PopularKeywordDto> keywords;
 
-  @Schema(description = "조회 기간 시작", example = "2024-01-01T00:00:00")
+  @Schema(description = "조회 기간 시작", example = "2024-01-01T00:00:00Z")
   private LocalDateTime fromDate;
 
-  @Schema(description = "조회 기간 종료", example = "2024-01-07T23:59:59")
+  @Schema(description = "조회 기간 종료", example = "2024-01-07T23:59:59Z")
   private LocalDateTime toDate;
 
   @Schema(description = "총 검색어 수", example = "10")
   private Integer totalCount;
 
-  @Schema(description = "데이터 업데이트 시간", example = "2024-01-08T10:30:00")
+  @Schema(description = "데이터 업데이트 시간", example = "2024-01-08T10:30:00Z")
   private LocalDateTime lastUpdated;
 }

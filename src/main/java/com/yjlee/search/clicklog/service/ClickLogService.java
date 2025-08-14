@@ -2,7 +2,6 @@ package com.yjlee.search.clicklog.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
-import co.elastic.clients.elasticsearch.core.IndexResponse;
 import com.yjlee.search.clicklog.dto.ClickLogRequest;
 import com.yjlee.search.clicklog.dto.ClickLogResponse;
 import com.yjlee.search.clicklog.model.ClickLogDocument;
@@ -39,7 +38,7 @@ public class ClickLogService {
       IndexRequest<ClickLogDocument> indexRequest =
           IndexRequest.of(i -> i.index(indexName).document(document));
 
-      IndexResponse response = elasticsearchClient.index(indexRequest);
+      elasticsearchClient.index(indexRequest);
 
       log.info(
           "클릭 로그 저장 성공 - 키워드: {}, 상품: {}",
@@ -49,7 +48,7 @@ public class ClickLogService {
       return ClickLogResponse.builder()
           .success(true)
           .message("클릭 로그가 성공적으로 저장되었습니다.")
-          .timestamp(now.toString())
+          .timestamp(now)
           .build();
 
     } catch (Exception e) {
@@ -57,7 +56,7 @@ public class ClickLogService {
       return ClickLogResponse.builder()
           .success(false)
           .message("클릭 로그 저장 중 오류가 발생했습니다: " + e.getMessage())
-          .timestamp(LocalDateTime.now().toString())
+          .timestamp(LocalDateTime.now(java.time.ZoneOffset.UTC))
           .build();
     }
   }
