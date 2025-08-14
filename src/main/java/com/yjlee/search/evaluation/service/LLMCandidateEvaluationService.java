@@ -172,9 +172,9 @@ public class LLMCandidateEvaluationService {
         // 배치별 프롬프트 생성 (20개 상품을 하나의 프롬프트에)
         String batchPrompt = buildBulkEvaluationPrompt(query, batchProducts);
 
-        // 배치별 LLM 호출
+        // 배치별 LLM 호출 (temperature=0 고정)
         log.info("🤖 LLM API 호출 시작 (배치 크기: {})", batchProducts.size());
-        String batchResponse = llmService.callLLMAPI(batchPrompt);
+        String batchResponse = llmService.callLLMAPI(batchPrompt, 0.0);
 
         if (batchResponse == null || batchResponse.trim().isEmpty()) {
           log.warn("⚠️ LLM API 응답이 비어있습니다");
@@ -182,7 +182,6 @@ public class LLMCandidateEvaluationService {
         }
 
         log.info("✅ LLM API 응답 수신 (길이: {}자)", batchResponse.length());
-        log.debug("LLM 응답 내용: {}", batchResponse);
 
         // 배치별 응답 파싱
         List<QueryProductMapping> batchResults =
@@ -266,45 +265,47 @@ public class LLMCandidateEvaluationService {
         return createFailedMappings(query, mappings, "응답 형식 오류");
       }
 
-      // 응답과 매핑을 순서대로 처리
-      for (int i = 0; i < mappings.size(); i++) {
-        QueryProductMapping mapping = mappings.get(i);
+      // productId -> evaluation 매핑 생성 (순서에 의존하지 않도록)
+      java.util.Map<String, JsonNode> idToEval = new java.util.HashMap<>();
+      for (JsonNode node : jsonArray) {
+        String pid = node.path("productId").asText(null);
+        if (pid != null && !pid.isBlank()) {
+          idToEval.put(pid, node);
+        }
+      }
 
+      // 매핑 리스트 순서를 기준으로 productId로 매칭
+      for (QueryProductMapping mapping : mappings) {
         try {
-          if (i < jsonArray.size()) {
-            JsonNode evaluation = jsonArray.get(i);
-
-            boolean isRelevant = evaluation.path("isRelevant").asBoolean(false);
-            String reason = evaluation.path("reason").asText("");
-            double confidence = evaluation.path("confidence").asDouble(0.0);
-
-            String evaluationReason = String.format("%s (신뢰도: %.2f)", reason, confidence);
-
-            QueryProductMapping updatedMapping =
-                QueryProductMapping.builder()
-                    .id(mapping.getId())
-                    .evaluationQuery(mapping.getEvaluationQuery())
-                    .productId(mapping.getProductId())
-                    .productName(mapping.getProductName())
-                    .productSpecs(mapping.getProductSpecs())
-                    .relevanceStatus(RelevanceStatus.fromBoolean(isRelevant))
-                    .evaluationReason(evaluationReason)
-                    .evaluationSource(EVALUATION_SOURCE_LLM)
-                    .build();
-
-            updatedMappings.add(updatedMapping);
-
-          } else {
-            // 응답에 해당 상품이 없는 경우
-            QueryProductMapping failedMapping = createFailedMapping(mapping, "응답 누락");
-            updatedMappings.add(failedMapping);
+          JsonNode evaluation = idToEval.get(mapping.getProductId());
+          if (evaluation == null) {
+            updatedMappings.add(createFailedMapping(mapping, "응답 누락"));
+            continue;
           }
+
+          boolean isRelevant = evaluation.path("isRelevant").asBoolean(false);
+          String reason = evaluation.path("reason").asText("");
+          double confidence = evaluation.path("confidence").asDouble(0.0);
+
+          String evaluationReason = String.format("%s (신뢰도: %.2f)", reason, confidence);
+
+          QueryProductMapping updatedMapping =
+              QueryProductMapping.builder()
+                  .id(mapping.getId())
+                  .evaluationQuery(mapping.getEvaluationQuery())
+                  .productId(mapping.getProductId())
+                  .productName(mapping.getProductName())
+                  .productSpecs(mapping.getProductSpecs())
+                  .relevanceStatus(RelevanceStatus.fromBoolean(isRelevant))
+                  .evaluationReason(evaluationReason)
+                  .evaluationSource(EVALUATION_SOURCE_LLM)
+                  .build();
+
+          updatedMappings.add(updatedMapping);
 
         } catch (Exception e) {
           log.warn("⚠️ 상품 {} 평가 결과 파싱 실패", mapping.getProductId(), e);
-          QueryProductMapping failedMapping =
-              createFailedMapping(mapping, "파싱 실패: " + e.getMessage());
-          updatedMappings.add(failedMapping);
+          updatedMappings.add(createFailedMapping(mapping, "파싱 실패: " + e.getMessage()));
         }
       }
 
