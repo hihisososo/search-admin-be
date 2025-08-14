@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
+import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.EvaluationReport;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
@@ -35,6 +36,8 @@ import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -171,15 +174,41 @@ public class EvaluationReportService {
     double f1Score =
         (precision + recall) == 0.0 ? 0.0 : 2 * precision * recall / (precision + recall);
 
-    List<String> missingDocs =
-        relevantDocs.stream()
-            .filter(doc -> !retrievedDocs.contains(doc))
-            .collect(Collectors.toList());
+    List<String> missingIds =
+        relevantDocs.stream().filter(doc -> !retrievedDocs.contains(doc)).collect(Collectors.toList());
 
-    List<String> wrongDocs =
-        retrievedDocs.stream()
-            .filter(doc -> !relevantDocs.contains(doc))
-            .collect(Collectors.toList());
+    List<String> wrongIds =
+        retrievedDocs.stream().filter(doc -> !relevantDocs.contains(doc)).collect(Collectors.toList());
+
+    // 문서 정보 구성 (이름/스펙 포함)
+    Map<String, ProductDocument> productMap =
+        getProductsBulk(new ArrayList<>(union(missingIds, wrongIds)));
+
+    List<EvaluationExecuteResponse.DocumentInfo> missingDocs =
+        missingIds.stream()
+            .map(
+                id -> {
+                  ProductDocument p = productMap.get(id);
+                  return EvaluationExecuteResponse.DocumentInfo.builder()
+                      .productId(id)
+                      .productName(p != null ? p.getNameRaw() : null)
+                      .productSpecs(p != null ? p.getSpecsRaw() : null)
+                      .build();
+                })
+            .toList();
+
+    List<EvaluationExecuteResponse.DocumentInfo> wrongDocs =
+        wrongIds.stream()
+            .map(
+                id -> {
+                  ProductDocument p = productMap.get(id);
+                  return EvaluationExecuteResponse.DocumentInfo.builder()
+                      .productId(id)
+                      .productName(p != null ? p.getNameRaw() : null)
+                      .productSpecs(p != null ? p.getSpecsRaw() : null)
+                      .build();
+                })
+            .toList();
 
     return EvaluationExecuteResponse.QueryEvaluationDetail.builder()
         .query(query)
@@ -311,8 +340,90 @@ public class EvaluationReportService {
     return evaluationReportRepository.findByOrderByCreatedAtDesc();
   }
 
+  public List<EvaluationReport> getReportsByKeyword(String keyword) {
+    if (keyword == null || keyword.trim().isEmpty()) {
+      return getAllReports();
+    }
+    return evaluationReportRepository
+        .findByReportNameContainingIgnoreCaseOrderByCreatedAtDesc(keyword.trim());
+  }
+
   public EvaluationReport getReportById(Long reportId) {
     return evaluationReportRepository.findById(reportId).orElse(null);
+  }
+
+  public EvaluationReportDetailResponse getReportDetail(Long reportId) {
+    EvaluationReport report = evaluationReportRepository.findById(reportId).orElse(null);
+    if (report == null) return null;
+
+    List<EvaluationReportDetailResponse.QueryDetail> details = new ArrayList<>();
+    try {
+      var type =
+          objectMapper.getTypeFactory()
+              .constructCollectionType(List.class, PersistedQueryEvaluationDetail.class);
+      List<PersistedQueryEvaluationDetail> raw =
+          objectMapper.readValue(report.getDetailedResults(), type);
+      for (PersistedQueryEvaluationDetail r : raw) {
+        List<EvaluationReportDetailResponse.DocumentInfo> missing = new ArrayList<>();
+        if (r.getMissingDocuments() != null) {
+          for (PersistedDocumentInfo d : r.getMissingDocuments()) {
+            missing.add(
+                EvaluationReportDetailResponse.DocumentInfo.builder()
+                    .productId(d.getProductId())
+                    .productName(d.getProductName())
+                    .productSpecs(d.getProductSpecs())
+                    .build());
+          }
+        }
+        List<EvaluationReportDetailResponse.DocumentInfo> wrong = new ArrayList<>();
+        if (r.getWrongDocuments() != null) {
+          for (PersistedDocumentInfo d : r.getWrongDocuments()) {
+            wrong.add(
+                EvaluationReportDetailResponse.DocumentInfo.builder()
+                    .productId(d.getProductId())
+                    .productName(d.getProductName())
+                    .productSpecs(d.getProductSpecs())
+                    .build());
+          }
+        }
+
+        details.add(
+            EvaluationReportDetailResponse.QueryDetail.builder()
+                .query(r.getQuery())
+                .precision(r.getPrecision())
+                .recall(r.getRecall())
+                .f1Score(r.getF1Score())
+                .relevantCount(r.getRelevantCount())
+                .retrievedCount(r.getRetrievedCount())
+                .correctCount(r.getCorrectCount())
+                .missingDocuments(missing)
+                .wrongDocuments(wrong)
+                .build());
+      }
+    } catch (Exception e) {
+      log.error("상세 JSON 파싱 실패: reportId={}", reportId, e);
+      throw new RuntimeException("리포트 상세를 파싱할 수 없습니다", e);
+    }
+
+    return EvaluationReportDetailResponse.builder()
+        .id(report.getId())
+        .reportName(report.getReportName())
+        .totalQueries(report.getTotalQueries())
+        .averagePrecision(report.getAveragePrecision())
+        .averageRecall(report.getAverageRecall())
+        .averageF1Score(report.getAverageF1Score())
+        .totalRelevantDocuments(report.getTotalRelevantDocuments())
+        .totalRetrievedDocuments(report.getTotalRetrievedDocuments())
+        .totalCorrectDocuments(report.getTotalCorrectDocuments())
+        .createdAt(report.getCreatedAt())
+        .queryDetails(details)
+        .build();
+  }
+
+  @Transactional
+  public void deleteReport(Long reportId) {
+    if (!evaluationReportRepository.existsById(reportId)) return;
+    evaluationReportRepository.deleteById(reportId);
   }
 
   // 저장용 상세 생성: 상품명/스펙 포함
@@ -408,7 +519,9 @@ public class EvaluationReportService {
   }
 
   @Getter
+  @Setter
   @Builder
+  @NoArgsConstructor
   @AllArgsConstructor
   private static class PersistedDocumentInfo {
     private String productId;
@@ -417,7 +530,9 @@ public class EvaluationReportService {
   }
 
   @Getter
+  @Setter
   @Builder
+  @NoArgsConstructor
   @AllArgsConstructor
   private static class PersistedQueryEvaluationDetail {
     private String query;

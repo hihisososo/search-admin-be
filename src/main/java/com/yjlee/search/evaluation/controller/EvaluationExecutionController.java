@@ -4,6 +4,8 @@ import com.yjlee.search.evaluation.dto.AsyncTaskListResponse;
 import com.yjlee.search.evaluation.dto.AsyncTaskResponse;
 import com.yjlee.search.evaluation.dto.AsyncTaskStartResponse;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteRequest;
+import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
+import com.yjlee.search.evaluation.dto.EvaluationReportSummaryResponse;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
 import com.yjlee.search.evaluation.model.EvaluationReport;
@@ -78,18 +80,43 @@ public class EvaluationExecutionController {
 
   @GetMapping("/reports")
   @Operation(summary = "평가 리포트 리스트 조회")
-  public ResponseEntity<List<EvaluationReport>> getReports() {
-    List<EvaluationReport> reports = evaluationReportService.getAllReports();
-    return ResponseEntity.ok(reports);
+  public ResponseEntity<List<EvaluationReportSummaryResponse>> getReports(
+      @RequestParam(required = false) String keyword) {
+    List<EvaluationReport> reports = evaluationReportService.getReportsByKeyword(keyword);
+    List<EvaluationReportSummaryResponse> response =
+        reports.stream()
+            .map(
+                r ->
+                    EvaluationReportSummaryResponse.builder()
+                        .id(r.getId())
+                        .reportName(r.getReportName())
+                        .totalQueries(r.getTotalQueries())
+                        .averagePrecision(r.getAveragePrecision())
+                        .averageRecall(r.getAverageRecall())
+                        .averageF1Score(r.getAverageF1Score())
+                        .totalRelevantDocuments(r.getTotalRelevantDocuments())
+                        .totalRetrievedDocuments(r.getTotalRetrievedDocuments())
+                        .totalCorrectDocuments(r.getTotalCorrectDocuments())
+                        .createdAt(r.getCreatedAt())
+                        .build())
+            .toList();
+    return ResponseEntity.ok(response);
   }
 
   @GetMapping("/reports/{reportId}")
   @Operation(summary = "평가 리포트 상세 조회")
-  public ResponseEntity<EvaluationReport> getReport(@PathVariable Long reportId) {
-    EvaluationReport report = evaluationReportService.getReportById(reportId);
+  public ResponseEntity<EvaluationReportDetailResponse> getReport(@PathVariable Long reportId) {
+    EvaluationReportDetailResponse report = evaluationReportService.getReportDetail(reportId);
     if (report == null) {
       return ResponseEntity.notFound().build();
     }
     return ResponseEntity.ok(report);
+  }
+
+  @DeleteMapping("/reports/{reportId}")
+  @Operation(summary = "평가 리포트 삭제")
+  public ResponseEntity<Void> deleteReport(@PathVariable Long reportId) {
+    evaluationReportService.deleteReport(reportId);
+    return ResponseEntity.ok().build();
   }
 }
