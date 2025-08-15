@@ -205,10 +205,14 @@ public class EvaluationReportService {
     double ndcg = computeNdcg(query, new ArrayList<>(retrievedDocs), relevantDocs);
 
     List<String> missingIds =
-        relevantDocs.stream().filter(doc -> !retrievedSet.contains(doc)).collect(Collectors.toList());
+        relevantDocs.stream()
+            .filter(doc -> !retrievedSet.contains(doc))
+            .collect(Collectors.toList());
 
     List<String> wrongIds =
-        retrievedDocs.stream().filter(doc -> !relevantDocs.contains(doc)).collect(Collectors.toList());
+        retrievedDocs.stream()
+            .filter(doc -> !relevantDocs.contains(doc))
+            .collect(Collectors.toList());
 
     // 문서 정보 구성 (이름/스펙 포함)
     Map<String, ProductDocument> productMap =
@@ -463,17 +467,18 @@ public class EvaluationReportService {
 
     // 순서 비교용 데이터 구성: 검색결과 순위, 정답셋 점수순
     // rank/gain 계산을 위해 제품 상세가 필요하므로 필요한 범위에서만 벌크 조회
-    java.util.Map<String, java.util.List<EvaluationReportDetailResponse.RetrievedDocument>> retrievedByQuery =
-        new java.util.HashMap<>();
-    java.util.Map<String, java.util.List<EvaluationReportDetailResponse.GroundTruthDocument>> groundTruthByQuery =
-        new java.util.HashMap<>();
+    java.util.Map<String, java.util.List<EvaluationReportDetailResponse.RetrievedDocument>>
+        retrievedByQuery = new java.util.HashMap<>();
+    java.util.Map<String, java.util.List<EvaluationReportDetailResponse.GroundTruthDocument>>
+        groundTruthByQuery = new java.util.HashMap<>();
 
     for (var r : rows) {
       String q = r.getQuery();
 
       // 검색 결과 순서 수집 (당시 수집 개수에 맞춰 조회 시도)
       int sizeHint = r.getRetrievedCount() != null ? r.getRetrievedCount() : 50;
-      java.util.List<String> retrievedOrdered = getRetrievedDocumentsOrdered(q, Math.max(1, sizeHint));
+      java.util.List<String> retrievedOrdered =
+          getRetrievedDocumentsOrdered(q, Math.max(1, sizeHint));
       java.util.List<String> unionIds = new java.util.ArrayList<>(retrievedOrdered);
 
       // 정답셋 수집 및 점수 조회를 위해 매핑 엔티티 조회
@@ -528,7 +533,10 @@ public class EvaluationReportService {
                         .score(m.getRelevanceScore())
                         .build();
                   })
-              .sorted(java.util.Comparator.comparing(EvaluationReportDetailResponse.GroundTruthDocument::getScore).reversed())
+              .sorted(
+                  java.util.Comparator.comparing(
+                          EvaluationReportDetailResponse.GroundTruthDocument::getScore)
+                      .reversed())
               .toList();
       groundTruthByQuery.put(q, gtDocs);
     }
@@ -543,7 +551,8 @@ public class EvaluationReportService {
               .retrievedCount(r.getRetrievedCount())
               .correctCount(r.getCorrectCount())
               .retrievedDocuments(retrievedByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
-              .groundTruthDocuments(groundTruthByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
+              .groundTruthDocuments(
+                  groundTruthByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
               .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
               .build());
