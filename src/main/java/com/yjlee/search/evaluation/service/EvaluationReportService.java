@@ -74,6 +74,12 @@ public class EvaluationReportService {
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
 
     double totalNdcg = 0.0;
+    double totalNdcgAt10 = 0.0;
+    double totalNdcgAt20 = 0.0;
+    double totalMrrAt10 = 0.0;
+    double totalRecallAt50 = 0.0;
+    double totalAveragePrecision = 0.0; // MAP 합산
+    double totalRecallAt300 = 0.0;
     int totalRelevantDocuments = 0;
     int totalRetrievedDocuments = 0;
     int totalCorrectDocuments = 0;
@@ -114,12 +120,24 @@ public class EvaluationReportService {
     queryDetails.addAll(synchronizedQueryDetails);
     for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
       totalNdcg += detail.getNdcg();
+      if (detail.getNdcgAt10() != null) totalNdcgAt10 += detail.getNdcgAt10();
+      if (detail.getNdcgAt20() != null) totalNdcgAt20 += detail.getNdcgAt20();
+      if (detail.getMrrAt10() != null) totalMrrAt10 += detail.getMrrAt10();
+      if (detail.getRecallAt50() != null) totalRecallAt50 += detail.getRecallAt50();
+      if (detail.getMap() != null) totalAveragePrecision += detail.getMap();
+      if (detail.getRecallAt300() != null) totalRecallAt300 += detail.getRecallAt300();
       totalRelevantDocuments += detail.getRelevantCount();
       totalRetrievedDocuments += detail.getRetrievedCount();
       totalCorrectDocuments += detail.getCorrectCount();
     }
 
     double averageNdcg = queries.isEmpty() ? 0.0 : totalNdcg / queries.size();
+    double avgNdcgAt10 = queries.isEmpty() ? 0.0 : totalNdcgAt10 / queries.size();
+    double avgNdcgAt20 = queries.isEmpty() ? 0.0 : totalNdcgAt20 / queries.size();
+    double avgMrrAt10 = queries.isEmpty() ? 0.0 : totalMrrAt10 / queries.size();
+    double avgRecallAt50 = queries.isEmpty() ? 0.0 : totalRecallAt50 / queries.size();
+    double map = queries.isEmpty() ? 0.0 : totalAveragePrecision / queries.size();
+    double avgRecallAt300 = queries.isEmpty() ? 0.0 : totalRecallAt300 / queries.size();
 
     // 저장용 상세: 상품명/스펙 포함 (대용량 JSON 대신 테이블 저장)
     List<PersistedQueryEvaluationDetail> persistedDetails =
@@ -146,6 +164,12 @@ public class EvaluationReportService {
               .report(report)
               .query(d.getQuery())
               .ndcg(d.getNdcg())
+              .ndcgAt10(d.getNdcgAt10())
+              .ndcgAt20(d.getNdcgAt20())
+              .mrrAt10(d.getMrrAt10())
+              .recallAt50(d.getRecallAt50())
+              .averagePrecision(d.getAveragePrecision())
+              .recallAt300(d.getRecallAt300())
               .relevantCount(d.getRelevantCount())
               .retrievedCount(d.getRetrievedCount())
               .correctCount(d.getCorrectCount())
@@ -180,12 +204,18 @@ public class EvaluationReportService {
     if (!detailRows.isEmpty()) reportDetailRepository.saveAll(detailRows);
     if (!docRows.isEmpty()) reportDocumentRepository.saveAll(docRows);
 
-    log.info("✅ 평가 실행 완료: nDCG={:.3f}", averageNdcg);
+    log.info("✅ 평가 실행 완료: nDCG={}", String.format("%.3f", averageNdcg));
 
     return EvaluationExecuteResponse.builder()
         .reportId(report.getId())
         .reportName(reportName)
         .averageNdcg(averageNdcg)
+        .ndcgAt10(avgNdcgAt10)
+        .ndcgAt20(avgNdcgAt20)
+        .mrrAt10(avgMrrAt10)
+        .recallAt50(avgRecallAt50)
+        .map(map)
+        .recallAt300(avgRecallAt300)
         .totalQueries(queries.size())
         .totalRelevantDocuments(totalRelevantDocuments)
         .totalRetrievedDocuments(totalRetrievedDocuments)
@@ -203,6 +233,20 @@ public class EvaluationReportService {
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
 
     double ndcg = computeNdcg(query, new ArrayList<>(retrievedDocs), relevantDocs);
+    double ndcgAt10 =
+        computeNdcg(
+            query,
+            new ArrayList<>(retrievedDocs.subList(0, Math.min(10, retrievedDocs.size()))),
+            relevantDocs);
+    double ndcgAt20 =
+        computeNdcg(
+            query,
+            new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
+            relevantDocs);
+    double mrrAt10 = computeMrrAtK(retrievedDocs, relevantDocs, 10);
+    double recallAt50 = computeRecallAtK(retrievedDocs, relevantDocs, 50);
+    double averagePrecision = computeAveragePrecision(retrievedDocs, relevantDocs);
+    double recallAt300 = computeRecallAtK(retrievedDocs, relevantDocs, 300);
 
     List<String> missingIds =
         relevantDocs.stream()
@@ -247,12 +291,51 @@ public class EvaluationReportService {
     return EvaluationExecuteResponse.QueryEvaluationDetail.builder()
         .query(query)
         .ndcg(ndcg)
+        .ndcgAt10(ndcgAt10)
+        .ndcgAt20(ndcgAt20)
+        .mrrAt10(mrrAt10)
+        .recallAt50(recallAt50)
+        .map(averagePrecision)
+        .recallAt300(recallAt300)
         .relevantCount(relevantDocs.size())
         .retrievedCount(retrievedDocs.size())
         .correctCount(correctDocs.size())
         .missingDocuments(missingDocs)
         .wrongDocuments(wrongDocs)
         .build();
+  }
+
+  private double computeMrrAtK(List<String> retrievedOrder, Set<String> relevantSet, int k) {
+    int limit = Math.min(k, retrievedOrder.size());
+    for (int i = 0; i < limit; i++) {
+      if (relevantSet.contains(retrievedOrder.get(i))) {
+        return 1.0 / (i + 1);
+      }
+    }
+    return 0.0;
+  }
+
+  private double computeRecallAtK(List<String> retrievedOrder, Set<String> relevantSet, int k) {
+    if (relevantSet == null || relevantSet.isEmpty()) return 0.0;
+    int limit = Math.min(k, retrievedOrder.size());
+    int hits = 0;
+    for (int i = 0; i < limit; i++) {
+      if (relevantSet.contains(retrievedOrder.get(i))) hits++;
+    }
+    return (double) hits / relevantSet.size();
+  }
+
+  private double computeAveragePrecision(List<String> retrievedOrder, Set<String> relevantSet) {
+    if (relevantSet == null || relevantSet.isEmpty()) return 0.0;
+    int hits = 0;
+    double sumPrecision = 0.0;
+    for (int i = 0; i < retrievedOrder.size(); i++) {
+      if (relevantSet.contains(retrievedOrder.get(i))) {
+        hits++;
+        sumPrecision += (double) hits / (i + 1);
+      }
+    }
+    return hits == 0 ? 0.0 : (sumPrecision / relevantSet.size());
   }
 
   private double computeNdcg(String query, List<String> retrievedOrder, Set<String> relevantSet) {
@@ -543,7 +626,7 @@ public class EvaluationReportService {
 
     List<EvaluationReportDetailResponse.QueryDetail> details = new ArrayList<>();
     for (var r : rows) {
-      details.add(
+      EvaluationReportDetailResponse.QueryDetail qd =
           EvaluationReportDetailResponse.QueryDetail.builder()
               .query(r.getQuery())
               .ndcg(r.getNdcg())
@@ -555,7 +638,14 @@ public class EvaluationReportService {
                   groundTruthByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
               .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
-              .build());
+              .build();
+      qd.setNdcgAt10(r.getNdcgAt10());
+      qd.setNdcgAt20(r.getNdcgAt20());
+      qd.setMrrAt10(r.getMrrAt10());
+      qd.setRecallAt50(r.getRecallAt50());
+      qd.setMap(r.getAveragePrecision());
+      qd.setRecallAt300(r.getRecallAt300());
+      details.add(qd);
     }
 
     return EvaluationReportDetailResponse.builder()
@@ -576,7 +666,18 @@ public class EvaluationReportService {
     if (!evaluationReportRepository.existsById(reportId)) {
       return false;
     }
-    evaluationReportRepository.deleteById(reportId);
+    try {
+      EvaluationReport report = evaluationReportRepository.findById(reportId).orElse(null);
+      if (report == null) return false;
+
+      // 상세/문서 레코드 선삭제 후 리포트 삭제
+      reportDetailRepository.deleteByReport(report);
+      reportDocumentRepository.deleteByReport(report);
+      evaluationReportRepository.delete(report);
+    } catch (Exception e) {
+      log.error("리포트 삭제 실패: {}", reportId, e);
+      throw e;
+    }
     return true;
   }
 
@@ -621,8 +722,23 @@ public class EvaluationReportService {
                     })
                 .toList();
 
-        // nDCG 계산
-        double ndcg = computeNdcg(q.getQuery(), new ArrayList<>(retrieved), relevant);
+        // 지표 계산
+        List<String> retrievedList = new ArrayList<>(retrieved);
+        double ndcg = computeNdcg(q.getQuery(), retrievedList, relevant);
+        double ndcgAt10 =
+            computeNdcg(
+                q.getQuery(),
+                retrievedList.subList(0, Math.min(10, retrievedList.size())),
+                relevant);
+        double ndcgAt20 =
+            computeNdcg(
+                q.getQuery(),
+                retrievedList.subList(0, Math.min(20, retrievedList.size())),
+                relevant);
+        double mrrAt10 = computeMrrAtK(retrievedList, relevant, 10);
+        double recallAt50 = computeRecallAtK(retrievedList, relevant, 50);
+        double averagePrecision = computeAveragePrecision(retrievedList, relevant);
+        double recallAt300 = computeRecallAtK(retrievedList, relevant, 300);
 
         out.add(
             PersistedQueryEvaluationDetail.builder()
@@ -633,6 +749,12 @@ public class EvaluationReportService {
                 .correctCount(correct.size())
                 .missingDocuments(missingDocs)
                 .wrongDocuments(wrongDocs)
+                .ndcgAt10(ndcgAt10)
+                .ndcgAt20(ndcgAt20)
+                .mrrAt10(mrrAt10)
+                .recallAt50(recallAt50)
+                .averagePrecision(averagePrecision)
+                .recallAt300(recallAt300)
                 .build());
       } catch (Exception e) {
         log.warn("저장용 상세 생성 실패: {}", q.getQuery(), e);
@@ -686,6 +808,12 @@ public class EvaluationReportService {
   private static class PersistedQueryEvaluationDetail {
     private String query;
     private Double ndcg;
+    private Double ndcgAt10;
+    private Double ndcgAt20;
+    private Double mrrAt10;
+    private Double recallAt50;
+    private Double averagePrecision;
+    private Double recallAt300;
     private Integer relevantCount;
     private Integer retrievedCount;
     private Integer correctCount;

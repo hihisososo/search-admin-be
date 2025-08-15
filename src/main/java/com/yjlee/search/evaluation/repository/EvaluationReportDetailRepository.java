@@ -10,4 +10,6 @@ import org.springframework.stereotype.Repository;
 public interface EvaluationReportDetailRepository
     extends JpaRepository<EvaluationReportDetail, Long> {
   List<EvaluationReportDetail> findByReport(EvaluationReport report);
+
+  void deleteByReport(EvaluationReport report);
 }
