@@ -49,6 +49,10 @@ public class QueryProductMapping {
   @Builder.Default
   RelevanceStatus relevanceStatus = RelevanceStatus.UNSPECIFIED;
 
+  @Column(name = "relevance_score")
+  @Builder.Default
+  Integer relevanceScore = -1; // -1: 미평가, 0: 연관없음, 1: 스펙 일부 매치, 2: 제목 전부 매치
+
   @Column(columnDefinition = "TEXT")
   String evaluationReason;
 

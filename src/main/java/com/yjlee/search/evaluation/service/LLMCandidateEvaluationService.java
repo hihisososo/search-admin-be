@@ -283,11 +283,9 @@ public class LLMCandidateEvaluationService {
             continue;
           }
 
-          boolean isRelevant = evaluation.path("isRelevant").asBoolean(false);
+          int score = evaluation.path("score").asInt(0); // 0/1/2
           String reason = evaluation.path("reason").asText("");
-          double confidence = evaluation.path("confidence").asDouble(0.0);
-
-          String evaluationReason = String.format("%s (신뢰도: %.2f)", reason, confidence);
+          String evaluationReason = String.format("%s (score: %d)", reason, score);
 
           QueryProductMapping updatedMapping =
               QueryProductMapping.builder()
@@ -296,7 +294,9 @@ public class LLMCandidateEvaluationService {
                   .productId(mapping.getProductId())
                   .productName(mapping.getProductName())
                   .productSpecs(mapping.getProductSpecs())
-                  .relevanceStatus(RelevanceStatus.fromBoolean(isRelevant))
+                  .relevanceStatus(
+                      score > 0 ? RelevanceStatus.RELEVANT : RelevanceStatus.IRRELEVANT)
+                  .relevanceScore(score)
                   .evaluationReason(evaluationReason)
                   .evaluationSource(EVALUATION_SOURCE_LLM)
                   .build();

@@ -2,11 +2,9 @@ package com.yjlee.search.evaluation.service;
 
 import com.yjlee.search.evaluation.dto.QuerySuggestResponse;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,41 +19,30 @@ public class QuerySuggestService {
 
   public QuerySuggestResponse suggestQueries(Integer count, Integer minC, Integer maxC) {
     int target = count != null && count > 0 ? count : 20;
-    int minCandidates = minC != null ? minC : 60;
-    int maxCandidates = maxC != null ? maxC : 200;
+    int perStrategyCap = 300;
 
-    List<String> generated = queryGenerationService.generateQueriesPreview(target * 3);
-
+    List<String> generated = queryGenerationService.generateQueriesPreview(target * 4);
     List<String> diversified = deduplicateByTokenJaccard(generated, 0.8);
 
-    List<QuerySuggestResponse.SuggestItem> scored = new ArrayList<>();
+    List<QuerySuggestResponse.SuggestItem> result = new ArrayList<>();
     for (String q : diversified) {
-      Set<String> ids = groundTruthService.getCandidateIdsForQuery(q);
-      int c = ids.size();
-      if (c >= minCandidates && c <= maxCandidates) {
-        scored.add(QuerySuggestResponse.SuggestItem.builder().query(q).candidateCount(c).build());
-      }
-      if (scored.size() >= target * 2) {
-        break;
-      }
-    }
+      Set<String> union = groundTruthService.getCandidateUnionStrict(q, perStrategyCap);
 
-    int mid = (minCandidates + maxCandidates) / 2;
-    List<QuerySuggestResponse.SuggestItem> top = new ArrayList<>();
-    for (QuerySuggestResponse.SuggestItem item :
-        scored.stream()
-            .sorted(Comparator.comparingInt(i -> Math.abs(i.getCandidateCount() - mid)))
-            .collect(Collectors.toList())) {
-      if (top.size() >= target) break;
-      top.add(item);
+      if (union.size() > 300) {
+        continue; // 적합하지 않은 쿼리: 전략 합산 중복제거 후 300 초과
+      }
+
+      result.add(
+          QuerySuggestResponse.SuggestItem.builder().query(q).candidateCount(union.size()).build());
+      if (result.size() >= target) break;
     }
 
     return QuerySuggestResponse.builder()
         .requestedCount(target)
-        .returnedCount(top.size())
-        .minCandidates(minCandidates)
-        .maxCandidates(maxCandidates)
-        .items(top)
+        .returnedCount(result.size())
+        .minCandidates(null)
+        .maxCandidates(300)
+        .items(result)
         .build();
   }
 

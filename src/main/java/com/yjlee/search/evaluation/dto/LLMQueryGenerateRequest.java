@@ -19,8 +19,4 @@ public class LLMQueryGenerateRequest {
   @Min(1)
   @Max(100)
   private Integer count;
-
-  @Builder.Default private Integer minCandidates = 60;
-  @Builder.Default private Integer maxCandidates = 200;
-  private String category;
 }
