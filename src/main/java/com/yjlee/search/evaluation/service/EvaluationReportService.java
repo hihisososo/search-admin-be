@@ -576,7 +576,18 @@ public class EvaluationReportService {
     if (!evaluationReportRepository.existsById(reportId)) {
       return false;
     }
-    evaluationReportRepository.deleteById(reportId);
+    try {
+      EvaluationReport report = evaluationReportRepository.findById(reportId).orElse(null);
+      if (report == null) return false;
+
+      // 상세/문서 레코드 선삭제 후 리포트 삭제
+      reportDetailRepository.deleteByReport(report);
+      reportDocumentRepository.deleteByReport(report);
+      evaluationReportRepository.delete(report);
+    } catch (Exception e) {
+      log.error("리포트 삭제 실패: {}", reportId, e);
+      throw e;
+    }
     return true;
   }
 

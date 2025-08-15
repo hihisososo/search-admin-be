@@ -12,4 +12,6 @@ public interface EvaluationReportDocumentRepository
     extends JpaRepository<EvaluationReportDocument, Long> {
   List<EvaluationReportDocument> findByReportAndDocType(
       EvaluationReport report, ReportDocumentType docType);
+
+  void deleteByReport(EvaluationReport report);
 }
