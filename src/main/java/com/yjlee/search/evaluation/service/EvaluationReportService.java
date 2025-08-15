@@ -233,8 +233,16 @@ public class EvaluationReportService {
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
 
     double ndcg = computeNdcg(query, new ArrayList<>(retrievedDocs), relevantDocs);
-    double ndcgAt10 = computeNdcg(query, new ArrayList<>(retrievedDocs.subList(0, Math.min(10, retrievedDocs.size()))), relevantDocs);
-    double ndcgAt20 = computeNdcg(query, new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))), relevantDocs);
+    double ndcgAt10 =
+        computeNdcg(
+            query,
+            new ArrayList<>(retrievedDocs.subList(0, Math.min(10, retrievedDocs.size()))),
+            relevantDocs);
+    double ndcgAt20 =
+        computeNdcg(
+            query,
+            new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
+            relevantDocs);
     double mrrAt10 = computeMrrAtK(retrievedDocs, relevantDocs, 10);
     double recallAt50 = computeRecallAtK(retrievedDocs, relevantDocs, 50);
     double averagePrecision = computeAveragePrecision(retrievedDocs, relevantDocs);
@@ -625,8 +633,7 @@ public class EvaluationReportService {
               .relevantCount(r.getRelevantCount())
               .retrievedCount(r.getRetrievedCount())
               .correctCount(r.getCorrectCount())
-              .retrievedDocuments(
-                  retrievedByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
+              .retrievedDocuments(retrievedByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
               .groundTruthDocuments(
                   groundTruthByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
@@ -718,8 +725,16 @@ public class EvaluationReportService {
         // 지표 계산
         List<String> retrievedList = new ArrayList<>(retrieved);
         double ndcg = computeNdcg(q.getQuery(), retrievedList, relevant);
-        double ndcgAt10 = computeNdcg(q.getQuery(), retrievedList.subList(0, Math.min(10, retrievedList.size())), relevant);
-        double ndcgAt20 = computeNdcg(q.getQuery(), retrievedList.subList(0, Math.min(20, retrievedList.size())), relevant);
+        double ndcgAt10 =
+            computeNdcg(
+                q.getQuery(),
+                retrievedList.subList(0, Math.min(10, retrievedList.size())),
+                relevant);
+        double ndcgAt20 =
+            computeNdcg(
+                q.getQuery(),
+                retrievedList.subList(0, Math.min(20, retrievedList.size())),
+                relevant);
         double mrrAt10 = computeMrrAtK(retrievedList, relevant, 10);
         double recallAt50 = computeRecallAtK(retrievedList, relevant, 50);
         double averagePrecision = computeAveragePrecision(retrievedList, relevant);
