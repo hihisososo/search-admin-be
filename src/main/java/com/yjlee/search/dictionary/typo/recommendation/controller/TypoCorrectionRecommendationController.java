@@ -35,8 +35,10 @@ public class TypoCorrectionRecommendationController {
 
   @GetMapping
   @Operation(summary = "오타 교정어 추천 목록", description = "저장된 오타 교정어 추천 목록을 조회합니다")
-  public ResponseEntity<TypoCorrectionRecommendationListResponse> list() {
-    return ResponseEntity.ok(recommendationService.getRecommendations());
+  public ResponseEntity<TypoCorrectionRecommendationListResponse> list(
+      @RequestParam(name = "sortBy", required = false, defaultValue = "count") String sortBy,
+      @RequestParam(name = "sortDir", required = false, defaultValue = "desc") String sortDir) {
+    return ResponseEntity.ok(recommendationService.getRecommendations(sortBy, sortDir));
   }
 
   @PostMapping("/promote-to-dictionary")

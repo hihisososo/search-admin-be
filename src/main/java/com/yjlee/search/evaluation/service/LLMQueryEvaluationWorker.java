@@ -155,11 +155,8 @@ public class LLMQueryEvaluationWorker {
             batchResults.size());
 
       } catch (Exception e) {
-        log.warn("⚠️ 배치 {}-{} 처리 실패", i + 1, endIndex, e);
-        // 실패한 배치는 실패 매핑으로 처리
-        List<QueryProductMapping> failedBatch =
-            createFailedMappings(query, batchMappings, "배치 처리 실패: " + e.getMessage());
-        updatedMappings.addAll(failedBatch);
+        log.warn("⚠️ 배치 {}-{} 처리 실패 - 해당 배치는 미평가로 유지", i + 1, endIndex, e);
+        // 실패한 배치는 미평가로 유지 (아무 업데이트도 하지 않음)
       }
     }
 
@@ -279,7 +276,7 @@ public class LLMQueryEvaluationWorker {
 
       if (!jsonArray.isArray()) {
         log.warn("⚠️ LLM 응답이 배열 형식이 아닙니다: {}", response);
-        return createFailedMappings(query, mappings, "응답 형식 오류");
+        return new ArrayList<>();
       }
 
       // productId -> evaluation 매핑 생성 (순서에 의존하지 않도록)
@@ -296,7 +293,7 @@ public class LLMQueryEvaluationWorker {
         try {
           JsonNode evaluation = idToEval.get(mapping.getProductId());
           if (evaluation == null) {
-            updatedMappings.add(createFailedMapping(mapping, "응답 누락"));
+            // 응답 누락: 미평가로 유지
             continue;
           }
 
@@ -321,14 +318,14 @@ public class LLMQueryEvaluationWorker {
           updatedMappings.add(updatedMapping);
 
         } catch (Exception e) {
-          log.warn("⚠️ 상품 {} 평가 결과 파싱 실패", mapping.getProductId(), e);
-          updatedMappings.add(createFailedMapping(mapping, "파싱 실패: " + e.getMessage()));
+          log.warn("⚠️ 상품 {} 평가 결과 파싱 실패 - 미평가로 유지", mapping.getProductId(), e);
+          // 파싱 실패: 미평가로 유지
         }
       }
 
     } catch (Exception e) {
-      log.warn("⚠️ 벌크 평가 응답 전체 파싱 실패: {}", response, e);
-      return createFailedMappings(query, mappings, "전체 파싱 실패: " + e.getMessage());
+      log.warn("⚠️ 벌크 평가 응답 전체 파싱 실패 - 미평가로 유지: {}", response, e);
+      return new ArrayList<>();
     }
 
     return updatedMappings;

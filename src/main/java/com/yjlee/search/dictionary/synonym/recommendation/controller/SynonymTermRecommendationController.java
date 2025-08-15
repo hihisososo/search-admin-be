@@ -35,8 +35,10 @@ public class SynonymTermRecommendationController {
 
   @GetMapping
   @Operation(summary = "유의어(term) 추천 목록", description = "저장된 term별 유의어 추천 결과를 조회합니다")
-  public ResponseEntity<ListResponse> list() {
-    return ResponseEntity.ok(service.list());
+  public ResponseEntity<ListResponse> list(
+      @RequestParam(name = "sortBy", required = false, defaultValue = "count") String sortBy,
+      @RequestParam(name = "sortDir", required = false, defaultValue = "desc") String sortDir) {
+    return ResponseEntity.ok(service.list(sortBy, sortDir));
   }
 
   @PostMapping("/merge-to-dictionary")

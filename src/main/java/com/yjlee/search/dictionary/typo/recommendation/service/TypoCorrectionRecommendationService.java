@@ -327,9 +327,21 @@ public class TypoCorrectionRecommendationService {
   }
 
   @Transactional(readOnly = true)
-  public TypoCorrectionRecommendationListResponse getRecommendations() {
-    List<TypoCorrectionRecommendation> list =
-        recommendationRepository.findAllByOrderByRecommendationCountDesc();
+  public TypoCorrectionRecommendationListResponse getRecommendations(
+      String sortBy, String sortDir) {
+    List<TypoCorrectionRecommendation> list;
+    boolean asc = "asc".equalsIgnoreCase(sortDir);
+    if ("pair".equalsIgnoreCase(sortBy)) {
+      list = recommendationRepository.findAll();
+      list.sort(
+          (a, b) ->
+              asc
+                  ? a.getPair().compareToIgnoreCase(b.getPair())
+                  : b.getPair().compareToIgnoreCase(a.getPair()));
+    } else {
+      list = recommendationRepository.findAllByOrderByRecommendationCountDesc();
+      if (asc) Collections.reverse(list);
+    }
     List<TypoCorrectionRecommendationListResponse.TypoCorrectionDetail> details =
         list.stream()
             .map(

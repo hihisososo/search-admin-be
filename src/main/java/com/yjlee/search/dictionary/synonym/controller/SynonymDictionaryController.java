@@ -14,8 +14,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.HashMap;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -131,40 +129,5 @@ public class SynonymDictionaryController {
     log.info("유의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
     synonymDictionaryService.deleteSynonymDictionary(dictionaryId, environment);
     return ResponseEntity.noContent().build();
-  }
-
-  @Operation(summary = "동의어 사전 실시간 반영", description = "동의어 사전 변경사항을 Elasticsearch에 즉시 반영")
-  @PostMapping("/realtime-sync")
-  public ResponseEntity<Map<String, Object>> syncSynonymDictionary(
-      @Parameter(description = "환경 타입 (CURRENT/DEV/PROD)", example = "DEV") @RequestParam
-          DictionaryEnvironmentType environment) {
-
-    log.info("동의어 사전 실시간 반영 요청 - 환경: {}", environment.getDescription());
-    elasticsearchSynonymService.updateSynonymSetRealtime(environment);
-
-    Map<String, Object> response = new HashMap<>();
-    response.put("success", true);
-    response.put("message", "동의어 사전 실시간 반영 완료");
-    response.put("environment", environment.getDescription());
-    response.put("timestamp", System.currentTimeMillis());
-
-    return ResponseEntity.ok(response);
-  }
-
-  @Operation(summary = "동의어 사전 동기화 상태 조회", description = "동의어 사전의 동기화 상태 조회")
-  @GetMapping("/sync-status")
-  public ResponseEntity<Map<String, Object>> getSynonymSyncStatus() {
-
-    log.info("동의어 사전 동기화 상태 조회 요청");
-    String synonymStatus =
-        elasticsearchSynonymService.getSynonymSetStatus(DictionaryEnvironmentType.DEV);
-
-    Map<String, Object> response = new HashMap<>();
-    response.put("success", true);
-    response.put("synonymStatus", synonymStatus);
-    response.put("lastSyncTime", System.currentTimeMillis());
-    response.put("timestamp", System.currentTimeMillis());
-
-    return ResponseEntity.ok(response);
   }
 }

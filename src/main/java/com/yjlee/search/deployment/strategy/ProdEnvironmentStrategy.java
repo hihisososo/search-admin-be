@@ -1,6 +1,5 @@
 package com.yjlee.search.deployment.strategy;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
@@ -58,9 +57,6 @@ public class ProdEnvironmentStrategy implements EnvironmentDeploymentStrategy {
       userDictionaryService.deployToProd();
       stopwordDictionaryService.deployToProd();
       typoCorrectionDictionaryService.deployToProd();
-
-      // 동의어 사전 PROD 환경 synonym_set 업데이트
-      elasticsearchSynonymService.updateSynonymSetRealtime(DictionaryEnvironmentType.PROD);
 
       log.info("모든 사전 운영 환경 배포 및 synonym_set 업데이트 완료");
     } catch (Exception e) {

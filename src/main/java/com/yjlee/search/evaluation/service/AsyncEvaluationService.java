@@ -50,7 +50,8 @@ public class AsyncEvaluationService {
         List<String> pool =
             (request.getCategory() == null || request.getCategory().isBlank())
                 ? queryGenerationService.generateQueriesPreview(need)
-                : queryGenerationService.generateQueriesPreviewWithCategory(need, request.getCategory());
+                : queryGenerationService.generateQueriesPreviewWithCategory(
+                    need, request.getCategory());
 
         int acceptedThisRound = 0;
         for (String q : pool) {

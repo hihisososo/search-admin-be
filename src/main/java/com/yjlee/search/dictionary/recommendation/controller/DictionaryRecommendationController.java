@@ -42,8 +42,10 @@ public class DictionaryRecommendationController {
 
   @GetMapping
   @Operation(summary = "추천 단어 목록 조회", description = "저장된 추천 단어 목록을 조회합니다")
-  public ResponseEntity<RecommendationListResponse> getRecommendations() {
-    RecommendationListResponse response = recommendationService.getRecommendations();
+  public ResponseEntity<RecommendationListResponse> getRecommendations(
+      @RequestParam(name = "sortBy", required = false, defaultValue = "count") String sortBy,
+      @RequestParam(name = "sortDir", required = false, defaultValue = "desc") String sortDir) {
+    RecommendationListResponse response = recommendationService.getRecommendations(sortBy, sortDir);
     return ResponseEntity.ok(response);
   }
 }

@@ -30,8 +30,8 @@ public class ElasticsearchIndexService {
 
   private final ElasticsearchClient elasticsearchClient;
   private final ResourceLoader resourceLoader;
+  private final ElasticsearchSynonymService elasticsearchSynonymService;
 
-  /** 환경별 synonym set 이름 생성 */
   private String getSynonymSetName(DictionaryEnvironmentType environmentType) {
     switch (environmentType) {
       case CURRENT:
@@ -53,14 +53,17 @@ public class ElasticsearchIndexService {
       throws IOException {
     String productIndexName = generateProductIndexName(version);
     String autocompleteIndexName = generateAutocompleteIndexName(version);
+    String versionedSynonymSet = "synonyms-nori-" + version;
 
-    // 상품 인덱스 생성
     if (indexExists(productIndexName)) {
       deleteIndex(productIndexName);
     }
 
+    elasticsearchSynonymService.createOrUpdateSynonymSet(
+        versionedSynonymSet, DictionaryEnvironmentType.DEV);
+
     String productMappingJson = createProductIndexMapping();
-    String productSettingsJson = createProductIndexSettings(version, environmentType);
+    String productSettingsJson = createProductIndexSettings(version, versionedSynonymSet);
 
     CreateIndexRequest productRequest =
         CreateIndexRequest.of(
@@ -82,9 +85,8 @@ public class ElasticsearchIndexService {
         "새 상품 인덱스 생성 완료 - 인덱스: {}, 환경: {}, synonym_set: {}",
         productIndexName,
         environmentType.getDescription(),
-        getSynonymSetName(environmentType));
+        versionedSynonymSet);
 
-    // 자동완성 인덱스 생성
     if (indexExists(autocompleteIndexName)) {
       deleteIndex(autocompleteIndexName);
     }
@@ -129,16 +131,13 @@ public class ElasticsearchIndexService {
   }
 
   public void updateProductsSearchAlias(String newIndexName) throws IOException {
-    // 현재 products-search alias가 연결된 모든 인덱스 조회
     var getAliasRequest = GetAliasRequest.of(a -> a.name(ESFields.PRODUCTS_SEARCH_ALIAS));
 
     try {
       var aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
 
-      // atomic alias update를 위한 액션 리스트 생성
       var actions = new ArrayList<Action>();
 
-      // 기존 alias 제거 액션들 추가
       for (String existingIndex : aliasResponse.result().keySet()) {
         if (!existingIndex.equals(newIndexName)) {
           actions.add(
@@ -149,12 +148,10 @@ public class ElasticsearchIndexService {
         }
       }
 
-      // 새 인덱스에 alias 추가 액션
       actions.add(
           Action.of(
               a -> a.add(add -> add.index(newIndexName).alias(ESFields.PRODUCTS_SEARCH_ALIAS))));
 
-      // atomic update 실행
       if (!actions.isEmpty()) {
         var updateRequest = UpdateAliasesRequest.of(u -> u.actions(actions));
         elasticsearchClient.indices().updateAliases(updateRequest);
@@ -166,7 +163,6 @@ public class ElasticsearchIndexService {
 
     } catch (ElasticsearchException e) {
       if (e.response().status() == 404) {
-        // alias가 존재하지 않는 경우, 새로 생성
         var putAliasRequest =
             PutAliasRequest.of(a -> a.index(newIndexName).name(ESFields.PRODUCTS_SEARCH_ALIAS));
         elasticsearchClient.indices().putAlias(putAliasRequest);
@@ -182,7 +178,6 @@ public class ElasticsearchIndexService {
     return elasticsearchClient.indices().exists(request).value();
   }
 
-  /** 현재 products-search alias가 연결된 인덱스들을 조회 */
   public Set<String> getCurrentAliasIndices() throws IOException {
     try {
       var getAliasRequest = GetAliasRequest.of(a -> a.name(ESFields.PRODUCTS_SEARCH_ALIAS));
@@ -204,6 +199,16 @@ public class ElasticsearchIndexService {
     DeleteIndexRequest request = DeleteIndexRequest.of(d -> d.index(indexName));
     elasticsearchClient.indices().delete(request);
     log.info("인덱스 삭제 완료: {}", indexName);
+
+    try {
+      if (indexName != null && indexName.startsWith(ESFields.PRODUCTS_INDEX_PREFIX + "-")) {
+        String version = indexName.replace(ESFields.PRODUCTS_INDEX_PREFIX + "-", "");
+        String versionedSynonymSet = "synonyms-nori-" + version;
+        elasticsearchSynonymService.deleteSynonymSet(versionedSynonymSet);
+      }
+    } catch (Exception e) {
+      log.warn("동의어 세트 삭제 연동 실패(무시) - index: {}, msg: {}", indexName, e.getMessage());
+    }
   }
 
   private String createProductIndexMapping() throws IOException {
@@ -229,8 +234,8 @@ public class ElasticsearchIndexService {
     }
   }
 
-  private String createProductIndexSettings(
-      String version, DictionaryEnvironmentType environmentType) throws IOException {
+  private String createProductIndexSettings(String version, String synonymSetName)
+      throws IOException {
     try {
       var resource = resourceLoader.getResource("classpath:elasticsearch/product-settings.json");
       String settingsTemplate =
@@ -240,7 +245,6 @@ public class ElasticsearchIndexService {
       String userDictPath = "/usr/share/elasticsearch/config/analysis/user/" + version + ".txt";
       String stopwordDictPath =
           "/usr/share/elasticsearch/config/analysis/stopword/" + version + ".txt";
-      String synonymSetName = getSynonymSetName(environmentType);
 
       return settingsTemplate
           .replace("{USER_DICT_PATH}", userDictPath)
@@ -271,16 +275,13 @@ public class ElasticsearchIndexService {
   }
 
   public void updateAutocompleteSearchAlias(String newIndexName) throws IOException {
-    // 현재 autocomplete-search alias가 연결된 모든 인덱스 조회
     var getAliasRequest = GetAliasRequest.of(a -> a.name(ESFields.AUTOCOMPLETE_SEARCH_ALIAS));
 
     try {
       var aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
 
-      // atomic alias update를 위한 액션 리스트 생성
       var actions = new ArrayList<Action>();
 
-      // 기존 alias 제거 액션들 추가
       for (String existingIndex : aliasResponse.result().keySet()) {
         if (!existingIndex.equals(newIndexName)) {
           actions.add(
@@ -292,13 +293,11 @@ public class ElasticsearchIndexService {
         }
       }
 
-      // 새 인덱스에 alias 추가 액션
       actions.add(
           Action.of(
               a ->
                   a.add(add -> add.index(newIndexName).alias(ESFields.AUTOCOMPLETE_SEARCH_ALIAS))));
 
-      // atomic update 실행
       if (!actions.isEmpty()) {
         var updateRequest = UpdateAliasesRequest.of(u -> u.actions(actions));
         elasticsearchClient.indices().updateAliases(updateRequest);
@@ -312,7 +311,6 @@ public class ElasticsearchIndexService {
 
     } catch (ElasticsearchException e) {
       if (e.response().status() == 404) {
-        // alias가 존재하지 않는 경우, 새로 생성
         var putAliasRequest =
             PutAliasRequest.of(a -> a.index(newIndexName).name(ESFields.AUTOCOMPLETE_SEARCH_ALIAS));
         elasticsearchClient.indices().putAlias(putAliasRequest);

@@ -20,56 +20,25 @@ public class ElasticsearchSynonymService {
   private final ElasticsearchClient elasticsearchClient;
   private final SynonymDictionaryService synonymDictionaryService;
 
-  private static final String SYNONYM_SET_BASE_NAME = "synonyms-nori";
-
-  /** 환경별 synonym set 이름 생성 */
-  private String getSynonymSetName(DictionaryEnvironmentType environmentType) {
-    switch (environmentType) {
-      case CURRENT:
-      case DEV:
-        return SYNONYM_SET_BASE_NAME + "-dev";
-      case PROD:
-        return SYNONYM_SET_BASE_NAME + "-prod";
-      default:
-        return SYNONYM_SET_BASE_NAME + "-dev";
+  public void createOrUpdateSynonymSet(String setName, DictionaryEnvironmentType environmentType) {
+    try {
+      List<String> synonymRules = getSynonymRules(environmentType);
+      updateElasticsearchSynonymSet(setName, synonymRules);
+      log.info("버전 동의어 세트 생성/업데이트 완료 - set: {}, 규칙 수: {}", setName, synonymRules.size());
+    } catch (Exception e) {
+      log.error("버전 동의어 세트 생성/업데이트 실패 - set: {}", setName, e);
+      throw new RuntimeException("버전 동의어 세트 생성/업데이트 실패", e);
     }
   }
 
-  /**
-   * 실시간 동의어 사전 업데이트
-   *
-   * @param environmentType 환경 (DEV/PROD)
-   */
-  public void updateSynonymSetRealtime(DictionaryEnvironmentType environmentType) {
-    String synonymSetName = getSynonymSetName(environmentType);
-    log.info(
-        "동의어 사전 실시간 업데이트 시작 - 환경: {}, synonym_set: {}",
-        environmentType.getDescription(),
-        synonymSetName);
-
+  public void deleteSynonymSet(String setName) {
     try {
-      List<String> synonymRules = getSynonymRules(environmentType);
-
-      if (synonymRules.isEmpty()) {
-        log.warn("업데이트할 동의어 규칙이 없습니다 - 환경: {}", environmentType.getDescription());
-        return;
-      }
-
-      updateElasticsearchSynonymSet(synonymSetName, synonymRules);
-
-      log.info(
-          "동의어 사전 실시간 업데이트 완료 - 환경: {}, synonym_set: {}, 규칙 수: {}",
-          environmentType.getDescription(),
-          synonymSetName,
-          synonymRules.size());
-
+      var request =
+          co.elastic.clients.elasticsearch.synonyms.DeleteSynonymRequest.of(d -> d.id(setName));
+      elasticsearchClient.synonyms().deleteSynonym(request);
+      log.info("동의어 세트 삭제 완료 - set: {}", setName);
     } catch (Exception e) {
-      log.error(
-          "동의어 사전 실시간 업데이트 실패 - 환경: {}, synonym_set: {}",
-          environmentType.getDescription(),
-          synonymSetName,
-          e);
-      throw new RuntimeException("동의어 사전 실시간 업데이트 실패", e);
+      log.warn("동의어 세트 삭제 실패(무시) - set: {}, msg: {}", setName, e.getMessage());
     }
   }
 
@@ -110,30 +79,11 @@ public class ElasticsearchSynonymService {
             .map(rule -> SynonymRule.of(sr -> sr.synonyms(rule)))
             .collect(Collectors.toList());
 
-    // PutSynonymRequest 생성
     PutSynonymRequest request =
         PutSynonymRequest.of(psr -> psr.id(synonymSetName).synonymsSet(rules));
 
-    // Elasticsearch에 요청
-    var response = elasticsearchClient.synonyms().putSynonym(request);
+    elasticsearchClient.synonyms().putSynonym(request);
 
     log.info("Elasticsearch synonym set 업데이트 완료");
-  }
-
-  /** synonym set 상태 조회 (환경별) */
-  public String getSynonymSetStatus(DictionaryEnvironmentType environmentType) {
-    try {
-      String synonymSetName = getSynonymSetName(environmentType);
-      var response = elasticsearchClient.synonyms().getSynonym(gr -> gr.id(synonymSetName));
-      return "활성 - 규칙 수: " + response.synonymsSet().size();
-    } catch (Exception e) {
-      log.warn("Synonym set 상태 조회 실패 - 환경: {}", environmentType.getDescription(), e);
-      return "조회 실패";
-    }
-  }
-
-  /** 현재 synonym set 상태 조회 (기본값: DEV 환경) */
-  public String getSynonymSetStatus() {
-    return getSynonymSetStatus(DictionaryEnvironmentType.DEV);
   }
 }

@@ -51,9 +51,6 @@ public class IndexingExecutionService {
       // 3. 불용어사전 EC2 업로드
       uploadStopwordDictionaryToEC2(version);
 
-      // 4. 동의어 사전 synonym_set 업데이트 (DEV 환경)
-      updateSynonymSetForIndexing();
-
       // 5. 새 인덱스 생성 및 데이터 색인
       String newIndexName =
           elasticsearchIndexService.createNewIndex(version, DictionaryEnvironmentType.DEV);
@@ -189,17 +186,6 @@ public class IndexingExecutionService {
     } catch (Exception e) {
       log.error("불용어사전 EC2 업로드 실패 - 버전: {}", version, e);
       throw new RuntimeException("불용어사전 EC2 업로드 실패", e);
-    }
-  }
-
-  private void updateSynonymSetForIndexing() {
-    try {
-      // DEV 환경으로 synonym_set 업데이트
-      elasticsearchSynonymService.updateSynonymSetRealtime(DictionaryEnvironmentType.DEV);
-      log.info("색인용 동의어 사전 synonym_set 업데이트 완료 (DEV 환경)");
-    } catch (Exception e) {
-      log.error("색인용 동의어 사전 synonym_set 업데이트 실패", e);
-      throw new RuntimeException("색인용 동의어 사전 synonym_set 업데이트 실패", e);
     }
   }
 

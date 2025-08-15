@@ -17,8 +17,8 @@ import com.yjlee.search.evaluation.repository.EvaluationReportRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 // import removed: SearchExecuteRequest no longer used here
-import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
+import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.SearchService;
 import jakarta.annotation.PreDestroy;

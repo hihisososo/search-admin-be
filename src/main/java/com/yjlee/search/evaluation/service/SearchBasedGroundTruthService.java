@@ -9,7 +9,6 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.yjlee.search.common.util.TextPreprocessor;
-import org.springframework.beans.factory.annotation.Value;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
@@ -25,6 +24,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,9 +54,7 @@ public class SearchBasedGroundTruthService {
   @Transactional
   public void generateCandidatesFromSearch() {
     log.info(
-        "🔍 전체 모든 쿼리의 정답 후보군 생성 시작 (각 검색방식 {}개씩, 최대 {}개)",
-        perStrategyFetchSize,
-        maxTotalPerQuery);
+        "🔍 전체 모든 쿼리의 정답 후보군 생성 시작 (각 검색방식 {}개씩, 최대 {}개)", perStrategyFetchSize, maxTotalPerQuery);
 
     log.info("기존 매핑 전체 삭제");
     queryProductMappingRepository.deleteAll();
@@ -204,8 +202,8 @@ public class SearchBasedGroundTruthService {
   }
 
   /**
-   * 동적으로 최대 후보수(targetMaxTotal)를 기준으로 약간 여유 있게 더 많이 가져와서 판단할 때 사용.
-   * per-strategy 페치 개수는 (targetMaxTotal * 1.3 / 3)로 계산하고, 벡터 numCandidates는 그 2배로 설정.
+   * 동적으로 최대 후보수(targetMaxTotal)를 기준으로 약간 여유 있게 더 많이 가져와서 판단할 때 사용. per-strategy 페치 개수는
+   * (targetMaxTotal * 1.3 / 3)로 계산하고, 벡터 numCandidates는 그 2배로 설정.
    */
   public Set<String> getCandidateIdsForQuery(String query, int targetMaxTotal) {
     try {
@@ -223,7 +221,12 @@ public class SearchBasedGroundTruthService {
       int dynamicMaxTotal = Math.max(targetMaxTotal + 20, (int) Math.ceil(targetMaxTotal * 1.2));
 
       return collectCandidatesForQueryWithEmbedding(
-          query, embedding, dynamicPerStrategy, dynamicNumCandidates, dynamicMinScore, dynamicMaxTotal);
+          query,
+          embedding,
+          dynamicPerStrategy,
+          dynamicNumCandidates,
+          dynamicMinScore,
+          dynamicMaxTotal);
     } catch (Exception e) {
       log.warn("쿼리 후보 드라이런 실패(동적): {}", query, e);
       return new LinkedHashSet<>();
@@ -258,12 +261,14 @@ public class SearchBasedGroundTruthService {
 
     if (queryEmbedding != null) {
       allCandidates.addAll(
-          searchByVectorWithEmbedding(queryEmbedding, "name_specs_vector", perStrategy, numCandidates, minScore));
+          searchByVectorWithEmbedding(
+              queryEmbedding, "name_specs_vector", perStrategy, numCandidates, minScore));
     }
 
     allCandidates.addAll(searchByCrossField(query, new String[] {"name", "specs"}, perStrategy));
 
-    allCandidates.addAll(searchByCrossField(query, new String[] {"name.bigram", "specs.bigram"}, perStrategy));
+    allCandidates.addAll(
+        searchByCrossField(query, new String[] {"name.bigram", "specs.bigram"}, perStrategy));
 
     return allCandidates.stream()
         .limit(maxTotal)
