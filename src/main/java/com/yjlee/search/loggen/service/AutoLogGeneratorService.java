@@ -4,6 +4,9 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.indices.AnalyzeRequest;
+import co.elastic.clients.elasticsearch.indices.AnalyzeResponse;
+import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.clicklog.dto.ClickLogRequest;
 import com.yjlee.search.common.constants.ESFields;
@@ -60,7 +63,7 @@ public class AutoLogGeneratorService {
                   JsonNode randomDoc = getRandomDocument(indexName);
 
                   if (randomDoc != null) {
-                    String keyword = extractKeyword(randomDoc);
+                    String keyword = extractKeyword(indexName, randomDoc);
 
                     searchAndClick(indexName, keyword, randomDoc);
                   }
@@ -107,21 +110,17 @@ public class AutoLogGeneratorService {
     return null;
   }
 
-  private String extractKeyword(JsonNode doc) {
+  private String extractKeyword(String indexName, JsonNode doc) {
     String brandName = doc.has(ESFields.BRAND_NAME) ? doc.get(ESFields.BRAND_NAME).asText() : null;
     String categoryName =
         doc.has(ESFields.CATEGORY_NAME) ? doc.get(ESFields.CATEGORY_NAME).asText() : null;
     String productName = doc.has(ESFields.NAME) ? doc.get(ESFields.NAME).asText() : null;
 
-    List<String> productWords = new ArrayList<>();
-    if (productName != null) {
-      String cleanedName =
-          productName.replaceAll("[\\[\\](){}]", " ").replaceAll("\\s+", " ").trim();
-      String[] words = cleanedName.split("\\s+");
-      for (String word : words) {
-        if (word.length() > 2 && !word.matches("\\d+개입|\\d+팩|\\d+매|\\d+ml|\\d+g|\\d+kg")) {
-          productWords.add(word);
-        }
+    List<String> tokens = new ArrayList<>();
+    if (productName != null && !productName.isBlank()) {
+      try {
+        tokens = analyzeTokens(indexName, productName);
+      } catch (Exception ignore) {
       }
     }
 
@@ -130,7 +129,10 @@ public class AutoLogGeneratorService {
       for (JsonNode model : doc.get(ESFields.MODEL)) {
         String modelText = model.asText();
         if (!modelText.isEmpty() && !modelText.equals("null")) {
-          models.add(modelText);
+          if ((brandName == null || !modelText.equalsIgnoreCase(brandName))
+              && !containsIgnoreCase(models, modelText)) {
+            models.add(modelText);
+          }
         }
       }
     }
@@ -141,32 +143,37 @@ public class AutoLogGeneratorService {
       List<String> singleKeywords = new ArrayList<>();
       if (brandName != null && !brandName.isEmpty()) singleKeywords.add(brandName);
       if (categoryName != null && !categoryName.isEmpty()) singleKeywords.add(categoryName);
-      singleKeywords.addAll(productWords);
+      singleKeywords.addAll(tokens);
       singleKeywords.addAll(models);
 
       if (!singleKeywords.isEmpty()) {
-        return singleKeywords.get(random.nextInt(singleKeywords.size()));
+        String k = singleKeywords.get(random.nextInt(singleKeywords.size()));
+        return dedupJoin(List.of(k));
       }
     } else if (rand < 0.7) {
       List<String> combinations = new ArrayList<>();
 
       if (brandName != null && categoryName != null) {
-        combinations.add(brandName + " " + categoryName);
+        String k = dedupJoin(List.of(brandName, categoryName));
+        if (!k.isBlank()) combinations.add(k);
       }
 
-      if (brandName != null && !productWords.isEmpty()) {
-        combinations.add(brandName + " " + productWords.get(0));
+      if (brandName != null && !tokens.isEmpty()) {
+        String k = dedupJoin(List.of(brandName, tokens.get(0)));
+        if (!k.isBlank()) combinations.add(k);
       }
 
-      if (categoryName != null && !productWords.isEmpty()) {
-        String productWord = productWords.get(random.nextInt(productWords.size()));
-        if (!productWord.equals(categoryName)) {
-          combinations.add(categoryName + " " + productWord);
+      if (categoryName != null && !tokens.isEmpty()) {
+        String token = tokens.get(random.nextInt(tokens.size()));
+        if (!equalsIgnoreCase(token, categoryName)) {
+          String k = dedupJoin(List.of(categoryName, token));
+          if (!k.isBlank()) combinations.add(k);
         }
       }
 
       if (!models.isEmpty() && brandName != null) {
-        combinations.add(brandName + " " + models.get(0));
+        String k = dedupJoin(List.of(brandName, models.get(0)));
+        if (!k.isBlank()) combinations.add(k);
       }
 
       if (!combinations.isEmpty()) {
@@ -175,38 +182,87 @@ public class AutoLogGeneratorService {
     } else if (rand < 0.9) {
       List<String> tripleKeywords = new ArrayList<>();
 
-      if (brandName != null && categoryName != null && !productWords.isEmpty()) {
-        tripleKeywords.add(brandName + " " + categoryName + " " + productWords.get(0));
+      if (brandName != null && categoryName != null && !tokens.isEmpty()) {
+        String k = dedupJoin(List.of(brandName, categoryName, tokens.get(0)));
+        if (!k.isBlank()) tripleKeywords.add(k);
       }
 
-      if (brandName != null && !models.isEmpty() && !productWords.isEmpty()) {
-        tripleKeywords.add(brandName + " " + models.get(0) + " " + productWords.get(0));
+      if (brandName != null && !models.isEmpty() && !tokens.isEmpty()) {
+        String k = dedupJoin(List.of(brandName, models.get(0), tokens.get(0)));
+        if (!k.isBlank()) tripleKeywords.add(k);
+      }
+
+      if (tokens.size() >= 3) {
+        String k = dedupJoin(List.of(tokens.get(0), tokens.get(1), tokens.get(2)));
+        if (!k.isBlank()) tripleKeywords.add(k);
       }
 
       if (!tripleKeywords.isEmpty()) {
         return tripleKeywords.get(random.nextInt(tripleKeywords.size()));
       }
     } else {
-      if (productName != null && productName.length() > 3 && productName.length() < 50) {
-        String cleanedFullName =
-            productName.replaceAll("[\\[\\](){}]", " ").replaceAll("\\s+", " ").trim();
-        if (cleanedFullName.split("\\s+").length <= 5) {
-          return cleanedFullName;
-        }
+      if (!tokens.isEmpty()) {
+        int limit = Math.min(5, tokens.size());
+        return dedupJoin(tokens.subList(0, limit));
       }
     }
 
     if (brandName != null && !brandName.isEmpty()) {
-      return brandName;
+      return dedupJoin(List.of(brandName));
     }
     if (categoryName != null && !categoryName.isEmpty()) {
-      return categoryName;
+      return dedupJoin(List.of(categoryName));
     }
-    if (!productWords.isEmpty()) {
-      return productWords.get(0);
+    if (!tokens.isEmpty()) {
+      return dedupJoin(List.of(tokens.get(0)));
     }
 
     return "상품";
+  }
+
+  private List<String> analyzeTokens(String indexName, String text) throws Exception {
+    AnalyzeRequest req =
+        AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_search_analyzer").text(text));
+    AnalyzeResponse resp = esClient.indices().analyze(req);
+    List<String> out = new ArrayList<>();
+    java.util.HashSet<String> seen = new java.util.HashSet<>();
+    for (AnalyzeToken t : resp.tokens()) {
+      String tok = t.token();
+      if (tok == null || tok.isBlank()) continue;
+      String key = tok.toLowerCase(java.util.Locale.ROOT);
+      if (seen.add(key)) out.add(tok);
+    }
+    return out;
+  }
+
+  private boolean containsIgnoreCase(List<String> list, String value) {
+    for (String s : list) {
+      if (s != null && value != null && s.equalsIgnoreCase(value)) return true;
+    }
+    return false;
+  }
+
+  private boolean equalsIgnoreCase(String a, String b) {
+    if (a == null || b == null) return false;
+    return a.equalsIgnoreCase(b);
+  }
+
+  private String dedupJoin(List<String> parts) {
+    List<String> out = new ArrayList<>();
+    java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<>();
+    for (String p : parts) {
+      if (p == null) continue;
+      String[] toks = p.trim().split("\\s+");
+      for (String t : toks) {
+        if (t.isBlank()) continue;
+        String key = t.toLowerCase(java.util.Locale.ROOT);
+        if (!seen.contains(key)) {
+          seen.add(key);
+          out.add(t);
+        }
+      }
+    }
+    return String.join(" ", out);
   }
 
   private void searchAndClick(String indexName, String keyword, JsonNode originalDoc) {

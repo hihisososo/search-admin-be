@@ -417,9 +417,20 @@ public class DictionaryRecommendationService {
   private record RecommendedWord(String word, String description) {}
 
   @Transactional(readOnly = true)
-  public RecommendationListResponse getRecommendations() {
-    List<DictionaryRecommendation> recommendations =
-        recommendationRepository.findAllByOrderByRecommendationCountDesc();
+  public RecommendationListResponse getRecommendations(String sortBy, String sortDir) {
+    List<DictionaryRecommendation> recommendations;
+    boolean asc = "asc".equalsIgnoreCase(sortDir);
+    if ("word".equalsIgnoreCase(sortBy)) {
+      recommendations = recommendationRepository.findAll();
+      recommendations.sort(
+          (a, b) ->
+              asc
+                  ? a.getWord().compareToIgnoreCase(b.getWord())
+                  : b.getWord().compareToIgnoreCase(a.getWord()));
+    } else {
+      recommendations = recommendationRepository.findAllByOrderByRecommendationCountDesc();
+      if (asc) Collections.reverse(recommendations);
+    }
 
     List<RecommendationListResponse.RecommendationDetail> details =
         recommendations.stream()

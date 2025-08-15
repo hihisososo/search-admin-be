@@ -27,6 +27,18 @@ public class LLMService {
   @Value("${openai.api.model:gpt-4.1-nano}")
   private String openaiModel;
 
+  @Value("${openai.api.connect-timeout-ms:8000}")
+  private int connectTimeoutMs;
+
+  @Value("${openai.api.read-timeout-ms:45000}")
+  private int readTimeoutMs;
+
+  @Value("${openai.api.max-retries:3}")
+  private int maxRetries;
+
+  @Value("${openai.api.initial-backoff-ms:1000}")
+  private int initialBackoffMs;
+
   public String callLLMAPI(String prompt) {
     try {
       log.debug("LLM API 호출 시작");
@@ -48,9 +60,6 @@ public class LLMService {
   }
 
   private String performAPICall(String prompt, Double temperature) throws Exception {
-    // 연결/읽기 타임아웃을 적용한 로컬 RestTemplate 사용(추가 의존성 없이 java.net 기반)
-    int connectTimeoutMs = 8000;
-    int readTimeoutMs = 45000;
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
     requestFactory.setConnectTimeout(connectTimeoutMs);
     requestFactory.setReadTimeout(readTimeoutMs);
@@ -67,10 +76,38 @@ public class LLMService {
     requestBody.put("temperature", tempToUse);
 
     HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-    ResponseEntity<String> response =
-        timedRestTemplate.exchange(openaiApiUrl, HttpMethod.POST, entity, String.class);
 
-    JsonNode jsonNode = objectMapper.readTree(response.getBody());
-    return jsonNode.path("choices").get(0).path("message").path("content").asText();
+    int attempt = 0;
+    RuntimeException lastEx = null;
+    while (attempt < Math.max(1, maxRetries)) {
+      attempt++;
+      try {
+        ResponseEntity<String> response =
+            timedRestTemplate.exchange(openaiApiUrl, HttpMethod.POST, entity, String.class);
+        if (!response.getStatusCode().is2xxSuccessful()) {
+          int status = response.getStatusCode().value();
+          if (status == 429 || (status >= 500 && status < 600)) {
+            throw new RuntimeException("HTTP " + status);
+          }
+          throw new RuntimeException("HTTP " + status + ": " + response.getBody());
+        }
+
+        JsonNode jsonNode = objectMapper.readTree(response.getBody());
+        return jsonNode.path("choices").get(0).path("message").path("content").asText();
+      } catch (Exception e) {
+        lastEx = new RuntimeException("LLM API 호출 실패: " + e.getMessage(), e);
+        if (attempt >= Math.max(1, maxRetries)) break;
+        long backoff = (long) (initialBackoffMs * Math.pow(2, attempt - 1));
+        long jitter = (long) (backoff * 0.2);
+        long sleepMs = backoff + (long) (Math.random() * jitter);
+        try {
+          Thread.sleep(sleepMs);
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw lastEx;
+        }
+      }
+    }
+    throw lastEx != null ? lastEx : new RuntimeException("LLM API 호출 실패");
   }
 }

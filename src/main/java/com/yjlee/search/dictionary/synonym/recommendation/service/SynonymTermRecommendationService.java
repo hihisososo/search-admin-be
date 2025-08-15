@@ -148,9 +148,29 @@ public class SynonymTermRecommendationService {
   }
 
   @Transactional(readOnly = true)
-  public ListResponse list() {
-    List<SynonymTermRecommendation> all =
-        recommendationRepository.findAllByOrderByRecommendationCountDesc();
+  public ListResponse list(String sortBy, String sortDir) {
+    List<SynonymTermRecommendation> all;
+    boolean asc = "asc".equalsIgnoreCase(sortDir);
+    if ("base".equalsIgnoreCase(sortBy)) {
+      all = recommendationRepository.findAll();
+      all.sort(
+          (a, b) ->
+              asc
+                  ? a.getBaseTerm().compareToIgnoreCase(b.getBaseTerm())
+                  : b.getBaseTerm().compareToIgnoreCase(a.getBaseTerm()));
+    } else if ("synonym".equalsIgnoreCase(sortBy)) {
+      all = recommendationRepository.findAll();
+      all.sort(
+          (a, b) ->
+              asc
+                  ? a.getSynonymTerm().compareToIgnoreCase(b.getSynonymTerm())
+                  : b.getSynonymTerm().compareToIgnoreCase(a.getSynonymTerm()));
+    } else {
+      all = recommendationRepository.findAllByOrderByRecommendationCountDesc();
+      if (asc) {
+        Collections.reverse(all);
+      }
+    }
     Map<String, List<SynonymTermRecommendation>> byBase =
         all.stream()
             .collect(
