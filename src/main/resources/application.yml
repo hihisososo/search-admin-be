@@ -47,3 +47,10 @@ openai:
 logging:
   level:
     com.yjlee.search: DEBUG
+
+evaluation:
+  llm:
+    batch-size: 100
+generation:
+  query:
+    batch-size: 100

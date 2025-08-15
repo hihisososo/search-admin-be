@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -31,6 +32,9 @@ public class QueryGenerationService {
   private final LLMService llmService;
   private final PromptTemplateLoader promptTemplateLoader;
 
+  @Value("${generation.query.batch-size:100}")
+  private int generationBatchSize;
+
   public List<String> generateRandomQueries(int count) {
     try {
       log.info("랜덤 쿼리 생성 시작: {}개", count);
@@ -41,8 +45,8 @@ public class QueryGenerationService {
       int maxAttempts = count * 5;
 
       while (generatedQueries.size() < count && attempts < maxAttempts) {
-        int batchSize = Math.min(20, count - generatedQueries.size());
-        List<ProductInfoDto> products = fetchRandomProducts(batchSize * 2);
+        int batchSize = Math.min(generationBatchSize, count - generatedQueries.size());
+        List<ProductInfoDto> products = fetchRandomProducts(Math.max(1, batchSize * 2));
 
         if (!products.isEmpty()) {
           try {
@@ -92,7 +96,7 @@ public class QueryGenerationService {
       int maxAttempts = count * 5;
 
       while (generated.size() < count && attempts < maxAttempts) {
-        int batchSize = 20;
+        int batchSize = Math.min(generationBatchSize, Math.max(1, count - generated.size()));
         List<ProductInfoDto> products = fetchRandomProducts(batchSize);
 
         if (!products.isEmpty()) {
@@ -134,7 +138,7 @@ public class QueryGenerationService {
       int maxAttempts = count * 5;
 
       while (generated.size() < count && attempts < maxAttempts) {
-        int batchSize = 20;
+        int batchSize = Math.min(generationBatchSize, Math.max(1, count - generated.size()));
         List<ProductInfoDto> products = fetchRandomProductsByCategory(batchSize, category);
 
         if (!products.isEmpty()) {

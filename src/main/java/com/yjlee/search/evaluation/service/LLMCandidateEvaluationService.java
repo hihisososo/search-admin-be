@@ -41,7 +41,7 @@ public class LLMCandidateEvaluationService {
   private final ObjectMapper objectMapper;
   private final PromptTemplateLoader promptTemplateLoader;
 
-  @Value("${evaluation.llm.batch-size:20}")
+  @Value("${evaluation.llm.batch-size:100}")
   private int defaultBatchSize;
 
   public void evaluateAllCandidates() {
