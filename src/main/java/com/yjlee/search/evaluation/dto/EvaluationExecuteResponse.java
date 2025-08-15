@@ -13,9 +13,7 @@ public class EvaluationExecuteResponse {
 
   private Long reportId;
   private String reportName;
-  private Double averagePrecision;
-  private Double averageRecall;
-  private Double averageF1Score;
+  private Double averageNdcg;
   private Integer totalQueries;
   private Integer totalRelevantDocuments;
   private Integer totalRetrievedDocuments;
@@ -30,9 +28,7 @@ public class EvaluationExecuteResponse {
   @Builder
   public static class QueryEvaluationDetail {
     private String query;
-    private Double precision;
-    private Double recall;
-    private Double f1Score;
+    private Double ndcg;
     private Integer relevantCount;
     private Integer retrievedCount;
     private Integer correctCount;

@@ -4,7 +4,6 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.MgetRequest;
 import co.elastic.clients.elasticsearch.core.MgetResponse;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
@@ -53,6 +52,10 @@ public class EvaluationReportService {
   private final EvaluationQueryService evaluationQueryService;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final EvaluationReportRepository evaluationReportRepository;
+  private final com.yjlee.search.evaluation.repository.EvaluationReportDetailRepository
+      reportDetailRepository;
+  private final com.yjlee.search.evaluation.repository.EvaluationReportDocumentRepository
+      reportDocumentRepository;
   private final SearchService searchService;
   private final ObjectMapper objectMapper;
   private final ElasticsearchClient elasticsearchClient;
@@ -71,9 +74,7 @@ public class EvaluationReportService {
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
 
-    double totalPrecision = 0.0;
-    double totalRecall = 0.0;
-    double totalF1Score = 0.0;
+    double totalNdcg = 0.0;
     int totalRelevantDocuments = 0;
     int totalRetrievedDocuments = 0;
     int totalCorrectDocuments = 0;
@@ -113,19 +114,15 @@ public class EvaluationReportService {
     // 결과 수집 (동기화된 리스트에서)
     queryDetails.addAll(synchronizedQueryDetails);
     for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
-      totalPrecision += detail.getPrecision();
-      totalRecall += detail.getRecall();
-      totalF1Score += detail.getF1Score();
+      totalNdcg += detail.getNdcg();
       totalRelevantDocuments += detail.getRelevantCount();
       totalRetrievedDocuments += detail.getRetrievedCount();
       totalCorrectDocuments += detail.getCorrectCount();
     }
 
-    double averagePrecision = queries.isEmpty() ? 0.0 : totalPrecision / queries.size();
-    double averageRecall = queries.isEmpty() ? 0.0 : totalRecall / queries.size();
-    double averageF1Score = queries.isEmpty() ? 0.0 : totalF1Score / queries.size();
+    double averageNdcg = queries.isEmpty() ? 0.0 : totalNdcg / queries.size();
 
-    // 저장용 상세: 상품명/스펙 포함
+    // 저장용 상세: 상품명/스펙 포함 (대용량 JSON 대신 테이블 저장)
     List<PersistedQueryEvaluationDetail> persistedDetails =
         buildPersistedDetails(queries, retrievalSize);
 
@@ -133,26 +130,63 @@ public class EvaluationReportService {
         saveEvaluationReport(
             reportName,
             queries.size(),
-            averagePrecision,
-            averageRecall,
-            averageF1Score,
+            averageNdcg,
             totalRelevantDocuments,
             totalRetrievedDocuments,
             totalCorrectDocuments,
-            persistedDetails);
+            java.util.List.of());
 
-    log.info(
-        "✅ 평가 실행 완료: Precision={:.3f}, Recall={:.3f}, F1={:.3f}",
-        averagePrecision,
-        averageRecall,
-        averageF1Score);
+    // 세부 결과를 구조화 테이블에 저장
+    java.util.List<com.yjlee.search.evaluation.model.EvaluationReportDetail> detailRows =
+        new java.util.ArrayList<>();
+    java.util.List<com.yjlee.search.evaluation.model.EvaluationReportDocument> docRows =
+        new java.util.ArrayList<>();
+    for (PersistedQueryEvaluationDetail d : persistedDetails) {
+      detailRows.add(
+          com.yjlee.search.evaluation.model.EvaluationReportDetail.builder()
+              .report(report)
+              .query(d.getQuery())
+              .ndcg(d.getNdcg())
+              .relevantCount(d.getRelevantCount())
+              .retrievedCount(d.getRetrievedCount())
+              .correctCount(d.getCorrectCount())
+              .build());
+      if (d.getMissingDocuments() != null) {
+        for (PersistedDocumentInfo m : d.getMissingDocuments()) {
+          docRows.add(
+              com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
+                  .report(report)
+                  .query(d.getQuery())
+                  .productId(m.getProductId())
+                  .docType(com.yjlee.search.evaluation.model.ReportDocumentType.MISSING)
+                  .productName(m.getProductName())
+                  .productSpecs(m.getProductSpecs())
+                  .build());
+        }
+      }
+      if (d.getWrongDocuments() != null) {
+        for (PersistedDocumentInfo w : d.getWrongDocuments()) {
+          docRows.add(
+              com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
+                  .report(report)
+                  .query(d.getQuery())
+                  .productId(w.getProductId())
+                  .docType(com.yjlee.search.evaluation.model.ReportDocumentType.WRONG)
+                  .productName(w.getProductName())
+                  .productSpecs(w.getProductSpecs())
+                  .build());
+        }
+      }
+    }
+    if (!detailRows.isEmpty()) reportDetailRepository.saveAll(detailRows);
+    if (!docRows.isEmpty()) reportDocumentRepository.saveAll(docRows);
+
+    log.info("✅ 평가 실행 완료: nDCG={:.3f}", averageNdcg);
 
     return EvaluationExecuteResponse.builder()
         .reportId(report.getId())
         .reportName(reportName)
-        .averagePrecision(averagePrecision)
-        .averageRecall(averageRecall)
-        .averageF1Score(averageF1Score)
+        .averageNdcg(averageNdcg)
         .totalQueries(queries.size())
         .totalRelevantDocuments(totalRelevantDocuments)
         .totalRetrievedDocuments(totalRetrievedDocuments)
@@ -168,12 +202,7 @@ public class EvaluationReportService {
     Set<String> retrievedDocs = getRetrievedDocuments(query, retrievalSize);
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedDocs);
 
-    double precision =
-        retrievedDocs.isEmpty() ? 0.0 : (double) correctDocs.size() / retrievedDocs.size();
-    double recall =
-        relevantDocs.isEmpty() ? 0.0 : (double) correctDocs.size() / relevantDocs.size();
-    double f1Score =
-        (precision + recall) == 0.0 ? 0.0 : 2 * precision * recall / (precision + recall);
+    double ndcg = computeNdcg(query, new ArrayList<>(retrievedDocs), relevantDocs);
 
     List<String> missingIds =
         relevantDocs.stream()
@@ -217,15 +246,61 @@ public class EvaluationReportService {
 
     return EvaluationExecuteResponse.QueryEvaluationDetail.builder()
         .query(query)
-        .precision(precision)
-        .recall(recall)
-        .f1Score(f1Score)
+        .ndcg(ndcg)
         .relevantCount(relevantDocs.size())
         .retrievedCount(retrievedDocs.size())
         .correctCount(correctDocs.size())
         .missingDocuments(missingDocs)
         .wrongDocuments(wrongDocs)
         .build();
+  }
+
+  private double computeNdcg(String query, List<String> retrievedOrder, Set<String> relevantSet) {
+    if (retrievedOrder == null || retrievedOrder.isEmpty()) return 0.0;
+    // relevance: 2 if all query tokens in product name; 1 if any query token in specs; else 0
+    List<String> tokens = java.util.Arrays.asList(query.toLowerCase().split("\\s+"));
+    double dcg = 0.0;
+    for (int i = 0; i < retrievedOrder.size(); i++) {
+      String pid = retrievedOrder.get(i);
+      int rel = 0;
+      try {
+        ProductDocument p = getProductsBulk(java.util.List.of(pid)).get(pid);
+        if (p != null) {
+          String name = p.getNameRaw() == null ? "" : p.getNameRaw().toLowerCase();
+          String specs = p.getSpecsRaw() == null ? "" : p.getSpecsRaw().toLowerCase();
+          boolean allInTitle = tokens.stream().allMatch(t -> !t.isBlank() && name.contains(t));
+          boolean anyInSpecs = tokens.stream().anyMatch(t -> !t.isBlank() && specs.contains(t));
+          rel = allInTitle ? 2 : (anyInSpecs ? 1 : 0);
+        }
+      } catch (Exception ignore) {
+      }
+      if (rel > 0) dcg += (Math.pow(2.0, rel) - 1.0) / (Math.log(i + 2) / Math.log(2));
+    }
+    // ideal order: sort by relevance descending
+    java.util.List<Integer> ideal = new java.util.ArrayList<>();
+    for (String pid : retrievedOrder) {
+      int rel = 0;
+      try {
+        ProductDocument p = getProductsBulk(java.util.List.of(pid)).get(pid);
+        if (p != null) {
+          String name = p.getNameRaw() == null ? "" : p.getNameRaw().toLowerCase();
+          String specs = p.getSpecsRaw() == null ? "" : p.getSpecsRaw().toLowerCase();
+          boolean allInTitle = tokens.stream().allMatch(t -> !t.isBlank() && name.contains(t));
+          boolean anyInSpecs = tokens.stream().anyMatch(t -> !t.isBlank() && specs.contains(t));
+          rel = allInTitle ? 2 : (anyInSpecs ? 1 : 0);
+        }
+      } catch (Exception ignore) {
+      }
+      ideal.add(rel);
+    }
+    ideal.sort(java.util.Comparator.reverseOrder());
+    double idcg = 0.0;
+    for (int i = 0; i < ideal.size(); i++) {
+      int rel = ideal.get(i);
+      if (rel > 0) idcg += (Math.pow(2.0, rel) - 1.0) / (Math.log(i + 2) / Math.log(2));
+    }
+    if (idcg == 0.0) return 0.0;
+    return dcg / idcg;
   }
 
   private Set<String> getRelevantDocuments(String query) {
@@ -283,62 +358,30 @@ public class EvaluationReportService {
   private EvaluationReport saveEvaluationReport(
       String reportName,
       int totalQueries,
-      double avgPrecision,
-      double avgRecall,
-      double avgF1Score,
+      double averageNdcg,
       int totalRelevantDocs,
       int totalRetrievedDocs,
       int totalCorrectDocs,
       List<PersistedQueryEvaluationDetail> queryDetails) {
     try {
-      // JSON 직렬화 전 데이터 검증
-      log.info("📝 리포트 저장 시작: {}, 쿼리 세부사항 {}개", reportName, queryDetails.size());
-
-      // 각 쿼리 세부사항 검증
-      for (int i = 0; i < queryDetails.size(); i++) {
-        PersistedQueryEvaluationDetail detail = queryDetails.get(i);
-        if (detail == null) {
-          log.warn("⚠️ null 쿼리 세부사항 발견: index {}", i);
-          continue;
-        }
-        if (detail.getQuery() == null || detail.getQuery().trim().isEmpty()) {
-          log.warn("⚠️ 빈 쿼리 발견: index {}", i);
-        }
-      }
-
-      String detailedResultsJson = objectMapper.writeValueAsString(queryDetails);
-
-      // JSON 유효성 검증
-      try {
-        objectMapper.readTree(detailedResultsJson);
-        log.info("✅ JSON 유효성 검증 완료");
-      } catch (Exception e) {
-        log.error("❌ 생성된 JSON이 유효하지 않음", e);
-        throw new RuntimeException("생성된 JSON이 유효하지 않습니다", e);
-      }
-
+      // JSON은 더 이상 저장하지 않음 (대용량 방지)
       EvaluationReport report =
           EvaluationReport.builder()
               .reportName(reportName)
               .totalQueries(totalQueries)
-              .averagePrecision(avgPrecision)
-              .averageRecall(avgRecall)
-              .averageF1Score(avgF1Score)
+              .averageNdcg(averageNdcg)
               .totalRelevantDocuments(totalRelevantDocs)
               .totalRetrievedDocuments(totalRetrievedDocs)
               .totalCorrectDocuments(totalCorrectDocs)
-              .detailedResults(detailedResultsJson)
+              .detailedResults(null)
               .build();
 
       EvaluationReport savedReport = evaluationReportRepository.save(report);
       log.info("✅ 리포트 저장 완료: ID {}", savedReport.getId());
       return savedReport;
 
-    } catch (JsonProcessingException e) {
-      log.error("❌ 리포트 저장 실패: JSON 처리 오류", e);
-      throw new RuntimeException("리포트 저장 중 JSON 처리 오류가 발생했습니다", e);
     } catch (Exception e) {
-      log.error("❌ 리포트 저장 실패: 일반 오류", e);
+      log.error("❌ 리포트 저장 실패", e);
       throw new RuntimeException("리포트 저장 중 오류가 발생했습니다", e);
     }
   }
@@ -363,63 +406,58 @@ public class EvaluationReportService {
     EvaluationReport report = evaluationReportRepository.findById(reportId).orElse(null);
     if (report == null) return null;
 
-    List<EvaluationReportDetailResponse.QueryDetail> details = new ArrayList<>();
-    try {
-      var type =
-          objectMapper
-              .getTypeFactory()
-              .constructCollectionType(List.class, PersistedQueryEvaluationDetail.class);
-      List<PersistedQueryEvaluationDetail> raw =
-          objectMapper.readValue(report.getDetailedResults(), type);
-      for (PersistedQueryEvaluationDetail r : raw) {
-        List<EvaluationReportDetailResponse.DocumentInfo> missing = new ArrayList<>();
-        if (r.getMissingDocuments() != null) {
-          for (PersistedDocumentInfo d : r.getMissingDocuments()) {
-            missing.add(
-                EvaluationReportDetailResponse.DocumentInfo.builder()
-                    .productId(d.getProductId())
-                    .productName(d.getProductName())
-                    .productSpecs(d.getProductSpecs())
-                    .build());
-          }
-        }
-        List<EvaluationReportDetailResponse.DocumentInfo> wrong = new ArrayList<>();
-        if (r.getWrongDocuments() != null) {
-          for (PersistedDocumentInfo d : r.getWrongDocuments()) {
-            wrong.add(
-                EvaluationReportDetailResponse.DocumentInfo.builder()
-                    .productId(d.getProductId())
-                    .productName(d.getProductName())
-                    .productSpecs(d.getProductSpecs())
-                    .build());
-          }
-        }
+    // 상세/문서 테이블에서 조회한 뒤 응답 조립 (JSON 미사용)
+    List<com.yjlee.search.evaluation.model.EvaluationReportDetail> rows =
+        reportDetailRepository.findByReport(report);
+    List<com.yjlee.search.evaluation.model.EvaluationReportDocument> miss =
+        reportDocumentRepository.findByReportAndDocType(
+            report, com.yjlee.search.evaluation.model.ReportDocumentType.MISSING);
+    List<com.yjlee.search.evaluation.model.EvaluationReportDocument> wrong =
+        reportDocumentRepository.findByReportAndDocType(
+            report, com.yjlee.search.evaluation.model.ReportDocumentType.WRONG);
 
-        details.add(
-            EvaluationReportDetailResponse.QueryDetail.builder()
-                .query(r.getQuery())
-                .precision(r.getPrecision())
-                .recall(r.getRecall())
-                .f1Score(r.getF1Score())
-                .relevantCount(r.getRelevantCount())
-                .retrievedCount(r.getRetrievedCount())
-                .correctCount(r.getCorrectCount())
-                .missingDocuments(missing)
-                .wrongDocuments(wrong)
-                .build());
-      }
-    } catch (Exception e) {
-      log.error("상세 JSON 파싱 실패: reportId={}", reportId, e);
-      throw new RuntimeException("리포트 상세를 파싱할 수 없습니다", e);
+    Map<String, List<EvaluationReportDetailResponse.DocumentInfo>> missingByQuery = new HashMap<>();
+    for (var d : miss) {
+      missingByQuery
+          .computeIfAbsent(d.getQuery(), k -> new ArrayList<>())
+          .add(
+              EvaluationReportDetailResponse.DocumentInfo.builder()
+                  .productId(d.getProductId())
+                  .productName(d.getProductName())
+                  .productSpecs(d.getProductSpecs())
+                  .build());
+    }
+    Map<String, List<EvaluationReportDetailResponse.DocumentInfo>> wrongByQuery = new HashMap<>();
+    for (var d : wrong) {
+      wrongByQuery
+          .computeIfAbsent(d.getQuery(), k -> new ArrayList<>())
+          .add(
+              EvaluationReportDetailResponse.DocumentInfo.builder()
+                  .productId(d.getProductId())
+                  .productName(d.getProductName())
+                  .productSpecs(d.getProductSpecs())
+                  .build());
+    }
+
+    List<EvaluationReportDetailResponse.QueryDetail> details = new ArrayList<>();
+    for (var r : rows) {
+      details.add(
+          EvaluationReportDetailResponse.QueryDetail.builder()
+              .query(r.getQuery())
+              .ndcg(r.getNdcg())
+              .relevantCount(r.getRelevantCount())
+              .retrievedCount(r.getRetrievedCount())
+              .correctCount(r.getCorrectCount())
+              .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
+              .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
+              .build());
     }
 
     return EvaluationReportDetailResponse.builder()
         .id(report.getId())
         .reportName(report.getReportName())
         .totalQueries(report.getTotalQueries())
-        .averagePrecision(report.getAveragePrecision())
-        .averageRecall(report.getAverageRecall())
-        .averageF1Score(report.getAverageF1Score())
+        .averageNdcg(report.getAverageNdcg())
         .totalRelevantDocuments(report.getTotalRelevantDocuments())
         .totalRetrievedDocuments(report.getTotalRetrievedDocuments())
         .totalCorrectDocuments(report.getTotalCorrectDocuments())
@@ -478,18 +516,13 @@ public class EvaluationReportService {
                     })
                 .toList();
 
-        // 점수 계산 재사용
-        double precision = retrieved.isEmpty() ? 0.0 : (double) correct.size() / retrieved.size();
-        double recall = relevant.isEmpty() ? 0.0 : (double) correct.size() / relevant.size();
-        double f1 =
-            (precision + recall) == 0.0 ? 0.0 : 2 * precision * recall / (precision + recall);
+        // nDCG 계산
+        double ndcg = computeNdcg(q.getQuery(), new ArrayList<>(retrieved), relevant);
 
         out.add(
             PersistedQueryEvaluationDetail.builder()
                 .query(q.getQuery())
-                .precision(precision)
-                .recall(recall)
-                .f1Score(f1)
+                .ndcg(ndcg)
                 .relevantCount(relevant.size())
                 .retrievedCount(retrieved.size())
                 .correctCount(correct.size())
@@ -547,9 +580,7 @@ public class EvaluationReportService {
   @AllArgsConstructor
   private static class PersistedQueryEvaluationDetail {
     private String query;
-    private Double precision;
-    private Double recall;
-    private Double f1Score;
+    private Double ndcg;
     private Integer relevantCount;
     private Integer retrievedCount;
     private Integer correctCount;

@@ -48,7 +48,7 @@ public class ElasticsearchSynonymService {
       if (environmentType == DictionaryEnvironmentType.CURRENT) {
         // 현재 편집 중인 사전
         return synonymDictionaryService
-            .getSynonymDictionaries(1, 10000, null, "keyword", "asc", environmentType)
+            .getSynonymDictionaries(0, 10000, null, "keyword", "asc", environmentType)
             .getContent()
             .stream()
             .map(dict -> dict.getKeyword())
@@ -56,7 +56,7 @@ public class ElasticsearchSynonymService {
       } else {
         // DEV/PROD 스냅샷
         return synonymDictionaryService
-            .getSynonymDictionaries(1, 10000, null, "keyword", "asc", environmentType)
+            .getSynonymDictionaries(0, 10000, null, "keyword", "asc", environmentType)
             .getContent()
             .stream()
             .map(dict -> dict.getKeyword())

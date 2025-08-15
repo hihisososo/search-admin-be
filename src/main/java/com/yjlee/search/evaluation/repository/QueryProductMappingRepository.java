@@ -1,9 +1,9 @@
 package com.yjlee.search.evaluation.repository;
 
-import com.yjlee.search.evaluation.dto.QueryStatsDto;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.model.RelevanceStatus;
+import com.yjlee.search.evaluation.repository.projection.QueryStatsProjection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,16 +22,16 @@ public interface QueryProductMappingRepository extends JpaRepository<QueryProduc
 
   @Query(
       """
-      SELECT new com.yjlee.search.evaluation.dto.QueryStatsDto(
-          eq.query,
-          COUNT(m),
-          SUM(CASE WHEN m.relevanceStatus = 'RELEVANT' THEN 1 ELSE 0 END),
-          SUM(CASE WHEN m.relevanceStatus = 'IRRELEVANT' THEN 1 ELSE 0 END),
-          SUM(CASE WHEN m.relevanceStatus = 'UNSPECIFIED' THEN 1 ELSE 0 END)
-      )
+      SELECT
+          eq.query as query,
+          COUNT(m) as documentCount,
+          SUM(CASE WHEN m.relevanceScore = 2 THEN 1 ELSE 0 END) as score2Count,
+          SUM(CASE WHEN m.relevanceScore = 1 THEN 1 ELSE 0 END) as score1Count,
+          SUM(CASE WHEN m.relevanceScore = 0 THEN 1 ELSE 0 END) as score0Count,
+          SUM(CASE WHEN m.relevanceScore IS NULL OR m.relevanceScore = -1 THEN 1 ELSE 0 END) as scoreMinus1Count
       FROM QueryProductMapping m
       JOIN m.evaluationQuery eq
       GROUP BY eq.query
       """)
-  List<QueryStatsDto> findQueryStats();
+  List<QueryStatsProjection> findQueryStats();
 }

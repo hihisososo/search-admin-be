@@ -28,9 +28,10 @@ public class EvaluationQueryListResponse {
     private Long id;
     private String query;
     private Integer documentCount; // 전체 문서수
-    private Integer correctCount; // 정답개수 (isRelevant = true)
-    private Integer incorrectCount; // 오답개수 (isRelevant = false)
-    private Integer unspecifiedCount; // 미지정개수 (isRelevant = null)
+    private Integer score2Count; // 2점 개수
+    private Integer score1Count; // 1점 개수
+    private Integer score0Count; // 0점 개수
+    private Integer scoreMinus1Count; // 미평가(-1) 개수
     private LocalDateTime createdAt; // 생성일
     private LocalDateTime updatedAt; // 수정일
   }

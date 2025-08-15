@@ -17,9 +17,7 @@ public class EvaluationReportSummaryResponse {
   private Long id;
   private String reportName;
   private Integer totalQueries;
-  private Double averagePrecision;
-  private Double averageRecall;
-  private Double averageF1Score;
+  private Double averageNdcg;
   private Integer totalRelevantDocuments;
   private Integer totalRetrievedDocuments;
   private Integer totalCorrectDocuments;

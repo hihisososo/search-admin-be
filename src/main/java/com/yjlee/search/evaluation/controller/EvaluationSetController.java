@@ -32,6 +32,8 @@ import com.yjlee.search.index.dto.ProductDocument;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -97,7 +99,9 @@ public class EvaluationSetController {
   public ResponseEntity<QueryDocumentMappingResponse> getQueryDocuments(
       @PathVariable Long queryId,
       @RequestParam(defaultValue = DEFAULT_PAGE + "") int page,
-      @RequestParam(defaultValue = DEFAULT_DOCUMENT_PAGE_SIZE + "") int size) {
+      @RequestParam(defaultValue = DEFAULT_DOCUMENT_PAGE_SIZE + "") int size,
+      @RequestParam(defaultValue = "relevanceScore") String sortBy,
+      @RequestParam(defaultValue = "DESC") String sortDirection) {
 
     Optional<EvaluationQuery> queryOpt = evaluationQueryService.getQueryById(queryId);
     if (queryOpt.isEmpty()) {
@@ -108,8 +112,47 @@ public class EvaluationSetController {
     List<QueryProductMapping> allMappings =
         evaluationCandidateService.getQueryMappings(query.getQuery());
 
+    // 정렬
+    Comparator<QueryProductMapping> comparator;
+    switch (sortBy) {
+      case "productName":
+        comparator =
+            Comparator.comparing(
+                m -> m.getProductName() == null ? "" : m.getProductName(),
+                String.CASE_INSENSITIVE_ORDER);
+        break;
+      case "productId":
+        comparator =
+            Comparator.comparing(
+                m -> m.getProductId() == null ? "" : m.getProductId(),
+                String.CASE_INSENSITIVE_ORDER);
+        break;
+      case "relevanceStatus":
+        comparator =
+            Comparator.comparing(
+                m ->
+                    m.getRelevanceStatus() == null ? "UNSPECIFIED" : m.getRelevanceStatus().name());
+        break;
+      case "evaluationReason":
+        comparator =
+            Comparator.comparing(
+                m -> m.getEvaluationReason() == null ? "" : m.getEvaluationReason(),
+                String.CASE_INSENSITIVE_ORDER);
+        break;
+      case "relevanceScore":
+      default:
+        comparator =
+            Comparator.comparing(m -> m.getRelevanceScore() == null ? -1 : m.getRelevanceScore());
+        break;
+    }
+    if ("DESC".equalsIgnoreCase(sortDirection)) {
+      comparator = comparator.reversed();
+    }
+    List<QueryProductMapping> sortedMappings = new ArrayList<>(allMappings);
+    sortedMappings.sort(comparator);
+
     PaginationUtils.PagedResult<QueryProductMapping> pagedResult =
-        PaginationUtils.paginate(allMappings, page, size);
+        PaginationUtils.paginate(sortedMappings, page, size);
 
     List<QueryDocumentMappingResponse.ProductDocumentDto> documents =
         pagedResult.getContent().stream()

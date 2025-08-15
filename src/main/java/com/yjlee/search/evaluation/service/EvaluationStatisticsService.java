@@ -1,11 +1,12 @@
 package com.yjlee.search.evaluation.service;
 
-import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_CORRECT_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_CREATED_AT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_DOCUMENT_COUNT;
-import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_INCORRECT_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_QUERY;
-import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_UNSPECIFIED_COUNT;
+import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE0_COUNT;
+import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE1_COUNT;
+import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE2_COUNT;
+import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE_MINUS1_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_UPDATED_AT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_DIRECTION_DESC;
 
@@ -36,9 +37,19 @@ public class EvaluationStatisticsService {
     log.info("📊 쿼리 통계 조회: 정렬={} {}, 필터={}", sortBy, sortDirection, queryFilter);
 
     // N+1 문제 해결: 한 번의 쿼리로 모든 통계 조회
-    List<QueryStatsDto> statsData = queryProductMappingRepository.findQueryStats();
+    var statsData = queryProductMappingRepository.findQueryStats();
     Map<String, QueryStatsDto> statsMap =
-        statsData.stream().collect(Collectors.toMap(QueryStatsDto::getQuery, stats -> stats));
+        statsData.stream()
+            .map(
+                p ->
+                    new QueryStatsDto(
+                        p.getQuery(),
+                        p.getDocumentCount(),
+                        p.getScore2Count(),
+                        p.getScore1Count(),
+                        p.getScore0Count(),
+                        p.getScoreMinus1Count()))
+            .collect(Collectors.toMap(QueryStatsDto::getQuery, stats -> stats));
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
 
@@ -59,9 +70,10 @@ public class EvaluationStatisticsService {
                       .id(query.getId())
                       .query(query.getQuery())
                       .documentCount(stats != null ? stats.getDocumentCount().intValue() : 0)
-                      .correctCount(stats != null ? stats.getCorrectCount().intValue() : 0)
-                      .incorrectCount(stats != null ? stats.getIncorrectCount().intValue() : 0)
-                      .unspecifiedCount(stats != null ? stats.getUnspecifiedCount().intValue() : 0)
+                      .score2Count(stats != null ? stats.getScore2Count().intValue() : 0)
+                      .score1Count(stats != null ? stats.getScore1Count().intValue() : 0)
+                      .score0Count(stats != null ? stats.getScore0Count().intValue() : 0)
+                      .scoreMinus1Count(stats != null ? stats.getScoreMinus1Count().intValue() : 0)
                       .createdAt(query.getCreatedAt())
                       .updatedAt(query.getUpdatedAt())
                       .build();
@@ -91,12 +103,14 @@ public class EvaluationStatisticsService {
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getQuery);
       case SORT_BY_DOCUMENT_COUNT ->
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getDocumentCount);
-      case SORT_BY_CORRECT_COUNT ->
-          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getCorrectCount);
-      case SORT_BY_INCORRECT_COUNT ->
-          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getIncorrectCount);
-      case SORT_BY_UNSPECIFIED_COUNT ->
-          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getUnspecifiedCount);
+      case SORT_BY_SCORE2_COUNT ->
+          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScore2Count);
+      case SORT_BY_SCORE1_COUNT ->
+          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScore1Count);
+      case SORT_BY_SCORE0_COUNT ->
+          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScore0Count);
+      case SORT_BY_SCORE_MINUS1_COUNT ->
+          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScoreMinus1Count);
       case SORT_BY_CREATED_AT ->
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getCreatedAt);
       case SORT_BY_UPDATED_AT ->

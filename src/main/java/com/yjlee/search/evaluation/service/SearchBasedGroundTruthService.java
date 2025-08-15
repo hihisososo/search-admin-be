@@ -39,22 +39,20 @@ public class SearchBasedGroundTruthService {
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final OpenAIEmbeddingService embeddingService;
 
-  @Value("${app.evaluation.candidate.per-strategy-fetch-size:200}")
-  private int perStrategyFetchSize;
-
-  @Value("${app.evaluation.candidate.vector-num-candidates:400}")
-  private int vectorNumCandidates;
+  private static final int FIXED_PER_STRATEGY = 300;
+  private static final int FIXED_VECTOR_NUM_CANDIDATES = 600;
 
   @Value("${app.evaluation.candidate.min-score:0.85}")
   private double vectorMinScore;
 
-  @Value("${app.evaluation.candidate.max-total-per-query:300}")
-  private int maxTotalPerQuery;
+  private static final int FIXED_MAX_TOTAL_PER_QUERY = 300;
 
   @Transactional
   public void generateCandidatesFromSearch() {
     log.info(
-        "🔍 전체 모든 쿼리의 정답 후보군 생성 시작 (각 검색방식 {}개씩, 최대 {}개)", perStrategyFetchSize, maxTotalPerQuery);
+        "🔍 전체 모든 쿼리의 정답 후보군 생성 시작 (각 검색방식 {}개씩, 최대 {}개)",
+        FIXED_PER_STRATEGY,
+        FIXED_MAX_TOTAL_PER_QUERY);
 
     log.info("기존 매핑 전체 삭제");
     queryProductMappingRepository.deleteAll();
@@ -96,7 +94,7 @@ public class SearchBasedGroundTruthService {
             "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
             query.getQuery(),
             allCandidates.size(),
-            maxTotalPerQuery);
+            FIXED_MAX_TOTAL_PER_QUERY);
 
       } catch (Exception e) {
         log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
@@ -108,8 +106,8 @@ public class SearchBasedGroundTruthService {
         "정답 후보군 생성 완료: {}개 쿼리, {}개 매핑 (각 검색방식 {}개씩, 최대 {}개)",
         queries.size(),
         mappings.size(),
-        perStrategyFetchSize,
-        maxTotalPerQuery);
+        FIXED_PER_STRATEGY,
+        FIXED_MAX_TOTAL_PER_QUERY);
   }
 
   @Transactional
@@ -117,8 +115,8 @@ public class SearchBasedGroundTruthService {
     log.info(
         "🔍 선택된 쿼리들의 정답 후보군 생성 시작: {}개 (각 검색방식 {}개씩, 최대 {}개)",
         queryIds.size(),
-        perStrategyFetchSize,
-        maxTotalPerQuery);
+        FIXED_PER_STRATEGY,
+        FIXED_MAX_TOTAL_PER_QUERY);
 
     List<EvaluationQuery> queries = evaluationQueryRepository.findAllById(queryIds);
     log.info("총 처리할 쿼리: {}개", queries.size());
@@ -168,7 +166,7 @@ public class SearchBasedGroundTruthService {
             "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
             query.getQuery(),
             allCandidates.size(),
-            maxTotalPerQuery);
+            FIXED_MAX_TOTAL_PER_QUERY);
 
       } catch (Exception e) {
         log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
@@ -180,8 +178,8 @@ public class SearchBasedGroundTruthService {
         "선택된 쿼리들의 정답 후보군 생성 완료: {}개 쿼리, {}개 매핑 (각 검색방식 {}개씩, 최대 {}개)",
         queries.size(),
         mappings.size(),
-        perStrategyFetchSize,
-        maxTotalPerQuery);
+        FIXED_PER_STRATEGY,
+        FIXED_MAX_TOTAL_PER_QUERY);
   }
 
   /** 저장 없이 쿼리의 후보 상품 ID 집합을 계산하여 반환 (드라이런) 최대 300개 제한 로직을 그대로 따릅니다. */
@@ -197,6 +195,25 @@ public class SearchBasedGroundTruthService {
       return collectCandidatesForQueryWithEmbedding(query, embedding);
     } catch (Exception e) {
       log.warn("쿼리 후보 드라이런 실패: {}", query, e);
+      return new LinkedHashSet<>();
+    }
+  }
+
+  /** 각 전략별 perStrategy 개수씩 수집하여 중복 제거한 전체 집합을 반환 (상한 제한 없음). */
+  public Set<String> getCandidateUnionStrict(String query, int perStrategy) {
+    try {
+      float[] embedding = null;
+      try {
+        embedding = embeddingService.getEmbedding(query);
+      } catch (Exception e) {
+        log.warn("임베딩 생성 실패, 임베딩 없이 후보 수집 진행: {}", query);
+      }
+
+      int numCandidates = Math.max(perStrategy * 2, 600);
+      return collectCandidatesForQueryWithEmbedding(
+          query, embedding, perStrategy, numCandidates, vectorMinScore, Integer.MAX_VALUE);
+    } catch (Exception e) {
+      log.warn("쿼리 후보(strict) 수집 실패: {}", query, e);
       return new LinkedHashSet<>();
     }
   }
@@ -245,7 +262,7 @@ public class SearchBasedGroundTruthService {
     allCandidates.addAll(searchByCrossField(query, new String[] {"name.bigram", "specs.bigram"}));
 
     return allCandidates.stream()
-        .limit(maxTotalPerQuery)
+        .limit(FIXED_MAX_TOTAL_PER_QUERY)
         .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
@@ -287,7 +304,7 @@ public class SearchBasedGroundTruthService {
           SearchRequest.of(
               s ->
                   s.index(indexName)
-                      .size(perStrategyFetchSize)
+                      .size(FIXED_PER_STRATEGY)
                       .minScore(vectorMinScore)
                       .query(
                           q ->
@@ -295,8 +312,8 @@ public class SearchBasedGroundTruthService {
                                   k ->
                                       k.field(vectorField)
                                           .queryVector(queryVector)
-                                          .k(perStrategyFetchSize)
-                                          .numCandidates(vectorNumCandidates))));
+                                          .k(FIXED_PER_STRATEGY)
+                                          .numCandidates(FIXED_VECTOR_NUM_CANDIDATES))));
 
       SearchResponse<ProductDocument> response =
           elasticsearchClient.search(request, ProductDocument.class);
@@ -348,7 +365,7 @@ public class SearchBasedGroundTruthService {
           SearchRequest.of(
               s ->
                   s.index(indexName)
-                      .size(perStrategyFetchSize)
+                      .size(FIXED_PER_STRATEGY)
                       .query(
                           q ->
                               q.multiMatch(

@@ -27,13 +27,7 @@ public class EvaluationReport {
   private Integer totalQueries;
 
   @Column(nullable = false)
-  private Double averagePrecision;
-
-  @Column(nullable = false)
-  private Double averageRecall;
-
-  @Column(nullable = false)
-  private Double averageF1Score;
+  private Double averageNdcg;
 
   @Column(columnDefinition = "TEXT")
   private String detailedResults;

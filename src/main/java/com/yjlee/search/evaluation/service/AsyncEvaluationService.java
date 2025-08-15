@@ -26,6 +26,8 @@ public class AsyncEvaluationService {
   private final LLMCandidateEvaluationService llmEvaluationService;
   private final EvaluationQueryService evaluationQueryService;
 
+  private static final int FIXED_MIN_CANDIDATES = 60;
+
   public Long startLLMQueryGeneration(LLMQueryGenerateRequest request) {
     AsyncTask task =
         asyncTaskService.createTask(AsyncTaskType.QUERY_GENERATION, "LLM 쿼리 생성 준비 중...");
@@ -39,30 +41,21 @@ public class AsyncEvaluationService {
       asyncTaskService.updateProgress(taskId, 10, "LLM 쿼리 생성 시작...");
 
       int target = request.getCount();
-      int minC = request.getMinCandidates() != null ? request.getMinCandidates() : 60;
-      int maxC = request.getMaxCandidates() != null ? request.getMaxCandidates() : 200;
       List<String> accepted = new ArrayList<>();
       java.util.Set<String> tried = new java.util.HashSet<>();
       int round = 0;
       while (accepted.size() < target) {
         round++;
         int need = Math.max(5, (target - accepted.size()) * 3);
-        List<String> pool =
-            (request.getCategory() == null || request.getCategory().isBlank())
-                ? queryGenerationService.generateQueriesPreview(need)
-                : queryGenerationService.generateQueriesPreviewWithCategory(
-                    need, request.getCategory());
+        List<String> pool = queryGenerationService.generateQueriesPreview(need);
 
         int acceptedThisRound = 0;
         for (String q : pool) {
           if (accepted.size() >= target) break;
           if (q == null || q.isBlank() || tried.contains(q)) continue;
           tried.add(q);
-
-          // 전략별로 max보다 조금 더 크게 가져와 초과 여부까지 확인
-          Set<String> ids = groundTruthService.getCandidateIdsForQuery(q, maxC);
-          int c = ids.size();
-          if (c >= minC && c <= maxC) {
+          Set<String> ids = groundTruthService.getCandidateIdsForQuery(q);
+          if (ids.size() >= FIXED_MIN_CANDIDATES) {
             EvaluationQuery eq = evaluationQueryService.createQuerySafely(q);
             generateCandidatesForOne(eq);
             accepted.add(q);
