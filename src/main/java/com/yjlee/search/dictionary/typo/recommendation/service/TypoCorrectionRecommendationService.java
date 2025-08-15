@@ -94,7 +94,6 @@ public class TypoCorrectionRecommendationService {
 
       // 2) LLM 기반 배치 추천 생성 (상품명 20개씩)
       Integer desired = request != null ? request.getDesiredRecommendationCount() : null;
-      Double temperature = request != null ? request.getTemperature() : null;
       String template = promptTemplateLoader.loadTemplate("typo-recommendation.txt");
       final int nameBatchSize = 10; // 타임아웃 완화: 배치 크기 축소
       AtomicInteger createdTotal = new AtomicInteger(0);
@@ -117,7 +116,7 @@ public class TypoCorrectionRecommendationService {
                     StringBuilder nb = new StringBuilder();
                     nameBatch.forEach(n -> nb.append("- ").append(n).append("\n"));
                     String prompt = template.replace("{PRODUCT_NAMES}", nb.toString().trim());
-                    String llmResp = llmService.callLLMAPI(prompt, temperature);
+                    String llmResp = llmService.callLLMAPI(prompt, 0.0);
                     List<PairCandidate> candidates = parseCandidatesStrict(llmResp);
 
                     for (PairCandidate c : candidates) {

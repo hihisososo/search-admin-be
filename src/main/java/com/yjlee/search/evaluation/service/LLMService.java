@@ -24,7 +24,7 @@ public class LLMService {
   @Value("${openai.api.key}")
   private String openaiApiKey;
 
-  @Value("${openai.api.model:gpt-4.1-nano}")
+  @Value("${openai.api.model:gpt-5-nano}")
   private String openaiModel;
 
   @Value("${openai.api.connect-timeout-ms:8000}")
@@ -51,8 +51,9 @@ public class LLMService {
 
   public String callLLMAPI(String prompt, Double temperature) {
     try {
-      log.debug("LLM API 호출 시작 (custom temperature: {})", temperature);
-      return performAPICall(prompt, temperature);
+      // temperature 파라미터는 더 이상 사용하지 않음 (모델 정책에 따라 미지원)
+      log.debug("LLM API 호출 시작 (temperature 파라미터 무시)");
+      return performAPICall(prompt, null);
     } catch (Exception e) {
       log.error("LLM API 호출 실패: {}", e.getMessage(), e);
       throw new RuntimeException("LLM API 호출 실패: " + e.getMessage(), e);
@@ -72,8 +73,6 @@ public class LLMService {
     Map<String, Object> requestBody = new HashMap<>();
     requestBody.put("model", openaiModel);
     requestBody.put("messages", Arrays.asList(Map.of("role", "user", "content", prompt)));
-    double tempToUse = temperature != null ? temperature : 0.0;
-    requestBody.put("temperature", tempToUse);
 
     HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 

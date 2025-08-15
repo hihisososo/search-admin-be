@@ -12,8 +12,6 @@ public final class SynonymTermRecommendationDtos {
   @AllArgsConstructor
   public static class GenerateRequest {
     @Builder.Default private Integer sampleSize = 1000;
-    private Double temperature;
-    // 목표로 하는 유의어 추천 엔트리 개수( baseTerm+synonymTerm 쌍 ). null이면 한 번만 수행
     private Integer desiredRecommendationCount;
   }
 
@@ -23,7 +21,7 @@ public final class SynonymTermRecommendationDtos {
   @AllArgsConstructor
   public static class ItemResponse {
     private String baseTerm;
-    private List<SynonymItem> synonyms; // 저장된 항목만 반환
+    private List<SynonymItem> synonyms;
 
     @Data
     @Builder

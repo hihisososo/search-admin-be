@@ -131,9 +131,9 @@ public class LLMQueryEvaluationWorker {
         // 배치별 프롬프트 생성
         String batchPrompt = buildBulkEvaluationPrompt(query, batchProducts);
 
-        // 배치별 LLM 호출 (temperature=0 고정)
+        // 배치별 LLM 호출
         log.info("🤖 LLM API 호출 시작 (배치 크기: {})", batchProducts.size());
-        String batchResponse = llmService.callLLMAPI(batchPrompt, 0.0);
+        String batchResponse = llmService.callLLMAPI(batchPrompt, null);
 
         if (batchResponse == null || batchResponse.trim().isEmpty()) {
           log.warn("⚠️ LLM API 응답이 비어있습니다");

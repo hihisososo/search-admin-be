@@ -4,7 +4,6 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.MgetRequest;
 import co.elastic.clients.elasticsearch.core.MgetResponse;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
@@ -57,7 +56,7 @@ public class EvaluationReportService {
   private final com.yjlee.search.evaluation.repository.EvaluationReportDocumentRepository
       reportDocumentRepository;
   private final SearchService searchService;
-  private final ObjectMapper objectMapper;
+  // private final ObjectMapper objectMapper; // 미사용
   private final ElasticsearchClient elasticsearchClient;
   private final IndexResolver indexResolver;
   private final ExecutorService executorService = Executors.newFixedThreadPool(5);
@@ -199,20 +198,17 @@ public class EvaluationReportService {
   private EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(
       String query, Integer retrievalSize) {
     Set<String> relevantDocs = getRelevantDocuments(query);
-    Set<String> retrievedDocs = getRetrievedDocuments(query, retrievalSize);
-    Set<String> correctDocs = getIntersection(relevantDocs, retrievedDocs);
+    List<String> retrievedDocs = getRetrievedDocumentsOrdered(query, retrievalSize); // 순서 유지
+    Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
+    Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
 
     double ndcg = computeNdcg(query, new ArrayList<>(retrievedDocs), relevantDocs);
 
     List<String> missingIds =
-        relevantDocs.stream()
-            .filter(doc -> !retrievedDocs.contains(doc))
-            .collect(Collectors.toList());
+        relevantDocs.stream().filter(doc -> !retrievedSet.contains(doc)).collect(Collectors.toList());
 
     List<String> wrongIds =
-        retrievedDocs.stream()
-            .filter(doc -> !relevantDocs.contains(doc))
-            .collect(Collectors.toList());
+        retrievedDocs.stream().filter(doc -> !relevantDocs.contains(doc)).collect(Collectors.toList());
 
     // 문서 정보 구성 (이름/스펙 포함)
     Map<String, ProductDocument> productMap =
@@ -336,7 +332,7 @@ public class EvaluationReportService {
       Set<String> retrievedProductIds =
           searchResponse.getHits().getData().stream()
               .map(product -> product.getId())
-              .collect(Collectors.toSet());
+              .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
 
       log.info("✅ 검색 결과: {} 개 상품 조회", retrievedProductIds.size());
       return retrievedProductIds;
@@ -345,6 +341,32 @@ public class EvaluationReportService {
       log.error("❌ 검색 API 호출 실패: {}", query, e);
       // 검색 실패 시 빈 셋 반환
       return new HashSet<>();
+    }
+  }
+
+  // 순서를 보존한 검색 결과 목록
+  private List<String> getRetrievedDocumentsOrdered(String query, Integer retrievalSize) {
+    try {
+      log.info("🔍 DEV 환경으로 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, retrievalSize);
+
+      SearchSimulationRequest searchRequest = new SearchSimulationRequest();
+      searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
+      searchRequest.setExplain(false);
+      searchRequest.setQuery(query);
+      searchRequest.setPage(0);
+      searchRequest.setSize(retrievalSize);
+
+      SearchExecuteResponse searchResponse = searchService.searchProductsSimulation(searchRequest);
+
+      List<String> retrievedProductIds =
+          searchResponse.getHits().getData().stream().map(product -> product.getId()).toList();
+
+      log.info("✅ 검색 결과(ordered): {} 개 상품 조회", retrievedProductIds.size());
+      return retrievedProductIds;
+
+    } catch (Exception e) {
+      log.error("❌ 검색 API 호출 실패(ordered): {}", query, e);
+      return java.util.Collections.emptyList();
     }
   }
 
@@ -439,6 +461,78 @@ public class EvaluationReportService {
                   .build());
     }
 
+    // 순서 비교용 데이터 구성: 검색결과 순위, 정답셋 점수순
+    // rank/gain 계산을 위해 제품 상세가 필요하므로 필요한 범위에서만 벌크 조회
+    java.util.Map<String, java.util.List<EvaluationReportDetailResponse.RetrievedDocument>> retrievedByQuery =
+        new java.util.HashMap<>();
+    java.util.Map<String, java.util.List<EvaluationReportDetailResponse.GroundTruthDocument>> groundTruthByQuery =
+        new java.util.HashMap<>();
+
+    for (var r : rows) {
+      String q = r.getQuery();
+
+      // 검색 결과 순서 수집 (당시 수집 개수에 맞춰 조회 시도)
+      int sizeHint = r.getRetrievedCount() != null ? r.getRetrievedCount() : 50;
+      java.util.List<String> retrievedOrdered = getRetrievedDocumentsOrdered(q, Math.max(1, sizeHint));
+      java.util.List<String> unionIds = new java.util.ArrayList<>(retrievedOrdered);
+
+      // 정답셋 수집 및 점수 조회를 위해 매핑 엔티티 조회
+      java.util.List<QueryProductMapping> relevantMappings = new java.util.ArrayList<>();
+      var eqOpt = evaluationQueryService.findByQuery(q);
+      if (eqOpt.isPresent()) {
+        relevantMappings =
+            queryProductMappingRepository.findByEvaluationQueryAndRelevanceStatus(
+                eqOpt.get(), RelevanceStatus.RELEVANT);
+        for (var m : relevantMappings) {
+          if (!unionIds.contains(m.getProductId())) unionIds.add(m.getProductId());
+        }
+      }
+
+      // 제품 벌크 조회
+      Map<String, ProductDocument> productMap = getProductsBulk(unionIds);
+
+      // retrievedDocuments 구성 (rank/gain)
+      java.util.List<EvaluationReportDetailResponse.RetrievedDocument> retrievedDocs =
+          new java.util.ArrayList<>();
+      java.util.List<String> tokens = java.util.Arrays.asList(q.toLowerCase().split("\\s+"));
+      for (int i = 0; i < retrievedOrdered.size(); i++) {
+        String pid = retrievedOrdered.get(i);
+        ProductDocument p = productMap.get(pid);
+        String name = p != null && p.getNameRaw() != null ? p.getNameRaw().toLowerCase() : "";
+        String specs = p != null && p.getSpecsRaw() != null ? p.getSpecsRaw().toLowerCase() : "";
+        boolean allInTitle = tokens.stream().allMatch(t -> !t.isBlank() && name.contains(t));
+        boolean anyInSpecs = tokens.stream().anyMatch(t -> !t.isBlank() && specs.contains(t));
+        int gain = allInTitle ? 2 : (anyInSpecs ? 1 : 0);
+        retrievedDocs.add(
+            EvaluationReportDetailResponse.RetrievedDocument.builder()
+                .rank(i + 1)
+                .productId(pid)
+                .productName(p != null ? p.getNameRaw() : null)
+                .productSpecs(p != null ? p.getSpecsRaw() : null)
+                .gain(gain)
+                .isRelevant(gain > 0)
+                .build());
+      }
+      retrievedByQuery.put(q, retrievedDocs);
+
+      // groundTruthDocuments 구성 (정답셋 점수순)
+      java.util.List<EvaluationReportDetailResponse.GroundTruthDocument> gtDocs =
+          relevantMappings.stream()
+              .map(
+                  m -> {
+                    ProductDocument p = productMap.get(m.getProductId());
+                    return EvaluationReportDetailResponse.GroundTruthDocument.builder()
+                        .productId(m.getProductId())
+                        .productName(p != null ? p.getNameRaw() : null)
+                        .productSpecs(p != null ? p.getSpecsRaw() : null)
+                        .score(m.getRelevanceScore())
+                        .build();
+                  })
+              .sorted(java.util.Comparator.comparing(EvaluationReportDetailResponse.GroundTruthDocument::getScore).reversed())
+              .toList();
+      groundTruthByQuery.put(q, gtDocs);
+    }
+
     List<EvaluationReportDetailResponse.QueryDetail> details = new ArrayList<>();
     for (var r : rows) {
       details.add(
@@ -448,6 +542,8 @@ public class EvaluationReportService {
               .relevantCount(r.getRelevantCount())
               .retrievedCount(r.getRetrievedCount())
               .correctCount(r.getCorrectCount())
+              .retrievedDocuments(retrievedByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
+              .groundTruthDocuments(groundTruthByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
               .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
               .build());
