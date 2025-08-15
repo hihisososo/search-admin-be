@@ -33,6 +33,12 @@ public class EvaluationReportDetailResponse {
   public static class QueryDetail {
     private String query;
     private Double ndcg;
+    private Double ndcgAt10;
+    private Double ndcgAt20;
+    private Double mrrAt10;
+    private Double recallAt50;
+    private Double map;
+    private Double recallAt300;
     private Integer relevantCount;
     private Integer retrievedCount;
     private Integer correctCount;
