@@ -49,6 +49,11 @@ public class SearchBasedGroundTruthService {
 
   @Transactional
   public void generateCandidatesFromSearch() {
+    generateCandidatesFromSearch(null);
+  }
+
+  @Transactional
+  public void generateCandidatesFromSearch(TaskProgressListener progressListener) {
     log.info(
         "🔍 전체 모든 쿼리의 정답 후보군 생성 시작 (각 검색방식 {}개씩, 최대 {}개)",
         FIXED_PER_STRATEGY,
@@ -96,6 +101,13 @@ public class SearchBasedGroundTruthService {
             allCandidates.size(),
             FIXED_MAX_TOTAL_PER_QUERY);
 
+        if (progressListener != null) {
+          try {
+            progressListener.onProgress(i + 1, queries.size());
+          } catch (Exception ignored) {
+          }
+        }
+
       } catch (Exception e) {
         log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
       }
@@ -112,6 +124,11 @@ public class SearchBasedGroundTruthService {
 
   @Transactional
   public void generateCandidatesForSelectedQueries(List<Long> queryIds) {
+    generateCandidatesForSelectedQueries(queryIds, null);
+  }
+
+  @Transactional
+  public void generateCandidatesForSelectedQueries(List<Long> queryIds, TaskProgressListener progressListener) {
     log.info(
         "🔍 선택된 쿼리들의 정답 후보군 생성 시작: {}개 (각 검색방식 {}개씩, 최대 {}개)",
         queryIds.size(),
@@ -167,6 +184,13 @@ public class SearchBasedGroundTruthService {
             query.getQuery(),
             allCandidates.size(),
             FIXED_MAX_TOTAL_PER_QUERY);
+
+        if (progressListener != null) {
+          try {
+            progressListener.onProgress(i + 1, queries.size());
+          } catch (Exception ignored) {
+          }
+        }
 
       } catch (Exception e) {
         log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);

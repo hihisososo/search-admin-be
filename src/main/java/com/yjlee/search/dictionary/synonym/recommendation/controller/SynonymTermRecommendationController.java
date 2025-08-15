@@ -25,9 +25,8 @@ public class SynonymTermRecommendationController {
   public ResponseEntity<Void> generate(@RequestBody(required = false) GenerateRequest request) {
     if (request == null) request = GenerateRequest.builder().build();
     log.info(
-        "유의어(term) 추천 요청 - sampleSize: {}, temperature: {}, desiredRecommendationCount: {}",
+        "유의어(term) 추천 요청 - sampleSize: {}, desiredRecommendationCount: {}",
         request.getSampleSize(),
-        request.getTemperature(),
         request.getDesiredRecommendationCount());
     service.generate(request);
     return ResponseEntity.ok().build();

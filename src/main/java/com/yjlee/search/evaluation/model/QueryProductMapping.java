@@ -51,7 +51,7 @@ public class QueryProductMapping {
 
   @Column(name = "relevance_score")
   @Builder.Default
-  Integer relevanceScore = -1; // -1: 미평가, 0: 연관없음, 1: 스펙 일부 매치, 2: 제목 전부 매치
+  Integer relevanceScore = -100; // -100: 라벨링 미진행(초기값), -1: 사람확인 필요, 0: 비연관, 1: 스펙 일부 매치, 2: 제목 전부 매치
 
   @Column(columnDefinition = "TEXT")
   String evaluationReason;

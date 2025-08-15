@@ -36,6 +36,8 @@ public class EvaluationReportDetailResponse {
     private Integer relevantCount;
     private Integer retrievedCount;
     private Integer correctCount;
+    private java.util.List<RetrievedDocument> retrievedDocuments; // 실제 검색 결과(순서 유지)
+    private java.util.List<GroundTruthDocument> groundTruthDocuments; // 정답셋(점수 내림차순)
     private List<DocumentInfo> missingDocuments;
     private List<DocumentInfo> wrongDocuments;
   }
@@ -49,5 +51,31 @@ public class EvaluationReportDetailResponse {
     private String productId;
     private String productName;
     private String productSpecs;
+  }
+
+  @Getter
+  @Setter
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class RetrievedDocument {
+    private Integer rank; // 1-base
+    private String productId;
+    private String productName;
+    private String productSpecs;
+    private Integer gain; // 0/1/2
+    private Boolean isRelevant; // gain > 0
+  }
+
+  @Getter
+  @Setter
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder
+  public static class GroundTruthDocument {
+    private String productId;
+    private String productName;
+    private String productSpecs;
+    private Integer score; // relevanceScore 저장값(2/1/0/-1/-100)
   }
 }

@@ -161,11 +161,23 @@ public class AsyncEvaluationService {
 
       if (Boolean.TRUE.equals(request.getGenerateForAllQueries())) {
         asyncTaskService.updateProgress(taskId, 30, "전체 쿼리에 대한 후보군 생성 중...");
-        groundTruthService.generateCandidatesFromSearch();
+        groundTruthService.generateCandidatesFromSearch(
+            (done, total) -> {
+              int p = 30 + Math.min(50, (int) Math.floor((double) done / Math.max(1, total) * 50));
+              asyncTaskService.updateProgress(
+                  taskId, p, String.format("후보군 생성 진행: %d/%d", done, total));
+            });
       } else if (request.getQueryIds() != null && !request.getQueryIds().isEmpty()) {
+        int total = request.getQueryIds().size();
         asyncTaskService.updateProgress(
-            taskId, 30, String.format("선택된 %d개 쿼리에 대한 후보군 생성 중...", request.getQueryIds().size()));
-        groundTruthService.generateCandidatesForSelectedQueries(request.getQueryIds());
+            taskId, 30, String.format("선택된 %d개 쿼리에 대한 후보군 생성 중...", total));
+        groundTruthService.generateCandidatesForSelectedQueries(
+            request.getQueryIds(),
+            (done, t) -> {
+              int p = 30 + Math.min(50, (int) Math.floor((double) done / Math.max(1, t) * 50));
+              asyncTaskService.updateProgress(
+                  taskId, p, String.format("후보군 생성 진행: %d/%d", done, t));
+            });
       }
 
       asyncTaskService.updateProgress(taskId, 90, "후보군 생성 완료, 결과 정리 중...");

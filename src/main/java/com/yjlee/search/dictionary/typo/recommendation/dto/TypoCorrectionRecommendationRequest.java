@@ -11,6 +11,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TypoCorrectionRecommendationRequest {
   @Builder.Default private Integer sampleSize = 1000;
-  private Double temperature;
   private Integer desiredRecommendationCount;
 }

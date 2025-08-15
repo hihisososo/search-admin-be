@@ -94,10 +94,22 @@ public class LLMCandidateEvaluationService {
 
     log.info("총 평가 대상 후보군: {}개", totalCandidates);
 
-    // 실제 멀티 쓰레딩: Worker 서비스를 통한 비동기 실행
+    // 진행 카운터
+    final int totalQueries = queries.size();
+    final java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger(0);
+
+    // 실제 멀티 쓰레딩: Worker 서비스를 통한 비동기 실행 + 진행 로깅
     List<CompletableFuture<Void>> futures =
         queries.stream()
-            .map(query -> llmQueryEvaluationWorker.evaluateQueryAsync(query.getQuery()))
+            .map(
+                query ->
+                    llmQueryEvaluationWorker
+                        .evaluateQueryAsync(query.getQuery())
+                        .whenComplete(
+                            (v, ex) -> {
+                              int d = done.incrementAndGet();
+                              log.info("LLM 평가 진행: {}/{} (쿼리='{}')", d, totalQueries, query.getQuery());
+                            }))
             .toList();
 
     // 모든 작업 완료 대기
@@ -172,9 +184,9 @@ public class LLMCandidateEvaluationService {
         // 배치별 프롬프트 생성 (20개 상품을 하나의 프롬프트에)
         String batchPrompt = buildBulkEvaluationPrompt(query, batchProducts);
 
-        // 배치별 LLM 호출 (temperature=0 고정)
+        // 배치별 LLM 호출
         log.info("🤖 LLM API 호출 시작 (배치 크기: {})", batchProducts.size());
-        String batchResponse = llmService.callLLMAPI(batchPrompt, 0.0);
+        String batchResponse = llmService.callLLMAPI(batchPrompt, null);
 
         if (batchResponse == null || batchResponse.trim().isEmpty()) {
           log.warn("⚠️ LLM API 응답이 비어있습니다");

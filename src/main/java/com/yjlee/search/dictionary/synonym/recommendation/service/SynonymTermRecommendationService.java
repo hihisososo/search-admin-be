@@ -106,7 +106,6 @@ public class SynonymTermRecommendationService {
       log.info("[SynonymGen] 후보 term 선별 - candidates(all): {}", candidateTerms.size());
 
       // 3) LLM 호출을 빈도순으로 배치 처리하며 목표 생성 수량 달성 시 조기 종료
-      Double temperature = request != null ? request.getTemperature() : null;
       Integer desired = request != null ? request.getDesiredRecommendationCount() : null;
       int createdTotal = 0;
       final int batchSize = 15;
@@ -114,7 +113,7 @@ public class SynonymTermRecommendationService {
       for (int i = 0; i < candidateTerms.size(); i += batchSize) {
         List<String> batch =
             candidateTerms.subList(i, Math.min(i + batchSize, candidateTerms.size()));
-        List<TermSynonymResult> parsed = callOneBatch(batch, temperature);
+        List<TermSynonymResult> parsed = callOneBatch(batch);
         List<TermSynonymResult> filtered =
             parsed.stream()
                 .map(this::applyServerPostProcessing)
@@ -224,13 +223,13 @@ public class SynonymTermRecommendationService {
 
   // 병렬 일괄 호출 방식은 보류. 필요 시 부하 조건에 맞춰 복원
 
-  private List<TermSynonymResult> callOneBatch(List<String> batch, Double temperature) {
+  private List<TermSynonymResult> callOneBatch(List<String> batch) {
     String template = promptTemplateLoader.loadTemplate("synonym-recommendation.txt");
     String termsBlock = String.join("\n", batch);
     String prompt = template.replace("{TERMS}", termsBlock);
     try {
       log.debug("[SynonymGen] 배치 호출 - size: {}, promptLen: {}", batch.size(), prompt.length());
-      String resp = llmService.callLLMAPI(prompt, temperature);
+      String resp = llmService.callLLMAPI(prompt, 0.0);
       log.debug("[SynonymGen] 배치 응답 - respLen: {}", resp != null ? resp.length() : -1);
       if (resp != null) {
         log.debug("[SynonymGen] 배치 응답 미리보기: {}", previewOf(resp, 1000));
@@ -241,7 +240,7 @@ public class SynonymTermRecommendationService {
       return parsed;
     } catch (Exception e) {
       log.warn("LLM 배치 실패: {}", e.getMessage());
-      return Collections.emptyList();
+      return java.util.Collections.emptyList();
     }
   }
 
