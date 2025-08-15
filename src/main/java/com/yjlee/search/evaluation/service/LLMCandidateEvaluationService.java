@@ -96,7 +96,8 @@ public class LLMCandidateEvaluationService {
 
     // 진행 카운터
     final int totalQueries = queries.size();
-    final java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger(0);
+    final java.util.concurrent.atomic.AtomicInteger done =
+        new java.util.concurrent.atomic.AtomicInteger(0);
 
     // 실제 멀티 쓰레딩: Worker 서비스를 통한 비동기 실행 + 진행 로깅
     List<CompletableFuture<Void>> futures =
@@ -108,7 +109,8 @@ public class LLMCandidateEvaluationService {
                         .whenComplete(
                             (v, ex) -> {
                               int d = done.incrementAndGet();
-                              log.info("LLM 평가 진행: {}/{} (쿼리='{}')", d, totalQueries, query.getQuery());
+                              log.info(
+                                  "LLM 평가 진행: {}/{} (쿼리='{}')", d, totalQueries, query.getQuery());
                             }))
             .toList();
 

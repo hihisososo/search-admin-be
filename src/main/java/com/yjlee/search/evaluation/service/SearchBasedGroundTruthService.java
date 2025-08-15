@@ -128,7 +128,8 @@ public class SearchBasedGroundTruthService {
   }
 
   @Transactional
-  public void generateCandidatesForSelectedQueries(List<Long> queryIds, TaskProgressListener progressListener) {
+  public void generateCandidatesForSelectedQueries(
+      List<Long> queryIds, TaskProgressListener progressListener) {
     log.info(
         "🔍 선택된 쿼리들의 정답 후보군 생성 시작: {}개 (각 검색방식 {}개씩, 최대 {}개)",
         queryIds.size(),

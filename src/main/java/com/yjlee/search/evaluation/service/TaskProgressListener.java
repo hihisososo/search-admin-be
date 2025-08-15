@@ -4,5 +4,3 @@ package com.yjlee.search.evaluation.service;
 public interface TaskProgressListener {
   void onProgress(int done, int total);
 }
-
-

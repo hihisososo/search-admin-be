@@ -22,7 +22,7 @@ public interface QueryProductMappingRepository extends JpaRepository<QueryProduc
 
   @Query(
       """
-      SELECT 
+      SELECT
           eq.query as query,
           COUNT(m) as documentCount,
           SUM(CASE WHEN m.relevanceScore = 2 THEN 1 ELSE 0 END) as score2Count,
