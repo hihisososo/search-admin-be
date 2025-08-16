@@ -36,8 +36,33 @@ public class IndexResolver {
             indexNameProvider.getProductsIndexPrefix(), indexNameProvider.getAutocompleteIndex());
   }
 
+  public String resolveProductIndexForSimulation(
+      IndexEnvironment.EnvironmentType environmentType) {
+    IndexEnvironment environment = findEnvironmentAllowingIndexing(environmentType);
+    return environment.getIndexName();
+  }
+
+  public String resolveAutocompleteIndexForSimulation(
+      IndexEnvironment.EnvironmentType environmentType) {
+    IndexEnvironment environment = findEnvironmentAllowingIndexing(environmentType);
+    return environment
+        .getIndexName()
+        .replace(
+            indexNameProvider.getProductsIndexPrefix(), indexNameProvider.getAutocompleteIndex());
+  }
+
   private IndexEnvironment findAndValidateEnvironment(
       IndexEnvironment.EnvironmentType environmentType) {
+    return findEnvironment(environmentType, false);
+  }
+
+  private IndexEnvironment findEnvironmentAllowingIndexing(
+      IndexEnvironment.EnvironmentType environmentType) {
+    return findEnvironment(environmentType, true);
+  }
+
+  private IndexEnvironment findEnvironment(
+      IndexEnvironment.EnvironmentType environmentType, boolean allowIndexing) {
     IndexEnvironment environment =
         indexEnvironmentRepository
             .findByEnvironmentType(environmentType)
@@ -51,7 +76,7 @@ public class IndexResolver {
           environmentType.getDescription() + " 환경의 인덱스가 설정되지 않았습니다.");
     }
 
-    if (environment.getIndexStatus() != IndexEnvironment.IndexStatus.ACTIVE) {
+    if (!allowIndexing && environment.getIndexStatus() != IndexEnvironment.IndexStatus.ACTIVE) {
       throw new InvalidEnvironmentException(
           environmentType.getDescription() + " 환경의 인덱스가 활성 상태가 아닙니다.");
     }

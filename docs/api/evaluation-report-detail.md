@@ -7,15 +7,17 @@
 - 상태 코드
   - 200 OK, 404 Not Found
 
-#### 응답 스키마 요약
+#### 응답 스키마 요약 (지표 확장 반영)
 - 루트
-  - `id`(number), `reportName`(string), `totalQueries`(number), `averageNdcg`(number)
+  - `id`(number), `reportName`(string), `totalQueries`(number)
+  - `averageNdcg`(number), `ndcgAt10`(number), `ndcgAt20`(number), `mrrAt10`(number), `recallAt50`(number), `map`(number), `recallAt300`(number)
   - `totalRelevantDocuments`(number), `totalRetrievedDocuments`(number), `totalCorrectDocuments`(number)
   - `createdAt`(string, ISO-8601)
   - `queryDetails`(QueryDetail[])
 
 - QueryDetail
-  - 기존: `query`(string), `ndcg`(number), `relevantCount`(number), `retrievedCount`(number), `correctCount`(number), `missingDocuments`(DocumentInfo[]), `wrongDocuments`(DocumentInfo[])
+  - 기존: `query`(string), `ndcg`(number), `relevantCount`(number), `retrievedCount`(number), `correctCount`(number)
+  - 지표(추가): `ndcgAt10`(number), `ndcgAt20`(number), `mrrAt10`(number), `recallAt50`(number), `map`(number), `recallAt300`(number)
   - 신규:
     - `retrievedDocuments`(RetrievedDocument[]): 실제 검색 결과 순서 유지(1-base rank)
     - `groundTruthDocuments`(GroundTruthDocument[]): 정답셋은 순서 없음 → 점수(`score`) 내림차순으로 정렬해 제공
@@ -39,6 +41,12 @@
   "reportName": "2025-08-15 DEV 검색평가",
   "totalQueries": 120,
   "averageNdcg": 0.734,
+  "ndcgAt10": 0.702,
+  "ndcgAt20": 0.721,
+  "mrrAt10": 0.612,
+  "recallAt50": 0.462,
+  "map": 0.398,
+  "recallAt300": 0.812,
   "totalRelevantDocuments": 2350,
   "totalRetrievedDocuments": 3000,
   "totalCorrectDocuments": 1820,
@@ -47,6 +55,12 @@
     {
       "query": "게이밍 노트북 rtx4060",
       "ndcg": 0.812,
+      "ndcgAt10": 0.790,
+      "ndcgAt20": 0.804,
+      "mrrAt10": 1.0,
+      "recallAt50": 0.56,
+      "map": 0.47,
+      "recallAt300": 0.93,
       "relevantCount": 85,
       "retrievedCount": 50,
       "correctCount": 39,

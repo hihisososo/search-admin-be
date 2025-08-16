@@ -32,7 +32,7 @@ public class QueryGenerationService {
   private final LLMService llmService;
   private final PromptTemplateLoader promptTemplateLoader;
 
-  @Value("${generation.query.batch-size:100}")
+  @Value("${generation.query.batch-size:20}")
   private int generationBatchSize;
 
   public List<String> generateRandomQueries(int count) {
