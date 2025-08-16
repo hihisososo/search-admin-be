@@ -43,7 +43,7 @@ public class LLMQueryEvaluationWorker {
   private final ObjectMapper objectMapper;
   private final PromptTemplateLoader promptTemplateLoader;
 
-  @Value("${evaluation.llm.batch-size:100}")
+  @Value("${evaluation.llm.batch-size:20}")
   private int defaultBatchSize;
 
   /** 개별 쿼리를 비동기로 평가 (실제 멀티 쓰레딩) */

@@ -44,7 +44,7 @@ public class SearchService {
         request.getEnvironmentType().getDescription(),
         request.getQuery());
 
-    String indexName = indexResolver.resolveProductIndex(request.getEnvironmentType());
+    String indexName = indexResolver.resolveProductIndexForSimulation(request.getEnvironmentType());
     return productSearchService.search(indexName, request, request.isExplain());
   }
 
@@ -52,7 +52,7 @@ public class SearchService {
       String keyword, IndexEnvironment.EnvironmentType environmentType) {
 
     log.info("자동완성 시뮬레이션 요청 - 환경: {}, 키워드: {}", environmentType.getDescription(), keyword);
-    String indexName = indexResolver.resolveAutocompleteIndex(environmentType);
+    String indexName = indexResolver.resolveAutocompleteIndexForSimulation(environmentType);
     return autocompleteSearchService.search(indexName, keyword);
   }
 

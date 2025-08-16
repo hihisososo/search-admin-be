@@ -50,7 +50,7 @@ logging:
 
 evaluation:
   llm:
-    batch-size: 100
+    batch-size: 20
 generation:
   query:
-    batch-size: 100
+    batch-size: 20

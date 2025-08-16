@@ -24,9 +24,9 @@ public class AsyncConfig {
   @Bean(name = "llmTaskExecutor")
   public Executor llmTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(12); // 8 → 12로 증가 (더 많은 쿼리 동시 처리)
-    executor.setMaxPoolSize(24); // 16 → 24로 증가
-    executor.setQueueCapacity(200); // 100 → 200으로 증가
+    executor.setCorePoolSize(16); // 동시 처리 상향
+    executor.setMaxPoolSize(32);
+    executor.setQueueCapacity(300);
     executor.setThreadNamePrefix("llm-async-");
     executor.initialize();
     return executor;
@@ -35,9 +35,9 @@ public class AsyncConfig {
   @Bean(name = "evaluationTaskExecutor")
   public Executor evaluationTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(2);
-    executor.setMaxPoolSize(4);
-    executor.setQueueCapacity(50);
+    executor.setCorePoolSize(4);
+    executor.setMaxPoolSize(8);
+    executor.setQueueCapacity(100);
     executor.setThreadNamePrefix("evaluation-async-");
     executor.initialize();
     return executor;
