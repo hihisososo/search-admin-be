@@ -14,10 +14,15 @@ public class ProductDocumentFactory {
     String normalizedName = TextPreprocessor.normalizeUnits(product.getName());
     String preprocessedName = TextPreprocessor.preprocess(normalizedName);
 
+    String nameUnits = TextPreprocessor.extractUnits(product.getName());
+    String specsUnits =
+        TextPreprocessor.extractUnits(product.getSpecs() != null ? product.getSpecs() : "");
+
     return ProductDocument.builder()
         .id(String.valueOf(product.getId()))
         .name(preprocessedName)
         .nameRaw(product.getName())
+        .nameUnit(nameUnits)
         .model(ModelExtractor.extractModels(product.getName()))
         .brandName(BrandExtractor.extractBrand(product.getName()))
         .thumbnailUrl(product.getThumbnailUrl())
@@ -34,6 +39,7 @@ public class ProductDocumentFactory {
         .categoryName(product.getCategoryName())
         .specs(TextPreprocessor.preprocess(product.getSpecs() + " " + product.getCategoryName()))
         .specsRaw(product.getSpecs())
+        .specsUnit(specsUnits)
         .build();
   }
 

@@ -26,7 +26,7 @@ public class AsyncEvaluationService {
   private final LLMCandidateEvaluationService llmEvaluationService;
   private final EvaluationQueryService evaluationQueryService;
 
-  private static final int FIXED_MIN_CANDIDATES = 60;
+  private static final int FIXED_MIN_CANDIDATES = 50;
 
   public Long startLLMQueryGeneration(LLMQueryGenerateRequest request) {
     AsyncTask task =
