@@ -36,8 +36,7 @@ public class IndexResolver {
             indexNameProvider.getProductsIndexPrefix(), indexNameProvider.getAutocompleteIndex());
   }
 
-  public String resolveProductIndexForSimulation(
-      IndexEnvironment.EnvironmentType environmentType) {
+  public String resolveProductIndexForSimulation(IndexEnvironment.EnvironmentType environmentType) {
     IndexEnvironment environment = findEnvironmentAllowingIndexing(environmentType);
     return environment.getIndexName();
   }

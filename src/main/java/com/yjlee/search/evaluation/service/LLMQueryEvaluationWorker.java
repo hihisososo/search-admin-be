@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -116,54 +118,84 @@ public class LLMQueryEvaluationWorker {
       return;
     }
 
-    // 3. 상품을 설정된 배치 크기로 나누어 처리
+    // 3. 배치 병렬 처리로 변경
     int batchSize = defaultBatchSize;
-    List<QueryProductMapping> updatedMappings = new ArrayList<>();
+    List<CompletableFuture<List<QueryProductMapping>>> futures = new ArrayList<>();
+    ExecutorService executor = Executors.newFixedThreadPool(5); // 동시 5개 배치
 
-    for (int i = 0; i < products.size(); i += batchSize) {
-      int endIndex = Math.min(i + batchSize, products.size());
-      List<ProductDocument> batchProducts = products.subList(i, endIndex);
-      List<QueryProductMapping> batchMappings = validMappings.subList(i, endIndex);
+    try {
+      for (int i = 0; i < products.size(); i += batchSize) {
+        final int startIdx = i;
+        final int endIdx = Math.min(i + batchSize, products.size());
+        final List<ProductDocument> batchProducts = products.subList(startIdx, endIdx);
+        final List<QueryProductMapping> batchMappings = validMappings.subList(startIdx, endIdx);
 
-      try {
-        log.info("🔄 배치 처리 시작: {}-{}/{}", i + 1, endIndex, products.size());
+        // 각 배치를 비동기로 처리
+        CompletableFuture<List<QueryProductMapping>> future =
+            CompletableFuture.supplyAsync(
+                () -> {
+                  try {
+                    log.info("🔄 배치 처리 시작: {}-{}/{}", startIdx + 1, endIdx, products.size());
 
-        // 배치별 프롬프트 생성
-        String batchPrompt = buildBulkEvaluationPrompt(query, batchProducts);
+                    // 배치별 프롬프트 생성
+                    String batchPrompt = buildBulkEvaluationPrompt(query, batchProducts);
 
-        // 배치별 LLM 호출
-        log.info("🤖 LLM API 호출 시작 (배치 크기: {})", batchProducts.size());
-        String batchResponse = llmService.callLLMAPI(batchPrompt, null);
+                    // 배치별 LLM 호출
+                    log.info("🤖 LLM API 호출 시작 (배치 크기: {})", batchProducts.size());
+                    String batchResponse = llmService.callLLMAPI(batchPrompt, null);
 
-        if (batchResponse == null || batchResponse.trim().isEmpty()) {
-          log.warn("⚠️ LLM API 응답이 비어있습니다");
-          throw new RuntimeException("LLM API 응답이 비어있습니다");
-        }
+                    if (batchResponse == null || batchResponse.trim().isEmpty()) {
+                      log.warn("⚠️ LLM API 응답이 비어있습니다");
+                      throw new RuntimeException("LLM API 응답이 비어있습니다");
+                    }
 
-        log.info("✅ LLM API 응답 수신 (길이: {}자)", batchResponse.length());
+                    log.info("✅ LLM API 응답 수신 (길이: {}자)", batchResponse.length());
 
-        // 배치별 응답 파싱
-        List<QueryProductMapping> batchResults =
-            parseBulkEvaluationResponse(query, batchMappings, batchResponse);
-        updatedMappings.addAll(batchResults);
+                    // 배치별 응답 파싱
+                    List<QueryProductMapping> batchResults =
+                        parseBulkEvaluationResponse(query, batchMappings, batchResponse);
 
-        log.info(
-            "✅ 배치 처리 완료: {}-{}/{} (성공: {}개)",
-            i + 1,
-            endIndex,
-            products.size(),
-            batchResults.size());
+                    log.info(
+                        "✅ 배치 처리 완료: {}-{}/{} (성공: {}개)",
+                        startIdx + 1,
+                        endIdx,
+                        products.size(),
+                        batchResults.size());
 
-      } catch (Exception e) {
-        log.warn("⚠️ 배치 {}-{} 처리 실패 - 해당 배치는 미평가로 유지", i + 1, endIndex, e);
-        // 실패한 배치는 미평가로 유지 (아무 업데이트도 하지 않음)
+                    return batchResults;
+                  } catch (Exception e) {
+                    log.warn("⚠️ 배치 {}-{} 처리 실패 - 해당 배치는 미평가로 유지", startIdx + 1, endIdx, e);
+                    return new ArrayList<>();
+                  }
+                },
+                executor);
+
+        futures.add(future);
       }
-    }
 
-    // 4. 일괄 저장
-    if (!updatedMappings.isEmpty()) {
-      queryProductMappingRepository.saveAll(updatedMappings);
-      log.info("✅ 쿼리 '{}'의 후보군 벌크 평가 완료: {}개 상품", query, updatedMappings.size());
+      // 모든 배치 완료 대기
+      CompletableFuture<Void> allOf =
+          CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+      allOf.join();
+
+      // 결과 수집
+      List<QueryProductMapping> updatedMappings = new ArrayList<>();
+      for (CompletableFuture<List<QueryProductMapping>> future : futures) {
+        try {
+          updatedMappings.addAll(future.get());
+        } catch (Exception e) {
+          log.warn("⚠️ 배치 결과 수집 중 오류", e);
+        }
+      }
+
+      // 4. 일괄 저장
+      if (!updatedMappings.isEmpty()) {
+        queryProductMappingRepository.saveAll(updatedMappings);
+        log.info("✅ 쿼리 '{}'의 후보군 벌크 평가 완료: {}개 상품", query, updatedMappings.size());
+      }
+
+    } finally {
+      executor.shutdown();
     }
   }
 

@@ -28,7 +28,10 @@ public class QuerySuggestService {
     for (String q : diversified) {
       Set<String> union = groundTruthService.getCandidateUnionStrict(q, perStrategyCap);
 
+      log.info("쿼리: '{}' → 검색 결과: {}개", q, union.size());
+
       if (union.size() > 300) {
+        log.debug("쿼리 제외됨 (300개 초과): '{}'", q);
         continue; // 적합하지 않은 쿼리: 전략 합산 중복제거 후 300 초과
       }
 

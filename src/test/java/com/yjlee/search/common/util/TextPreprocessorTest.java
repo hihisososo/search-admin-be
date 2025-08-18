@@ -27,6 +27,52 @@ class TextPreprocessorTest {
   void should_process_korean_text_correctly() {
     String input = "안녕하세요!  테스트@입니다.";
     String result = TextPreprocessor.preprocess(input);
-    assertThat(result).isEqualTo("안녕하세요 테스트 입니다");
+    assertThat(result).isEqualTo("안녕하세요 테스트 입니다.");
+  }
+
+  @Test
+  @DisplayName("용량 단위 정규화 - 공백 제거")
+  void should_normalize_volume_units() {
+    assertThat(TextPreprocessor.normalizeUnits("코카콜라 500 ml")).isEqualTo("코카콜라 500ml");
+    assertThat(TextPreprocessor.normalizeUnits("생수 1.5 L")).isEqualTo("생수 1.5L");
+    assertThat(TextPreprocessor.normalizeUnits("음료 350 CC")).isEqualTo("음료 350CC");
+    assertThat(TextPreprocessor.normalizeUnits("주스 12 oz")).isEqualTo("주스 12oz");
+    assertThat(TextPreprocessor.normalizeUnits("우유 1 gal")).isEqualTo("우유 1gal");
+  }
+
+  @Test
+  @DisplayName("수량 단위 정규화 - 공백 제거")
+  void should_normalize_quantity_units() {
+    assertThat(TextPreprocessor.normalizeUnits("휴지 30 개입")).isEqualTo("휴지 30개입");
+    assertThat(TextPreprocessor.normalizeUnits("비타민 100 정")).isEqualTo("비타민 100정");
+    assertThat(TextPreprocessor.normalizeUnits("마스크 50 장")).isEqualTo("마스크 50장");
+    assertThat(TextPreprocessor.normalizeUnits("라면 5 봉지")).isEqualTo("라면 5봉지");
+    assertThat(TextPreprocessor.normalizeUnits("세제 3 팩")).isEqualTo("세제 3팩");
+    assertThat(TextPreprocessor.normalizeUnits("선물 2 세트")).isEqualTo("선물 2세트");
+    assertThat(TextPreprocessor.normalizeUnits("양말 10 켤레")).isEqualTo("양말 10켤레");
+    assertThat(TextPreprocessor.normalizeUnits("소주 20 병")).isEqualTo("소주 20병");
+    assertThat(TextPreprocessor.normalizeUnits("콜라 6 캔")).isEqualTo("콜라 6캔");
+  }
+
+  @Test
+  @DisplayName("복합 단위 정규화")
+  void should_normalize_multiple_units() {
+    assertThat(TextPreprocessor.normalizeUnits("코카콜라 500 ml x 20 개")).isEqualTo("코카콜라 500ml x 20개");
+    assertThat(TextPreprocessor.normalizeUnits("생수 2 L 6 병 세트")).isEqualTo("생수 2L 6병 세트");
+  }
+
+  @Test
+  @DisplayName("단위가 없는 경우 그대로 반환")
+  void should_return_unchanged_when_no_units() {
+    assertThat(TextPreprocessor.normalizeUnits("일반 텍스트")).isEqualTo("일반 텍스트");
+    assertThat(TextPreprocessor.normalizeUnits("숫자 123 있음")).isEqualTo("숫자 123 있음");
+  }
+
+  @Test
+  @DisplayName("null 또는 빈 문자열 처리")
+  void should_handle_null_or_empty() {
+    assertThat(TextPreprocessor.normalizeUnits(null)).isEmpty();
+    assertThat(TextPreprocessor.normalizeUnits("")).isEmpty();
+    assertThat(TextPreprocessor.normalizeUnits("   ")).isEmpty();
   }
 }
