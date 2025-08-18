@@ -42,7 +42,8 @@
         "bigram_tokenizer": {
           "type": "ngram",
           "min_gram": "2",
-          "max_gram": "8"
+          "max_gram": "8",
+          "token_chars": ["letter", "digit", "punctuation"]
         },
         "userdic_nori_tokenizer": {
           "type": "nori_tokenizer",

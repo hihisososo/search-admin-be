@@ -2,7 +2,6 @@ package com.yjlee.search.search.service.builder;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.yjlee.search.common.constants.ESFields;
@@ -52,25 +51,48 @@ public class QueryBuilder {
       return List.of(Query.of(q -> q.matchAll(m -> m)));
     }
 
-    return List.of(
-        Query.of(
-            q ->
-                q.multiMatch(
-                    m ->
-                        m.query(query)
-                            .fields(ESFields.CROSS_FIELDS_MAIN)
-                            .type(TextQueryType.CrossFields)
-                            .operator(Operator.And)
-                            .boost(10.0f))),
-        Query.of(
-            q ->
-                q.multiMatch(
-                    m ->
-                        m.query(query)
-                            .fields(ESFields.CROSS_FIELDS_BIGRAM)
-                            .type(TextQueryType.CrossFields)
-                            .operator(Operator.And)
-                            .boost(5.0f))));
+    String[] terms = query.split("\\s+");
+
+    // 메인 필드 그룹 - 모든 term이 AND 조건
+    List<Query> mainFieldMustQueries = new ArrayList<>();
+    for (String term : terms) {
+      Query mainFieldQuery =
+          Query.of(
+              q ->
+                  q.multiMatch(
+                      m ->
+                          m.query(term)
+                              .fields(ESFields.CROSS_FIELDS_MAIN)
+                              .type(TextQueryType.Phrase)
+                              .boost(10.0f)));
+      mainFieldMustQueries.add(mainFieldQuery);
+    }
+
+    // 바이그램 필드 그룹 - 모든 term이 AND 조건
+    List<Query> bigramFieldMustQueries = new ArrayList<>();
+    for (String term : terms) {
+      Query bigramFieldQuery =
+          Query.of(
+              q ->
+                  q.multiMatch(
+                      m ->
+                          m.query(term)
+                              .fields(ESFields.CROSS_FIELDS_BIGRAM)
+                              .type(TextQueryType.Phrase)
+                              .boost(5.0f)));
+      bigramFieldMustQueries.add(bigramFieldQuery);
+    }
+
+    // 메인 필드 그룹과 바이그램 필드 그룹을 OR 조건으로 결합
+    List<Query> shouldQueries = new ArrayList<>();
+
+    // 메인 필드 그룹 (모든 term AND)
+    shouldQueries.add(Query.of(q -> q.bool(b -> b.must(mainFieldMustQueries))));
+
+    // 바이그램 필드 그룹 (모든 term AND)
+    shouldQueries.add(Query.of(q -> q.bool(b -> b.must(bigramFieldMustQueries))));
+
+    return List.of(Query.of(q -> q.bool(b -> b.should(shouldQueries).minimumShouldMatch("1"))));
   }
 
   private List<Query> buildBoostingQueries(String query) {
@@ -149,7 +171,8 @@ public class QueryBuilder {
   }
 
   private String processQuery(String query, Boolean applyTypoCorrection) {
-    String processedQuery = TextPreprocessor.preprocess(query);
+    String normalizedQuery = TextPreprocessor.normalizeUnits(query);
+    String processedQuery = TextPreprocessor.preprocess(normalizedQuery);
 
     if (shouldApplyTypoCorrection(applyTypoCorrection)) {
       String correctedQuery = typoCorrectionService.applyTypoCorrection(processedQuery);

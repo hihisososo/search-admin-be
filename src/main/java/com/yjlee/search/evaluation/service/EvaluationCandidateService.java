@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +40,21 @@ public class EvaluationCandidateService {
       throw new IllegalArgumentException("평가 쿼리를 찾을 수 없습니다: " + query);
     }
     return queryProductMappingRepository.findByEvaluationQuery(evaluationQuery.get());
+  }
+
+  public Page<QueryProductMapping> getQueryMappingsWithPaging(
+      String query, int page, int size, String sortBy, String sortDirection) {
+    Optional<EvaluationQuery> evaluationQuery = evaluationQueryRepository.findByQuery(query);
+    if (evaluationQuery.isEmpty()) {
+      throw new IllegalArgumentException("평가 쿼리를 찾을 수 없습니다: " + query);
+    }
+
+    Sort.Direction direction =
+        "DESC".equalsIgnoreCase(sortDirection) ? Sort.Direction.DESC : Sort.Direction.ASC;
+
+    Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+    return queryProductMappingRepository.findByEvaluationQuery(evaluationQuery.get(), pageable);
   }
 
   public ProductDocument getProductDetails(String productId) {

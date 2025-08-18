@@ -32,13 +32,12 @@ import com.yjlee.search.index.dto.ProductDocument;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -109,53 +108,14 @@ public class EvaluationSetController {
     }
 
     EvaluationQuery query = queryOpt.get();
-    List<QueryProductMapping> allMappings =
-        evaluationCandidateService.getQueryMappings(query.getQuery());
 
-    // 정렬
-    Comparator<QueryProductMapping> comparator;
-    switch (sortBy) {
-      case "productName":
-        comparator =
-            Comparator.comparing(
-                m -> m.getProductName() == null ? "" : m.getProductName(),
-                String.CASE_INSENSITIVE_ORDER);
-        break;
-      case "productId":
-        comparator =
-            Comparator.comparing(
-                m -> m.getProductId() == null ? "" : m.getProductId(),
-                String.CASE_INSENSITIVE_ORDER);
-        break;
-      case "relevanceStatus":
-        comparator =
-            Comparator.comparing(
-                m ->
-                    m.getRelevanceStatus() == null ? "UNSPECIFIED" : m.getRelevanceStatus().name());
-        break;
-      case "evaluationReason":
-        comparator =
-            Comparator.comparing(
-                m -> m.getEvaluationReason() == null ? "" : m.getEvaluationReason(),
-                String.CASE_INSENSITIVE_ORDER);
-        break;
-      case "relevanceScore":
-      default:
-        comparator =
-            Comparator.comparing(m -> m.getRelevanceScore() == null ? -1 : m.getRelevanceScore());
-        break;
-    }
-    if ("DESC".equalsIgnoreCase(sortDirection)) {
-      comparator = comparator.reversed();
-    }
-    List<QueryProductMapping> sortedMappings = new ArrayList<>(allMappings);
-    sortedMappings.sort(comparator);
-
-    PaginationUtils.PagedResult<QueryProductMapping> pagedResult =
-        PaginationUtils.paginate(sortedMappings, page, size);
+    // DB에서 정렬과 페이징 처리
+    Page<QueryProductMapping> mappingPage =
+        evaluationCandidateService.getQueryMappingsWithPaging(
+            query.getQuery(), page, size, sortBy, sortDirection);
 
     List<QueryDocumentMappingResponse.ProductDocumentDto> documents =
-        pagedResult.getContent().stream()
+        mappingPage.getContent().stream()
             .map(
                 m -> {
                   ProductDocument product =
@@ -175,12 +135,12 @@ public class EvaluationSetController {
         QueryDocumentMappingResponse.builder()
             .query(query.getQuery())
             .documents(documents)
-            .totalCount(pagedResult.getTotalCount())
-            .totalPages(pagedResult.getTotalPages())
-            .currentPage(pagedResult.getCurrentPage())
-            .size(pagedResult.getSize())
-            .hasNext(pagedResult.isHasNext())
-            .hasPrevious(pagedResult.isHasPrevious())
+            .totalCount(mappingPage.getTotalElements())
+            .totalPages(mappingPage.getTotalPages())
+            .currentPage(page)
+            .size(size)
+            .hasNext(mappingPage.hasNext())
+            .hasPrevious(mappingPage.hasPrevious())
             .build();
     return ResponseEntity.ok(response);
   }

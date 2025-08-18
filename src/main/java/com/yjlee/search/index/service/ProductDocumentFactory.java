@@ -11,9 +11,12 @@ import org.springframework.stereotype.Component;
 public class ProductDocumentFactory {
 
   public ProductDocument create(Product product) {
+    String normalizedName = TextPreprocessor.normalizeUnits(product.getName());
+    String preprocessedName = TextPreprocessor.preprocess(normalizedName);
+
     return ProductDocument.builder()
         .id(String.valueOf(product.getId()))
-        .name(TextPreprocessor.preprocess(product.getName()))
+        .name(preprocessedName)
         .nameRaw(product.getName())
         .model(ModelExtractor.extractModels(product.getName()))
         .brandName(BrandExtractor.extractBrand(product.getName()))

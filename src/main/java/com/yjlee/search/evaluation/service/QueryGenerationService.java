@@ -53,6 +53,7 @@ public class QueryGenerationService {
             String prompt = buildBulkQueryPrompt(products);
             String response = llmService.callLLMAPI(prompt);
             List<String> batchQueries = extractQueriesFromBulkResponse(response);
+            log.info("LLM 응답으로 {}개 쿼리 생성됨", batchQueries.size());
 
             for (String query : batchQueries) {
               if (generatedQueries.size() >= count) break;
@@ -104,10 +105,12 @@ public class QueryGenerationService {
             String prompt = buildBulkQueryPrompt(products);
             String response = llmService.callLLMAPI(prompt);
             List<String> batchQueries = extractQueriesFromBulkResponse(response);
+            log.info("[PREVIEW] LLM 응답으로 {}개 쿼리 생성됨", batchQueries.size());
 
             for (String q : batchQueries) {
               if (q != null && !q.trim().isEmpty() && isValidQuery(q) && !generated.contains(q)) {
                 generated.add(q.trim());
+                log.debug("[PREVIEW] 쿼리 추가: '{}'", q.trim());
                 if (generated.size() >= count) break;
               }
             }
@@ -146,10 +149,12 @@ public class QueryGenerationService {
             String prompt = buildBulkQueryPrompt(products);
             String response = llmService.callLLMAPI(prompt);
             List<String> batchQueries = extractQueriesFromBulkResponse(response);
+            log.info("[PREVIEW] 카테고리 LLM 응답으로 {}개 쿼리 생성됨", batchQueries.size());
 
             for (String q : batchQueries) {
               if (q != null && !q.trim().isEmpty() && isValidQuery(q) && !generated.contains(q)) {
                 generated.add(q.trim());
+                log.debug("[PREVIEW] 카테고리 쿼리 추가: '{}'", q.trim());
                 if (generated.size() >= count) break;
               }
             }
