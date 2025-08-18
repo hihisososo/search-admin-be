@@ -75,4 +75,33 @@ class TextPreprocessorTest {
     assertThat(TextPreprocessor.normalizeUnits("")).isEmpty();
     assertThat(TextPreprocessor.normalizeUnits("   ")).isEmpty();
   }
+
+  @Test
+  @DisplayName("단위 추출 - 공백으로 구분")
+  void should_extract_units() {
+    assertThat(TextPreprocessor.extractUnits("젤리 10 입 10 개")).isEqualTo("10개");
+    assertThat(TextPreprocessor.extractUnits("코카콜라 500 ml")).isEqualTo("500ml");
+    assertThat(TextPreprocessor.extractUnits("휴지 30 개입 세트")).isEqualTo("30개입");
+    assertThat(TextPreprocessor.extractUnits("비타민 100 정 x 3 병")).isEqualTo("100정 3병");
+    assertThat(TextPreprocessor.extractUnits("콜라 500 ml 20 캔")).isEqualTo("500ml 20캔");
+  }
+
+  @Test
+  @DisplayName("단위 추출 - 붙어있는 경우")
+  void should_extract_units_without_space() {
+    assertThat(TextPreprocessor.extractUnits("10ml냉장고")).isEqualTo("10ml");
+    assertThat(TextPreprocessor.extractUnits("30개입")).isEqualTo("30개입");
+    assertThat(TextPreprocessor.extractUnits("500g포장")).isEqualTo("500g");
+    assertThat(TextPreprocessor.extractUnits("2L들이")).isEqualTo("2L");
+    assertThat(TextPreprocessor.extractUnits("1MLS")).isEmpty(); // 영어 뒤에 영어는 추출 안됨
+    assertThat(TextPreprocessor.extractUnits("100정들이")).isEqualTo("100정");
+  }
+
+  @Test
+  @DisplayName("단위가 없는 경우 빈 문자열 반환")
+  void should_return_empty_when_no_units_to_extract() {
+    assertThat(TextPreprocessor.extractUnits("일반 텍스트")).isEmpty();
+    assertThat(TextPreprocessor.extractUnits("노트북")).isEmpty();
+    assertThat(TextPreprocessor.extractUnits("")).isEmpty();
+  }
 }

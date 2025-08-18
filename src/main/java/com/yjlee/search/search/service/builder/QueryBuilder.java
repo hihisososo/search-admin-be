@@ -10,6 +10,7 @@ import com.yjlee.search.search.dto.PriceRangeDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import java.util.*;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,10 +23,16 @@ public class QueryBuilder {
   private final TypoCorrectionService typoCorrectionService;
 
   public BoolQuery buildBoolQuery(SearchExecuteRequest request) {
-    String query = processQuery(request.getQuery(), request.getApplyTypoCorrection());
+    // 단위 추출
+    String units = TextPreprocessor.extractUnits(request.getQuery());
 
-    List<Query> mustMatchQueries = buildMustMatchQueries(query);
-    List<Query> boostingQueries = buildBoostingQueries(query);
+    // 단위를 제거한 쿼리 생성
+    String queryWithoutUnits = removeUnitsFromQuery(request.getQuery(), units);
+
+    // 처리된 쿼리
+    String processedQuery = processQuery(queryWithoutUnits, request.getApplyTypoCorrection());
+
+    List<Query> mustMatchQueries = buildMustMatchQueries(processedQuery, units);
     List<Query> filterQueries = buildFilterQueries(request);
 
     return BoolQuery.of(
@@ -36,9 +43,6 @@ public class QueryBuilder {
                     q ->
                         q.bool(nested -> nested.should(mustMatchQueries).minimumShouldMatch("1"))));
           }
-          if (!boostingQueries.isEmpty()) {
-            b.should(boostingQueries);
-          }
           if (!filterQueries.isEmpty()) {
             b.filter(filterQueries);
           }
@@ -46,7 +50,7 @@ public class QueryBuilder {
         });
   }
 
-  private List<Query> buildMustMatchQueries(String query) {
+  private List<Query> buildMustMatchQueries(String query, String units) {
     if (query == null || query.trim().isEmpty()) {
       return List.of(Query.of(q -> q.matchAll(m -> m)));
     }
@@ -68,6 +72,14 @@ public class QueryBuilder {
       mainFieldMustQueries.add(mainFieldQuery);
     }
 
+    // 단위가 있으면 메인 필드 그룹에 추가
+    if (units != null && !units.trim().isEmpty()) {
+      Query unitQuery = buildUnitQuery(units);
+      if (unitQuery != null) {
+        mainFieldMustQueries.add(unitQuery);
+      }
+    }
+
     // 바이그램 필드 그룹 - 모든 term이 AND 조건
     List<Query> bigramFieldMustQueries = new ArrayList<>();
     for (String term : terms) {
@@ -83,36 +95,24 @@ public class QueryBuilder {
       bigramFieldMustQueries.add(bigramFieldQuery);
     }
 
+    // 단위가 있으면 바이그램 필드 그룹에도 추가
+    if (units != null && !units.trim().isEmpty()) {
+      Query unitQuery = buildUnitQuery(units);
+      if (unitQuery != null) {
+        bigramFieldMustQueries.add(unitQuery);
+      }
+    }
+
     // 메인 필드 그룹과 바이그램 필드 그룹을 OR 조건으로 결합
     List<Query> shouldQueries = new ArrayList<>();
 
-    // 메인 필드 그룹 (모든 term AND)
+    // 메인 필드 그룹 (모든 term AND + 단위)
     shouldQueries.add(Query.of(q -> q.bool(b -> b.must(mainFieldMustQueries))));
 
-    // 바이그램 필드 그룹 (모든 term AND)
+    // 바이그램 필드 그룹 (모든 term AND + 단위)
     shouldQueries.add(Query.of(q -> q.bool(b -> b.must(bigramFieldMustQueries))));
 
     return List.of(Query.of(q -> q.bool(b -> b.should(shouldQueries).minimumShouldMatch("1"))));
-  }
-
-  private List<Query> buildBoostingQueries(String query) {
-    if (query == null || query.trim().isEmpty()) {
-      return new ArrayList<>();
-    }
-
-    String[] queryWords = query.split("\\s+");
-
-    return Arrays.stream(queryWords)
-        .filter(word -> !word.trim().isEmpty())
-        .flatMap(
-            word ->
-                ESFields.BOOST_FIELDS.stream()
-                    .map(field -> createTermQuery(field, word.trim(), 3.0f)))
-        .toList();
-  }
-
-  private Query createTermQuery(String field, String value, float boost) {
-    return Query.of(q -> q.term(t -> t.field(field).value(value).boost(boost)));
   }
 
   private List<Query> buildFilterQueries(SearchExecuteRequest request) {
@@ -187,5 +187,62 @@ public class QueryBuilder {
 
   private boolean shouldApplyTypoCorrection(Boolean applyTypoCorrection) {
     return Optional.ofNullable(applyTypoCorrection).filter(Boolean::booleanValue).isPresent();
+  }
+
+  private Query buildUnitQuery(String units) {
+    if (units == null || units.trim().isEmpty()) {
+      return null;
+    }
+
+    String[] unitArray = units.split("\\s+");
+    List<Query> unitQueries = new ArrayList<>();
+
+    for (String unit : unitArray) {
+      if (!unit.isEmpty()) {
+        // name.unit 또는 specs.unit 중 하나만 매칭되면 OK
+        unitQueries.add(
+            Query.of(
+                q ->
+                    q.bool(
+                        b ->
+                            b.should(
+                                    Query.of(
+                                        t -> t.match(m -> m.field(ESFields.NAME_UNIT).query(unit))),
+                                    Query.of(
+                                        t ->
+                                            t.match(m -> m.field(ESFields.SPECS_UNIT).query(unit))))
+                                .minimumShouldMatch("1"))));
+      }
+    }
+
+    if (unitQueries.isEmpty()) {
+      return null;
+    }
+
+    // 여러 단위가 있으면 모두 AND 조건
+    if (unitQueries.size() == 1) {
+      return unitQueries.get(0);
+    } else {
+      return Query.of(q -> q.bool(b -> b.must(unitQueries)));
+    }
+  }
+
+  private String removeUnitsFromQuery(String query, String units) {
+    if (units == null || units.trim().isEmpty()) {
+      return query;
+    }
+
+    String result = query;
+    String[] unitArray = units.split("\\s+");
+
+    for (String unit : unitArray) {
+      if (!unit.isEmpty()) {
+        // 단위를 쿼리에서 제거 (대소문자 무시)
+        result = result.replaceAll("(?i)\\b" + Pattern.quote(unit) + "\\b", "");
+      }
+    }
+
+    // 여러 공백을 하나로 정리
+    return result.replaceAll("\\s+", " ").trim();
   }
 }

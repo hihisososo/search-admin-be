@@ -20,6 +20,10 @@
           "type": "text",
           "analyzer": "bigram_analyzer",
           "search_analyzer": "standard"
+        },
+        "unit": {
+          "type": "text",
+          "analyzer": "whitespace"
         }
       },
       "analyzer": "nori_index_analyzer",
@@ -46,6 +50,10 @@
           "type": "text",
           "analyzer": "bigram_analyzer",
           "search_analyzer": "standard"
+        },
+        "unit": {
+          "type": "text",
+          "analyzer": "whitespace"
         }
       },
       "analyzer": "nori_index_analyzer",
