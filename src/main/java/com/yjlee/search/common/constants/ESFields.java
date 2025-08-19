@@ -39,7 +39,7 @@ public class ESFields {
   public static final List<String> CROSS_FIELDS_MAIN =
       List.of(NAME_WEIGHTED, SPECS_WEIGHTED, MODEL_BIGRAM_WEIGHTED);
   public static final List<String> CROSS_FIELDS_BIGRAM =
-      List.of(NAME_BIGRAM_WEIGHTED, SPECS_BIGRAM_WEIGHTED);
+      List.of(NAME_BIGRAM_WEIGHTED, SPECS_BIGRAM_WEIGHTED, MODEL_BIGRAM_WEIGHTED);
 
   // 부스팅 필드 리스트
   public static final List<String> BOOST_FIELDS = List.of(MODEL, BRAND_NAME, CATEGORY_NAME);

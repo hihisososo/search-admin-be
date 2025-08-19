@@ -35,4 +35,7 @@ public class EvaluationReportDocument {
 
   @Column(name = "product_specs", columnDefinition = "TEXT")
   private String productSpecs;
+
+  @Column(name = "position")
+  private Integer position;
 }

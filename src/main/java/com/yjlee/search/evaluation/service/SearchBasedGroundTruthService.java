@@ -282,9 +282,10 @@ public class SearchBasedGroundTruthService {
       allCandidates.addAll(searchByVectorWithEmbedding(queryEmbedding, "name_specs_vector"));
     }
 
-    allCandidates.addAll(searchByCrossField(query, new String[] {"name", "specs"}));
+    allCandidates.addAll(searchByCrossField(query, new String[] {"name", "specs", "model"}));
 
-    allCandidates.addAll(searchByCrossField(query, new String[] {"name.bigram", "specs.bigram"}));
+    allCandidates.addAll(
+        searchByCrossField(query, new String[] {"name.bigram", "specs.bigram", "model.bigram"}));
 
     return allCandidates.stream()
         .limit(FIXED_MAX_TOTAL_PER_QUERY)
@@ -396,7 +397,7 @@ public class SearchBasedGroundTruthService {
                               q.multiMatch(
                                   mm ->
                                       mm.query(TextPreprocessor.preprocess(query))
-                                          .fields(fields[0], fields[1])
+                                          .fields(List.of(fields))
                                           .operator(Operator.And)
                                           .type(TextQueryType.CrossFields))));
 
