@@ -46,6 +46,8 @@ public class EvaluationExecuteResponse {
     private Integer correctCount;
     private List<DocumentInfo> missingDocuments;
     private List<DocumentInfo> wrongDocuments;
+    private List<DocumentInfo> relevantDocuments;
+    private List<DocumentInfo> retrievedDocuments;
   }
 
   @Getter

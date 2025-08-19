@@ -73,6 +73,24 @@ public class TextPreprocessor {
     return String.join(" ", units);
   }
 
+  public static String removeModels(String text, List<String> models) {
+    if (text == null || text.isBlank() || models == null || models.isEmpty()) {
+      return text;
+    }
+
+    String result = text;
+    for (String model : models) {
+      // 대소문자 무시하고 모델명 제거
+      String pattern = "\\b" + Pattern.quote(model) + "\\b";
+      result = result.replaceAll("(?i)" + pattern, "");
+    }
+
+    // 연속된 공백 정리
+    result = result.replaceAll("\\s+", " ").trim();
+
+    return result;
+  }
+
   private static String cleanSpecialChars(String text) {
     // 특수문자 제거 후 연속된 공백 정리
     String cleaned =

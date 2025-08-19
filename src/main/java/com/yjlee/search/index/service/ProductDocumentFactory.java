@@ -5,6 +5,7 @@ import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.util.BrandExtractor;
 import com.yjlee.search.index.util.ModelExtractor;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,7 +20,12 @@ public class ProductDocumentFactory {
   }
 
   public ProductDocument create(Product product) {
-    String normalizedName = TextPreprocessor.normalizeUnits(product.getName());
+    // 모델명 먼저 추출
+    List<String> models = ModelExtractor.extractModels(product.getName());
+
+    // 모델명 제거 후 정규화
+    String nameWithoutModels = TextPreprocessor.removeModels(product.getName(), models);
+    String normalizedName = TextPreprocessor.normalizeUnits(nameWithoutModels);
     String preprocessedName = TextPreprocessor.preprocess(normalizedName);
 
     String nameUnits = TextPreprocessor.extractUnits(product.getName());
@@ -31,7 +37,7 @@ public class ProductDocumentFactory {
         .name(preprocessedName)
         .nameRaw(product.getName())
         .nameUnit(nameUnits)
-        .model(ModelExtractor.extractModels(product.getName()))
+        .model(models)
         .brandName(BrandExtractor.extractBrand(product.getName()))
         .thumbnailUrl(product.getThumbnailUrl())
         .price(product.getPrice() != null ? product.getPrice().intValue() : null)

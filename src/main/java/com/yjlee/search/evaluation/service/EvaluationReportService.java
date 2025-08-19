@@ -171,6 +171,39 @@ public class EvaluationReportService {
               .retrievedCount(d.getRetrievedCount())
               .correctCount(d.getCorrectCount())
               .build());
+      // 정답셋 전체 저장
+      if (d.getRelevantDocuments() != null) {
+        for (EvaluationExecuteResponse.DocumentInfo r : d.getRelevantDocuments()) {
+          docRows.add(
+              com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
+                  .report(report)
+                  .query(d.getQuery())
+                  .productId(r.getProductId())
+                  .docType(com.yjlee.search.evaluation.model.ReportDocumentType.RELEVANT)
+                  .productName(r.getProductName())
+                  .productSpecs(r.getProductSpecs())
+                  .build());
+        }
+      }
+
+      // 검색결과 전체 저장 (순서 포함)
+      if (d.getRetrievedDocuments() != null) {
+        int position = 0;
+        for (EvaluationExecuteResponse.DocumentInfo ret : d.getRetrievedDocuments()) {
+          docRows.add(
+              com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
+                  .report(report)
+                  .query(d.getQuery())
+                  .productId(ret.getProductId())
+                  .docType(com.yjlee.search.evaluation.model.ReportDocumentType.RETRIEVED)
+                  .productName(ret.getProductName())
+                  .productSpecs(ret.getProductSpecs())
+                  .position(position++)
+                  .build());
+        }
+      }
+
+      // 기존 MISSING, WRONG 저장 로직 유지
       if (d.getMissingDocuments() != null) {
         for (EvaluationExecuteResponse.DocumentInfo m : d.getMissingDocuments()) {
           docRows.add(
@@ -252,9 +285,11 @@ public class EvaluationReportService {
             .filter(doc -> !relevantDocs.contains(doc))
             .collect(Collectors.toList());
 
-    // 문서 정보 구성 (이름/스펙 포함)
-    Map<String, ProductDocument> productMap =
-        getProductsBulk(new ArrayList<>(union(missingIds, wrongIds)));
+    // 모든 관련 문서들의 정보 구성 (이름/스펙 포함)
+    Set<String> allDocIds = new HashSet<>();
+    allDocIds.addAll(relevantDocs);
+    allDocIds.addAll(retrievedDocs);
+    Map<String, ProductDocument> productMap = getProductsBulk(new ArrayList<>(allDocIds));
 
     List<EvaluationExecuteResponse.DocumentInfo> missingDocs =
         missingIds.stream()
@@ -282,6 +317,34 @@ public class EvaluationReportService {
                 })
             .toList();
 
+    // 정답셋 전체 문서 정보
+    List<EvaluationExecuteResponse.DocumentInfo> relevantDocInfos =
+        relevantDocs.stream()
+            .map(
+                id -> {
+                  ProductDocument p = productMap.get(id);
+                  return EvaluationExecuteResponse.DocumentInfo.builder()
+                      .productId(id)
+                      .productName(p != null ? p.getNameRaw() : null)
+                      .productSpecs(p != null ? p.getSpecsRaw() : null)
+                      .build();
+                })
+            .toList();
+
+    // 검색결과 전체 문서 정보 (순서 유지)
+    List<EvaluationExecuteResponse.DocumentInfo> retrievedDocInfos =
+        retrievedDocs.stream()
+            .map(
+                id -> {
+                  ProductDocument p = productMap.get(id);
+                  return EvaluationExecuteResponse.DocumentInfo.builder()
+                      .productId(id)
+                      .productName(p != null ? p.getNameRaw() : null)
+                      .productSpecs(p != null ? p.getSpecsRaw() : null)
+                      .build();
+                })
+            .toList();
+
     return EvaluationExecuteResponse.QueryEvaluationDetail.builder()
         .query(query)
         .ndcg(ndcg)
@@ -296,6 +359,8 @@ public class EvaluationReportService {
         .correctCount(correctDocs.size())
         .missingDocuments(missingDocs)
         .wrongDocuments(wrongDocs)
+        .relevantDocuments(relevantDocInfos)
+        .retrievedDocuments(retrievedDocInfos)
         .build();
   }
 

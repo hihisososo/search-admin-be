@@ -25,12 +25,13 @@
       "index": false
     },
     "model": {
-      "type": "keyword",
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
       "fields": {
         "bigram": {
           "type": "text",
-          "analyzer": "bigram_analyzer",
-          "search_analyzer": "standard"
+          "analyzer": "bigram_analyzer"
         }
       }
     },
