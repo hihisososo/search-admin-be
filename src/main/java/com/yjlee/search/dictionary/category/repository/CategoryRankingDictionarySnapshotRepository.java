@@ -32,4 +32,7 @@ public interface CategoryRankingDictionarySnapshotRepository
 
   boolean existsByKeywordAndEnvironmentType(
       String keyword, DictionaryEnvironmentType environmentType);
+
+  List<CategoryRankingDictionarySnapshot> findByEnvironmentType(
+      DictionaryEnvironmentType environmentType);
 }

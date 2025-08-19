@@ -11,7 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class TextPreprocessor {
 
-  private static final Pattern SPECIAL_CHARS_PATTERN = Pattern.compile("[^\\p{L}\\p{N}\\s\\.]");
+  // 의미있는 특수문자를 보존: /, -, +, (, ), &
+  private static final Pattern SPECIAL_CHARS_PATTERN =
+      Pattern.compile("[^\\p{L}\\p{N}\\s\\.\\-/+()&]");
 
   // 영어 단위 패턴 - 공백 포함/미포함 모두 처리
   private static final Pattern UNIT_PATTERN_EN =
@@ -21,7 +23,8 @@ public class TextPreprocessor {
 
   // 한글 단위 패턴 - 공백 포함/미포함 모두 처리
   private static final Pattern UNIT_PATTERN_KO =
-      Pattern.compile("(\\d+\\.?\\d*)\\s*(개입|개|장|매|봉|봉지|포|박스|팩|세트|켤레|족|쌍|병|캔|정|알|평|묶음|다발)");
+      Pattern.compile(
+          "(\\d+\\.?\\d*)\\s*(개입|개|장|매|봉|봉지|포|박스|팩|세트|켤레|족|쌍|병|캔|정|알|평|묶음|다발)(?![가-힣])");
 
   public static String preprocess(String text) {
     if (text == null || text.isBlank()) {
@@ -71,11 +74,14 @@ public class TextPreprocessor {
   }
 
   private static String cleanSpecialChars(String text) {
-    return SPECIAL_CHARS_PATTERN
-        .matcher(text.trim())
-        .replaceAll(" ")
-        .replaceAll("\\s+", " ")
-        .trim();
+    // 특수문자 제거 후 연속된 공백 정리
+    String cleaned =
+        SPECIAL_CHARS_PATTERN.matcher(text.trim()).replaceAll(" ").replaceAll("\\s+", " ").trim();
+
+    // 하이픈을 공백으로 치환하여 검색 가능하게 함 (i7-12700K -> i7 12700K)
+    cleaned = cleaned.replaceAll("-", " ");
+
+    return cleaned;
   }
 
   private static String toLowerCase(String text) {

@@ -74,8 +74,7 @@ public class EvaluationExecutionController {
   public ResponseEntity<EvaluationExecuteResponse> executeEvaluation(
       @Valid @RequestBody EvaluationExecuteRequest request) {
     EvaluationExecuteResponse response =
-        evaluationReportService.executeEvaluation(
-            request.getReportName(), request.getRetrievalSize());
+        evaluationReportService.executeEvaluation(request.getReportName());
     return ResponseEntity.ok(response);
   }
 

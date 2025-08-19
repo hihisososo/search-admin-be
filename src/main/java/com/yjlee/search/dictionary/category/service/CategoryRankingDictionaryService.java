@@ -283,6 +283,27 @@ public class CategoryRankingDictionaryService {
         .build();
   }
 
+  @Transactional(readOnly = true)
+  public PageResponse<CategoryRankingDictionaryResponse> getAllWithMappings(
+      DictionaryEnvironmentType environment) {
+    log.debug("전체 카테고리 랭킹 사전 조회 (매핑 포함) - 환경: {}", environment);
+
+    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
+      List<CategoryRankingDictionary> dictionaries = repository.findAll();
+      List<CategoryRankingDictionaryResponse> responses =
+          dictionaries.stream().map(this::convertToResponse).collect(Collectors.toList());
+
+      return new PageResponse<>(responses, 0, responses.size(), (long) responses.size(), 1);
+    } else {
+      List<CategoryRankingDictionarySnapshot> snapshots =
+          snapshotRepository.findByEnvironmentType(environment);
+      List<CategoryRankingDictionaryResponse> responses =
+          snapshots.stream().map(this::convertToResponseFromSnapshot).collect(Collectors.toList());
+
+      return new PageResponse<>(responses, 0, responses.size(), (long) responses.size(), 1);
+    }
+  }
+
   @Transactional
   public void createDevSnapshot() {
     log.info("개발 환경 카테고리 랭킹 사전 스냅샷 생성 시작");

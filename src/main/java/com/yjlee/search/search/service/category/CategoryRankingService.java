@@ -53,41 +53,27 @@ public class CategoryRankingService {
     try {
       log.info("카테고리 랭킹 사전 캐시 로딩 시작 - 환경: {}", environmentType);
 
-      var response = dictionaryService.getList(0, 10000, null, "keyword", "asc", environmentType);
+      // 전체 리스트를 한 번에 가져와서 처리 (상세 API 호출 제거)
+      var response = dictionaryService.getAllWithMappings(environmentType);
 
       cache.clear();
       int totalMappings = 0;
 
-      response
-          .getContent()
-          .forEach(
-              dict -> {
-                String keyword = dict.getKeyword().toLowerCase();
+      if (response != null && response.getContent() != null) {
+        for (var dict : response.getContent()) {
+          String keyword = dict.getKeyword().toLowerCase();
 
-                try {
-                  var detailResponse =
-                      dictionaryService.getByKeyword(dict.getKeyword(), environmentType);
+          if (dict.getCategoryMappings() != null && !dict.getCategoryMappings().isEmpty()) {
+            List<CategoryWeight> weights = new ArrayList<>();
+            for (var mapping : dict.getCategoryMappings()) {
+              weights.add(new CategoryWeight(mapping.getCategory(), mapping.getWeight()));
+            }
+            cache.put(keyword, weights);
+            totalMappings += weights.size();
+          }
+        }
+      }
 
-                  if (detailResponse != null && detailResponse.getCategoryMappings() != null) {
-                    List<CategoryWeight> weights = new ArrayList<>();
-                    detailResponse
-                        .getCategoryMappings()
-                        .forEach(
-                            mapping -> {
-                              weights.add(
-                                  new CategoryWeight(mapping.getCategory(), mapping.getWeight()));
-                            });
-
-                    if (!weights.isEmpty()) {
-                      cache.put(keyword, weights);
-                    }
-                  }
-                } catch (Exception e) {
-                  log.warn("키워드 '{}' 상세 조회 실패: {}", dict.getKeyword(), e.getMessage());
-                }
-              });
-
-      totalMappings = cache.values().stream().mapToInt(List::size).sum();
       log.info(
           "카테고리 랭킹 사전 캐시 로딩 완료 - 환경: {}, 키워드: {}개, 매핑: {}개",
           environmentType,
