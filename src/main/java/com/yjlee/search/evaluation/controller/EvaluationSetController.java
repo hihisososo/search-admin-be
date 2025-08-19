@@ -121,6 +121,7 @@ public class EvaluationSetController {
                   ProductDocument product =
                       evaluationCandidateService.getProductDetails(m.getProductId());
                   return QueryDocumentMappingResponse.ProductDocumentDto.builder()
+                      .candidateId(m.getId())
                       .productId(m.getProductId())
                       .productName(product != null ? product.getNameRaw() : DEFAULT_PRODUCT_NAME)
                       .specs(product != null ? product.getSpecsRaw() : DEFAULT_PRODUCT_SPECS)

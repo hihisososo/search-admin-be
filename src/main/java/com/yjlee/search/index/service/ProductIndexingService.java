@@ -7,11 +7,17 @@ import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
+import jakarta.annotation.PreDestroy;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -28,13 +34,12 @@ public class ProductIndexingService {
   private final ElasticsearchClient elasticsearchClient;
   private final ProductDocumentFactory documentFactory;
   private final AutocompleteDocumentFactory autocompleteFactory;
-
-  @Value("${app.indexing.skip-vector:true}")
-  private boolean skipVectorIndexing;
+  private final ProductEmbeddingService productEmbeddingService;
 
   private IndexingProgressCallback progressCallback;
+  private final ExecutorService executorService = Executors.newFixedThreadPool(3);
 
-  private static final int BATCH_SIZE = 1000;
+  private static final int BATCH_SIZE = 300;
 
   public int indexAllProducts() throws IOException {
     log.info("전체 상품 색인 시작");
@@ -83,7 +88,7 @@ public class ProductIndexingService {
     long totalProducts = productRepository.count();
     log.info("색인할 상품 수: {}", totalProducts);
 
-    int totalIndexed = 0;
+    AtomicInteger totalIndexed = new AtomicInteger(0);
     int pageNumber = 0;
 
     // 자동완성 인덱스 이름 추출 (targetIndex가 products-v1.0.0 형태일 때 autocomplete-v1.0.0 형태로 변환)
@@ -93,60 +98,119 @@ public class ProductIndexingService {
       autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-" + version;
     }
 
+    List<CompletableFuture<Integer>> futures = new ArrayList<>();
+
     while (true) {
       Page<Product> productPage = productRepository.findAll(PageRequest.of(pageNumber, BATCH_SIZE));
       if (productPage.isEmpty()) break;
 
-      List<ProductDocument> documents = createDocumentsWithEmbeddings(productPage.getContent());
+      final int currentBatch = pageNumber + 1;
+      final List<Product> products = new ArrayList<>(productPage.getContent());
+      final String finalAutocompleteIndex = autocompleteIndex;
 
-      int indexed;
-      if (targetIndex != null) {
-        indexed = bulkIndexer.indexProductsToSpecific(documents, targetIndex);
+      CompletableFuture<Integer> future =
+          CompletableFuture.supplyAsync(
+                  () -> {
+                    // 벡터 조회 및 문서 변환
+                    return createDocumentsWithEmbeddings(products);
+                  },
+                  executorService)
+              .thenApplyAsync(
+                  documents -> {
+                    try {
+                      // ES 색인
+                      int indexed;
+                      if (targetIndex != null) {
+                        indexed = bulkIndexer.indexProductsToSpecific(documents, targetIndex);
 
-        // 자동완성 문서도 버전이 있는 인덱스에 색인
-        List<AutocompleteDocument> autocompleteDocuments =
-            productPage.getContent().stream().map(autocompleteFactory::create).toList();
-        bulkIndexer.indexAutocompleteToSpecific(autocompleteDocuments, autocompleteIndex);
-      } else {
-        indexed = bulkIndexer.indexProducts(documents);
+                        // 자동완성 문서도 색인
+                        List<AutocompleteDocument> autocompleteDocuments =
+                            products.stream().map(autocompleteFactory::create).toList();
+                        bulkIndexer.indexAutocompleteToSpecific(
+                            autocompleteDocuments, finalAutocompleteIndex);
+                      } else {
+                        indexed = bulkIndexer.indexProducts(documents);
 
-        List<AutocompleteDocument> autocompleteDocuments =
-            productPage.getContent().stream().map(autocompleteFactory::create).toList();
-        bulkIndexer.indexAutocomplete(autocompleteDocuments);
-      }
+                        List<AutocompleteDocument> autocompleteDocuments =
+                            products.stream().map(autocompleteFactory::create).toList();
+                        bulkIndexer.indexAutocomplete(autocompleteDocuments);
+                      }
 
-      totalIndexed += indexed;
-      log.info(
-          "배치 {} 완료: {} 건 색인됨 (진행률: {}/{})", pageNumber + 1, indexed, totalIndexed, totalProducts);
+                      int total = totalIndexed.addAndGet(indexed);
+                      log.info(
+                          "배치 {} 완료: {} 건 색인됨 (진행률: {}/{})",
+                          currentBatch,
+                          indexed,
+                          total,
+                          totalProducts);
 
-      // 진행률 콜백 호출
-      if (progressCallback != null) {
-        progressCallback.onProgress((long) totalIndexed, totalProducts);
-      }
+                      // 진행률 콜백 호출
+                      if (progressCallback != null) {
+                        progressCallback.onProgress((long) total, totalProducts);
+                      }
 
+                      return indexed;
+                    } catch (IOException e) {
+                      log.error("배치 {} 색인 실패", currentBatch, e);
+                      return 0;
+                    }
+                  },
+                  executorService)
+              .exceptionally(
+                  ex -> {
+                    log.error("배치 {} 처리 중 오류", currentBatch, ex);
+                    return 0;
+                  });
+
+      futures.add(future);
       pageNumber++;
     }
 
-    log.info("색인 완료: {} 건", totalIndexed);
-    return totalIndexed;
+    // 모든 배치 완료 대기
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+    log.info("색인 완료: {} 건", totalIndexed.get());
+
+    // 색인 완료 후 refresh 실행
+    refreshIndexes(targetIndex);
+
+    return totalIndexed.get();
   }
 
   private List<ProductDocument> createDocumentsWithEmbeddings(List<Product> products) {
     List<ProductDocument> documents = products.stream().map(documentFactory::create).toList();
 
-    if (skipVectorIndexing) {
-      // 임시 옵션: 벡터 색인 스킵 (매핑은 유지)
-      return documents;
+    // DB에서 저장된 임베딩 조회
+    List<Long> productIds = products.stream().map(Product::getId).toList();
+    Map<Long, List<Float>> embeddingMap =
+        productEmbeddingService.getEmbeddingsByProductIds(productIds);
+
+    if (embeddingMap.isEmpty()) {
+      log.warn("저장된 임베딩이 없습니다. 실시간 생성 모드로 전환");
+      // 저장된 임베딩이 없으면 실시간 생성
+      List<String> texts = documents.stream().map(documentConverter::createSearchableText).toList();
+      List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
+
+      return documents.stream()
+          .map(
+              doc -> {
+                int index = documents.indexOf(doc);
+                List<Float> embedding =
+                    index < embeddings.size() ? embeddings.get(index) : List.of();
+                return documentConverter.convert(doc, embedding);
+              })
+          .toList();
     }
 
-    List<String> texts = documents.stream().map(documentConverter::createSearchableText).toList();
-    List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
-
+    // 저장된 임베딩 사용
     return documents.stream()
         .map(
             doc -> {
-              int index = documents.indexOf(doc);
-              List<Float> embedding = index < embeddings.size() ? embeddings.get(index) : List.of();
+              Long productId = Long.parseLong(doc.getId());
+              List<Float> embedding = embeddingMap.getOrDefault(productId, List.of());
+              if (embedding.isEmpty()) {
+                log.warn("상품 {} 임베딩 없음", productId);
+              }
               return documentConverter.convert(doc, embedding);
             })
         .toList();
@@ -177,6 +241,43 @@ public class ProductIndexingService {
       log.info("autocomplete 인덱스 데이터 삭제 완료: {} 건", response.deleted());
     } catch (Exception e) {
       log.warn("autocomplete 인덱스 데이터 삭제 중 오류: {}", e.getMessage());
+    }
+  }
+
+  private void refreshIndexes(String targetIndex) {
+    try {
+      if (targetIndex != null) {
+        // 특정 인덱스만 refresh
+        elasticsearchClient.indices().refresh(r -> r.index(targetIndex));
+        log.info("인덱스 refresh 완료: {}", targetIndex);
+
+        // 자동완성 인덱스도 refresh
+        String version = targetIndex.replace(ESFields.PRODUCTS_INDEX_PREFIX + "-", "");
+        String autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-" + version;
+        elasticsearchClient.indices().refresh(r -> r.index(autocompleteIndex));
+        log.info("자동완성 인덱스 refresh 완료: {}", autocompleteIndex);
+      } else {
+        // 기본 인덱스들 refresh
+        elasticsearchClient.indices().refresh(r -> r.index(ESFields.PRODUCTS_INDEX_PREFIX));
+        elasticsearchClient.indices().refresh(r -> r.index(ESFields.AUTOCOMPLETE_INDEX));
+        log.info("기본 인덱스 refresh 완료");
+      }
+    } catch (Exception e) {
+      log.warn("인덱스 refresh 실패, 백그라운드에서 자동 refresh 됨", e);
+    }
+  }
+
+  @PreDestroy
+  public void cleanup() {
+    log.info("ExecutorService 종료 중...");
+    executorService.shutdown();
+    try {
+      if (!executorService.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+        executorService.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      executorService.shutdownNow();
+      Thread.currentThread().interrupt();
     }
   }
 

@@ -1,5 +1,6 @@
 package com.yjlee.search.evaluation.service;
 
+import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
 import com.yjlee.search.evaluation.dto.GenerateQueriesRequest;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
@@ -25,6 +26,7 @@ public class AsyncEvaluationService {
   private final SearchBasedGroundTruthService groundTruthService;
   private final LLMCandidateEvaluationService llmEvaluationService;
   private final EvaluationQueryService evaluationQueryService;
+  private final EvaluationReportService evaluationReportService;
 
   private static final int FIXED_MIN_CANDIDATES = 50;
 
@@ -122,6 +124,14 @@ public class AsyncEvaluationService {
     AsyncTask task = asyncTaskService.createTask(AsyncTaskType.LLM_EVALUATION, "LLM 자동평가 준비 중...");
 
     evaluateWithLLMAsync(task.getId(), request);
+    return task.getId();
+  }
+
+  public Long startEvaluationExecution(EvaluationExecuteAsyncRequest request) {
+    AsyncTask task =
+        asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비 중...");
+
+    executeEvaluationAsync(task.getId(), request);
     return task.getId();
   }
 
@@ -230,15 +240,45 @@ public class AsyncEvaluationService {
     }
   }
 
-  private List<String> generateQueriesWithProgress(Long taskId, int count) {
-    // 기존 쿼리 생성 로직에 진행상황 업데이트 추가
-    asyncTaskService.updateProgress(taskId, 20, "상품 정보 수집 중...");
+  @Async("evaluationTaskExecutor")
+  public void executeEvaluationAsync(Long taskId, EvaluationExecuteAsyncRequest request) {
+    try {
+      log.info("비동기 평가 실행 시작: taskId={}, reportName={}", taskId, request.getReportName());
 
+      asyncTaskService.updateProgress(taskId, 10, "평가 실행 시작...");
+
+      com.yjlee.search.evaluation.dto.EvaluationExecuteResponse response =
+          evaluationReportService.executeEvaluation(
+              request.getReportName(), request.getRetrievalSize());
+
+      asyncTaskService.updateProgress(taskId, 90, "평가 완료, 결과 정리 중...");
+
+      EvaluationExecutionResult result =
+          EvaluationExecutionResult.builder()
+              .reportName(request.getReportName())
+              .reportId(response.getReportId())
+              .totalQueries(response.getTotalQueries())
+              .averageNdcg(response.getAverageNdcg())
+              .averageNdcgAt10(response.getNdcgAt10())
+              .averageNdcgAt20(response.getNdcgAt20())
+              .averageMrrAt10(response.getMrrAt10())
+              .averageRecallAt50(response.getRecallAt50())
+              .averageRecallAt300(response.getRecallAt300())
+              .map(response.getMap())
+              .build();
+
+      asyncTaskService.completeTask(taskId, result);
+      log.info("비동기 평가 실행 완료: taskId={}, reportId={}", taskId, response.getReportId());
+
+    } catch (Exception e) {
+      log.error("비동기 평가 실행 실패: taskId={}", taskId, e);
+      asyncTaskService.failTask(taskId, "평가 실행 실패: " + e.getMessage());
+    }
+  }
+
+  private List<String> generateQueriesWithProgress(Long taskId, int count) {
     asyncTaskService.updateProgress(taskId, 40, "LLM 쿼리 생성 중...");
     List<String> queries = queryGenerationService.generateRandomQueries(count);
-
-    asyncTaskService.updateProgress(taskId, 80, "생성된 쿼리 검증 중...");
-
     return queries;
   }
 
@@ -269,5 +309,22 @@ public class AsyncEvaluationService {
   public static class LLMEvaluationResult {
     private Boolean isEvaluateAllQueries;
     private List<Long> queryIds;
+  }
+
+  @lombok.Builder
+  @lombok.Getter
+  @lombok.AllArgsConstructor
+  @lombok.NoArgsConstructor
+  public static class EvaluationExecutionResult {
+    private String reportName;
+    private Long reportId;
+    private int totalQueries;
+    private Double averageNdcg;
+    private Double averageNdcgAt10;
+    private Double averageNdcgAt20;
+    private Double averageMrrAt10;
+    private Double averageRecallAt50;
+    private Double averageRecallAt300;
+    private Double map;
   }
 }

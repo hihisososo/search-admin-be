@@ -8,6 +8,7 @@ import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.search.dto.PriceRangeDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
+import com.yjlee.search.search.service.category.CategoryRankingService;
 import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 public class QueryBuilder {
 
   private final TypoCorrectionService typoCorrectionService;
+  private final CategoryRankingService categoryRankingService;
 
   public BoolQuery buildBoolQuery(SearchExecuteRequest request) {
     // 단위 추출
@@ -34,6 +36,7 @@ public class QueryBuilder {
 
     List<Query> mustMatchQueries = buildMustMatchQueries(processedQuery, units);
     List<Query> filterQueries = buildFilterQueries(request);
+    List<Query> shouldBoostQueries = buildCategoryBoostQueries(request.getQuery());
 
     return BoolQuery.of(
         b -> {
@@ -45,6 +48,9 @@ public class QueryBuilder {
           }
           if (!filterQueries.isEmpty()) {
             b.filter(filterQueries);
+          }
+          if (!shouldBoostQueries.isEmpty()) {
+            b.should(shouldBoostQueries);
           }
           return b;
         });
@@ -244,5 +250,34 @@ public class QueryBuilder {
 
     // 여러 공백을 하나로 정리
     return result.replaceAll("\\s+", " ").trim();
+  }
+
+  private List<Query> buildCategoryBoostQueries(String query) {
+    Map<String, Integer> categoryWeights = categoryRankingService.getCategoryWeights(query);
+
+    if (categoryWeights.isEmpty()) {
+      return List.of();
+    }
+
+    List<Query> boostQueries = new ArrayList<>();
+
+    for (Map.Entry<String, Integer> entry : categoryWeights.entrySet()) {
+      String category = entry.getKey();
+      Integer weight = entry.getValue();
+
+      // constant_score 쿼리로 카테고리에 고정 점수 부여
+      Query categoryBoostQuery =
+          Query.of(
+              q ->
+                  q.constantScore(
+                      cs ->
+                          cs.filter(
+                                  f -> f.term(t -> t.field(ESFields.CATEGORY_NAME).value(category)))
+                              .boost(weight.floatValue())));
+
+      boostQueries.add(categoryBoostQuery);
+    }
+
+    return boostQueries;
   }
 }
