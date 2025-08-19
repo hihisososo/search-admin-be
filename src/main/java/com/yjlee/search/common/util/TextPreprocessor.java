@@ -40,7 +40,7 @@ public class TextPreprocessor {
     text = UNIT_PATTERN_EN.matcher(text).replaceAll("$1$2");
     // 한글 단위 정규화 (공백 제거)
     text = UNIT_PATTERN_KO.matcher(text).replaceAll("$1$2");
-    
+
     return text;
   }
 

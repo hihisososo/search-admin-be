@@ -128,8 +128,9 @@ public class AsyncEvaluationService {
   }
 
   public Long startEvaluationExecution(EvaluationExecuteAsyncRequest request) {
-    AsyncTask task = asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비 중...");
-    
+    AsyncTask task =
+        asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비 중...");
+
     executeEvaluationAsync(task.getId(), request);
     return task.getId();
   }
@@ -243,30 +244,32 @@ public class AsyncEvaluationService {
   public void executeEvaluationAsync(Long taskId, EvaluationExecuteAsyncRequest request) {
     try {
       log.info("비동기 평가 실행 시작: taskId={}, reportName={}", taskId, request.getReportName());
-      
+
       asyncTaskService.updateProgress(taskId, 10, "평가 실행 시작...");
-      
-      com.yjlee.search.evaluation.dto.EvaluationExecuteResponse response = 
-          evaluationReportService.executeEvaluation(request.getReportName(), request.getRetrievalSize());
-      
+
+      com.yjlee.search.evaluation.dto.EvaluationExecuteResponse response =
+          evaluationReportService.executeEvaluation(
+              request.getReportName(), request.getRetrievalSize());
+
       asyncTaskService.updateProgress(taskId, 90, "평가 완료, 결과 정리 중...");
-      
-      EvaluationExecutionResult result = EvaluationExecutionResult.builder()
-          .reportName(request.getReportName())
-          .reportId(response.getReportId())
-          .totalQueries(response.getTotalQueries())
-          .averageNdcg(response.getAverageNdcg())
-          .averageNdcgAt10(response.getNdcgAt10())
-          .averageNdcgAt20(response.getNdcgAt20())
-          .averageMrrAt10(response.getMrrAt10())
-          .averageRecallAt50(response.getRecallAt50())
-          .averageRecallAt300(response.getRecallAt300())
-          .map(response.getMap())
-          .build();
-      
+
+      EvaluationExecutionResult result =
+          EvaluationExecutionResult.builder()
+              .reportName(request.getReportName())
+              .reportId(response.getReportId())
+              .totalQueries(response.getTotalQueries())
+              .averageNdcg(response.getAverageNdcg())
+              .averageNdcgAt10(response.getNdcgAt10())
+              .averageNdcgAt20(response.getNdcgAt20())
+              .averageMrrAt10(response.getMrrAt10())
+              .averageRecallAt50(response.getRecallAt50())
+              .averageRecallAt300(response.getRecallAt300())
+              .map(response.getMap())
+              .build();
+
       asyncTaskService.completeTask(taskId, result);
       log.info("비동기 평가 실행 완료: taskId={}, reportId={}", taskId, response.getReportId());
-      
+
     } catch (Exception e) {
       log.error("비동기 평가 실행 실패: taskId={}", taskId, e);
       asyncTaskService.failTask(taskId, "평가 실행 실패: " + e.getMessage());

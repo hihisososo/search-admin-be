@@ -7,6 +7,7 @@ import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
+import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,11 +18,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import jakarta.annotation.PreDestroy;
 
 @Slf4j
 @Service
@@ -100,7 +99,7 @@ public class ProductIndexingService {
     }
 
     List<CompletableFuture<Integer>> futures = new ArrayList<>();
-    
+
     while (true) {
       Page<Product> productPage = productRepository.findAll(PageRequest.of(pageNumber, BATCH_SIZE));
       if (productPage.isEmpty()) break;
@@ -108,63 +107,73 @@ public class ProductIndexingService {
       final int currentBatch = pageNumber + 1;
       final List<Product> products = new ArrayList<>(productPage.getContent());
       final String finalAutocompleteIndex = autocompleteIndex;
-      
-      CompletableFuture<Integer> future = CompletableFuture
-          .supplyAsync(() -> {
-            // 벡터 조회 및 문서 변환
-            return createDocumentsWithEmbeddings(products);
-          }, executorService)
-          .thenApplyAsync(documents -> {
-            try {
-              // ES 색인
-              int indexed;
-              if (targetIndex != null) {
-                indexed = bulkIndexer.indexProductsToSpecific(documents, targetIndex);
-                
-                // 자동완성 문서도 색인
-                List<AutocompleteDocument> autocompleteDocuments =
-                    products.stream().map(autocompleteFactory::create).toList();
-                bulkIndexer.indexAutocompleteToSpecific(autocompleteDocuments, finalAutocompleteIndex);
-              } else {
-                indexed = bulkIndexer.indexProducts(documents);
-                
-                List<AutocompleteDocument> autocompleteDocuments =
-                    products.stream().map(autocompleteFactory::create).toList();
-                bulkIndexer.indexAutocomplete(autocompleteDocuments);
-              }
-              
-              int total = totalIndexed.addAndGet(indexed);
-              log.info("배치 {} 완료: {} 건 색인됨 (진행률: {}/{})", 
-                  currentBatch, indexed, total, totalProducts);
-              
-              // 진행률 콜백 호출
-              if (progressCallback != null) {
-                progressCallback.onProgress((long) total, totalProducts);
-              }
-              
-              return indexed;
-            } catch (IOException e) {
-              log.error("배치 {} 색인 실패", currentBatch, e);
-              return 0;
-            }
-          }, executorService)
-          .exceptionally(ex -> {
-            log.error("배치 {} 처리 중 오류", currentBatch, ex);
-            return 0;
-          });
-      
+
+      CompletableFuture<Integer> future =
+          CompletableFuture.supplyAsync(
+                  () -> {
+                    // 벡터 조회 및 문서 변환
+                    return createDocumentsWithEmbeddings(products);
+                  },
+                  executorService)
+              .thenApplyAsync(
+                  documents -> {
+                    try {
+                      // ES 색인
+                      int indexed;
+                      if (targetIndex != null) {
+                        indexed = bulkIndexer.indexProductsToSpecific(documents, targetIndex);
+
+                        // 자동완성 문서도 색인
+                        List<AutocompleteDocument> autocompleteDocuments =
+                            products.stream().map(autocompleteFactory::create).toList();
+                        bulkIndexer.indexAutocompleteToSpecific(
+                            autocompleteDocuments, finalAutocompleteIndex);
+                      } else {
+                        indexed = bulkIndexer.indexProducts(documents);
+
+                        List<AutocompleteDocument> autocompleteDocuments =
+                            products.stream().map(autocompleteFactory::create).toList();
+                        bulkIndexer.indexAutocomplete(autocompleteDocuments);
+                      }
+
+                      int total = totalIndexed.addAndGet(indexed);
+                      log.info(
+                          "배치 {} 완료: {} 건 색인됨 (진행률: {}/{})",
+                          currentBatch,
+                          indexed,
+                          total,
+                          totalProducts);
+
+                      // 진행률 콜백 호출
+                      if (progressCallback != null) {
+                        progressCallback.onProgress((long) total, totalProducts);
+                      }
+
+                      return indexed;
+                    } catch (IOException e) {
+                      log.error("배치 {} 색인 실패", currentBatch, e);
+                      return 0;
+                    }
+                  },
+                  executorService)
+              .exceptionally(
+                  ex -> {
+                    log.error("배치 {} 처리 중 오류", currentBatch, ex);
+                    return 0;
+                  });
+
       futures.add(future);
       pageNumber++;
     }
 
     // 모든 배치 완료 대기
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-    
+
     log.info("색인 완료: {} 건", totalIndexed.get());
-    
+
     // 색인 완료 후 refresh 실행
     refreshIndexes(targetIndex);
-    
+
     return totalIndexed.get();
   }
 
@@ -173,19 +182,21 @@ public class ProductIndexingService {
 
     // DB에서 저장된 임베딩 조회
     List<Long> productIds = products.stream().map(Product::getId).toList();
-    Map<Long, List<Float>> embeddingMap = productEmbeddingService.getEmbeddingsByProductIds(productIds);
-    
+    Map<Long, List<Float>> embeddingMap =
+        productEmbeddingService.getEmbeddingsByProductIds(productIds);
+
     if (embeddingMap.isEmpty()) {
       log.warn("저장된 임베딩이 없습니다. 실시간 생성 모드로 전환");
       // 저장된 임베딩이 없으면 실시간 생성
       List<String> texts = documents.stream().map(documentConverter::createSearchableText).toList();
       List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
-      
+
       return documents.stream()
           .map(
               doc -> {
                 int index = documents.indexOf(doc);
-                List<Float> embedding = index < embeddings.size() ? embeddings.get(index) : List.of();
+                List<Float> embedding =
+                    index < embeddings.size() ? embeddings.get(index) : List.of();
                 return documentConverter.convert(doc, embedding);
               })
           .toList();
@@ -239,7 +250,7 @@ public class ProductIndexingService {
         // 특정 인덱스만 refresh
         elasticsearchClient.indices().refresh(r -> r.index(targetIndex));
         log.info("인덱스 refresh 완료: {}", targetIndex);
-        
+
         // 자동완성 인덱스도 refresh
         String version = targetIndex.replace(ESFields.PRODUCTS_INDEX_PREFIX + "-", "");
         String autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-" + version;
