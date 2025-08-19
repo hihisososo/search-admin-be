@@ -39,8 +39,8 @@ public class SearchBasedGroundTruthService {
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final OpenAIEmbeddingService embeddingService;
 
-  private static final int FIXED_PER_STRATEGY = 100;
-  private static final int FIXED_VECTOR_NUM_CANDIDATES = 600;
+  private static final int FIXED_PER_STRATEGY = 300;
+  private static final int FIXED_VECTOR_NUM_CANDIDATES = 900;
 
   @Value("${app.evaluation.candidate.min-score:0.85}")
   private double vectorMinScore;

@@ -12,7 +12,7 @@ public class PageResponse<T> {
   private final long totalElements;
   private final int totalPages;
 
-  private PageResponse(List<T> content, int page, int size, long totalElements, int totalPages) {
+  public PageResponse(List<T> content, int page, int size, long totalElements, int totalPages) {
     this.content = content;
     this.page = page;
     this.size = size;

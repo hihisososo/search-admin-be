@@ -61,64 +61,66 @@ public class QueryBuilder {
       return List.of(Query.of(q -> q.matchAll(m -> m)));
     }
 
-    String[] terms = query.split("\\s+");
+    List<Query> mustQueries = new ArrayList<>();
 
-    // 메인 필드 그룹 - 모든 term이 AND 조건
-    List<Query> mainFieldMustQueries = new ArrayList<>();
-    for (String term : terms) {
-      Query mainFieldQuery =
-          Query.of(
-              q ->
-                  q.multiMatch(
-                      m ->
-                          m.query(term)
-                              .fields(ESFields.CROSS_FIELDS_MAIN)
-                              .type(TextQueryType.Phrase)
-                              .boost(10.0f)));
-      mainFieldMustQueries.add(mainFieldQuery);
-    }
+    // 메인 필드 그룹 - CrossFields로 전체 쿼리 한 번에 처리
+    Query mainFieldQuery =
+        Query.of(
+            q ->
+                q.multiMatch(
+                    m ->
+                        m.query(query) // 전체 쿼리를 한 번에
+                            .fields(ESFields.CROSS_FIELDS_MAIN)
+                            .type(TextQueryType.CrossFields)
+                            .operator(
+                                co.elastic.clients.elasticsearch._types.query_dsl.Operator
+                                    .And) // AND로 변경
+                            .boost(10.0f)));
 
-    // 단위가 있으면 메인 필드 그룹에 추가
+    // 바이그램 필드 그룹 - CrossFields로 전체 쿼리 한 번에 처리
+    Query bigramFieldQuery =
+        Query.of(
+            q ->
+                q.multiMatch(
+                    m ->
+                        m.query(query) // 전체 쿼리를 한 번에
+                            .fields(ESFields.CROSS_FIELDS_BIGRAM)
+                            .type(TextQueryType.CrossFields)
+                            .operator(
+                                co.elastic.clients.elasticsearch._types.query_dsl.Operator
+                                    .And) // AND로 변경
+                            .boost(5.0f)));
+
+    // 단위 쿼리가 있으면 각 그룹과 함께 묶기
     if (units != null && !units.trim().isEmpty()) {
       Query unitQuery = buildUnitQuery(units);
       if (unitQuery != null) {
-        mainFieldMustQueries.add(unitQuery);
-      }
-    }
+        // 메인 필드 그룹 + 단위
+        Query mainWithUnit = Query.of(q -> q.bool(b -> b.must(mainFieldQuery, unitQuery)));
+        // 바이그램 필드 그룹 + 단위
+        Query bigramWithUnit = Query.of(q -> q.bool(b -> b.must(bigramFieldQuery, unitQuery)));
 
-    // 바이그램 필드 그룹 - 모든 term이 AND 조건
-    List<Query> bigramFieldMustQueries = new ArrayList<>();
-    for (String term : terms) {
-      Query bigramFieldQuery =
+        // 메인과 바이그램을 OR로 결합
+        mustQueries.add(
+            Query.of(
+                q -> q.bool(b -> b.should(mainWithUnit, bigramWithUnit).minimumShouldMatch("1"))));
+      } else {
+        // 단위가 없으면 메인과 바이그램만 OR로 결합
+        mustQueries.add(
+            Query.of(
+                q ->
+                    q.bool(
+                        b -> b.should(mainFieldQuery, bigramFieldQuery).minimumShouldMatch("1"))));
+      }
+    } else {
+      // 단위가 없으면 메인과 바이그램만 OR로 결합
+      mustQueries.add(
           Query.of(
               q ->
-                  q.multiMatch(
-                      m ->
-                          m.query(term)
-                              .fields(ESFields.CROSS_FIELDS_BIGRAM)
-                              .type(TextQueryType.Phrase)
-                              .boost(5.0f)));
-      bigramFieldMustQueries.add(bigramFieldQuery);
+                  q.bool(b -> b.should(mainFieldQuery, bigramFieldQuery).minimumShouldMatch("1"))));
     }
 
-    // 단위가 있으면 바이그램 필드 그룹에도 추가
-    if (units != null && !units.trim().isEmpty()) {
-      Query unitQuery = buildUnitQuery(units);
-      if (unitQuery != null) {
-        bigramFieldMustQueries.add(unitQuery);
-      }
-    }
-
-    // 메인 필드 그룹과 바이그램 필드 그룹을 OR 조건으로 결합
-    List<Query> shouldQueries = new ArrayList<>();
-
-    // 메인 필드 그룹 (모든 term AND + 단위)
-    shouldQueries.add(Query.of(q -> q.bool(b -> b.must(mainFieldMustQueries))));
-
-    // 바이그램 필드 그룹 (모든 term AND + 단위)
-    shouldQueries.add(Query.of(q -> q.bool(b -> b.must(bigramFieldMustQueries))));
-
-    return List.of(Query.of(q -> q.bool(b -> b.should(shouldQueries).minimumShouldMatch("1"))));
+    return mustQueries;
   }
 
   private List<Query> buildFilterQueries(SearchExecuteRequest request) {

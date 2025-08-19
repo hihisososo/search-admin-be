@@ -65,9 +65,11 @@ public class EvaluationReportService {
     executorService.shutdown();
   }
 
+  private static final int DEFAULT_RETRIEVAL_SIZE = 300;
+
   @Transactional
-  public EvaluationExecuteResponse executeEvaluation(String reportName, Integer retrievalSize) {
-    log.info("📊 평가 실행 시작: {}, 검색 결과 개수: {}", reportName, retrievalSize);
+  public EvaluationExecuteResponse executeEvaluation(String reportName) {
+    log.info("📊 평가 실행 시작: {}, 검색 결과 개수: {}", reportName, DEFAULT_RETRIEVAL_SIZE);
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
@@ -96,7 +98,7 @@ public class EvaluationReportService {
                         () -> {
                           try {
                             EvaluationExecuteResponse.QueryEvaluationDetail detail =
-                                evaluateQuery(query.getQuery(), retrievalSize);
+                                evaluateQuery(query.getQuery());
                             if (detail != null) {
                               synchronizedQueryDetails.add(detail);
                             }
@@ -220,22 +222,19 @@ public class EvaluationReportService {
         .build();
   }
 
-  private EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(
-      String query, Integer retrievalSize) {
+  private EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(String query) {
     Set<String> relevantDocs = getRelevantDocuments(query);
-    List<String> retrievedDocs = getRetrievedDocumentsOrdered(query, retrievalSize); // 순서 유지
+    List<String> retrievedDocs = getRetrievedDocumentsOrdered(query); // 순서 유지
     Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
 
-    double ndcg = computeNdcg(query, new ArrayList<>(retrievedDocs), relevantDocs);
+    double ndcg = computeNdcg(new ArrayList<>(retrievedDocs), relevantDocs);
     double ndcgAt10 =
         computeNdcg(
-            query,
             new ArrayList<>(retrievedDocs.subList(0, Math.min(10, retrievedDocs.size()))),
             relevantDocs);
     double ndcgAt20 =
         computeNdcg(
-            query,
             new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
             relevantDocs);
     double mrrAt10 = computeMrrAtK(retrievedDocs, relevantDocs, 10);
@@ -333,50 +332,36 @@ public class EvaluationReportService {
     return hits == 0 ? 0.0 : (sumPrecision / relevantSet.size());
   }
 
-  private double computeNdcg(String query, List<String> retrievedOrder, Set<String> relevantSet) {
+  private double computeNdcg(List<String> retrievedOrder, Set<String> relevantSet) {
     if (retrievedOrder == null || retrievedOrder.isEmpty()) return 0.0;
-    // relevance: 2 if all query tokens in product name; 1 if any query token in specs; else 0
-    List<String> tokens = java.util.Arrays.asList(query.toLowerCase().split("\\s+"));
+    if (relevantSet == null || relevantSet.isEmpty()) return 0.0;
+
+    // DCG 계산: 정답셋에 있으면 1, 없으면 0
     double dcg = 0.0;
     for (int i = 0; i < retrievedOrder.size(); i++) {
       String pid = retrievedOrder.get(i);
-      int rel = 0;
-      try {
-        ProductDocument p = getProductsBulk(java.util.List.of(pid)).get(pid);
-        if (p != null) {
-          String name = p.getNameRaw() == null ? "" : p.getNameRaw().toLowerCase();
-          String specs = p.getSpecsRaw() == null ? "" : p.getSpecsRaw().toLowerCase();
-          boolean allInTitle = tokens.stream().allMatch(t -> !t.isBlank() && name.contains(t));
-          boolean anyInSpecs = tokens.stream().anyMatch(t -> !t.isBlank() && specs.contains(t));
-          rel = allInTitle ? 2 : (anyInSpecs ? 1 : 0);
-        }
-      } catch (Exception ignore) {
+      int rel = relevantSet.contains(pid) ? 1 : 0;
+      if (rel > 0) {
+        dcg += (Math.pow(2.0, rel) - 1.0) / (Math.log(i + 2) / Math.log(2));
       }
-      if (rel > 0) dcg += (Math.pow(2.0, rel) - 1.0) / (Math.log(i + 2) / Math.log(2));
     }
-    // ideal order: sort by relevance descending
+
+    // IDCG 계산: 이상적인 순서 (정답을 먼저 배치)
     java.util.List<Integer> ideal = new java.util.ArrayList<>();
     for (String pid : retrievedOrder) {
-      int rel = 0;
-      try {
-        ProductDocument p = getProductsBulk(java.util.List.of(pid)).get(pid);
-        if (p != null) {
-          String name = p.getNameRaw() == null ? "" : p.getNameRaw().toLowerCase();
-          String specs = p.getSpecsRaw() == null ? "" : p.getSpecsRaw().toLowerCase();
-          boolean allInTitle = tokens.stream().allMatch(t -> !t.isBlank() && name.contains(t));
-          boolean anyInSpecs = tokens.stream().anyMatch(t -> !t.isBlank() && specs.contains(t));
-          rel = allInTitle ? 2 : (anyInSpecs ? 1 : 0);
-        }
-      } catch (Exception ignore) {
-      }
+      int rel = relevantSet.contains(pid) ? 1 : 0;
       ideal.add(rel);
     }
     ideal.sort(java.util.Comparator.reverseOrder());
+
     double idcg = 0.0;
     for (int i = 0; i < ideal.size(); i++) {
       int rel = ideal.get(i);
-      if (rel > 0) idcg += (Math.pow(2.0, rel) - 1.0) / (Math.log(i + 2) / Math.log(2));
+      if (rel > 0) {
+        idcg += (Math.pow(2.0, rel) - 1.0) / (Math.log(i + 2) / Math.log(2));
+      }
     }
+
     if (idcg == 0.0) return 0.0;
     return dcg / idcg;
   }
@@ -394,16 +379,16 @@ public class EvaluationReportService {
     return mappings.stream().map(QueryProductMapping::getProductId).collect(Collectors.toSet());
   }
 
-  private Set<String> getRetrievedDocuments(String query, Integer retrievalSize) {
+  private Set<String> getRetrievedDocuments(String query) {
     try {
-      log.info("🔍 DEV 환경 검색 API 호출: {}, 검색 결과 개수: {}", query, retrievalSize);
+      log.info("🔍 DEV 환경 검색 API 호출: {}, 검색 결과 개수: {}", query, DEFAULT_RETRIEVAL_SIZE);
 
       // DEV 환경 시뮬레이션 검색 요청 생성
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
       searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
       searchRequest.setQuery(query);
       searchRequest.setPage(0);
-      searchRequest.setSize(retrievalSize); // 설정된 개수만큼 결과 조회 (최대 300개)
+      searchRequest.setSize(DEFAULT_RETRIEVAL_SIZE); // 고정 300개 조회
       searchRequest.setExplain(false);
 
       // 시뮬레이션 검색 API 호출
@@ -426,15 +411,15 @@ public class EvaluationReportService {
   }
 
   // 순서를 보존한 검색 결과 목록
-  private List<String> getRetrievedDocumentsOrdered(String query, Integer retrievalSize) {
+  private List<String> getRetrievedDocumentsOrdered(String query) {
     try {
-      log.info("🔍 DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, retrievalSize);
+      log.info("🔍 DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, DEFAULT_RETRIEVAL_SIZE);
 
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
       searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
       searchRequest.setQuery(query);
       searchRequest.setPage(0);
-      searchRequest.setSize(retrievalSize);
+      searchRequest.setSize(DEFAULT_RETRIEVAL_SIZE);
       searchRequest.setExplain(false);
 
       SearchExecuteResponse searchResponse = searchService.searchProductsSimulation(searchRequest);
@@ -554,8 +539,7 @@ public class EvaluationReportService {
 
       // 검색 결과 순서 수집 (최소 50개 보장)
       int sizeHint = r.getRetrievedCount() != null ? r.getRetrievedCount() : 50;
-      java.util.List<String> retrievedOrdered =
-          getRetrievedDocumentsOrdered(q, Math.max(50, sizeHint));
+      java.util.List<String> retrievedOrdered = getRetrievedDocumentsOrdered(q);
       java.util.List<String> unionIds = new java.util.ArrayList<>(retrievedOrdered);
 
       // 정답셋 수집 및 점수 조회를 위해 매핑 엔티티 조회
@@ -682,7 +666,7 @@ public class EvaluationReportService {
     for (EvaluationQuery q : queries) {
       try {
         Set<String> relevant = getRelevantDocuments(q.getQuery());
-        Set<String> retrieved = getRetrievedDocuments(q.getQuery(), retrievalSize);
+        Set<String> retrieved = getRetrievedDocuments(q.getQuery());
         Set<String> correct = getIntersection(relevant, retrieved);
         List<String> missingIds = relevant.stream().filter(id -> !retrieved.contains(id)).toList();
         List<String> wrongIds = retrieved.stream().filter(id -> !relevant.contains(id)).toList();
@@ -718,17 +702,11 @@ public class EvaluationReportService {
 
         // 지표 계산
         List<String> retrievedList = new ArrayList<>(retrieved);
-        double ndcg = computeNdcg(q.getQuery(), retrievedList, relevant);
+        double ndcg = computeNdcg(retrievedList, relevant);
         double ndcgAt10 =
-            computeNdcg(
-                q.getQuery(),
-                retrievedList.subList(0, Math.min(10, retrievedList.size())),
-                relevant);
+            computeNdcg(retrievedList.subList(0, Math.min(10, retrievedList.size())), relevant);
         double ndcgAt20 =
-            computeNdcg(
-                q.getQuery(),
-                retrievedList.subList(0, Math.min(20, retrievedList.size())),
-                relevant);
+            computeNdcg(retrievedList.subList(0, Math.min(20, retrievedList.size())), relevant);
         double mrrAt10 = computeMrrAtK(retrievedList, relevant, 10);
         double recallAt50 = computeRecallAtK(retrievedList, relevant, 50);
         double averagePrecision = computeAveragePrecision(retrievedList, relevant);

@@ -28,7 +28,7 @@ public class AsyncEvaluationService {
   private final EvaluationQueryService evaluationQueryService;
   private final EvaluationReportService evaluationReportService;
 
-  private static final int FIXED_MIN_CANDIDATES = 50;
+  private static final int FIXED_MIN_CANDIDATES = 30;
 
   public Long startLLMQueryGeneration(LLMQueryGenerateRequest request) {
     AsyncTask task =
@@ -57,7 +57,8 @@ public class AsyncEvaluationService {
           if (q == null || q.isBlank() || tried.contains(q)) continue;
           tried.add(q);
           Set<String> ids = groundTruthService.getCandidateIdsForQuery(q);
-          if (ids.size() >= FIXED_MIN_CANDIDATES) {
+          // 50개 이상 300개 이하인 경우만 수용
+          if (ids.size() >= FIXED_MIN_CANDIDATES && ids.size() <= 300) {
             EvaluationQuery eq = evaluationQueryService.createQuerySafely(q);
             generateCandidatesForOne(eq);
             accepted.add(q);
@@ -66,6 +67,8 @@ public class AsyncEvaluationService {
                 taskId,
                 Math.min(80, 10 + (accepted.size() * 60 / target)),
                 String.format("생성/저장: %d/%d (round %d)", accepted.size(), target, round));
+          } else if (ids.size() > 300) {
+            log.debug("쿼리 '{}' 건너뜀 - 후보군 {}개로 300개 초과", q, ids.size());
           }
         }
 
@@ -248,8 +251,7 @@ public class AsyncEvaluationService {
       asyncTaskService.updateProgress(taskId, 10, "평가 실행 시작...");
 
       com.yjlee.search.evaluation.dto.EvaluationExecuteResponse response =
-          evaluationReportService.executeEvaluation(
-              request.getReportName(), request.getRetrievalSize());
+          evaluationReportService.executeEvaluation(request.getReportName());
 
       asyncTaskService.updateProgress(taskId, 90, "평가 완료, 결과 정리 중...");
 
