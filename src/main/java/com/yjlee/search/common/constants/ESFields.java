@@ -25,8 +25,8 @@ public class ESFields {
   public static final String MODEL_BIGRAM = "model.bigram";
 
   // 단위 필드
-  public static final String NAME_UNIT = "name.unit";
-  public static final String SPECS_UNIT = "specs.unit";
+  public static final String NAME_UNIT = "name_unit";
+  public static final String SPECS_UNIT = "specs_unit";
 
   // 가중치 포함 필드 조합
   public static final String NAME_WEIGHTED = NAME + "^3.0";

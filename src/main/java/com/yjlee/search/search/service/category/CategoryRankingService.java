@@ -2,6 +2,7 @@ package com.yjlee.search.search.service.category;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.category.service.CategoryRankingDictionaryService;
+import jakarta.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
@@ -18,13 +19,14 @@ public class CategoryRankingService {
   private volatile DictionaryEnvironmentType activeEnvironmentType =
       DictionaryEnvironmentType.CURRENT;
 
+  @PostConstruct
+  public void init() {
+    loadCache(activeEnvironmentType);
+  }
+
   public Map<String, Integer> getCategoryWeights(String query) {
     if (query == null || query.trim().isEmpty()) {
       return Collections.emptyMap();
-    }
-
-    if (cache.isEmpty()) {
-      loadCache(activeEnvironmentType);
     }
 
     Map<String, Integer> categoryWeights = new HashMap<>();

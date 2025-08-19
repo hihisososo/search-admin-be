@@ -14,7 +14,6 @@ import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationReportRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
-// import removed: SearchExecuteRequest no longer used here
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.service.IndexResolver;
@@ -139,10 +138,6 @@ public class EvaluationReportService {
     double map = queries.isEmpty() ? 0.0 : totalAveragePrecision / queries.size();
     double avgRecallAt300 = queries.isEmpty() ? 0.0 : totalRecallAt300 / queries.size();
 
-    // 저장용 상세: 상품명/스펙 포함 (대용량 JSON 대신 테이블 저장)
-    List<PersistedQueryEvaluationDetail> persistedDetails =
-        buildPersistedDetails(queries, retrievalSize);
-
     EvaluationReport report =
         saveEvaluationReport(
             reportName,
@@ -153,12 +148,12 @@ public class EvaluationReportService {
             totalCorrectDocuments,
             java.util.List.of());
 
-    // 세부 결과를 구조화 테이블에 저장
+    // 세부 결과를 구조화 테이블에 저장 - queryDetails 재사용
     java.util.List<com.yjlee.search.evaluation.model.EvaluationReportDetail> detailRows =
         new java.util.ArrayList<>();
     java.util.List<com.yjlee.search.evaluation.model.EvaluationReportDocument> docRows =
         new java.util.ArrayList<>();
-    for (PersistedQueryEvaluationDetail d : persistedDetails) {
+    for (EvaluationExecuteResponse.QueryEvaluationDetail d : queryDetails) {
       detailRows.add(
           com.yjlee.search.evaluation.model.EvaluationReportDetail.builder()
               .report(report)
@@ -168,14 +163,14 @@ public class EvaluationReportService {
               .ndcgAt20(d.getNdcgAt20())
               .mrrAt10(d.getMrrAt10())
               .recallAt50(d.getRecallAt50())
-              .averagePrecision(d.getAveragePrecision())
+              .averagePrecision(d.getMap())
               .recallAt300(d.getRecallAt300())
               .relevantCount(d.getRelevantCount())
               .retrievedCount(d.getRetrievedCount())
               .correctCount(d.getCorrectCount())
               .build());
       if (d.getMissingDocuments() != null) {
-        for (PersistedDocumentInfo m : d.getMissingDocuments()) {
+        for (EvaluationExecuteResponse.DocumentInfo m : d.getMissingDocuments()) {
           docRows.add(
               com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
                   .report(report)
@@ -188,7 +183,7 @@ public class EvaluationReportService {
         }
       }
       if (d.getWrongDocuments() != null) {
-        for (PersistedDocumentInfo w : d.getWrongDocuments()) {
+        for (EvaluationExecuteResponse.DocumentInfo w : d.getWrongDocuments()) {
           docRows.add(
               com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
                   .report(report)
@@ -401,18 +396,17 @@ public class EvaluationReportService {
 
   private Set<String> getRetrievedDocuments(String query, Integer retrievalSize) {
     try {
-      log.info("🔍 DEV 환경으로 검색 API 호출: {}, 검색 결과 개수: {}", query, retrievalSize);
+      log.info("🔍 DEV 환경 검색 API 호출: {}, 검색 결과 개수: {}", query, retrievalSize);
 
-      // 실제 검색 API와 동일하되, DEV 환경으로 고정하여 검색 요청 생성
+      // DEV 환경 시뮬레이션 검색 요청 생성
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
       searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
-      searchRequest.setExplain(false);
       searchRequest.setQuery(query);
-      // 평가 시 검색 결과는 1페이지(0-index)부터 수집해야 상위 결과와 비교가 됨
       searchRequest.setPage(0);
       searchRequest.setSize(retrievalSize); // 설정된 개수만큼 결과 조회 (최대 300개)
+      searchRequest.setExplain(false);
 
-      // 검색 API 호출 (DEV)
+      // 시뮬레이션 검색 API 호출
       SearchExecuteResponse searchResponse = searchService.searchProductsSimulation(searchRequest);
 
       // 검색 결과에서 상품 ID 추출
@@ -434,14 +428,14 @@ public class EvaluationReportService {
   // 순서를 보존한 검색 결과 목록
   private List<String> getRetrievedDocumentsOrdered(String query, Integer retrievalSize) {
     try {
-      log.info("🔍 DEV 환경으로 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, retrievalSize);
+      log.info("🔍 DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, retrievalSize);
 
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
       searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
-      searchRequest.setExplain(false);
       searchRequest.setQuery(query);
       searchRequest.setPage(0);
       searchRequest.setSize(retrievalSize);
+      searchRequest.setExplain(false);
 
       SearchExecuteResponse searchResponse = searchService.searchProductsSimulation(searchRequest);
 
@@ -558,10 +552,10 @@ public class EvaluationReportService {
     for (var r : rows) {
       String q = r.getQuery();
 
-      // 검색 결과 순서 수집 (당시 수집 개수에 맞춰 조회 시도)
+      // 검색 결과 순서 수집 (최소 50개 보장)
       int sizeHint = r.getRetrievedCount() != null ? r.getRetrievedCount() : 50;
       java.util.List<String> retrievedOrdered =
-          getRetrievedDocumentsOrdered(q, Math.max(1, sizeHint));
+          getRetrievedDocumentsOrdered(q, Math.max(50, sizeHint));
       java.util.List<String> unionIds = new java.util.ArrayList<>(retrievedOrdered);
 
       // 정답셋 수집 및 점수 조회를 위해 매핑 엔티티 조회

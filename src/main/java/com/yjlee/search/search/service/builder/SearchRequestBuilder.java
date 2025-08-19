@@ -40,6 +40,7 @@ public class SearchRequestBuilder {
         new SearchRequest.Builder()
             .index(indexName)
             .query(Query.of(q -> q.bool(boolQuery)))
+            .source(s -> s.filter(f -> f.excludes("name_specs_vector")))
             .aggregations(aggregations)
             .from(from)
             .size(request.getSize())

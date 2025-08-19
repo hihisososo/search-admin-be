@@ -3,6 +3,7 @@ package com.yjlee.search.evaluation.controller;
 import com.yjlee.search.evaluation.dto.AsyncTaskListResponse;
 import com.yjlee.search.evaluation.dto.AsyncTaskResponse;
 import com.yjlee.search.evaluation.dto.AsyncTaskStartResponse;
+import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteRequest;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
@@ -69,13 +70,25 @@ public class EvaluationExecutionController {
   }
 
   @PostMapping("/evaluate")
-  @Operation(summary = "평가 실행")
+  @Operation(summary = "평가 실행 (동기)")
   public ResponseEntity<EvaluationExecuteResponse> executeEvaluation(
       @Valid @RequestBody EvaluationExecuteRequest request) {
     EvaluationExecuteResponse response =
         evaluationReportService.executeEvaluation(
             request.getReportName(), request.getRetrievalSize());
     return ResponseEntity.ok(response);
+  }
+
+  @PostMapping("/evaluate-async")
+  @Operation(summary = "평가 실행 (비동기)")
+  public ResponseEntity<AsyncTaskStartResponse> executeEvaluationAsync(
+      @Valid @RequestBody EvaluationExecuteAsyncRequest request) {
+    Long taskId = asyncEvaluationService.startEvaluationExecution(request);
+    return ResponseEntity.ok(
+        AsyncTaskStartResponse.builder()
+            .taskId(taskId)
+            .message("평가 실행 작업이 시작되었습니다. 작업 ID: " + taskId)
+            .build());
   }
 
   @GetMapping("/reports")

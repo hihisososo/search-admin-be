@@ -10,6 +10,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class ProductDocumentFactory {
 
+  private String formatRegisteredMonth(String regMonth) {
+    if (regMonth == null || regMonth.isEmpty()) {
+      return "";
+    }
+    String formatted = regMonth.replace(".", "-");
+    return formatted.substring(0, Math.min(7, formatted.length()));
+  }
+
   public ProductDocument create(Product product) {
     String normalizedName = TextPreprocessor.normalizeUnits(product.getName());
     String preprocessedName = TextPreprocessor.preprocess(normalizedName);
@@ -27,13 +35,7 @@ public class ProductDocumentFactory {
         .brandName(BrandExtractor.extractBrand(product.getName()))
         .thumbnailUrl(product.getThumbnailUrl())
         .price(product.getPrice() != null ? product.getPrice().intValue() : null)
-        .registeredMonth(
-            product.getRegMonth() != null && !product.getRegMonth().isEmpty()
-                ? product
-                    .getRegMonth()
-                    .replace(".", "-")
-                    .substring(0, Math.min(7, product.getRegMonth().length()))
-                : "")
+        .registeredMonth(formatRegisteredMonth(product.getRegMonth()))
         .rating(product.getRating())
         .reviewCount(product.getReviewCount() != null ? product.getReviewCount() : 0)
         .categoryName(product.getCategoryName())

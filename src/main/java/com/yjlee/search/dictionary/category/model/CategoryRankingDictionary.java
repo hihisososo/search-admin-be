@@ -27,7 +27,7 @@ public class CategoryRankingDictionary {
   @Column(nullable = false, unique = true, length = 100)
   String keyword;
 
-  @Column(name = "category_mappings", columnDefinition = "JSON")
+  @Column(name = "category_mappings", columnDefinition = "TEXT")
   @Convert(converter = CategoryMappingListConverter.class)
   @Builder.Default
   List<CategoryMapping> categoryMappings = new ArrayList<>();

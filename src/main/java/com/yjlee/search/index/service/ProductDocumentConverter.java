@@ -24,7 +24,8 @@ public class ProductDocumentConverter {
         .categoryName(document.getCategoryName())
         .specs(document.getSpecs())
         .specsRaw(document.getSpecsRaw())
-        // 벡터 임시 비활성화 시 빈값도 넣지 않도록 null 허용
+        .nameUnit(document.getNameUnit())
+        .specsUnit(document.getSpecsUnit())
         .nameSpecsVector((vector == null || vector.isEmpty()) ? null : vector)
         .build();
   }

@@ -26,6 +26,7 @@ public class QueryDocumentMappingResponse {
   @AllArgsConstructor
   @Builder
   public static class ProductDocumentDto {
+    private Long candidateId;
     private String productId;
     private String productName;
     private String specs;
