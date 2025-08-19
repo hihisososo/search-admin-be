@@ -34,16 +34,33 @@ public class SynonymDictionaryService {
       SynonymDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
     log.info("유의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
 
-    SynonymDictionary synonymDictionary =
-        SynonymDictionary.builder()
-            .keyword(request.getKeyword())
-            .description(request.getDescription())
-            .build();
+    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
+      // 현재 사전에 생성
+      SynonymDictionary synonymDictionary =
+          SynonymDictionary.builder()
+              .keyword(request.getKeyword())
+              .description(request.getDescription())
+              .build();
 
-    SynonymDictionary saved = synonymDictionaryRepository.save(synonymDictionary);
-    log.info("유의어 사전 생성 완료: {} (ID: {}) - 환경: {}", saved.getKeyword(), saved.getId(), environment);
+      SynonymDictionary saved = synonymDictionaryRepository.save(synonymDictionary);
+      log.info("유의어 사전 생성 완료: {} (ID: {}) - 환경: CURRENT", saved.getKeyword(), saved.getId());
 
-    return toSynonymDictionaryResponse(saved);
+      return toSynonymDictionaryResponse(saved);
+    } else {
+      // DEV/PROD 스냅샷에 직접 생성
+      SynonymDictionarySnapshot snapshot =
+          SynonymDictionarySnapshot.builder()
+              .environmentType(environment)
+              .keyword(request.getKeyword())
+              .description(request.getDescription())
+              .build();
+
+      SynonymDictionarySnapshot saved = snapshotRepository.save(snapshot);
+      log.info(
+          "유의어 사전 스냅샷 생성 완료: {} (ID: {}) - 환경: {}", saved.getKeyword(), saved.getId(), environment);
+
+      return toSynonymDictionaryResponseFromSnapshot(saved);
+    }
   }
 
   /** 유의어 사전 목록 조회 (페이징, 검색, 정렬, 환경별) */
@@ -139,23 +156,47 @@ public class SynonymDictionaryService {
       DictionaryEnvironmentType environment) {
     log.info("유의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
 
-    SynonymDictionary existing =
-        synonymDictionaryRepository
-            .findById(dictionaryId)
-            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유의어 사전입니다: " + dictionaryId));
+    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
+      // 현재 사전 수정
+      SynonymDictionary existing =
+          synonymDictionaryRepository
+              .findById(dictionaryId)
+              .orElseThrow(
+                  () -> new IllegalArgumentException("존재하지 않는 유의어 사전입니다: " + dictionaryId));
 
-    if (request.getKeyword() != null) {
-      existing.updateKeyword(request.getKeyword());
+      if (request.getKeyword() != null) {
+        existing.updateKeyword(request.getKeyword());
+      }
+
+      if (request.getDescription() != null) {
+        existing.updateDescription(request.getDescription());
+      }
+
+      SynonymDictionary updated = synonymDictionaryRepository.save(existing);
+      log.info("유의어 사전 수정 완료: {}", dictionaryId);
+
+      return toSynonymDictionaryResponse(updated);
+    } else {
+      // DEV/PROD 스냅샷 수정
+      SynonymDictionarySnapshot existing =
+          snapshotRepository
+              .findById(dictionaryId)
+              .orElseThrow(
+                  () -> new IllegalArgumentException("존재하지 않는 유의어 사전 스냅샷입니다: " + dictionaryId));
+
+      if (request.getKeyword() != null) {
+        existing.setKeyword(request.getKeyword());
+      }
+
+      if (request.getDescription() != null) {
+        existing.setDescription(request.getDescription());
+      }
+
+      SynonymDictionarySnapshot updated = snapshotRepository.save(existing);
+      log.info("유의어 사전 스냅샷 수정 완료: {} - 환경: {}", dictionaryId, environment);
+
+      return toSynonymDictionaryResponseFromSnapshot(updated);
     }
-
-    if (request.getDescription() != null) {
-      existing.updateDescription(request.getDescription());
-    }
-
-    SynonymDictionary updated = synonymDictionaryRepository.save(existing);
-    log.info("유의어 사전 수정 완료: {}", dictionaryId);
-
-    return toSynonymDictionaryResponse(updated);
   }
 
   /** 유의어 사전 삭제 */
@@ -163,12 +204,23 @@ public class SynonymDictionaryService {
   public void deleteSynonymDictionary(Long dictionaryId, DictionaryEnvironmentType environment) {
     log.info("유의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
 
-    if (!synonymDictionaryRepository.existsById(dictionaryId)) {
-      throw new IllegalArgumentException("존재하지 않는 유의어 사전입니다: " + dictionaryId);
-    }
+    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
+      // 현재 사전에서 삭제
+      if (!synonymDictionaryRepository.existsById(dictionaryId)) {
+        throw new IllegalArgumentException("존재하지 않는 유의어 사전입니다: " + dictionaryId);
+      }
 
-    synonymDictionaryRepository.deleteById(dictionaryId);
-    log.info("유의어 사전 삭제 완료: {} - 환경: {}", dictionaryId, environment);
+      synonymDictionaryRepository.deleteById(dictionaryId);
+      log.info("유의어 사전 삭제 완료: {} - 환경: CURRENT", dictionaryId);
+    } else {
+      // DEV/PROD 스냅샷에서 삭제
+      if (!snapshotRepository.existsById(dictionaryId)) {
+        throw new IllegalArgumentException("존재하지 않는 유의어 사전 스냅샷입니다: " + dictionaryId);
+      }
+
+      snapshotRepository.deleteById(dictionaryId);
+      log.info("유의어 사전 스냅샷 삭제 완료: {} - 환경: {}", dictionaryId, environment);
+    }
   }
 
   /** 개발 환경으로 스냅샷 생성 (색인 실행 시 호출) */
@@ -312,6 +364,18 @@ public class SynonymDictionaryService {
         .id(snapshot.getId())
         .keyword(snapshot.getKeyword())
         .description(snapshot.getDescription())
+        .updatedAt(snapshot.getUpdatedAt())
+        .build();
+  }
+
+  /** Snapshot to Response 변환 */
+  private SynonymDictionaryResponse toSynonymDictionaryResponseFromSnapshot(
+      SynonymDictionarySnapshot snapshot) {
+    return SynonymDictionaryResponse.builder()
+        .id(snapshot.getId())
+        .keyword(snapshot.getKeyword())
+        .description(snapshot.getDescription())
+        .createdAt(snapshot.getCreatedAt())
         .updatedAt(snapshot.getUpdatedAt())
         .build();
   }

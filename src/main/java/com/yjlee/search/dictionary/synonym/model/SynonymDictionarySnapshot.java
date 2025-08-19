@@ -13,6 +13,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Table(name = "synonym_dictionary_snapshots")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
