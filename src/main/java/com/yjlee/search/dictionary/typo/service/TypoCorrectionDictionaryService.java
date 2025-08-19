@@ -408,4 +408,17 @@ public class TypoCorrectionDictionaryService {
         .updatedAt(snapshot.getUpdatedAt())
         .build();
   }
+
+  /** Snapshot to Response 변환 */
+  private TypoCorrectionDictionaryResponse convertToResponseFromSnapshot(
+      TypoCorrectionDictionarySnapshot snapshot) {
+    return TypoCorrectionDictionaryResponse.builder()
+        .id(snapshot.getId())
+        .keyword(snapshot.getKeyword())
+        .correctedWord(snapshot.getCorrectedWord())
+        .description(snapshot.getDescription())
+        .createdAt(snapshot.getCreatedAt())
+        .updatedAt(snapshot.getUpdatedAt())
+        .build();
+  }
 }

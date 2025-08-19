@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -129,5 +131,53 @@ public class SynonymDictionaryController {
     log.info("유의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
     synonymDictionaryService.deleteSynonymDictionary(dictionaryId, environment);
     return ResponseEntity.noContent().build();
+  }
+
+  @Operation(summary = "유의어 사전 실시간 반영", description = "유의어 사전 변경사항을 Elasticsearch에 즉시 반영합니다.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "성공"),
+    @ApiResponse(responseCode = "500", description = "서버 에러")
+  })
+  @PostMapping("/realtime-sync")
+  public ResponseEntity<Map<String, Object>> syncSynonymDictionary(
+      @Parameter(description = "환경 타입 (CURRENT/DEV/PROD)", example = "DEV") @RequestParam
+          DictionaryEnvironmentType environment) {
+
+    log.info("유의어 사전 실시간 반영 요청 - 환경: {}", environment.getDescription());
+
+    try {
+      // 환경별 synonym set 이름 생성
+      String synonymSetName = getSynonymSetName(environment);
+
+      // Elasticsearch에 동의어 사전 반영
+      elasticsearchSynonymService.createOrUpdateSynonymSet(synonymSetName, environment);
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("success", true);
+      response.put("message", "유의어 사전 실시간 반영 완료");
+      response.put("environment", environment.getDescription());
+      response.put("synonymSet", synonymSetName);
+      response.put("timestamp", System.currentTimeMillis());
+
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      log.error("유의어 사전 실시간 반영 실패", e);
+
+      Map<String, Object> response = new HashMap<>();
+      response.put("success", false);
+      response.put("message", "유의어 사전 실시간 반영 실패: " + e.getMessage());
+      response.put("environment", environment.getDescription());
+      response.put("timestamp", System.currentTimeMillis());
+
+      return ResponseEntity.internalServerError().body(response);
+    }
+  }
+
+  private String getSynonymSetName(DictionaryEnvironmentType environment) {
+    return switch (environment) {
+      case DEV -> "synonyms-nori-dev";
+      case PROD -> "synonyms-nori-prod";
+      case CURRENT -> "synonyms-nori-current";
+    };
   }
 }

@@ -22,6 +22,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
     })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
