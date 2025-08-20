@@ -25,9 +25,6 @@ public class SearchLogListRequest {
   @Schema(description = "검색 키워드 필터", example = "삼성")
   private String keyword;
 
-  @Schema(description = "인덱스명 필터", example = "products")
-  private String indexName;
-
   @Schema(description = "에러 여부 필터", example = "false")
   private Boolean isError;
 

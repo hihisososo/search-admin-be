@@ -73,12 +73,8 @@ public class EvaluationReportService {
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
 
-    double totalRecall = 0.0; // Recall@300
-    double totalPrecision = 0.0; // Precision@300
-    double totalNdcg = 0.0; // NDCG@20
-    int totalRelevantDocuments = 0;
-    int totalRetrievedDocuments = 0;
-    int totalCorrectDocuments = 0;
+    double totalRecall300 = 0.0; // Recall@300
+    double totalNdcg20 = 0.0; // NDCG@20
 
     // 동기화된 리스트 사용으로 스레드 안전성 확보
     List<EvaluationExecuteResponse.QueryEvaluationDetail> synchronizedQueryDetails =
@@ -114,47 +110,32 @@ public class EvaluationReportService {
 
     // 결과 수집 (동기화된 리스트에서)
     queryDetails.addAll(synchronizedQueryDetails);
-    for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
-      totalRelevantDocuments += detail.getRelevantCount();
-      totalRetrievedDocuments += detail.getRetrievedCount();
-      totalCorrectDocuments += detail.getCorrectCount();
-    }
 
-    // 각 쿼리마다 메트릭 계산해서 합산
+    // 각 쿼리마다 메트릭 계산해서 합산 및 detail에 저장
     for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
       String query = detail.getQuery();
       Set<String> relevantDocs = getRelevantDocuments(query);
       List<String> retrievedDocs = getRetrievedDocumentsOrdered(query);
 
       // Recall@300
-      double recall = computeRecallAtK(retrievedDocs, relevantDocs, 300);
-      totalRecall += recall;
-
-      // Precision@300
-      double precision = computePrecisionAtK(retrievedDocs, relevantDocs, 300);
-      totalPrecision += precision;
+      double recall300 = computeRecallAtK(retrievedDocs, relevantDocs, 300);
+      totalRecall300 += recall300;
+      detail.setRecallAt300(recall300);
 
       // NDCG@20
-      double ndcg =
+      double ndcg20 =
           computeNdcg(
               new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
               relevantDocs);
-      totalNdcg += ndcg;
+      totalNdcg20 += ndcg20;
+      detail.setNdcgAt20(ndcg20);
     }
 
-    double avgRecall = queries.isEmpty() ? 0.0 : totalRecall / queries.size();
-    double avgPrecision = queries.isEmpty() ? 0.0 : totalPrecision / queries.size();
-    double avgNdcg = queries.isEmpty() ? 0.0 : totalNdcg / queries.size();
+    double avgRecall300 = queries.isEmpty() ? 0.0 : totalRecall300 / queries.size();
+    double avgNdcg20 = queries.isEmpty() ? 0.0 : totalNdcg20 / queries.size();
 
     EvaluationReport report =
-        saveEvaluationReport(
-            reportName,
-            queries.size(),
-            avgNdcg,
-            totalRelevantDocuments,
-            totalRetrievedDocuments,
-            totalCorrectDocuments,
-            java.util.List.of());
+        saveEvaluationReport(reportName, queries.size(), avgRecall300, avgNdcg20);
 
     // 세부 결과를 구조화 테이블에 저장 - queryDetails 재사용
     java.util.List<com.yjlee.search.evaluation.model.EvaluationReportDetail> detailRows =
@@ -169,40 +150,10 @@ public class EvaluationReportService {
               .relevantCount(d.getRelevantCount())
               .retrievedCount(d.getRetrievedCount())
               .correctCount(d.getCorrectCount())
+              .ndcgAt20(d.getNdcgAt20())
+              .recallAt300(d.getRecallAt300())
               .build());
-      // 정답셋 전체 저장
-      if (d.getRelevantDocuments() != null) {
-        for (EvaluationExecuteResponse.DocumentInfo r : d.getRelevantDocuments()) {
-          docRows.add(
-              com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
-                  .report(report)
-                  .query(d.getQuery())
-                  .productId(r.getProductId())
-                  .docType(com.yjlee.search.evaluation.model.ReportDocumentType.RELEVANT)
-                  .productName(r.getProductName())
-                  .productSpecs(r.getProductSpecs())
-                  .build());
-        }
-      }
-
-      // 검색결과 전체 저장 (순서 포함)
-      if (d.getRetrievedDocuments() != null) {
-        int position = 0;
-        for (EvaluationExecuteResponse.DocumentInfo ret : d.getRetrievedDocuments()) {
-          docRows.add(
-              com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
-                  .report(report)
-                  .query(d.getQuery())
-                  .productId(ret.getProductId())
-                  .docType(com.yjlee.search.evaluation.model.ReportDocumentType.RETRIEVED)
-                  .productName(ret.getProductName())
-                  .productSpecs(ret.getProductSpecs())
-                  .position(position++)
-                  .build());
-        }
-      }
-
-      // 기존 MISSING, WRONG 저장 로직 유지
+      // MISSING, WRONG 타입만 저장
       if (d.getMissingDocuments() != null) {
         for (EvaluationExecuteResponse.DocumentInfo m : d.getMissingDocuments()) {
           docRows.add(
@@ -234,21 +185,16 @@ public class EvaluationReportService {
     if (!docRows.isEmpty()) reportDocumentRepository.saveAll(docRows);
 
     log.info(
-        "✅ 평가 실행 완료: Recall={}, Precision={}, NDCG={}",
-        String.format("%.3f", avgRecall),
-        String.format("%.3f", avgPrecision),
-        String.format("%.3f", avgNdcg));
+        "✅ 평가 실행 완료: Recall@300={}, NDCG@20={}",
+        String.format("%.3f", avgRecall300),
+        String.format("%.3f", avgNdcg20));
 
     return EvaluationExecuteResponse.builder()
         .reportId(report.getId())
         .reportName(reportName)
-        .recall(avgRecall)
-        .precision(avgPrecision)
-        .ndcg(avgNdcg)
+        .recall300(avgRecall300)
+        .ndcg20(avgNdcg20)
         .totalQueries(queries.size())
-        .totalRelevantDocuments(totalRelevantDocuments)
-        .totalRetrievedDocuments(totalRetrievedDocuments)
-        .totalCorrectDocuments(totalCorrectDocuments)
         .queryDetails(queryDetails)
         .createdAt(report.getCreatedAt())
         .build();
@@ -270,11 +216,11 @@ public class EvaluationReportService {
             .filter(doc -> !relevantDocs.contains(doc))
             .collect(Collectors.toList());
 
-    // 모든 관련 문서들의 정보 구성 (이름/스펙 포함)
-    Set<String> allDocIds = new HashSet<>();
-    allDocIds.addAll(relevantDocs);
-    allDocIds.addAll(retrievedDocs);
-    Map<String, ProductDocument> productMap = getProductsBulk(new ArrayList<>(allDocIds));
+    // MISSING과 WRONG 문서들의 정보만 구성
+    Set<String> docIdsToFetch = new HashSet<>();
+    docIdsToFetch.addAll(missingIds);
+    docIdsToFetch.addAll(wrongIds);
+    Map<String, ProductDocument> productMap = getProductsBulk(new ArrayList<>(docIdsToFetch));
 
     List<EvaluationExecuteResponse.DocumentInfo> missingDocs =
         missingIds.stream()
@@ -302,34 +248,6 @@ public class EvaluationReportService {
                 })
             .toList();
 
-    // 정답셋 전체 문서 정보
-    List<EvaluationExecuteResponse.DocumentInfo> relevantDocInfos =
-        relevantDocs.stream()
-            .map(
-                id -> {
-                  ProductDocument p = productMap.get(id);
-                  return EvaluationExecuteResponse.DocumentInfo.builder()
-                      .productId(id)
-                      .productName(p != null ? p.getNameRaw() : null)
-                      .productSpecs(p != null ? p.getSpecsRaw() : null)
-                      .build();
-                })
-            .toList();
-
-    // 검색결과 전체 문서 정보 (순서 유지)
-    List<EvaluationExecuteResponse.DocumentInfo> retrievedDocInfos =
-        retrievedDocs.stream()
-            .map(
-                id -> {
-                  ProductDocument p = productMap.get(id);
-                  return EvaluationExecuteResponse.DocumentInfo.builder()
-                      .productId(id)
-                      .productName(p != null ? p.getNameRaw() : null)
-                      .productSpecs(p != null ? p.getSpecsRaw() : null)
-                      .build();
-                })
-            .toList();
-
     return EvaluationExecuteResponse.QueryEvaluationDetail.builder()
         .query(query)
         .relevantCount(relevantDocs.size())
@@ -337,8 +255,6 @@ public class EvaluationReportService {
         .correctCount(correctDocs.size())
         .missingDocuments(missingDocs)
         .wrongDocuments(wrongDocs)
-        .relevantDocuments(relevantDocInfos)
-        .retrievedDocuments(retrievedDocInfos)
         .build();
   }
 
@@ -497,23 +413,15 @@ public class EvaluationReportService {
 
   @Transactional
   private EvaluationReport saveEvaluationReport(
-      String reportName,
-      int totalQueries,
-      double averageNdcg,
-      int totalRelevantDocs,
-      int totalRetrievedDocs,
-      int totalCorrectDocs,
-      List<PersistedQueryEvaluationDetail> queryDetails) {
+      String reportName, int totalQueries, double averageRecall300, double averageNdcg20) {
     try {
       // JSON은 더 이상 저장하지 않음 (대용량 방지)
       EvaluationReport report =
           EvaluationReport.builder()
               .reportName(reportName)
               .totalQueries(totalQueries)
-              .averageNdcg(averageNdcg)
-              .totalRelevantDocuments(totalRelevantDocs)
-              .totalRetrievedDocuments(totalRetrievedDocs)
-              .totalCorrectDocuments(totalCorrectDocs)
+              .averageRecall300(averageRecall300)
+              .averageNdcg20(averageNdcg20)
               .detailedResults(null)
               .build();
 
@@ -547,7 +455,7 @@ public class EvaluationReportService {
     EvaluationReport report = evaluationReportRepository.findById(reportId).orElse(null);
     if (report == null) return null;
 
-    // 상세/문서 테이블에서 조회한 뒤 응답 조립 (JSON 미사용)
+    // 상세/문서 테이블에서 조회
     List<com.yjlee.search.evaluation.model.EvaluationReportDetail> rows =
         reportDetailRepository.findByReport(report);
     List<com.yjlee.search.evaluation.model.EvaluationReportDocument> miss =
@@ -580,81 +488,6 @@ public class EvaluationReportService {
                   .build());
     }
 
-    // 순서 비교용 데이터 구성: 검색결과 순위, 정답셋 점수순
-    // rank/gain 계산을 위해 제품 상세가 필요하므로 필요한 범위에서만 벌크 조회
-    java.util.Map<String, java.util.List<EvaluationReportDetailResponse.RetrievedDocument>>
-        retrievedByQuery = new java.util.HashMap<>();
-    java.util.Map<String, java.util.List<EvaluationReportDetailResponse.GroundTruthDocument>>
-        groundTruthByQuery = new java.util.HashMap<>();
-
-    for (var r : rows) {
-      String q = r.getQuery();
-
-      // 검색 결과 순서 수집 (최소 50개 보장)
-      int sizeHint = r.getRetrievedCount() != null ? r.getRetrievedCount() : 50;
-      java.util.List<String> retrievedOrdered = getRetrievedDocumentsOrdered(q);
-      java.util.List<String> unionIds = new java.util.ArrayList<>(retrievedOrdered);
-
-      // 정답셋 수집 및 점수 조회를 위해 매핑 엔티티 조회
-      java.util.List<QueryProductMapping> relevantMappings = new java.util.ArrayList<>();
-      var eqOpt = evaluationQueryService.findByQuery(q);
-      if (eqOpt.isPresent()) {
-        relevantMappings =
-            queryProductMappingRepository.findByEvaluationQueryAndRelevanceScoreGreaterThanEqual(
-                eqOpt.get(), 1);
-        for (var m : relevantMappings) {
-          if (!unionIds.contains(m.getProductId())) unionIds.add(m.getProductId());
-        }
-      }
-
-      // 제품 벌크 조회
-      Map<String, ProductDocument> productMap = getProductsBulk(unionIds);
-
-      // retrievedDocuments 구성 (rank/gain)
-      java.util.List<EvaluationReportDetailResponse.RetrievedDocument> retrievedDocs =
-          new java.util.ArrayList<>();
-      java.util.List<String> tokens = java.util.Arrays.asList(q.toLowerCase().split("\\s+"));
-      for (int i = 0; i < retrievedOrdered.size(); i++) {
-        String pid = retrievedOrdered.get(i);
-        ProductDocument p = productMap.get(pid);
-        String name = p != null && p.getNameRaw() != null ? p.getNameRaw().toLowerCase() : "";
-        String specs = p != null && p.getSpecsRaw() != null ? p.getSpecsRaw().toLowerCase() : "";
-        boolean allInTitle = tokens.stream().allMatch(t -> !t.isBlank() && name.contains(t));
-        boolean anyInSpecs = tokens.stream().anyMatch(t -> !t.isBlank() && specs.contains(t));
-        int gain = allInTitle ? 2 : (anyInSpecs ? 1 : 0);
-        retrievedDocs.add(
-            EvaluationReportDetailResponse.RetrievedDocument.builder()
-                .rank(i + 1)
-                .productId(pid)
-                .productName(p != null ? p.getNameRaw() : null)
-                .productSpecs(p != null ? p.getSpecsRaw() : null)
-                .gain(gain)
-                .isRelevant(gain > 0)
-                .build());
-      }
-      retrievedByQuery.put(q, retrievedDocs);
-
-      // groundTruthDocuments 구성 (정답셋 점수순)
-      java.util.List<EvaluationReportDetailResponse.GroundTruthDocument> gtDocs =
-          relevantMappings.stream()
-              .map(
-                  m -> {
-                    ProductDocument p = productMap.get(m.getProductId());
-                    return EvaluationReportDetailResponse.GroundTruthDocument.builder()
-                        .productId(m.getProductId())
-                        .productName(p != null ? p.getNameRaw() : null)
-                        .productSpecs(p != null ? p.getSpecsRaw() : null)
-                        .score(m.getRelevanceScore())
-                        .build();
-                  })
-              .sorted(
-                  java.util.Comparator.comparing(
-                          EvaluationReportDetailResponse.GroundTruthDocument::getScore)
-                      .reversed())
-              .toList();
-      groundTruthByQuery.put(q, gtDocs);
-    }
-
     List<EvaluationReportDetailResponse.QueryDetail> details = new ArrayList<>();
     for (var r : rows) {
       EvaluationReportDetailResponse.QueryDetail qd =
@@ -663,51 +496,22 @@ public class EvaluationReportService {
               .relevantCount(r.getRelevantCount())
               .retrievedCount(r.getRetrievedCount())
               .correctCount(r.getCorrectCount())
-              .retrievedDocuments(retrievedByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
-              .groundTruthDocuments(
-                  groundTruthByQuery.getOrDefault(r.getQuery(), java.util.List.of()))
+              .ndcgAt20(r.getNdcgAt20())
+              .recallAt300(r.getRecallAt300())
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
               .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
               .build();
       details.add(qd);
     }
 
-    // 전체 집계 메트릭 계산 (보고서 조회 시)
-    double totalRecall = 0.0;
-    double totalPrecision = 0.0;
-    double totalNdcg = 0.0;
-    int queryCount = 0;
-
-    for (var r : rows) {
-      String query = r.getQuery();
-      Set<String> relevantDocs = getRelevantDocuments(query);
-      List<String> retrievedDocs = getRetrievedDocumentsOrdered(query);
-
-      if (!relevantDocs.isEmpty() && !retrievedDocs.isEmpty()) {
-        totalRecall += computeRecallAtK(retrievedDocs, relevantDocs, 300);
-        totalPrecision += computePrecisionAtK(retrievedDocs, relevantDocs, 300);
-        totalNdcg +=
-            computeNdcg(
-                new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
-                relevantDocs);
-        queryCount++;
-      }
-    }
-
-    double avgRecall = queryCount > 0 ? totalRecall / queryCount : 0.0;
-    double avgPrecision = queryCount > 0 ? totalPrecision / queryCount : 0.0;
-    double avgNdcg = queryCount > 0 ? totalNdcg / queryCount : 0.0;
+    // 평가 시점에 계산된 메트릭 사용 (DB에 저장된 값)
 
     return EvaluationReportDetailResponse.builder()
         .id(report.getId())
         .reportName(report.getReportName())
         .totalQueries(report.getTotalQueries())
-        .recall(avgRecall)
-        .precision(avgPrecision)
-        .ndcg(avgNdcg)
-        .totalRelevantDocuments(report.getTotalRelevantDocuments())
-        .totalRetrievedDocuments(report.getTotalRetrievedDocuments())
-        .totalCorrectDocuments(report.getTotalCorrectDocuments())
+        .averageRecall300(report.getAverageRecall300())
+        .averageNdcg20(report.getAverageNdcg20())
         .createdAt(report.getCreatedAt())
         .queryDetails(details)
         .build();

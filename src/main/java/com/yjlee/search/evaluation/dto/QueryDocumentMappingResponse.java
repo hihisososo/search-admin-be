@@ -25,11 +25,11 @@ public class QueryDocumentMappingResponse {
   @AllArgsConstructor
   @Builder
   public static class ProductDocumentDto {
-    private Long candidateId;
+    private Long id;
     private String productId;
     private String productName;
-    private String specs;
-    private Integer score;
+    private String productSpecs;
+    private Integer relevanceScore;
     private String evaluationReason;
     private Double confidence;
   }

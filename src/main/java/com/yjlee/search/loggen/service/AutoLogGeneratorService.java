@@ -13,6 +13,7 @@ import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.search.dto.ProductDto;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -111,113 +112,107 @@ public class AutoLogGeneratorService {
   }
 
   private String extractKeyword(String indexName, JsonNode doc) {
-    String brandName = doc.has(ESFields.BRAND_NAME) ? doc.get(ESFields.BRAND_NAME).asText() : null;
-    String categoryName =
+    // 1. 기본 데이터 추출
+    String brand = doc.has(ESFields.BRAND_NAME) ? doc.get(ESFields.BRAND_NAME).asText() : null;
+    String category =
         doc.has(ESFields.CATEGORY_NAME) ? doc.get(ESFields.CATEGORY_NAME).asText() : null;
     String productName = doc.has(ESFields.NAME) ? doc.get(ESFields.NAME).asText() : null;
 
-    List<String> tokens = new ArrayList<>();
+    // 2. 토큰과 모델 정보 추출
+    List<String> nameTokens = new ArrayList<>();
     if (productName != null && !productName.isBlank()) {
       try {
-        tokens = analyzeTokens(indexName, productName);
+        nameTokens = analyzeTokens(indexName, productName);
       } catch (Exception ignore) {
       }
     }
 
+    List<String> models = extractModels(doc, brand);
+
+    // 3. 실제 사용자 검색 패턴 생성
+    List<String> searchPatterns = new ArrayList<>();
+
+    // 브랜드 + 카테고리 (예: "삼성 냉장고")
+    if (brand != null && category != null) {
+      searchPatterns.add(formatKeyword(brand, category));
+    }
+
+    // 브랜드 + 제품명 토큰 (예: "LG 그램")
+    if (brand != null && !nameTokens.isEmpty()) {
+      String token = pickRandom(nameTokens);
+      if (token != null && !equalsIgnoreCase(token, brand)) {
+        searchPatterns.add(formatKeyword(brand, token));
+      }
+    }
+
+    // 카테고리 + 제품특징 (예: "노트북 게이밍")
+    if (category != null && !nameTokens.isEmpty()) {
+      String token = pickRandom(nameTokens);
+      if (token != null && !equalsIgnoreCase(token, category)) {
+        searchPatterns.add(formatKeyword(category, token));
+      }
+    }
+
+    // 브랜드 + 모델명 (예: "삼성 RF85R")
+    if (brand != null && !models.isEmpty()) {
+      searchPatterns.add(formatKeyword(brand, models.get(0)));
+    }
+
+    // 제품명 주요 토큰 조합 (예: "비스포크 4도어 냉장고")
+    if (nameTokens.size() >= 2) {
+      int maxTokens = Math.min(4, nameTokens.size());
+      int tokenCount = 2 + random.nextInt(maxTokens - 1);
+      searchPatterns.add(joinTokens(nameTokens, tokenCount));
+    }
+
+    // 4. 유효한 패턴 중 랜덤 선택 (한 단어 제외)
+    List<String> validPatterns =
+        searchPatterns.stream()
+            .filter(p -> p != null && !p.isBlank())
+            .filter(p -> p.split("\\s+").length >= 2) // 최소 2단어 이상
+            .distinct()
+            .collect(java.util.stream.Collectors.toList());
+
+    if (!validPatterns.isEmpty()) {
+      return validPatterns.get(random.nextInt(validPatterns.size()));
+    }
+
+    // 5. Fallback: 카테고리 + "추천"
+    if (category != null) {
+      return category + " 추천";
+    }
+
+    return "상품 추천";
+  }
+
+  private List<String> extractModels(JsonNode doc, String brand) {
     List<String> models = new ArrayList<>();
     if (doc.has(ESFields.MODEL) && doc.get(ESFields.MODEL).isArray()) {
       for (JsonNode model : doc.get(ESFields.MODEL)) {
         String modelText = model.asText();
         if (!modelText.isEmpty() && !modelText.equals("null")) {
-          if ((brandName == null || !modelText.equalsIgnoreCase(brandName))
-              && !containsIgnoreCase(models, modelText)) {
+          if ((brand == null || !modelText.equalsIgnoreCase(brand))) {
             models.add(modelText);
           }
         }
       }
     }
+    return models;
+  }
 
-    double rand = random.nextDouble();
+  private String pickRandom(List<String> items) {
+    if (items == null || items.isEmpty()) return null;
+    return items.get(random.nextInt(items.size()));
+  }
 
-    if (rand < 0.3) {
-      List<String> singleKeywords = new ArrayList<>();
-      if (brandName != null && !brandName.isEmpty()) singleKeywords.add(brandName);
-      if (categoryName != null && !categoryName.isEmpty()) singleKeywords.add(categoryName);
-      singleKeywords.addAll(tokens);
-      singleKeywords.addAll(models);
+  private String formatKeyword(String... parts) {
+    if (parts == null || parts.length == 0) return null;
+    return dedupJoin(Arrays.asList(parts));
+  }
 
-      if (!singleKeywords.isEmpty()) {
-        String k = singleKeywords.get(random.nextInt(singleKeywords.size()));
-        return dedupJoin(List.of(k));
-      }
-    } else if (rand < 0.7) {
-      List<String> combinations = new ArrayList<>();
-
-      if (brandName != null && categoryName != null) {
-        String k = dedupJoin(List.of(brandName, categoryName));
-        if (!k.isBlank()) combinations.add(k);
-      }
-
-      if (brandName != null && !tokens.isEmpty()) {
-        String k = dedupJoin(List.of(brandName, tokens.get(0)));
-        if (!k.isBlank()) combinations.add(k);
-      }
-
-      if (categoryName != null && !tokens.isEmpty()) {
-        String token = tokens.get(random.nextInt(tokens.size()));
-        if (!equalsIgnoreCase(token, categoryName)) {
-          String k = dedupJoin(List.of(categoryName, token));
-          if (!k.isBlank()) combinations.add(k);
-        }
-      }
-
-      if (!models.isEmpty() && brandName != null) {
-        String k = dedupJoin(List.of(brandName, models.get(0)));
-        if (!k.isBlank()) combinations.add(k);
-      }
-
-      if (!combinations.isEmpty()) {
-        return combinations.get(random.nextInt(combinations.size()));
-      }
-    } else if (rand < 0.9) {
-      List<String> tripleKeywords = new ArrayList<>();
-
-      if (brandName != null && categoryName != null && !tokens.isEmpty()) {
-        String k = dedupJoin(List.of(brandName, categoryName, tokens.get(0)));
-        if (!k.isBlank()) tripleKeywords.add(k);
-      }
-
-      if (brandName != null && !models.isEmpty() && !tokens.isEmpty()) {
-        String k = dedupJoin(List.of(brandName, models.get(0), tokens.get(0)));
-        if (!k.isBlank()) tripleKeywords.add(k);
-      }
-
-      if (tokens.size() >= 3) {
-        String k = dedupJoin(List.of(tokens.get(0), tokens.get(1), tokens.get(2)));
-        if (!k.isBlank()) tripleKeywords.add(k);
-      }
-
-      if (!tripleKeywords.isEmpty()) {
-        return tripleKeywords.get(random.nextInt(tripleKeywords.size()));
-      }
-    } else {
-      if (!tokens.isEmpty()) {
-        int limit = Math.min(5, tokens.size());
-        return dedupJoin(tokens.subList(0, limit));
-      }
-    }
-
-    if (brandName != null && !brandName.isEmpty()) {
-      return dedupJoin(List.of(brandName));
-    }
-    if (categoryName != null && !categoryName.isEmpty()) {
-      return dedupJoin(List.of(categoryName));
-    }
-    if (!tokens.isEmpty()) {
-      return dedupJoin(List.of(tokens.get(0)));
-    }
-
-    return "상품";
+  private String joinTokens(List<String> tokens, int count) {
+    if (tokens == null || tokens.size() < count) return null;
+    return dedupJoin(tokens.subList(0, count));
   }
 
   private List<String> analyzeTokens(String indexName, String text) throws Exception {
@@ -233,13 +228,6 @@ public class AutoLogGeneratorService {
       if (seen.add(key)) out.add(tok);
     }
     return out;
-  }
-
-  private boolean containsIgnoreCase(List<String> list, String value) {
-    for (String s : list) {
-      if (s != null && value != null && s.equalsIgnoreCase(value)) return true;
-    }
-    return false;
   }
 
   private boolean equalsIgnoreCase(String a, String b) {

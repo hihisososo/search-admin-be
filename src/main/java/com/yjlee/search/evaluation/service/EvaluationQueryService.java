@@ -45,7 +45,7 @@ public class EvaluationQueryService {
       throw new IllegalArgumentException("이미 존재하는 쿼리입니다: " + query);
     }
 
-    EvaluationQuery evaluationQuery = EvaluationQuery.builder().query(query).count(1).build();
+    EvaluationQuery evaluationQuery = EvaluationQuery.builder().query(query).build();
     return evaluationQueryRepository.save(evaluationQuery);
   }
 
@@ -70,18 +70,8 @@ public class EvaluationQueryService {
       valueToUse = newQuery.trim();
     }
 
-    Boolean reviewedToUse = query.getReviewed();
-    if (reviewed != null) {
-      reviewedToUse = reviewed;
-    }
-
     EvaluationQuery updatedQuery =
-        EvaluationQuery.builder()
-            .id(query.getId())
-            .query(valueToUse)
-            .count(query.getCount())
-            .reviewed(reviewedToUse)
-            .build();
+        EvaluationQuery.builder().id(query.getId()).query(valueToUse).build();
     return evaluationQueryRepository.save(updatedQuery);
   }
 

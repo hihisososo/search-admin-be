@@ -260,9 +260,8 @@ public class AsyncEvaluationService {
               .reportName(request.getReportName())
               .reportId(response.getReportId())
               .totalQueries(response.getTotalQueries())
-              .recall(response.getRecall())
-              .precision(response.getPrecision())
-              .ndcg(response.getNdcg())
+              .recall300(response.getRecall300())
+              .ndcg20(response.getNdcg20())
               .build();
 
       asyncTaskService.completeTask(taskId, result);
@@ -317,8 +316,7 @@ public class AsyncEvaluationService {
     private String reportName;
     private Long reportId;
     private int totalQueries;
-    private Double recall;
-    private Double precision;
-    private Double ndcg;
+    private Double recall300;
+    private Double ndcg20;
   }
 }

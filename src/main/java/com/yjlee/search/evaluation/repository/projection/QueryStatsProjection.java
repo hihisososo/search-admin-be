@@ -12,4 +12,6 @@ public interface QueryStatsProjection {
   Long getScore0Count();
 
   Long getScoreMinus1Count();
+
+  Long getUnevaluatedCount();
 }
