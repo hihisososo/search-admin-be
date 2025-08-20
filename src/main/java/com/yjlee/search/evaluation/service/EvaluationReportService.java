@@ -10,7 +10,6 @@ import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.EvaluationReport;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
-import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationReportRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
@@ -74,13 +73,9 @@ public class EvaluationReportService {
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
 
-    double totalNdcg = 0.0;
-    double totalNdcgAt10 = 0.0;
-    double totalNdcgAt20 = 0.0;
-    double totalMrrAt10 = 0.0;
-    double totalRecallAt50 = 0.0;
-    double totalAveragePrecision = 0.0; // MAP 합산
-    double totalRecallAt300 = 0.0;
+    double totalRecall = 0.0; // Recall@300
+    double totalPrecision = 0.0; // Precision@300
+    double totalNdcg = 0.0; // NDCG@20
     int totalRelevantDocuments = 0;
     int totalRetrievedDocuments = 0;
     int totalCorrectDocuments = 0;
@@ -120,31 +115,42 @@ public class EvaluationReportService {
     // 결과 수집 (동기화된 리스트에서)
     queryDetails.addAll(synchronizedQueryDetails);
     for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
-      totalNdcg += detail.getNdcg();
-      if (detail.getNdcgAt10() != null) totalNdcgAt10 += detail.getNdcgAt10();
-      if (detail.getNdcgAt20() != null) totalNdcgAt20 += detail.getNdcgAt20();
-      if (detail.getMrrAt10() != null) totalMrrAt10 += detail.getMrrAt10();
-      if (detail.getRecallAt50() != null) totalRecallAt50 += detail.getRecallAt50();
-      if (detail.getMap() != null) totalAveragePrecision += detail.getMap();
-      if (detail.getRecallAt300() != null) totalRecallAt300 += detail.getRecallAt300();
       totalRelevantDocuments += detail.getRelevantCount();
       totalRetrievedDocuments += detail.getRetrievedCount();
       totalCorrectDocuments += detail.getCorrectCount();
     }
 
-    double averageNdcg = queries.isEmpty() ? 0.0 : totalNdcg / queries.size();
-    double avgNdcgAt10 = queries.isEmpty() ? 0.0 : totalNdcgAt10 / queries.size();
-    double avgNdcgAt20 = queries.isEmpty() ? 0.0 : totalNdcgAt20 / queries.size();
-    double avgMrrAt10 = queries.isEmpty() ? 0.0 : totalMrrAt10 / queries.size();
-    double avgRecallAt50 = queries.isEmpty() ? 0.0 : totalRecallAt50 / queries.size();
-    double map = queries.isEmpty() ? 0.0 : totalAveragePrecision / queries.size();
-    double avgRecallAt300 = queries.isEmpty() ? 0.0 : totalRecallAt300 / queries.size();
+    // 각 쿼리마다 메트릭 계산해서 합산
+    for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
+      String query = detail.getQuery();
+      Set<String> relevantDocs = getRelevantDocuments(query);
+      List<String> retrievedDocs = getRetrievedDocumentsOrdered(query);
+
+      // Recall@300
+      double recall = computeRecallAtK(retrievedDocs, relevantDocs, 300);
+      totalRecall += recall;
+
+      // Precision@300
+      double precision = computePrecisionAtK(retrievedDocs, relevantDocs, 300);
+      totalPrecision += precision;
+
+      // NDCG@20
+      double ndcg =
+          computeNdcg(
+              new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
+              relevantDocs);
+      totalNdcg += ndcg;
+    }
+
+    double avgRecall = queries.isEmpty() ? 0.0 : totalRecall / queries.size();
+    double avgPrecision = queries.isEmpty() ? 0.0 : totalPrecision / queries.size();
+    double avgNdcg = queries.isEmpty() ? 0.0 : totalNdcg / queries.size();
 
     EvaluationReport report =
         saveEvaluationReport(
             reportName,
             queries.size(),
-            averageNdcg,
+            avgNdcg,
             totalRelevantDocuments,
             totalRetrievedDocuments,
             totalCorrectDocuments,
@@ -160,13 +166,6 @@ public class EvaluationReportService {
           com.yjlee.search.evaluation.model.EvaluationReportDetail.builder()
               .report(report)
               .query(d.getQuery())
-              .ndcg(d.getNdcg())
-              .ndcgAt10(d.getNdcgAt10())
-              .ndcgAt20(d.getNdcgAt20())
-              .mrrAt10(d.getMrrAt10())
-              .recallAt50(d.getRecallAt50())
-              .averagePrecision(d.getMap())
-              .recallAt300(d.getRecallAt300())
               .relevantCount(d.getRelevantCount())
               .retrievedCount(d.getRetrievedCount())
               .correctCount(d.getCorrectCount())
@@ -234,18 +233,18 @@ public class EvaluationReportService {
     if (!detailRows.isEmpty()) reportDetailRepository.saveAll(detailRows);
     if (!docRows.isEmpty()) reportDocumentRepository.saveAll(docRows);
 
-    log.info("✅ 평가 실행 완료: nDCG={}", String.format("%.3f", averageNdcg));
+    log.info(
+        "✅ 평가 실행 완료: Recall={}, Precision={}, NDCG={}",
+        String.format("%.3f", avgRecall),
+        String.format("%.3f", avgPrecision),
+        String.format("%.3f", avgNdcg));
 
     return EvaluationExecuteResponse.builder()
         .reportId(report.getId())
         .reportName(reportName)
-        .averageNdcg(averageNdcg)
-        .ndcgAt10(avgNdcgAt10)
-        .ndcgAt20(avgNdcgAt20)
-        .mrrAt10(avgMrrAt10)
-        .recallAt50(avgRecallAt50)
-        .map(map)
-        .recallAt300(avgRecallAt300)
+        .recall(avgRecall)
+        .precision(avgPrecision)
+        .ndcg(avgNdcg)
         .totalQueries(queries.size())
         .totalRelevantDocuments(totalRelevantDocuments)
         .totalRetrievedDocuments(totalRetrievedDocuments)
@@ -260,20 +259,6 @@ public class EvaluationReportService {
     List<String> retrievedDocs = getRetrievedDocumentsOrdered(query); // 순서 유지
     Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
-
-    double ndcg = computeNdcg(new ArrayList<>(retrievedDocs), relevantDocs);
-    double ndcgAt10 =
-        computeNdcg(
-            new ArrayList<>(retrievedDocs.subList(0, Math.min(10, retrievedDocs.size()))),
-            relevantDocs);
-    double ndcgAt20 =
-        computeNdcg(
-            new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
-            relevantDocs);
-    double mrrAt10 = computeMrrAtK(retrievedDocs, relevantDocs, 10);
-    double recallAt50 = computeRecallAtK(retrievedDocs, relevantDocs, 50);
-    double averagePrecision = computeAveragePrecision(retrievedDocs, relevantDocs);
-    double recallAt300 = computeRecallAtK(retrievedDocs, relevantDocs, 300);
 
     List<String> missingIds =
         relevantDocs.stream()
@@ -347,13 +332,6 @@ public class EvaluationReportService {
 
     return EvaluationExecuteResponse.QueryEvaluationDetail.builder()
         .query(query)
-        .ndcg(ndcg)
-        .ndcgAt10(ndcgAt10)
-        .ndcgAt20(ndcgAt20)
-        .mrrAt10(mrrAt10)
-        .recallAt50(recallAt50)
-        .map(averagePrecision)
-        .recallAt300(recallAt300)
         .relevantCount(relevantDocs.size())
         .retrievedCount(retrievedDocs.size())
         .correctCount(correctDocs.size())
@@ -382,6 +360,16 @@ public class EvaluationReportService {
       if (relevantSet.contains(retrievedOrder.get(i))) hits++;
     }
     return (double) hits / relevantSet.size();
+  }
+
+  private double computePrecisionAtK(List<String> retrievedOrder, Set<String> relevantSet, int k) {
+    if (retrievedOrder == null || retrievedOrder.isEmpty()) return 0.0;
+    int limit = Math.min(k, retrievedOrder.size());
+    int hits = 0;
+    for (int i = 0; i < limit; i++) {
+      if (relevantSet.contains(retrievedOrder.get(i))) hits++;
+    }
+    return limit == 0 ? 0.0 : (double) hits / limit;
   }
 
   private double computeAveragePrecision(List<String> retrievedOrder, Set<String> relevantSet) {
@@ -439,8 +427,8 @@ public class EvaluationReportService {
     }
 
     List<QueryProductMapping> mappings =
-        queryProductMappingRepository.findByEvaluationQueryAndRelevanceStatus(
-            evaluationQueryOpt.get(), RelevanceStatus.RELEVANT);
+        queryProductMappingRepository.findByEvaluationQueryAndRelevanceScoreGreaterThanEqual(
+            evaluationQueryOpt.get(), 1);
     return mappings.stream().map(QueryProductMapping::getProductId).collect(Collectors.toSet());
   }
 
@@ -612,8 +600,8 @@ public class EvaluationReportService {
       var eqOpt = evaluationQueryService.findByQuery(q);
       if (eqOpt.isPresent()) {
         relevantMappings =
-            queryProductMappingRepository.findByEvaluationQueryAndRelevanceStatus(
-                eqOpt.get(), RelevanceStatus.RELEVANT);
+            queryProductMappingRepository.findByEvaluationQueryAndRelevanceScoreGreaterThanEqual(
+                eqOpt.get(), 1);
         for (var m : relevantMappings) {
           if (!unionIds.contains(m.getProductId())) unionIds.add(m.getProductId());
         }
@@ -672,7 +660,6 @@ public class EvaluationReportService {
       EvaluationReportDetailResponse.QueryDetail qd =
           EvaluationReportDetailResponse.QueryDetail.builder()
               .query(r.getQuery())
-              .ndcg(r.getNdcg())
               .relevantCount(r.getRelevantCount())
               .retrievedCount(r.getRetrievedCount())
               .correctCount(r.getCorrectCount())
@@ -682,20 +669,42 @@ public class EvaluationReportService {
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
               .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
               .build();
-      qd.setNdcgAt10(r.getNdcgAt10());
-      qd.setNdcgAt20(r.getNdcgAt20());
-      qd.setMrrAt10(r.getMrrAt10());
-      qd.setRecallAt50(r.getRecallAt50());
-      qd.setMap(r.getAveragePrecision());
-      qd.setRecallAt300(r.getRecallAt300());
       details.add(qd);
     }
+
+    // 전체 집계 메트릭 계산 (보고서 조회 시)
+    double totalRecall = 0.0;
+    double totalPrecision = 0.0;
+    double totalNdcg = 0.0;
+    int queryCount = 0;
+
+    for (var r : rows) {
+      String query = r.getQuery();
+      Set<String> relevantDocs = getRelevantDocuments(query);
+      List<String> retrievedDocs = getRetrievedDocumentsOrdered(query);
+
+      if (!relevantDocs.isEmpty() && !retrievedDocs.isEmpty()) {
+        totalRecall += computeRecallAtK(retrievedDocs, relevantDocs, 300);
+        totalPrecision += computePrecisionAtK(retrievedDocs, relevantDocs, 300);
+        totalNdcg +=
+            computeNdcg(
+                new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
+                relevantDocs);
+        queryCount++;
+      }
+    }
+
+    double avgRecall = queryCount > 0 ? totalRecall / queryCount : 0.0;
+    double avgPrecision = queryCount > 0 ? totalPrecision / queryCount : 0.0;
+    double avgNdcg = queryCount > 0 ? totalNdcg / queryCount : 0.0;
 
     return EvaluationReportDetailResponse.builder()
         .id(report.getId())
         .reportName(report.getReportName())
         .totalQueries(report.getTotalQueries())
-        .averageNdcg(report.getAverageNdcg())
+        .recall(avgRecall)
+        .precision(avgPrecision)
+        .ndcg(avgNdcg)
         .totalRelevantDocuments(report.getTotalRelevantDocuments())
         .totalRetrievedDocuments(report.getTotalRetrievedDocuments())
         .totalCorrectDocuments(report.getTotalCorrectDocuments())

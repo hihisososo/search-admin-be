@@ -125,9 +125,10 @@ public class EvaluationSetController {
                       .productId(m.getProductId())
                       .productName(product != null ? product.getNameRaw() : DEFAULT_PRODUCT_NAME)
                       .specs(product != null ? product.getSpecsRaw() : DEFAULT_PRODUCT_SPECS)
-                      .relevanceStatus(m.getRelevanceStatus())
+                      .score(m.getRelevanceScore())
                       .evaluationReason(
                           m.getEvaluationReason() != null ? m.getEvaluationReason() : "")
+                      .confidence(m.getConfidence())
                       .build();
                 })
             .collect(Collectors.toList());
@@ -164,7 +165,10 @@ public class EvaluationSetController {
   public ResponseEntity<Void> updateProductCandidate(
       @PathVariable Long candidateId, @Valid @RequestBody UpdateProductMappingRequest request) {
     evaluationCandidateService.updateProductMappingById(
-        candidateId, request.getRelevanceStatus(), request.getEvaluationReason());
+        candidateId,
+        request.getRelevanceScore(),
+        request.getEvaluationReason(),
+        request.getConfidence());
     return ResponseEntity.ok().build();
   }
 

@@ -12,7 +12,6 @@ import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
-import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
@@ -89,7 +88,6 @@ public class SearchBasedGroundTruthService {
                   .productId(productId)
                   .productName(product != null ? product.getNameRaw() : null)
                   .productSpecs(product != null ? product.getSpecsRaw() : null)
-                  .relevanceStatus(RelevanceStatus.UNSPECIFIED)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
           mappings.add(mapping);
@@ -174,7 +172,6 @@ public class SearchBasedGroundTruthService {
                   .productId(productId)
                   .productName(product != null ? product.getNameRaw() : null)
                   .productSpecs(product != null ? product.getSpecsRaw() : null)
-                  .relevanceStatus(RelevanceStatus.UNSPECIFIED)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
           mappings.add(mapping);

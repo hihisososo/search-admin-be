@@ -426,7 +426,6 @@ public class SearchLogService {
   }
 
   public SearchLogListResponse getSearchLogs(SearchLogListRequest request) {
-    // 페이지와 사이즈 값 유효성 검증
     int page = Math.max(0, request.getPage() != null ? request.getPage() : 0);
     int size = Math.max(1, Math.min(100, request.getSize() != null ? request.getSize() : 10));
 

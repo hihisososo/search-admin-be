@@ -2,8 +2,6 @@ package com.yjlee.search.evaluation.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -44,15 +42,8 @@ public class QueryProductMapping {
   @Column(name = "product_specs", columnDefinition = "TEXT")
   String productSpecs;
 
-  @Enumerated(EnumType.STRING)
-  @Column(length = 20)
-  @Builder.Default
-  RelevanceStatus relevanceStatus = RelevanceStatus.UNSPECIFIED;
-
   @Column(name = "relevance_score")
-  @Builder.Default
-  Integer relevanceScore =
-      -100; // -100: 라벨링 미진행(초기값), -1: 사람확인 필요, 0: 비연관, 1: 스펙 일부 매치, 2: 제목 전부 매치
+  Integer relevanceScore; // null: 미평가, -1: 사람확인 필요, 0: 비연관, 1: 스펙 매치, 2: 제목 매치
 
   @Column(columnDefinition = "TEXT")
   String evaluationReason;
@@ -60,4 +51,7 @@ public class QueryProductMapping {
   @Column(length = 20)
   @Builder.Default
   String evaluationSource = "USER";
+
+  @Column(name = "confidence")
+  Double confidence;
 }

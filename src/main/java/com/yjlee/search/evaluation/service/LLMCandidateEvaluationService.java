@@ -14,7 +14,6 @@ import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
-import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
@@ -299,7 +298,12 @@ public class LLMCandidateEvaluationService {
 
           int score = evaluation.path("score").asInt(0); // 0/1/2
           String reason = evaluation.path("reason").asText("");
-          String evaluationReason = String.format("%s (score: %d)", reason, score);
+          double confidence = evaluation.path("confidence").asDouble(0.5); // 기본값 0.5
+
+          // confidence가 0.8 이하면 사람 확인 필요(-1)
+          int finalScore = confidence <= 0.8 ? -1 : score;
+          String evaluationReason =
+              String.format("%s (score: %d, confidence: %.2f)", reason, score, confidence);
 
           QueryProductMapping updatedMapping =
               QueryProductMapping.builder()
@@ -308,11 +312,10 @@ public class LLMCandidateEvaluationService {
                   .productId(mapping.getProductId())
                   .productName(mapping.getProductName())
                   .productSpecs(mapping.getProductSpecs())
-                  .relevanceStatus(
-                      score > 0 ? RelevanceStatus.RELEVANT : RelevanceStatus.IRRELEVANT)
-                  .relevanceScore(score)
+                  .relevanceScore(finalScore)
                   .evaluationReason(evaluationReason)
                   .evaluationSource(EVALUATION_SOURCE_LLM)
+                  .confidence(confidence)
                   .build();
 
           updatedMappings.add(updatedMapping);
@@ -351,9 +354,10 @@ public class LLMCandidateEvaluationService {
         .productId(mapping.getProductId())
         .productName(mapping.getProductName())
         .productSpecs(mapping.getProductSpecs())
-        .relevanceStatus(RelevanceStatus.UNSPECIFIED)
+        .relevanceScore(-1) // 평가 실패시 사람 확인 필요
         .evaluationReason("평가 실패: " + errorMessage + " (신뢰도: 0.00)")
         .evaluationSource(EVALUATION_SOURCE_LLM)
+        .confidence(0.0)
         .build();
   }
 
