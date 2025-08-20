@@ -13,13 +13,9 @@ public class EvaluationExecuteResponse {
 
   private Long reportId;
   private String reportName;
-  private Double recall; // Recall@300
-  private Double precision; // Precision@300
-  private Double ndcg; // NDCG@20
+  private Double recall300; // Recall@300
+  private Double ndcg20; // NDCG@20
   private Integer totalQueries;
-  private Integer totalRelevantDocuments;
-  private Integer totalRetrievedDocuments;
-  private Integer totalCorrectDocuments;
   private List<QueryEvaluationDetail> queryDetails;
   private LocalDateTime createdAt;
 
@@ -33,10 +29,10 @@ public class EvaluationExecuteResponse {
     private Integer relevantCount;
     private Integer retrievedCount;
     private Integer correctCount;
+    private Double ndcgAt20;
+    private Double recallAt300;
     private List<DocumentInfo> missingDocuments;
     private List<DocumentInfo> wrongDocuments;
-    private List<DocumentInfo> relevantDocuments;
-    private List<DocumentInfo> retrievedDocuments;
   }
 
   @Getter

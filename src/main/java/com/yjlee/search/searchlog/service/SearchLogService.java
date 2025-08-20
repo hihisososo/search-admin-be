@@ -446,6 +446,13 @@ public class SearchLogService {
             from + size);
       }
 
+      String sortParam = request.getSort();
+      String resolvedSortField = getSortField(sortParam);
+      SortOrder resolvedOrder =
+          (request.getOrder() != null && request.getOrder().equalsIgnoreCase("asc"))
+              ? SortOrder.Asc
+              : SortOrder.Desc; // 기본 내림차순
+
       SearchRequest searchRequest =
           SearchRequest.of(
               s ->
@@ -457,12 +464,7 @@ public class SearchLogService {
                           sortBuilder ->
                               sortBuilder.field(
                                   fieldSort ->
-                                      fieldSort
-                                          .field(getSortField(request.getSort()))
-                                          .order(
-                                              "desc".equals(request.getOrder())
-                                                  ? SortOrder.Desc
-                                                  : SortOrder.Asc)))
+                                      fieldSort.field(resolvedSortField).order(resolvedOrder)))
                       .allowNoIndices(true) // 인덱스가 없어도 에러 안남
                       .ignoreUnavailable(true) // 사용할 수 없는 인덱스 무시
                       .trackTotalHits(t -> t.enabled(true))); // 정확한 총 건수 계산
@@ -537,11 +539,7 @@ public class SearchLogService {
                               .value("*" + request.getKeyword() + "*"))));
     }
 
-    // 인덱스명 필터
-    if (request.getIndexName() != null && !request.getIndexName().trim().isEmpty()) {
-      boolQuery.filter(
-          Query.of(q -> q.term(t -> t.field("indexName.keyword").value(request.getIndexName()))));
-    }
+    // 인덱스명 필터 제거 (요청 DTO에서 삭제됨)
 
     // 에러 여부 필터
     if (request.getIsError() != null) {
@@ -554,7 +552,65 @@ public class SearchLogService {
           Query.of(q -> q.term(t -> t.field("clientIp.keyword").value(request.getClientIp()))));
     }
 
-    // TODO: 날짜 범위, 응답시간, 결과수 범위 필터 추후 구현
+    // 날짜 범위 필터
+    if (request.getStartDate() != null || request.getEndDate() != null) {
+      boolQuery.filter(
+          Query.of(
+              q ->
+                  q.range(
+                      r ->
+                          r.date(
+                              d -> {
+                                d.field("timestamp");
+                                if (request.getStartDate() != null) {
+                                  d.gte(request.getStartDate().toString());
+                                }
+                                if (request.getEndDate() != null) {
+                                  d.lte(request.getEndDate().toString());
+                                }
+                                return d;
+                              }))));
+    }
+
+    // 응답시간 범위 필터
+    if (request.getMinResponseTime() != null || request.getMaxResponseTime() != null) {
+      boolQuery.filter(
+          Query.of(
+              q ->
+                  q.range(
+                      r ->
+                          r.number(
+                              n -> {
+                                n.field("response_time_ms");
+                                if (request.getMinResponseTime() != null) {
+                                  n.gte(request.getMinResponseTime().doubleValue());
+                                }
+                                if (request.getMaxResponseTime() != null) {
+                                  n.lte(request.getMaxResponseTime().doubleValue());
+                                }
+                                return n;
+                              }))));
+    }
+
+    // 결과수 범위 필터
+    if (request.getMinResultCount() != null || request.getMaxResultCount() != null) {
+      boolQuery.filter(
+          Query.of(
+              q ->
+                  q.range(
+                      r ->
+                          r.number(
+                              n -> {
+                                n.field("result_count");
+                                if (request.getMinResultCount() != null) {
+                                  n.gte(request.getMinResultCount().doubleValue());
+                                }
+                                if (request.getMaxResultCount() != null) {
+                                  n.lte(request.getMaxResultCount().doubleValue());
+                                }
+                                return n;
+                              }))));
+    }
 
     return Query.of(q -> q.bool(boolQuery.build()));
   }
@@ -603,10 +659,13 @@ public class SearchLogService {
   }
 
   private String getSortField(String sort) {
+    if (sort == null || sort.isBlank()) {
+      return "timestamp";
+    }
     return switch (sort) {
-      case "responseTime" -> "responseTimeMs";
-      case "resultCount" -> "resultCount";
-      case "searchKeyword" -> "searchKeyword.keyword";
+      case "responseTime" -> "response_time_ms";
+      case "resultCount" -> "result_count";
+      case "searchKeyword" -> "search_keyword.keyword";
       default -> "timestamp";
     };
   }

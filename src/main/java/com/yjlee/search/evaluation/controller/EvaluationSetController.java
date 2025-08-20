@@ -121,11 +121,11 @@ public class EvaluationSetController {
                   ProductDocument product =
                       evaluationCandidateService.getProductDetails(m.getProductId());
                   return QueryDocumentMappingResponse.ProductDocumentDto.builder()
-                      .candidateId(m.getId())
+                      .id(m.getId())
                       .productId(m.getProductId())
                       .productName(product != null ? product.getNameRaw() : DEFAULT_PRODUCT_NAME)
-                      .specs(product != null ? product.getSpecsRaw() : DEFAULT_PRODUCT_SPECS)
-                      .score(m.getRelevanceScore())
+                      .productSpecs(product != null ? product.getSpecsRaw() : DEFAULT_PRODUCT_SPECS)
+                      .relevanceScore(m.getRelevanceScore())
                       .evaluationReason(
                           m.getEvaluationReason() != null ? m.getEvaluationReason() : "")
                       .confidence(m.getConfidence())
@@ -220,10 +220,10 @@ public class EvaluationSetController {
     return ResponseEntity.ok().build();
   }
 
-  @DeleteMapping("/candidates")
-  @Operation(summary = "후보군 일괄 삭제")
-  public ResponseEntity<Void> deleteCandidates(@Valid @RequestBody BulkDeleteRequest request) {
-    evaluationCandidateService.deleteProductMappings(request.getIds());
+  @DeleteMapping("/candidates/{candidateId}")
+  @Operation(summary = "후보군 단일 삭제")
+  public ResponseEntity<Void> deleteCandidate(@PathVariable Long candidateId) {
+    evaluationCandidateService.deleteProductMapping(candidateId);
     return ResponseEntity.ok().build();
   }
 

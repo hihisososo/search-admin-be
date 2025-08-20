@@ -321,7 +321,7 @@ public class QueryGenerationService {
     if (!newQueries.isEmpty()) {
       List<EvaluationQuery> evaluationQueries =
           newQueries.stream()
-              .map(query -> EvaluationQuery.builder().query(query).count(1).build())
+              .map(query -> EvaluationQuery.builder().query(query).build())
               .collect(Collectors.toList());
 
       evaluationQueryRepository.saveAll(evaluationQueries);

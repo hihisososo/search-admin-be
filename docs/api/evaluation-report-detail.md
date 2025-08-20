@@ -1,89 +1,135 @@
-### 검색평가 리포트 상세 조회 API
+# 평가 리포트 상세 조회 API
 
-- 메서드/경로: GET `/api/v1/evaluation/reports/{reportId}`
-- 설명: 쿼리별 nDCG와 정답셋 vs 실제 검색결과 비교 데이터를 제공
-- 경로 변수
-  - `reportId`(number): 리포트 ID
-- 상태 코드
-  - 200 OK, 404 Not Found
+## GET /api/v1/evaluation/reports/{reportId}
 
-#### 응답 스키마 요약 (지표 확장 반영)
-- 루트
-  - `id`(number), `reportName`(string), `totalQueries`(number)
-  - `averageNdcg`(number), `ndcgAt10`(number), `ndcgAt20`(number), `mrrAt10`(number), `recallAt50`(number), `map`(number), `recallAt300`(number)
-  - `totalRelevantDocuments`(number), `totalRetrievedDocuments`(number), `totalCorrectDocuments`(number)
-  - `createdAt`(string, ISO-8601)
-  - `queryDetails`(QueryDetail[])
+평가 리포트의 상세 정보를 조회합니다.
 
-- QueryDetail
-  - 기존: `query`(string), `ndcg`(number), `relevantCount`(number), `retrievedCount`(number), `correctCount`(number)
-  - 지표(추가): `ndcgAt10`(number), `ndcgAt20`(number), `mrrAt10`(number), `recallAt50`(number), `map`(number), `recallAt300`(number)
-  - 신규:
-    - `retrievedDocuments`(RetrievedDocument[]): 실제 검색 결과 순서 유지(1-base rank)
-    - `groundTruthDocuments`(GroundTruthDocument[]): 정답셋은 순서 없음 → 점수(`score`) 내림차순으로 정렬해 제공
+### Request
 
-- RetrievedDocument
-  - `rank`(number), `productId`(string), `productName`(string|null), `productSpecs`(string|null)
-  - `gain`(number): 2/1/0, `isRelevant`(boolean): `gain > 0`
-  - 규칙: 2=name에 모든 키워드 포함, 1=name엔 모두 없고 specs 일부 포함, 0=무관
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|-----|------|
+| reportId | number | Y | 리포트 ID (Path Parameter) |
 
-- GroundTruthDocument
-  - `productId`(string), `productName`(string|null), `productSpecs`(string|null), `score`(number: 2/1/0/−1/−100)
-  - 정렬: `score` 내림차순(동점 임의), nDCG/정답집계에는 `score > 0`만 포함
+### Response
 
-- DocumentInfo
-  - `productId`(string), `productName`(string|null), `productSpecs`(string|null)
-
-#### 응답 예시(축약)
 ```json
 {
-  "id": 12,
-  "reportName": "2025-08-15 DEV 검색평가",
-  "totalQueries": 120,
-  "averageNdcg": 0.734,
-  "ndcgAt10": 0.702,
-  "ndcgAt20": 0.721,
-  "mrrAt10": 0.612,
-  "recallAt50": 0.462,
-  "map": 0.398,
-  "recallAt300": 0.812,
-  "totalRelevantDocuments": 2350,
-  "totalRetrievedDocuments": 3000,
-  "totalCorrectDocuments": 1820,
-  "createdAt": "2025-08-15T02:12:34",
+  "id": 1,
+  "reportName": "2024년 1월 평가",
+  "totalQueries": 50,
+  "averageRecall300": 0.725,
+  "averageNdcg20": 0.812,
+  "createdAt": "2024-01-15T10:30:00",
   "queryDetails": [
     {
-      "query": "게이밍 노트북 rtx4060",
-      "ndcg": 0.812,
-      "ndcgAt10": 0.790,
-      "ndcgAt20": 0.804,
-      "mrrAt10": 1.0,
-      "recallAt50": 0.56,
-      "map": 0.47,
-      "recallAt300": 0.93,
-      "relevantCount": 85,
-      "retrievedCount": 50,
-      "correctCount": 39,
-      "retrievedDocuments": [
-        { "rank": 1, "productId": "P1001", "productName": "ABC 15 게이밍 노트북", "productSpecs": "RTX4060 / 16GB", "gain": 2, "isRelevant": true }
-      ],
-      "groundTruthDocuments": [
-        { "productId": "P1001", "productName": "ABC 15 게이밍 노트북", "productSpecs": "RTX4060 / 16GB", "score": 2 }
-      ],
+      "query": "노트북",
+      "relevantCount": 25,
+      "retrievedCount": 300,
+      "correctCount": 18,
+      "ndcgAt20": 0.856,
+      "recallAt300": 0.720,
       "missingDocuments": [
-        { "productId": "P9000", "productName": "QWE 15 게이밍 노트북", "productSpecs": "RTX4060 / 32GB" }
+        {
+          "productId": "P12345",
+          "productName": "삼성 갤럭시북3",
+          "productSpecs": "15.6인치, i7, 16GB"
+        }
       ],
       "wrongDocuments": [
-        { "productId": "P1002", "productName": "XYZ 15 슬림", "productSpecs": "RTX3050 / 8GB" }
+        {
+          "productId": "P67890",
+          "productName": "노트북 가방",
+          "productSpecs": "15인치용"
+        }
       ]
     }
   ]
 }
 ```
 
-#### FE 표시 팁
-- retrievedDocuments: 순위/이름/스펙 + 뱃지(gain 2/1/0)로 그대로 표시
-- groundTruthDocuments: `score` 내림차순으로 표시(정답셋 자체 순서는 없음)
-- missing/wrong: 하이라이트 처리
+| 필드 | 타입 | 설명 |
+|-----|------|------|
+| id | number | 리포트 ID |
+| reportName | string | 평가 리포트 이름 |
+| totalQueries | number | 평가한 총 쿼리 수 |
+| averageRecall300 | number | 전체 평균 Recall@300 (0~1) |
+| averageNdcg20 | number | 전체 평균 nDCG@20 (0~1) |
+| createdAt | string | 평가 실행 시간 |
+| queryDetails | array | 쿼리별 평가 상세 정보 |
+| queryDetails.query | string | 평가 쿼리 |
+| queryDetails.relevantCount | number | 정답 문서 수 |
+| queryDetails.retrievedCount | number | 검색된 문서 수 |
+| queryDetails.correctCount | number | 정답 중 검색된 문서 수 |
+| queryDetails.ndcgAt20 | number | 해당 쿼리의 nDCG@20 |
+| queryDetails.recallAt300 | number | 해당 쿼리의 Recall@300 |
+| queryDetails.missingDocuments | array | 검색되지 않은 정답 문서 목록 |
+| queryDetails.wrongDocuments | array | 잘못 검색된 문서 목록 |
 
+### Example
 
+**Request:**
+```bash
+curl -X GET http://localhost:8080/api/v1/evaluation/reports/42
+```
+
+**Response:**
+```json
+{
+  "id": 42,
+  "reportName": "2024년 1월 검색 품질 평가",
+  "totalQueries": 100,
+  "averageRecall300": 0.683,
+  "averageNdcg20": 0.751,
+  "createdAt": "2024-01-15T14:25:30",
+  "queryDetails": [
+    {
+      "query": "아이폰15",
+      "relevantCount": 8,
+      "retrievedCount": 300,
+      "correctCount": 7,
+      "ndcgAt20": 0.923,
+      "recallAt300": 0.875,
+      "missingDocuments": [
+        {
+          "productId": "P99887",
+          "productName": "iPhone 15 Pro Max 512GB",
+          "productSpecs": "6.7인치, A17 Pro, 512GB"
+        }
+      ],
+      "wrongDocuments": []
+    },
+    {
+      "query": "무선 이어폰",
+      "relevantCount": 45,
+      "retrievedCount": 300,
+      "correctCount": 28,
+      "ndcgAt20": 0.612,
+      "recallAt300": 0.622,
+      "missingDocuments": [
+        {
+          "productId": "P33445",
+          "productName": "소니 WF-1000XM5",
+          "productSpecs": "노이즈캔슬링, 8시간 재생"
+        },
+        {
+          "productId": "P33446",
+          "productName": "보스 QuietComfort Earbuds",
+          "productSpecs": "IPX4 방수, 6시간 재생"
+        }
+      ],
+      "wrongDocuments": [
+        {
+          "productId": "P11223",
+          "productName": "이어폰 케이스",
+          "productSpecs": "실리콘 재질"
+        },
+        {
+          "productId": "P11224",
+          "productName": "이어폰 청소 도구",
+          "productSpecs": "브러시 포함"
+        }
+      ]
+    }
+  ]
+}
+```

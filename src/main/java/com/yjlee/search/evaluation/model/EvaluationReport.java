@@ -26,20 +26,14 @@ public class EvaluationReport {
   @Column(nullable = false)
   private Integer totalQueries;
 
-  @Column(nullable = false)
-  private Double averageNdcg;
+  @Column(nullable = false, name = "average_ndcg20")
+  private Double averageNdcg20;
+
+  @Column(nullable = false, name = "average_recall300")
+  private Double averageRecall300;
 
   @Column(columnDefinition = "TEXT")
   private String detailedResults;
-
-  @Column(nullable = false)
-  private Integer totalRelevantDocuments;
-
-  @Column(nullable = false)
-  private Integer totalRetrievedDocuments;
-
-  @Column(nullable = false)
-  private Integer totalCorrectDocuments;
 
   @CreatedDate
   @Column(nullable = false, updatable = false)

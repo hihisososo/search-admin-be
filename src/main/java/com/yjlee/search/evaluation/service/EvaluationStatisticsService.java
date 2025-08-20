@@ -7,6 +7,7 @@ import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE1_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE2_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE_MINUS1_COUNT;
+import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_UNEVALUATED_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_UPDATED_AT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_DIRECTION_DESC;
 
@@ -48,7 +49,8 @@ public class EvaluationStatisticsService {
                         p.getScore2Count(),
                         p.getScore1Count(),
                         p.getScore0Count(),
-                        p.getScoreMinus1Count()))
+                        p.getScoreMinus1Count(),
+                        p.getUnevaluatedCount()))
             .collect(Collectors.toMap(QueryStatsDto::getQuery, stats -> stats));
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
@@ -74,6 +76,7 @@ public class EvaluationStatisticsService {
                       .score1Count(stats != null ? stats.getScore1Count().intValue() : 0)
                       .score0Count(stats != null ? stats.getScore0Count().intValue() : 0)
                       .scoreMinus1Count(stats != null ? stats.getScoreMinus1Count().intValue() : 0)
+                      .unevaluatedCount(stats != null ? stats.getUnevaluatedCount().intValue() : 0)
                       .createdAt(query.getCreatedAt())
                       .updatedAt(query.getUpdatedAt())
                       .build();
@@ -111,6 +114,8 @@ public class EvaluationStatisticsService {
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScore0Count);
       case SORT_BY_SCORE_MINUS1_COUNT ->
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScoreMinus1Count);
+      case SORT_BY_UNEVALUATED_COUNT ->
+          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getUnevaluatedCount);
       case SORT_BY_CREATED_AT ->
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getCreatedAt);
       case SORT_BY_UPDATED_AT ->

@@ -175,4 +175,10 @@ public class EvaluationCandidateService {
     log.info("🗑️ 후보군 일괄 삭제: {}개", mappingIds.size());
     queryProductMappingRepository.deleteAllById(mappingIds);
   }
+
+  @Transactional
+  public void deleteProductMapping(Long mappingId) {
+    log.info("🗑️ 후보군 삭제: ID={}", mappingId);
+    queryProductMappingRepository.deleteById(mappingId);
+  }
 }

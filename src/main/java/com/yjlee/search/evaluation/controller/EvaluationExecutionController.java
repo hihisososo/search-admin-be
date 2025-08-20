@@ -4,8 +4,6 @@ import com.yjlee.search.evaluation.dto.AsyncTaskListResponse;
 import com.yjlee.search.evaluation.dto.AsyncTaskResponse;
 import com.yjlee.search.evaluation.dto.AsyncTaskStartResponse;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
-import com.yjlee.search.evaluation.dto.EvaluationExecuteRequest;
-import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportSummaryResponse;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
@@ -69,15 +67,6 @@ public class EvaluationExecutionController {
     return ResponseEntity.ok(runningTasks);
   }
 
-  @PostMapping("/evaluate")
-  @Operation(summary = "평가 실행 (동기)")
-  public ResponseEntity<EvaluationExecuteResponse> executeEvaluation(
-      @Valid @RequestBody EvaluationExecuteRequest request) {
-    EvaluationExecuteResponse response =
-        evaluationReportService.executeEvaluation(request.getReportName());
-    return ResponseEntity.ok(response);
-  }
-
   @PostMapping("/evaluate-async")
   @Operation(summary = "평가 실행 (비동기)")
   public ResponseEntity<AsyncTaskStartResponse> executeEvaluationAsync(
@@ -103,10 +92,8 @@ public class EvaluationExecutionController {
                         .id(r.getId())
                         .reportName(r.getReportName())
                         .totalQueries(r.getTotalQueries())
-                        .averageNdcg(r.getAverageNdcg())
-                        .totalRelevantDocuments(r.getTotalRelevantDocuments())
-                        .totalRetrievedDocuments(r.getTotalRetrievedDocuments())
-                        .totalCorrectDocuments(r.getTotalCorrectDocuments())
+                        .averageNdcg20(r.getAverageNdcg20())
+                        .averageRecall300(r.getAverageRecall300())
                         .createdAt(r.getCreatedAt())
                         .build())
             .toList();

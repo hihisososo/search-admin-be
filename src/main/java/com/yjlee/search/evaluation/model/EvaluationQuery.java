@@ -40,13 +40,6 @@ public class EvaluationQuery {
   @Column(nullable = false, unique = true, length = 500)
   String query;
 
-  @Column(nullable = false)
-  Integer count;
-
-  @Column(nullable = false)
-  @Builder.Default
-  Boolean reviewed = false;
-
   @OneToMany(
       mappedBy = "evaluationQuery",
       cascade = CascadeType.ALL,
@@ -62,8 +55,4 @@ public class EvaluationQuery {
   @LastModifiedDate
   @Column(nullable = false)
   LocalDateTime updatedAt;
-
-  public void incrementCount() {
-    this.count++;
-  }
 }

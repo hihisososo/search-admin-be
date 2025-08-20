@@ -19,6 +19,7 @@ public final class EvaluationConstants {
   public static final String SORT_BY_SCORE1_COUNT = "score1Count";
   public static final String SORT_BY_SCORE0_COUNT = "score0Count";
   public static final String SORT_BY_SCORE_MINUS1_COUNT = "scoreMinus1Count";
+  public static final String SORT_BY_UNEVALUATED_COUNT = "unevaluatedCount";
   public static final String SORT_BY_CREATED_AT = "createdAt";
   public static final String SORT_BY_UPDATED_AT = "updatedAt";
 
