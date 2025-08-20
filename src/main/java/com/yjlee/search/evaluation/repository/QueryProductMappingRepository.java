@@ -2,7 +2,6 @@ package com.yjlee.search.evaluation.repository;
 
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
-import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.projection.QueryStatsProjection;
 import java.util.List;
 import java.util.Optional;
@@ -19,11 +18,11 @@ public interface QueryProductMappingRepository extends JpaRepository<QueryProduc
   Page<QueryProductMapping> findByEvaluationQuery(
       EvaluationQuery evaluationQuery, Pageable pageable);
 
-  List<QueryProductMapping> findByEvaluationQueryAndRelevanceStatus(
-      EvaluationQuery evaluationQuery, RelevanceStatus relevanceStatus);
-
   Optional<QueryProductMapping> findByEvaluationQueryAndProductId(
       EvaluationQuery evaluationQuery, String productId);
+
+  List<QueryProductMapping> findByEvaluationQueryAndRelevanceScoreGreaterThanEqual(
+      EvaluationQuery evaluationQuery, int minScore);
 
   @Query(
       """

@@ -8,7 +8,6 @@ import co.elastic.clients.elasticsearch.core.GetResponse;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
-import com.yjlee.search.evaluation.model.RelevanceStatus;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
@@ -92,7 +91,6 @@ public class EvaluationCandidateService {
               .productId(productId.trim())
               .productName(product != null ? product.getNameRaw() : null)
               .productSpecs(product != null ? product.getSpecsRaw() : null)
-              .relevanceStatus(RelevanceStatus.UNSPECIFIED) // 미지정으로 시작
               .evaluationSource(EVALUATION_SOURCE_USER)
               .build();
       return queryProductMappingRepository.save(mapping);
@@ -101,8 +99,9 @@ public class EvaluationCandidateService {
 
   @Transactional
   public QueryProductMapping updateProductMapping(
-      String query, String productId, RelevanceStatus relevanceStatus, String reason) {
-    log.info("✏️ 후보군 수정: 쿼리={}, 상품ID={}, 관련성={}", query, productId, relevanceStatus);
+      String query, String productId, Integer relevanceScore, String reason, Double confidence) {
+    log.info(
+        "✏️ 후보군 수정: 쿼리={}, 상품ID={}, 점수={}, 신뢰도={}", query, productId, relevanceScore, confidence);
     Optional<EvaluationQuery> evaluationQueryOpt = evaluationQueryRepository.findByQuery(query);
     if (evaluationQueryOpt.isEmpty()) {
       throw new IllegalArgumentException("평가 쿼리를 찾을 수 없습니다: " + query);
@@ -121,9 +120,10 @@ public class EvaluationCandidateService {
               .productId(productId)
               .productName(mapping.getProductName())
               .productSpecs(mapping.getProductSpecs())
-              .relevanceStatus(relevanceStatus)
+              .relevanceScore(relevanceScore)
               .evaluationReason(reason)
               .evaluationSource(EVALUATION_SOURCE_USER)
+              .confidence(confidence != null ? confidence : 1.0)
               .build();
       return queryProductMappingRepository.save(updatedMapping);
     } else {
@@ -134,9 +134,10 @@ public class EvaluationCandidateService {
               .productId(productId.trim())
               .productName(product != null ? product.getNameRaw() : null)
               .productSpecs(product != null ? product.getSpecsRaw() : null)
-              .relevanceStatus(relevanceStatus)
+              .relevanceScore(relevanceScore)
               .evaluationReason(reason)
               .evaluationSource(EVALUATION_SOURCE_USER)
+              .confidence(confidence != null ? confidence : 1.0)
               .build();
       return queryProductMappingRepository.save(mapping);
     }
@@ -144,8 +145,8 @@ public class EvaluationCandidateService {
 
   @Transactional
   public QueryProductMapping updateProductMappingById(
-      Long mappingId, RelevanceStatus relevanceStatus, String reason) {
-    log.info("✏️ 후보군 ID로 수정: ID={}, 관련성={}", mappingId, relevanceStatus);
+      Long mappingId, Integer relevanceScore, String reason, Double confidence) {
+    log.info("✏️ 후보군 ID로 수정: ID={}, 점수={}, 신뢰도={}", mappingId, relevanceScore, confidence);
     Optional<QueryProductMapping> existingMapping =
         queryProductMappingRepository.findById(mappingId);
 
@@ -158,9 +159,10 @@ public class EvaluationCandidateService {
               .productId(mapping.getProductId())
               .productName(mapping.getProductName())
               .productSpecs(mapping.getProductSpecs())
-              .relevanceStatus(relevanceStatus)
+              .relevanceScore(relevanceScore)
               .evaluationReason(reason)
               .evaluationSource(EVALUATION_SOURCE_USER)
+              .confidence(confidence != null ? confidence : 1.0)
               .build();
       return queryProductMappingRepository.save(updatedMapping);
     } else {

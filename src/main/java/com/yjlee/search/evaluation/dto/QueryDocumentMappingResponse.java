@@ -1,6 +1,5 @@
 package com.yjlee.search.evaluation.dto;
 
-import com.yjlee.search.evaluation.model.RelevanceStatus;
 import java.util.List;
 import lombok.*;
 
@@ -30,7 +29,8 @@ public class QueryDocumentMappingResponse {
     private String productId;
     private String productName;
     private String specs;
-    private RelevanceStatus relevanceStatus;
+    private Integer score;
     private String evaluationReason;
+    private Double confidence;
   }
 }

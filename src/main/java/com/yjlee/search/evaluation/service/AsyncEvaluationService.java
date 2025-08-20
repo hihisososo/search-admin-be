@@ -260,13 +260,9 @@ public class AsyncEvaluationService {
               .reportName(request.getReportName())
               .reportId(response.getReportId())
               .totalQueries(response.getTotalQueries())
-              .averageNdcg(response.getAverageNdcg())
-              .averageNdcgAt10(response.getNdcgAt10())
-              .averageNdcgAt20(response.getNdcgAt20())
-              .averageMrrAt10(response.getMrrAt10())
-              .averageRecallAt50(response.getRecallAt50())
-              .averageRecallAt300(response.getRecallAt300())
-              .map(response.getMap())
+              .recall(response.getRecall())
+              .precision(response.getPrecision())
+              .ndcg(response.getNdcg())
               .build();
 
       asyncTaskService.completeTask(taskId, result);
@@ -321,12 +317,8 @@ public class AsyncEvaluationService {
     private String reportName;
     private Long reportId;
     private int totalQueries;
-    private Double averageNdcg;
-    private Double averageNdcgAt10;
-    private Double averageNdcgAt20;
-    private Double averageMrrAt10;
-    private Double averageRecallAt50;
-    private Double averageRecallAt300;
-    private Double map;
+    private Double recall;
+    private Double precision;
+    private Double ndcg;
   }
 }
