@@ -41,7 +41,7 @@ openai:
     embedding: https://api.openai.com/v1/embeddings
     connect-timeout-ms: 8000
     read-timeout-ms: 45000
-    max-retries: 3
+    max-retries: 10
     initial-backoff-ms: 1000
   
 logging:
@@ -50,7 +50,8 @@ logging:
 
 evaluation:
   llm:
-    batch-size: 20
+    batch-size: 10
+    worker-threads: 10
 generation:
   query:
     batch-size: 20

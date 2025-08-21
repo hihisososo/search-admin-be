@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -14,9 +15,8 @@ import com.yjlee.search.dictionary.typo.recommendation.dto.TypoCorrectionRecomme
 import com.yjlee.search.dictionary.typo.recommendation.dto.TypoCorrectionRecommendationRequest;
 import com.yjlee.search.dictionary.typo.recommendation.model.TypoCorrectionRecommendation;
 import com.yjlee.search.dictionary.typo.recommendation.repository.TypoCorrectionRecommendationRepository;
-import com.yjlee.search.evaluation.service.LLMService;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -34,7 +34,7 @@ public class TypoCorrectionRecommendationService {
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final TypoCorrectionRecommendationRepository recommendationRepository;
 
-  private final LLMService llmService;
+  private final LLMQueueManager llmQueueManager;
   private final PromptTemplateLoader promptTemplateLoader;
 
   @Transactional
@@ -101,95 +101,84 @@ public class TypoCorrectionRecommendationService {
       final int totalBatches = (productNames.size() + nameBatchSize - 1) / nameBatchSize;
       AtomicInteger processedBatches = new AtomicInteger(0);
 
-      // 동시성 완화: 타임아웃 빈도 줄이기 위해 병렬도도 완만하게 적용
-      ExecutorService executor = Executors.newFixedThreadPool(4);
-      List<Future<?>> futures = new ArrayList<>();
+      // 큐 기반 비동기 처리
+      List<CompletableFuture<List<PairCandidate>>> futures = new ArrayList<>();
 
       for (int i = 0; i < productNames.size(); i += nameBatchSize) {
         final List<String> nameBatch =
             productNames.subList(i, Math.min(i + nameBatchSize, productNames.size()));
-        futures.add(
-            executor.submit(
-                () -> {
-                  if (stop.get()) return;
-                  try {
-                    StringBuilder nb = new StringBuilder();
-                    nameBatch.forEach(n -> nb.append("- ").append(n).append("\n"));
-                    String prompt = template.replace("{PRODUCT_NAMES}", nb.toString().trim());
-                    String llmResp = llmService.callLLMAPI(prompt, 0.0);
-                    List<PairCandidate> candidates = parseCandidatesStrict(llmResp);
 
-                    for (PairCandidate c : candidates) {
-                      if (stop.get()) break;
-                      if (c.pair == null || c.pair.isBlank()) continue;
-                      String[] parts = c.pair.split(",", 2);
-                      if (parts.length != 2) continue;
-                      String typo = parts[0].trim();
-                      String corr = parts[1].trim();
-                      if (typo.isEmpty() || corr.isEmpty()) continue;
-                      if (typo.equalsIgnoreCase(corr)) continue;
+        StringBuilder nb = new StringBuilder();
+        nameBatch.forEach(n -> nb.append("- ").append(n).append("\n"));
+        String prompt = template.replace("{PRODUCT_NAMES}", nb.toString().trim());
 
-                      String key = typo + "," + corr;
-                      Optional<TypoCorrectionRecommendation> existing =
-                          recommendationRepository.findByPair(key);
-                      if (existing.isPresent()) {
-                        TypoCorrectionRecommendation r = existing.get();
-                        r.setRecommendationCount(r.getRecommendationCount() + 1);
-                        recommendationRepository.save(r);
-                      } else {
-                        if (desired != null && desired > 0 && createdTotal.get() >= desired) {
-                          stop.set(true);
-                          break;
-                        }
-                        TypoCorrectionRecommendation r =
-                            TypoCorrectionRecommendation.builder()
-                                .pair(key)
-                                .reason(c.reason)
-                                .build();
-                        r.setRecommendationCount(1);
-                        recommendationRepository.save(r);
-                        int cur = createdTotal.incrementAndGet();
-                        if (cur % 50 == 0 || (desired != null && desired > 0 && cur >= desired)) {
-                          if (desired != null && desired > 0) {
-                            log.info("오타 추천 누적 생성: {}개/{}개", cur, desired);
-                          } else {
-                            log.info("오타 추천 누적 생성: {}개", cur);
-                          }
-                        }
-                        if (desired != null && desired > 0 && cur >= desired) {
-                          stop.set(true);
-                          break;
-                        }
-                      }
-                    }
-                  } catch (Exception e) {
-                    log.warn("오타 교정어 배치 처리 실패 - 계속 진행합니다", e);
-                  } finally {
-                    int done = processedBatches.incrementAndGet();
-                    int made = createdTotal.get();
-                    if (desired != null && desired > 0) {
-                      log.info(
-                          "오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개/목표 {}개",
-                          done,
-                          totalBatches,
-                          made,
-                          desired);
-                    } else {
-                      log.info("오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개", done, totalBatches, made);
-                    }
-                  }
-                }));
-        if (stop.get()) break;
+        CompletableFuture<List<PairCandidate>> future =
+            llmQueueManager.submitTask(
+                prompt,
+                0.0,
+                response -> parseCandidatesStrict(response),
+                String.format("타이포 추천 생성 (배치 %d개 상품)", nameBatch.size()));
+        futures.add(future);
       }
 
-      for (Future<?> f : futures) {
+      // 모든 비동기 작업 처리
+      for (CompletableFuture<List<PairCandidate>> future : futures) {
+        if (stop.get()) break;
         try {
-          f.get();
+          List<PairCandidate> candidates = future.join();
+
+          for (PairCandidate c : candidates) {
+            if (stop.get()) break;
+            if (c.pair == null || c.pair.isBlank()) continue;
+            String[] parts = c.pair.split(",", 2);
+            if (parts.length != 2) continue;
+            String typo = parts[0].trim();
+            String corr = parts[1].trim();
+            if (typo.isEmpty() || corr.isEmpty()) continue;
+            if (typo.equalsIgnoreCase(corr)) continue;
+
+            String key = typo + "," + corr;
+            Optional<TypoCorrectionRecommendation> existing =
+                recommendationRepository.findByPair(key);
+            if (existing.isPresent()) {
+              TypoCorrectionRecommendation r = existing.get();
+              r.setRecommendationCount(r.getRecommendationCount() + 1);
+              recommendationRepository.save(r);
+            } else {
+              if (desired != null && desired > 0 && createdTotal.get() >= desired) {
+                stop.set(true);
+                break;
+              }
+              TypoCorrectionRecommendation r =
+                  TypoCorrectionRecommendation.builder().pair(key).reason(c.reason).build();
+              r.setRecommendationCount(1);
+              recommendationRepository.save(r);
+              int cur = createdTotal.incrementAndGet();
+              if (cur % 50 == 0 || (desired != null && desired > 0 && cur >= desired)) {
+                if (desired != null && desired > 0) {
+                  log.info("오타 추천 누적 생성: {}개/{}개", cur, desired);
+                } else {
+                  log.info("오타 추천 누적 생성: {}개", cur);
+                }
+              }
+              if (desired != null && desired > 0 && cur >= desired) {
+                stop.set(true);
+                break;
+              }
+            }
+          }
         } catch (Exception e) {
-          log.warn("추천 작업 대기 중 오류 - 계속 진행합니다", e);
+          log.warn("오타 교정어 배치 처리 실패 - 계속 진행합니다", e);
+        } finally {
+          int done = processedBatches.incrementAndGet();
+          int made = createdTotal.get();
+          if (desired != null && desired > 0) {
+            log.info("오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개/목표 {}개", done, totalBatches, made, desired);
+          } else {
+            log.info("오타 추천 진행률: 배치 {}/{} 처리 완료, 생성 {}개", done, totalBatches, made);
+          }
         }
       }
-      executor.shutdownNow();
 
     } catch (Exception e) {
       log.error("오타 교정어 추천 생성 실패", e);

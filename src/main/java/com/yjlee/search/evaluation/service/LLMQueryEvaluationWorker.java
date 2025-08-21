@@ -11,6 +11,7 @@ import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
@@ -21,14 +22,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /** LLM 평가를 위한 별도 Worker 서비스 Spring AOP 문제 해결을 위해 분리된 서비스 (순환 의존성 방지) */
@@ -37,169 +33,15 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class LLMQueryEvaluationWorker {
 
-  private final LLMService llmService;
+  private final LLMQueueManager llmQueueManager;
   private final ElasticsearchClient elasticsearchClient;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final ObjectMapper objectMapper;
   private final PromptTemplateLoader promptTemplateLoader;
 
-  @Value("${evaluation.llm.batch-size:20}")
-  private int defaultBatchSize;
-
-  /** 개별 쿼리를 비동기로 평가 (실제 멀티 쓰레딩) */
-  @Async("llmTaskExecutor")
-  public CompletableFuture<Void> evaluateQueryAsync(String query) {
-    try {
-      log.info("🧵 쿼리 '{}' 평가 시작 - 스레드: {}", query, Thread.currentThread().getName());
-
-      // 실제 평가 로직 (동일한 로직이지만 Worker에서 실행)
-      evaluateQueryCandidates(query);
-
-      log.info("✅ 쿼리 '{}' 평가 완료 - 스레드: {}", query, Thread.currentThread().getName());
-      return CompletableFuture.completedFuture(null);
-    } catch (Exception e) {
-      log.error("⚠️ 쿼리 '{}'의 후보군 평가 중 오류 발생 - 스레드: {}", query, Thread.currentThread().getName(), e);
-      CompletableFuture<Void> failed = new CompletableFuture<>();
-      failed.completeExceptionally(e);
-      return failed;
-    }
-  }
-
-  /** 단일 쿼리의 후보군 평가 (실제 LLM 호출) */
-  private void evaluateQueryCandidates(String query) {
-    log.info("쿼리 '{}'의 후보군 벌크 평가 시작", query);
-
-    Optional<EvaluationQuery> evaluationQueryOpt = evaluationQueryRepository.findByQuery(query);
-    if (evaluationQueryOpt.isEmpty()) {
-      log.warn("⚠️ 평가 쿼리를 찾을 수 없습니다: {}", query);
-      return;
-    }
-
-    EvaluationQuery evaluationQuery = evaluationQueryOpt.get();
-    List<QueryProductMapping> mappings =
-        queryProductMappingRepository.findByEvaluationQuery(evaluationQuery);
-    if (mappings.isEmpty()) {
-      log.warn("⚠️ 쿼리 '{}'에 대한 후보군이 없습니다. 먼저 후보군을 생성해주세요.", query);
-      return;
-    }
-
-    log.info("쿼리 '{}': {}개 후보군 평가 시작", query, mappings.size());
-
-    // 실제 LLM 평가 실행 (LLMCandidateEvaluationService 로직을 직접 구현)
-    evaluateWithLLM(query, evaluationQuery, mappings);
-  }
-
-  /** LLM을 사용한 실제 평가 로직 */
-  private void evaluateWithLLM(
-      String query, EvaluationQuery evaluationQuery, List<QueryProductMapping> mappings) {
-    // 1. 모든 상품 정보를 ES에서 벌크 조회
-    List<String> productIds = mappings.stream().map(QueryProductMapping::getProductId).toList();
-    Map<String, ProductDocument> productMap = getProductsBulk(productIds);
-    log.info("🔍 ES 벌크 조회 완료: {}/{}개 상품", productMap.size(), productIds.size());
-
-    // 2. 유효한 매핑만 필터링
-    List<ProductDocument> products = new ArrayList<>();
-    List<QueryProductMapping> validMappings = new ArrayList<>();
-
-    for (QueryProductMapping mapping : mappings) {
-      ProductDocument product = productMap.get(mapping.getProductId());
-      if (product != null) {
-        products.add(product);
-        validMappings.add(mapping);
-      } else {
-        log.warn("⚠️ 상품을 찾을 수 없습니다: {}", mapping.getProductId());
-      }
-    }
-
-    if (products.isEmpty()) {
-      log.warn("⚠️ 쿼리 '{}'에 대한 유효한 상품이 없습니다", query);
-      return;
-    }
-
-    // 3. 배치 병렬 처리로 변경
-    int batchSize = defaultBatchSize;
-    List<CompletableFuture<List<QueryProductMapping>>> futures = new ArrayList<>();
-    ExecutorService executor = Executors.newFixedThreadPool(5); // 동시 5개 배치
-
-    try {
-      for (int i = 0; i < products.size(); i += batchSize) {
-        final int startIdx = i;
-        final int endIdx = Math.min(i + batchSize, products.size());
-        final List<ProductDocument> batchProducts = products.subList(startIdx, endIdx);
-        final List<QueryProductMapping> batchMappings = validMappings.subList(startIdx, endIdx);
-
-        // 각 배치를 비동기로 처리
-        CompletableFuture<List<QueryProductMapping>> future =
-            CompletableFuture.supplyAsync(
-                () -> {
-                  try {
-                    log.info("🔄 배치 처리 시작: {}-{}/{}", startIdx + 1, endIdx, products.size());
-
-                    // 배치별 프롬프트 생성
-                    String batchPrompt = buildBulkEvaluationPrompt(query, batchProducts);
-
-                    // 배치별 LLM 호출
-                    log.info("🤖 LLM API 호출 시작 (배치 크기: {})", batchProducts.size());
-                    String batchResponse = llmService.callLLMAPI(batchPrompt, null);
-
-                    if (batchResponse == null || batchResponse.trim().isEmpty()) {
-                      log.warn("⚠️ LLM API 응답이 비어있습니다");
-                      throw new RuntimeException("LLM API 응답이 비어있습니다");
-                    }
-
-                    log.info("✅ LLM API 응답 수신 (길이: {}자)", batchResponse.length());
-
-                    // 배치별 응답 파싱
-                    List<QueryProductMapping> batchResults =
-                        parseBulkEvaluationResponse(query, batchMappings, batchResponse);
-
-                    log.info(
-                        "✅ 배치 처리 완료: {}-{}/{} (성공: {}개)",
-                        startIdx + 1,
-                        endIdx,
-                        products.size(),
-                        batchResults.size());
-
-                    return batchResults;
-                  } catch (Exception e) {
-                    log.warn("⚠️ 배치 {}-{} 처리 실패 - 해당 배치는 미평가로 유지", startIdx + 1, endIdx, e);
-                    return new ArrayList<>();
-                  }
-                },
-                executor);
-
-        futures.add(future);
-      }
-
-      // 모든 배치 완료 대기
-      CompletableFuture<Void> allOf =
-          CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-      allOf.join();
-
-      // 결과 수집
-      List<QueryProductMapping> updatedMappings = new ArrayList<>();
-      for (CompletableFuture<List<QueryProductMapping>> future : futures) {
-        try {
-          updatedMappings.addAll(future.get());
-        } catch (Exception e) {
-          log.warn("⚠️ 배치 결과 수집 중 오류", e);
-        }
-      }
-
-      // 4. 일괄 저장
-      if (!updatedMappings.isEmpty()) {
-        queryProductMappingRepository.saveAll(updatedMappings);
-        log.info("✅ 쿼리 '{}'의 후보군 벌크 평가 완료: {}개 상품", query, updatedMappings.size());
-      }
-
-    } finally {
-      executor.shutdown();
-    }
-  }
-
   /** ES에서 여러 상품을 한 번에 조회 (벌크 조회) */
-  private Map<String, ProductDocument> getProductsBulk(List<String> productIds) {
+  public Map<String, ProductDocument> getProductsBulk(List<String> productIds) {
     if (productIds.isEmpty()) {
       return new HashMap<>();
     }
@@ -271,32 +113,6 @@ public class LLMQueryEvaluationWorker {
     }
   }
 
-  private String buildBulkEvaluationPrompt(String query, List<ProductDocument> products) {
-    // 상품 리스트 문자열 생성
-    StringBuilder productListBuilder = new StringBuilder();
-    for (int i = 0; i < products.size(); i++) {
-      ProductDocument product = products.get(i);
-      productListBuilder.append("상품 ").append(i + 1).append(":\n");
-      productListBuilder.append("- ID: ").append(product.getId()).append("\n");
-      productListBuilder
-          .append("- 상품명: ")
-          .append(product.getNameRaw() != null ? product.getNameRaw() : "N/A")
-          .append("\n");
-      productListBuilder
-          .append("- 스펙: ")
-          .append(product.getSpecsRaw() != null ? product.getSpecsRaw() : "N/A")
-          .append("\n\n");
-    }
-
-    // 템플릿 변수 설정
-    Map<String, String> variables = new HashMap<>();
-    variables.put("QUERY", query);
-    variables.put("PRODUCT_COUNT", String.valueOf(products.size()));
-    variables.put("PRODUCT_LIST", productListBuilder.toString());
-
-    return promptTemplateLoader.loadTemplate("bulk-product-relevance-evaluation.txt", variables);
-  }
-
   private List<QueryProductMapping> parseBulkEvaluationResponse(
       String query, List<QueryProductMapping> mappings, String response) {
     List<QueryProductMapping> updatedMappings = new ArrayList<>();
@@ -366,33 +182,6 @@ public class LLMQueryEvaluationWorker {
     return updatedMappings;
   }
 
-  private List<QueryProductMapping> createFailedMappings(
-      String query, List<QueryProductMapping> mappings, String errorMessage) {
-    List<QueryProductMapping> failedMappings = new ArrayList<>();
-
-    for (QueryProductMapping mapping : mappings) {
-      QueryProductMapping failedMapping = createFailedMapping(mapping, errorMessage);
-      failedMappings.add(failedMapping);
-    }
-
-    return failedMappings;
-  }
-
-  private QueryProductMapping createFailedMapping(
-      QueryProductMapping mapping, String errorMessage) {
-    return QueryProductMapping.builder()
-        .id(mapping.getId())
-        .evaluationQuery(mapping.getEvaluationQuery())
-        .productId(mapping.getProductId())
-        .productName(mapping.getProductName())
-        .productSpecs(mapping.getProductSpecs())
-        .relevanceScore(-1) // 평가 실패 시 사람 확인 필요
-        .evaluationReason("평가 실패: " + errorMessage + " (신뢰도: 0.00)")
-        .evaluationSource(EVALUATION_SOURCE_LLM)
-        .confidence(0.0)
-        .build();
-  }
-
   private String cleanJsonResponse(String response) {
     if (response == null || response.trim().isEmpty()) {
       return "{}";
@@ -412,5 +201,90 @@ public class LLMQueryEvaluationWorker {
     }
 
     return cleaned.trim();
+  }
+
+  /** 단일 배치 처리 (큐 시스템에서 호출) */
+  public void processSingleBatch(
+      String query,
+      List<ProductDocument> products,
+      List<QueryProductMapping> mappings,
+      EvaluationQuery evaluationQuery) {
+    try {
+      log.info("배치 처리 시작: 쿼리='{}', 상품 {}개", query, products.size());
+
+      // 프롬프트 생성
+      String prompt = buildBulkEvaluationPromptWithMappings(query, products, mappings);
+
+      // LLM 호출 - LLMQueueManager 사용
+      CompletableFuture<String> future =
+          llmQueueManager.submitSimpleTask(
+              prompt, String.format("후보군 평가 (쿼리='%s', 상품 %d개)", query, products.size()));
+      String response = future.join();
+
+      if (response == null || response.trim().isEmpty()) {
+        log.warn("LLM API 응답이 비어있습니다");
+        return;
+      }
+
+      // 응답 파싱
+      List<QueryProductMapping> updatedMappings =
+          parseBulkEvaluationResponse(query, mappings, response);
+
+      // DB 저장
+      if (!updatedMappings.isEmpty()) {
+        queryProductMappingRepository.saveAll(updatedMappings);
+        log.info("배치 처리 완료: {}개 매핑 저장", updatedMappings.size());
+      }
+
+    } catch (Exception e) {
+      // 429 에러는 상위로 전파
+      if (e.getMessage() != null && e.getMessage().contains("429")) {
+        throw new RuntimeException("Rate limit exceeded", e);
+      }
+      log.error("배치 처리 실패", e);
+    }
+  }
+
+  private String buildBulkEvaluationPromptWithMappings(
+      String query, List<ProductDocument> products, List<QueryProductMapping> mappings) {
+    // 첫 번째 매핑에서 동의어 확장 정보 가져오기
+    String expandedSynonyms =
+        mappings.isEmpty() || mappings.get(0).getExpandedSynonyms() == null
+            ? ""
+            : mappings.get(0).getExpandedSynonyms();
+
+    // 상품 리스트 문자열 생성
+    StringBuilder productListBuilder = new StringBuilder();
+    for (int i = 0; i < products.size(); i++) {
+      ProductDocument product = products.get(i);
+      QueryProductMapping mapping = i < mappings.size() ? mappings.get(i) : null;
+
+      productListBuilder.append("상품 ").append(i + 1).append(":\n");
+      productListBuilder.append("- ID: ").append(product.getId()).append("\n");
+      productListBuilder
+          .append("- 상품명: ")
+          .append(product.getNameRaw() != null ? product.getNameRaw() : "N/A")
+          .append("\n");
+      productListBuilder
+          .append("- 카테고리: ")
+          .append(
+              mapping != null && mapping.getProductCategory() != null
+                  ? mapping.getProductCategory()
+                  : product.getCategoryName() != null ? product.getCategoryName() : "N/A")
+          .append("\n");
+      productListBuilder
+          .append("- 스펙: ")
+          .append(product.getSpecsRaw() != null ? product.getSpecsRaw() : "N/A")
+          .append("\n\n");
+    }
+
+    // 템플릿 변수 설정
+    Map<String, String> variables = new HashMap<>();
+    variables.put("QUERY", query);
+    variables.put("PRODUCT_COUNT", String.valueOf(products.size()));
+    variables.put("PRODUCT_LIST", productListBuilder.toString());
+    variables.put("EXPANDED_SYNONYMS", expandedSynonyms);
+
+    return promptTemplateLoader.loadTemplate("bulk-product-relevance-evaluation.txt", variables);
   }
 }

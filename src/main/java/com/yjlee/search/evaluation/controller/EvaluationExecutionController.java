@@ -6,7 +6,6 @@ import com.yjlee.search.evaluation.dto.AsyncTaskStartResponse;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportSummaryResponse;
-import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
 import com.yjlee.search.evaluation.model.EvaluationReport;
 import com.yjlee.search.evaluation.service.AsyncEvaluationService;
 import com.yjlee.search.evaluation.service.AsyncTaskService;
@@ -30,18 +29,6 @@ public class EvaluationExecutionController {
   private final EvaluationReportService evaluationReportService;
   private final AsyncEvaluationService asyncEvaluationService;
   private final AsyncTaskService asyncTaskService;
-
-  @PostMapping("/candidates/evaluate-llm-async")
-  @Operation(summary = "LLM 자동 후보군 평가 (비동기)")
-  public ResponseEntity<AsyncTaskStartResponse> evaluateCandidatesWithLLMAsync(
-      @RequestBody LLMEvaluationRequest request) {
-    Long taskId = asyncEvaluationService.startLLMEvaluation(request);
-    return ResponseEntity.ok(
-        AsyncTaskStartResponse.builder()
-            .taskId(taskId)
-            .message("LLM 평가 작업이 시작되었습니다. 작업 ID: " + taskId)
-            .build());
-  }
 
   @GetMapping("/tasks/{taskId}")
   @Operation(summary = "비동기 작업 상태 조회")

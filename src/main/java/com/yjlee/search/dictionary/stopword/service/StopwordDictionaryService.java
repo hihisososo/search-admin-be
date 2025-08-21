@@ -241,7 +241,6 @@ public class StopwordDictionaryService {
                     StopwordDictionarySnapshot.createSnapshot(
                         DictionaryEnvironmentType.PROD,
                         StopwordDictionary.builder()
-                            .id(devSnapshot.getOriginalDictionaryId())
                             .keyword(devSnapshot.getKeyword())
                             .description(devSnapshot.getDescription())
                             .build()))

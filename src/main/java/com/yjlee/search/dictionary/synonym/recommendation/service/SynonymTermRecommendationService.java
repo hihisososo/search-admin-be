@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch.indices.AnalyzeResponse;
 import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -18,7 +19,6 @@ import com.yjlee.search.dictionary.synonym.recommendation.model.SynonymTermRecom
 import com.yjlee.search.dictionary.synonym.recommendation.repository.SynonymTermRecommendationRepository;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
-import com.yjlee.search.evaluation.service.LLMService;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +26,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +44,7 @@ public class SynonymTermRecommendationService {
   private final SynonymTermRecommendationRepository recommendationRepository;
   private final SynonymDictionaryRepository synonymDictionaryRepository;
   private final SynonymDictionaryService synonymDictionaryService;
-  private final LLMService llmService;
+  private final LLMQueueManager llmQueueManager;
   private final PromptTemplateLoader promptTemplateLoader;
 
   @Transactional
@@ -229,7 +230,13 @@ public class SynonymTermRecommendationService {
     String prompt = template.replace("{TERMS}", termsBlock);
     try {
       log.debug("[SynonymGen] 배치 호출 - size: {}, promptLen: {}", batch.size(), prompt.length());
-      String resp = llmService.callLLMAPI(prompt, 0.0);
+      CompletableFuture<String> future =
+          llmQueueManager.submitTask(
+              prompt,
+              0.0,
+              response -> response,
+              String.format("동의어 추천 생성 (배치 %d개 단어)", batch.size()));
+      String resp = future.join();
       log.debug("[SynonymGen] 배치 응답 - respLen: {}", resp != null ? resp.length() : -1);
       if (resp != null) {
         log.debug("[SynonymGen] 배치 응답 미리보기: {}", previewOf(resp, 1000));

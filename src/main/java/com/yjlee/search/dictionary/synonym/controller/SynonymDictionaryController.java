@@ -2,6 +2,8 @@ package com.yjlee.search.dictionary.synonym.controller;
 
 import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryListResponse;
@@ -16,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +33,7 @@ public class SynonymDictionaryController {
 
   private final SynonymDictionaryService synonymDictionaryService;
   private final ElasticsearchSynonymService elasticsearchSynonymService;
+  private final IndexEnvironmentRepository indexEnvironmentRepository;
 
   @Operation(
       summary = "유의어 사전 목록 조회",
@@ -146,8 +150,53 @@ public class SynonymDictionaryController {
     log.info("유의어 사전 실시간 반영 요청 - 환경: {}", environment.getDescription());
 
     try {
-      // 환경별 synonym set 이름 생성
-      String synonymSetName = getSynonymSetName(environment);
+      String synonymSetName;
+      String targetIndex = null;
+
+      // 환경별 처리
+      switch (environment) {
+        case CURRENT:
+          // CURRENT는 별도 synonym set 사용 (테스트용)
+          synonymSetName = "synonyms-nori-current";
+          log.info("CURRENT 환경 - synonym set: {}", synonymSetName);
+          break;
+
+        case DEV:
+        case PROD:
+          // DB에서 환경 정보 조회
+          IndexEnvironment.EnvironmentType envType =
+              environment == DictionaryEnvironmentType.DEV
+                  ? IndexEnvironment.EnvironmentType.DEV
+                  : IndexEnvironment.EnvironmentType.PROD;
+
+          Optional<IndexEnvironment> indexEnv =
+              indexEnvironmentRepository.findByEnvironmentType(envType);
+
+          if (indexEnv.isEmpty() || indexEnv.get().getVersion() == null) {
+            log.warn("{} 환경 정보가 없거나 버전이 없습니다.", environment.getDescription());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put(
+                "message", environment.getDescription() + " 환경에 인덱스가 없습니다. 먼저 인덱스를 생성하고 배포해주세요.");
+            response.put("environment", environment.getDescription());
+            response.put("timestamp", System.currentTimeMillis());
+            return ResponseEntity.badRequest().body(response);
+          }
+
+          String version = indexEnv.get().getVersion();
+          targetIndex = indexEnv.get().getIndexName();
+          synonymSetName = "synonyms-nori-" + version;
+          log.info(
+              "{} 환경 - 인덱스: {}, 버전: {}, synonym set: {}",
+              environment.getDescription(),
+              targetIndex,
+              version,
+              synonymSetName);
+          break;
+
+        default:
+          throw new IllegalArgumentException("지원하지 않는 환경 타입: " + environment);
+      }
 
       // Elasticsearch에 동의어 사전 반영
       elasticsearchSynonymService.createOrUpdateSynonymSet(synonymSetName, environment);
@@ -156,6 +205,9 @@ public class SynonymDictionaryController {
       response.put("success", true);
       response.put("message", "유의어 사전 실시간 반영 완료");
       response.put("environment", environment.getDescription());
+      if (targetIndex != null) {
+        response.put("targetIndex", targetIndex);
+      }
       response.put("synonymSet", synonymSetName);
       response.put("timestamp", System.currentTimeMillis());
 

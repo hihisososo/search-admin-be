@@ -10,8 +10,6 @@ public interface DictionarySnapshotEntity {
 
   String getDescription();
 
-  Long getOriginalDictionaryId();
-
   DictionaryEnvironmentType getEnvironmentType();
 
   LocalDateTime getCreatedAt();
