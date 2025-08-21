@@ -37,7 +37,7 @@ public class ProductDocumentFactory {
         .name(preprocessedName)
         .nameRaw(product.getName())
         .nameUnit(nameUnits)
-        .model(models)
+        .model(models.isEmpty() ? null : String.join(" ", models))
         .brandName(BrandExtractor.extractBrand(product.getName()))
         .thumbnailUrl(product.getThumbnailUrl())
         .price(product.getPrice() != null ? product.getPrice().intValue() : null)

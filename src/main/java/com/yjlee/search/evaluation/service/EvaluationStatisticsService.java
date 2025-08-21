@@ -37,7 +37,6 @@ public class EvaluationStatisticsService {
       String sortBy, String sortDirection, String queryFilter) {
     log.info("📊 쿼리 통계 조회: 정렬={} {}, 필터={}", sortBy, sortDirection, queryFilter);
 
-    // N+1 문제 해결: 한 번의 쿼리로 모든 통계 조회
     var statsData = queryProductMappingRepository.findQueryStats();
     Map<String, QueryStatsDto> statsMap =
         statsData.stream()

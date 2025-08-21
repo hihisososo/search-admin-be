@@ -12,16 +12,14 @@ import org.springframework.stereotype.Service;
 public class EC2DeploymentService {
 
   private final SsmCommandService ssmCommandService;
-  private final ScriptTemplateService scriptTemplateService;
 
   @Value("${app.aws.dictionary.ec2-instance-ids}")
   private String[] instanceIds;
 
-  private static final String USER_DICT_BASE_PATH = "/usr/share/elasticsearch/config/analysis/user";
-  private static final String SYNONYM_DICT_BASE_PATH =
-      "/usr/share/elasticsearch/config/analysis/synonym";
+  private static final String USER_DICT_BASE_PATH =
+      "/home/ec2-user/elasticsearch/config/analysis/user";
   private static final String STOPWORD_DICT_BASE_PATH =
-      "/usr/share/elasticsearch/config/analysis/stopword";
+      "/home/ec2-user/elasticsearch/config/analysis/stopword";
 
   public EC2DeploymentResult deployUserDictionary(String content, String version) {
     log.info("사용자사전 EC2 배포 시작 - 버전: {}, 내용 길이: {}", version, content.length());
@@ -195,80 +193,6 @@ public class EC2DeploymentService {
     }
 
     return lastResult;
-  }
-
-  public EC2DeploymentResult deployTestFile(String content, String fileName) {
-    log.info("유의어 사전 EC2 배포 시작 - 파일명: {}, 내용 길이: {}", fileName, content.length());
-
-    try {
-      String script = createSynonymDictDeployScript(content, fileName);
-      SsmCommandService.SsmCommandResult result =
-          executeDictionaryDeployment(
-              script, "유의어 사전 배포", DeploymentConstants.Ssm.DEFAULT_TIMEOUT_SECONDS);
-
-      return EC2DeploymentResult.builder()
-          .success(result.isSuccess())
-          .commandId(result.getOutput())
-          .message(result.isSuccess() ? "유의어 사전 배포 완료" : "유의어 사전 배포 실패: " + result.getError())
-          .build();
-
-    } catch (Exception e) {
-      log.error("유의어 사전 EC2 배포 실패 - 파일명: {}", fileName, e);
-      return EC2DeploymentResult.builder()
-          .success(false)
-          .message("유의어 사전 배포 실패: " + e.getMessage())
-          .build();
-    }
-  }
-
-  private String createSynonymDictDeployScript(String content, String fileName) {
-    String fullFilePath = String.format("%s/%s", SYNONYM_DICT_BASE_PATH, fileName);
-
-    return String.format(
-        """
-                            #!/bin/bash
-                            set -e
-
-                            echo "=== 유의어 사전 배포 시작 ==="
-                            echo "파일명: %s"
-                            echo "대상 경로: %s"
-
-                            # 디렉토리 생성
-                            echo "디렉토리 생성: %s"
-                            mkdir -p %s
-
-                            # 파일 내용 작성
-                            echo "파일 생성 중..."
-                            cat > %s << 'EOF'
-            %s
-            EOF
-
-                            # 파일 권한 설정
-                            chmod 644 %s
-
-                            # 결과 확인
-                            if [ -f "%s" ]; then
-                                echo "배포 성공: %s"
-                                echo "파일 크기: $(stat -c%%s %s) bytes"
-                                echo "파일 권한: $(stat -c%%A %s)"
-                                echo "=== 배포 완료 ==="
-                                exit 0
-                            else
-                                echo "배포 실패: 파일이 생성되지 않음"
-                                exit 1
-                            fi
-                            """,
-        fileName,
-        fullFilePath,
-        SYNONYM_DICT_BASE_PATH,
-        SYNONYM_DICT_BASE_PATH,
-        fullFilePath,
-        content,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath);
   }
 
   @lombok.Builder

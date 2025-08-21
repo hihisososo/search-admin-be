@@ -19,7 +19,7 @@ public class ProductDocument {
   @JsonProperty("name_raw")
   String nameRaw;
 
-  List<String> model;
+  String model;
 
   @JsonProperty("brand_name")
   String brandName;

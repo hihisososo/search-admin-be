@@ -85,10 +85,21 @@ public class IndexingExecutionService {
 
     // 운영 환경에서 사용 중인 인덱스인지 확인
     String oldIndexName = devEnvironment.getIndexName();
+    String oldAutocompleteIndexName = devEnvironment.getAutocompleteIndexName();
+
+    // 상품 인덱스 삭제
     if (oldIndexName != null && !isIndexUsedInProduction(oldIndexName)) {
       deleteOldDevIndexSafely(oldIndexName);
     } else if (oldIndexName != null) {
       log.info("기존 개발 인덱스가 운영에서 사용 중이므로 삭제하지 않음: {}", oldIndexName);
+    }
+
+    // 자동완성 인덱스 삭제
+    if (oldAutocompleteIndexName != null
+        && !isAutocompleteIndexUsedInProduction(oldAutocompleteIndexName)) {
+      deleteOldDevAutocompleteIndexSafely(oldAutocompleteIndexName);
+    } else if (oldAutocompleteIndexName != null) {
+      log.info("기존 개발 자동완성 인덱스가 운영에서 사용 중이므로 삭제하지 않음: {}", oldAutocompleteIndexName);
     }
 
     // 환경 업데이트
@@ -252,6 +263,36 @@ public class IndexingExecutionService {
     } catch (Exception e) {
       log.warn("운영 환경 확인 중 오류 발생, 안전을 위해 삭제하지 않음: {}", e.getMessage());
       return true; // 오류 발생 시 안전을 위해 삭제하지 않음
+    }
+  }
+
+  private boolean isAutocompleteIndexUsedInProduction(String autocompleteIndexName) {
+    try {
+      Optional<IndexEnvironment> prodEnvironment =
+          indexEnvironmentRepository.findByEnvironmentType(IndexEnvironment.EnvironmentType.PROD);
+      if (prodEnvironment.isPresent()) {
+        String prodAutocompleteIndexName = prodEnvironment.get().getAutocompleteIndexName();
+        boolean isUsed = autocompleteIndexName.equals(prodAutocompleteIndexName);
+        if (isUsed) {
+          log.info("자동완성 인덱스 {}가 운영 환경에서 사용 중", autocompleteIndexName);
+        }
+        return isUsed;
+      }
+      return false;
+    } catch (Exception e) {
+      log.warn("운영 환경 자동완성 인덱스 확인 중 오류 발생, 안전을 위해 삭제하지 않음: {}", e.getMessage());
+      return true; // 오류 발생 시 안전을 위해 삭제하지 않음
+    }
+  }
+
+  private void deleteOldDevAutocompleteIndexSafely(String autocompleteIndexName) {
+    if (autocompleteIndexName != null) {
+      try {
+        elasticsearchIndexService.deleteIndexIfExists(autocompleteIndexName);
+        log.info("기존 개발 자동완성 인덱스 삭제 완료: {}", autocompleteIndexName);
+      } catch (Exception e) {
+        log.warn("기존 개발 자동완성 인덱스 삭제 실패 (무시하고 계속 진행): {}", e.getMessage());
+      }
     }
   }
 }
