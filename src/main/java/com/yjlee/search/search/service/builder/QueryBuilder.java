@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.util.TextPreprocessor;
+import com.yjlee.search.index.util.ModelExtractor;
 import com.yjlee.search.search.dto.PriceRangeDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.service.category.CategoryRankingService;
@@ -25,16 +26,20 @@ public class QueryBuilder {
   private final CategoryRankingService categoryRankingService;
 
   public BoolQuery buildBoolQuery(SearchExecuteRequest request) {
+    // 모델명 추출
+    List<String> models = ModelExtractor.extractModels(request.getQuery());
+
     // 단위 추출
     String units = TextPreprocessor.extractUnits(request.getQuery());
 
-    // 단위를 제거한 쿼리 생성
-    String queryWithoutUnits = removeUnitsFromQuery(request.getQuery(), units);
+    // 모델명과 단위를 제거한 쿼리 생성
+    String queryWithoutModels = TextPreprocessor.removeModels(request.getQuery(), models);
+    String queryWithoutUnits = removeUnitsFromQuery(queryWithoutModels, units);
 
     // 처리된 쿼리
     String processedQuery = processQuery(queryWithoutUnits, request.getApplyTypoCorrection());
 
-    List<Query> mustMatchQueries = buildMustMatchQueries(processedQuery, units);
+    List<Query> mustMatchQueries = buildMustMatchQueries(processedQuery, units, models);
     List<Query> filterQueries = buildFilterQueries(request);
     List<Query> shouldBoostQueries = buildCategoryBoostQueries(request.getQuery());
 
@@ -56,71 +61,53 @@ public class QueryBuilder {
         });
   }
 
-  private List<Query> buildMustMatchQueries(String query, String units) {
-    if (query == null || query.trim().isEmpty()) {
-      return List.of(Query.of(q -> q.matchAll(m -> m)));
-    }
-
-    List<Query> mustQueries = new ArrayList<>();
-
-    // 메인 필드 그룹 - CrossFields로 전체 쿼리 한 번에 처리
+  private List<Query> buildMustMatchQueries(String query, String units, List<String> models) {
+    // 각 쿼리 생성 (없으면 match_all)
     Query mainFieldQuery =
-        Query.of(
-            q ->
-                q.multiMatch(
-                    m ->
-                        m.query(query) // 전체 쿼리를 한 번에
-                            .fields(ESFields.CROSS_FIELDS_MAIN)
-                            .type(TextQueryType.CrossFields)
-                            .operator(
-                                co.elastic.clients.elasticsearch._types.query_dsl.Operator
-                                    .And) // AND로 변경
-                            .boost(10.0f)));
-
-    // 바이그램 필드 그룹 - CrossFields로 전체 쿼리 한 번에 처리
-    Query bigramFieldQuery =
-        Query.of(
-            q ->
-                q.multiMatch(
-                    m ->
-                        m.query(query) // 전체 쿼리를 한 번에
-                            .fields(ESFields.CROSS_FIELDS_BIGRAM)
-                            .type(TextQueryType.CrossFields)
-                            .operator(
-                                co.elastic.clients.elasticsearch._types.query_dsl.Operator
-                                    .And) // AND로 변경
-                            .boost(5.0f)));
-
-    // 단위 쿼리가 있으면 각 그룹과 함께 묶기
-    if (units != null && !units.trim().isEmpty()) {
-      Query unitQuery = buildUnitQuery(units);
-      if (unitQuery != null) {
-        // 메인 필드 그룹 + 단위
-        Query mainWithUnit = Query.of(q -> q.bool(b -> b.must(mainFieldQuery, unitQuery)));
-        // 바이그램 필드 그룹 + 단위
-        Query bigramWithUnit = Query.of(q -> q.bool(b -> b.must(bigramFieldQuery, unitQuery)));
-
-        // 메인과 바이그램을 OR로 결합
-        mustQueries.add(
-            Query.of(
-                q -> q.bool(b -> b.should(mainWithUnit, bigramWithUnit).minimumShouldMatch("1"))));
-      } else {
-        // 단위가 없으면 메인과 바이그램만 OR로 결합
-        mustQueries.add(
-            Query.of(
+        (query != null && !query.trim().isEmpty())
+            ? Query.of(
                 q ->
-                    q.bool(
-                        b -> b.should(mainFieldQuery, bigramFieldQuery).minimumShouldMatch("1"))));
-      }
-    } else {
-      // 단위가 없으면 메인과 바이그램만 OR로 결합
-      mustQueries.add(
-          Query.of(
-              q ->
-                  q.bool(b -> b.should(mainFieldQuery, bigramFieldQuery).minimumShouldMatch("1"))));
-    }
+                    q.multiMatch(
+                        m ->
+                            m.query(query)
+                                .fields(ESFields.CROSS_FIELDS_MAIN)
+                                .type(TextQueryType.CrossFields)
+                                .operator(
+                                    co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                                .boost(10.0f)))
+            : Query.of(q -> q.matchAll(m -> m));
 
-    return mustQueries;
+    Query bigramFieldQuery =
+        (query != null && !query.trim().isEmpty())
+            ? Query.of(
+                q ->
+                    q.multiMatch(
+                        m ->
+                            m.query(query)
+                                .fields(ESFields.CROSS_FIELDS_BIGRAM)
+                                .type(TextQueryType.CrossFields)
+                                .operator(
+                                    co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                                .boost(5.0f)))
+            : Query.of(q -> q.matchAll(m -> m));
+
+    final Query modelQuery =
+        Optional.ofNullable(buildModelQuery(models)).orElse(Query.of(q -> q.matchAll(m -> m)));
+
+    final Query unitQuery =
+        Optional.ofNullable(buildUnitQuery(units)).orElse(Query.of(q -> q.matchAll(m -> m)));
+
+    // 메인 그룹: 한국어 필드 AND 모델 AND 단위
+    Query mainGroup =
+        Query.of(q -> q.bool(b -> b.must(mainFieldQuery).must(modelQuery).must(unitQuery)));
+
+    // 바이그램 그룹: 바이그램 필드 AND 단위
+    Query bigramGroup = Query.of(q -> q.bool(b -> b.must(bigramFieldQuery).must(unitQuery)));
+
+    // 최종: 메인 그룹 OR 바이그램 그룹
+    return List.of(
+        Query.of(
+            q -> q.bool(b -> b.should(mainGroup).should(bigramGroup).minimumShouldMatch("1"))));
   }
 
   private List<Query> buildFilterQueries(SearchExecuteRequest request) {
@@ -252,6 +239,26 @@ public class QueryBuilder {
 
     // 여러 공백을 하나로 정리
     return result.replaceAll("\\s+", " ").trim();
+  }
+
+  private Query buildModelQuery(List<String> models) {
+    if (models == null || models.isEmpty()) {
+      return null;
+    }
+
+    if (models.size() == 1) {
+      // 모델이 하나인 경우
+      return Query.of(
+          q -> q.match(m -> m.field(ESFields.MODEL_BIGRAM).query(models.get(0)).boost(3.0f)));
+    } else {
+      // 여러 모델이 있는 경우 OR 조건으로
+      List<Query> modelQueries = new ArrayList<>();
+      for (String model : models) {
+        modelQueries.add(
+            Query.of(q -> q.match(m -> m.field(ESFields.MODEL_BIGRAM).query(model).boost(3.0f))));
+      }
+      return Query.of(q -> q.bool(b -> b.should(modelQueries).minimumShouldMatch("1")));
+    }
   }
 
   private List<Query> buildCategoryBoostQueries(String query) {

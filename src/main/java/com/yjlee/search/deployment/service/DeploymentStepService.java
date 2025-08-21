@@ -40,12 +40,23 @@ public class DeploymentStepService {
   }
 
   public void deleteOldProdIndex(IndexEnvironment prodEnvironment) {
+    // 상품 인덱스 삭제
     if (prodEnvironment.getIndexName() != null) {
       try {
         elasticsearchIndexService.deleteIndexIfExists(prodEnvironment.getIndexName());
         log.info("기존 운영 인덱스 삭제 완료: {}", prodEnvironment.getIndexName());
       } catch (Exception e) {
         log.warn("기존 운영 인덱스 삭제 실패 (무시하고 계속 진행): {}", e.getMessage());
+      }
+    }
+
+    // 자동완성 인덱스 삭제
+    if (prodEnvironment.getAutocompleteIndexName() != null) {
+      try {
+        elasticsearchIndexService.deleteIndexIfExists(prodEnvironment.getAutocompleteIndexName());
+        log.info("기존 운영 자동완성 인덱스 삭제 완료: {}", prodEnvironment.getAutocompleteIndexName());
+      } catch (Exception e) {
+        log.warn("기존 운영 자동완성 인덱스 삭제 실패 (무시하고 계속 진행): {}", e.getMessage());
       }
     }
   }

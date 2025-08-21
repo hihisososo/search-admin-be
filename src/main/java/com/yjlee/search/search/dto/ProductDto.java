@@ -2,7 +2,6 @@ package com.yjlee.search.search.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
-import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -27,7 +26,7 @@ public class ProductDto {
   private String nameRaw;
 
   @Schema(description = "모델명", example = "iPhone 15 Pro")
-  private List<String> model;
+  private String model;
 
   @Schema(description = "브랜드", example = "Apple")
   private String brandName;
