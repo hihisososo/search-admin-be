@@ -32,6 +32,8 @@ import com.yjlee.search.index.dto.ProductDocument;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -120,6 +122,13 @@ public class EvaluationSetController {
                 m -> {
                   ProductDocument product =
                       evaluationCandidateService.getProductDetails(m.getProductId());
+
+                  // 동의어 확장 결과 처리
+                  List<String> synonymsList = Collections.emptyList();
+                  if (m.getExpandedSynonyms() != null && !m.getExpandedSynonyms().isEmpty()) {
+                    synonymsList = Arrays.asList(m.getExpandedSynonyms().split(","));
+                  }
+
                   return QueryDocumentMappingResponse.ProductDocumentDto.builder()
                       .id(m.getId())
                       .productId(m.getProductId())
@@ -129,6 +138,7 @@ public class EvaluationSetController {
                       .evaluationReason(
                           m.getEvaluationReason() != null ? m.getEvaluationReason() : "")
                       .confidence(m.getConfidence())
+                      .expandedSynonyms(synonymsList)
                       .build();
                 })
             .collect(Collectors.toList());

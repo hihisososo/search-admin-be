@@ -57,4 +57,13 @@ public class QueryProductMapping {
 
   @Column(name = "confidence")
   Double confidence;
+
+  @Column(name = "expanded_synonyms", columnDefinition = "TEXT")
+  String expandedSynonyms;
+
+  @Column(name = "product_category")
+  String productCategory;
+
+  @Column(name = "search_source")
+  String searchSource;
 }

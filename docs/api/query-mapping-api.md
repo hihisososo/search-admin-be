@@ -4,6 +4,7 @@
 
 ## 점수 체계 설명
 ### relevanceScore (관련성 점수)
+**점수 범위: -1 ~ 2**
 - `null`: 미평가 상태
 - `-1`: 사람 확인 필요 (모호한 경우)
 - `0`: 비연관 (관련 없음)
@@ -53,7 +54,8 @@
       "productSpecs": "14인치, Intel Core i7, 16GB RAM, 512GB SSD",
       "relevanceScore": 2,
       "evaluationReason": "최신 노트북, 고성능 스펙, 높은 만족도",
-      "confidence": 0.95
+      "confidence": 0.95,
+      "expandedSynonyms": ["노트북", "랩탑", "laptop", "notebook"]
     },
     {
       "id": 2,
@@ -62,7 +64,8 @@
       "productSpecs": "16인치, Intel Core i5, 16GB RAM, 256GB SSD",
       "relevanceScore": 1,
       "evaluationReason": "스펙은 적합하나 추천 키워드와 정확히 일치하지 않음",
-      "confidence": 0.75
+      "confidence": 0.75,
+      "expandedSynonyms": ["노트북", "랩탑"]
     }
   ],
   "totalCount": 150,
@@ -83,9 +86,10 @@
 | documents.productId | String | 상품 ID |
 | documents.productName | String | 상품명 |
 | documents.productSpecs | String | 상품 스펙 |
-| documents.relevanceScore | Integer | 관련성 점수 (null/-1/0/1/2) |
+| documents.relevanceScore | Integer | 관련성 점수 (-1~2 범위) |
 | documents.evaluationReason | String | 평가 이유 |
 | documents.confidence | Double | 신뢰도 (0-1) |
+| documents.expandedSynonyms | List<String> | 동의어 확장 결과 |
 | totalCount | Long | 전체 문서 수 |
 | totalPages | Integer | 전체 페이지 수 |
 | currentPage | Integer | 현재 페이지 번호 |
@@ -152,7 +156,7 @@
 ### 요청 본문
 | 필드명 | 타입 | 필수 | 범위 | 설명 |
 |--------|------|------|------|------|
-| relevanceScore | Integer | Y | -1 ~ 2 | 관련성 점수 |
+| relevanceScore | Integer | Y | -1 ~ 2 | 관련성 점수 (-1: 사람확인, 0: 비연관, 1: 스펙매치, 2: 제목매치) |
 | evaluationReason | String | N | - | 평가 이유 |
 | confidence | Double | N | 0 ~ 1 | 신뢰도 |
 

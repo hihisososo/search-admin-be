@@ -61,6 +61,7 @@ public class CategoryRankingDictionaryService {
       CategoryRankingDictionarySnapshot snapshot =
           CategoryRankingDictionarySnapshot.builder()
               .environmentType(environment)
+              .originalDictionaryId(0L)
               .keyword(request.getKeyword())
               .categoryMappings(mappings)
               .description(request.getDescription())
