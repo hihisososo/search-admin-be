@@ -82,7 +82,7 @@ public class UserDictionaryService
   @Override
   protected UserDictionaryResponse convertToResponse(UserDictionarySnapshot snapshot) {
     return UserDictionaryResponse.builder()
-        .id(snapshot.getOriginalDictionaryId())
+        .id(snapshot.getId())
         .keyword(snapshot.getKeyword())
         .description(snapshot.getDescription())
         .createdAt(snapshot.getCreatedAt())
@@ -104,7 +104,7 @@ public class UserDictionaryService
   @Override
   protected UserDictionaryListResponse convertToListResponse(UserDictionarySnapshot snapshot) {
     return UserDictionaryListResponse.builder()
-        .id(snapshot.getOriginalDictionaryId())
+        .id(snapshot.getId())
         .keyword(snapshot.getKeyword())
         .description(snapshot.getDescription())
         .createdAt(snapshot.getCreatedAt())
@@ -139,7 +139,6 @@ public class UserDictionaryService
       DictionaryEnvironmentType env, UserDictionarySnapshot snapshot) {
     return UserDictionarySnapshot.builder()
         .environmentType(env)
-        .originalDictionaryId(snapshot.getOriginalDictionaryId())
         .keyword(snapshot.getKeyword())
         .description(snapshot.getDescription())
         .build();

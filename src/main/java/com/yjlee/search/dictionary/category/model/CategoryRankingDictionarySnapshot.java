@@ -36,9 +36,6 @@ public class CategoryRankingDictionarySnapshot {
   @Enumerated(EnumType.STRING)
   DictionaryEnvironmentType environmentType;
 
-  @Column(name = "original_dictionary_id", nullable = false)
-  Long originalDictionaryId;
-
   @Column(nullable = false, length = 100)
   String keyword;
 
@@ -58,7 +55,6 @@ public class CategoryRankingDictionarySnapshot {
       DictionaryEnvironmentType environmentType, CategoryRankingDictionary dictionary) {
     return CategoryRankingDictionarySnapshot.builder()
         .environmentType(environmentType)
-        .originalDictionaryId(dictionary.getId())
         .keyword(dictionary.getKeyword())
         .categoryMappings(new ArrayList<>(dictionary.getCategoryMappings()))
         .description(dictionary.getDescription())

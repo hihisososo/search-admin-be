@@ -27,9 +27,6 @@ public class TypoCorrectionDictionarySnapshot {
   @Enumerated(EnumType.STRING)
   DictionaryEnvironmentType environmentType;
 
-  @Column(nullable = false)
-  Long originalDictionaryId; // 원본 사전 ID
-
   // 스냅샷 시점의 사전 데이터
   @Column(nullable = false, length = 100)
   String keyword; // 오타 단어
@@ -49,7 +46,6 @@ public class TypoCorrectionDictionarySnapshot {
       DictionaryEnvironmentType environmentType, TypoCorrectionDictionary dictionary) {
     return TypoCorrectionDictionarySnapshot.builder()
         .environmentType(environmentType)
-        .originalDictionaryId(dictionary.getId())
         .keyword(dictionary.getKeyword())
         .correctedWord(dictionary.getCorrectedWord())
         .description(dictionary.getDescription())
@@ -58,7 +54,6 @@ public class TypoCorrectionDictionarySnapshot {
 
   // 환경별 스냅샷 업데이트
   public void updateSnapshot(TypoCorrectionDictionary dictionary) {
-    this.originalDictionaryId = dictionary.getId();
     this.keyword = dictionary.getKeyword();
     this.correctedWord = dictionary.getCorrectedWord();
     this.description = dictionary.getDescription();

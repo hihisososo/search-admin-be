@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.ProductInfoDto;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +31,7 @@ public class QueryGenerationService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexResolver indexResolver;
   private final EvaluationQueryRepository evaluationQueryRepository;
-  private final LLMService llmService;
+  private final LLMQueueManager llmQueueManager;
   private final PromptTemplateLoader promptTemplateLoader;
 
   @Value("${generation.query.batch-size:20}")
@@ -51,7 +53,10 @@ public class QueryGenerationService {
         if (!products.isEmpty()) {
           try {
             String prompt = buildBulkQueryPrompt(products);
-            String response = llmService.callLLMAPI(prompt);
+            CompletableFuture<String> future =
+                llmQueueManager.submitSimpleTask(
+                    prompt, String.format("쿼리 생성 (배치 %d개)", batchSize));
+            String response = future.join();
             List<String> batchQueries = extractQueriesFromBulkResponse(response);
             log.info("LLM 응답으로 {}개 쿼리 생성됨", batchQueries.size());
 
@@ -103,7 +108,10 @@ public class QueryGenerationService {
         if (!products.isEmpty()) {
           try {
             String prompt = buildBulkQueryPrompt(products);
-            String response = llmService.callLLMAPI(prompt);
+            CompletableFuture<String> future =
+                llmQueueManager.submitSimpleTask(
+                    prompt, String.format("[PREVIEW] 쿼리 생성 (배치 %d개)", batchSize));
+            String response = future.join();
             List<String> batchQueries = extractQueriesFromBulkResponse(response);
             log.info("[PREVIEW] LLM 응답으로 {}개 쿼리 생성됨", batchQueries.size());
 
@@ -147,7 +155,10 @@ public class QueryGenerationService {
         if (!products.isEmpty()) {
           try {
             String prompt = buildBulkQueryPrompt(products);
-            String response = llmService.callLLMAPI(prompt);
+            CompletableFuture<String> future =
+                llmQueueManager.submitSimpleTask(
+                    prompt, String.format("[PREVIEW/카테고리] 쿼리 생성 (배치 %d개)", batchSize));
+            String response = future.join();
             List<String> batchQueries = extractQueriesFromBulkResponse(response);
             log.info("[PREVIEW] 카테고리 LLM 응답으로 {}개 쿼리 생성됨", batchQueries.size());
 

@@ -61,7 +61,6 @@ public class CategoryRankingDictionaryService {
       CategoryRankingDictionarySnapshot snapshot =
           CategoryRankingDictionarySnapshot.builder()
               .environmentType(environment)
-              .originalDictionaryId(0L)
               .keyword(request.getKeyword())
               .categoryMappings(mappings)
               .description(request.getDescription())
@@ -364,7 +363,6 @@ public class CategoryRankingDictionaryService {
                 devSnapshot ->
                     CategoryRankingDictionarySnapshot.builder()
                         .environmentType(DictionaryEnvironmentType.PROD)
-                        .originalDictionaryId(devSnapshot.getOriginalDictionaryId())
                         .keyword(devSnapshot.getKeyword())
                         .categoryMappings(devSnapshot.getCategoryMappings())
                         .description(devSnapshot.getDescription())
@@ -428,7 +426,7 @@ public class CategoryRankingDictionaryService {
   private CategoryRankingDictionaryResponse convertToResponseFromSnapshot(
       CategoryRankingDictionarySnapshot snapshot) {
     return CategoryRankingDictionaryResponse.builder()
-        .id(snapshot.getOriginalDictionaryId())
+        .id(snapshot.getId())
         .keyword(snapshot.getKeyword())
         .categoryMappings(
             CategoryRankingDictionaryResponse.convertMappings(snapshot.getCategoryMappings()))
@@ -453,7 +451,7 @@ public class CategoryRankingDictionaryService {
   private CategoryRankingDictionaryListResponse convertToListResponseFromSnapshot(
       CategoryRankingDictionarySnapshot snapshot) {
     return CategoryRankingDictionaryListResponse.builder()
-        .id(snapshot.getOriginalDictionaryId())
+        .id(snapshot.getId())
         .keyword(snapshot.getKeyword())
         .categoryCount(
             snapshot.getCategoryMappings() != null ? snapshot.getCategoryMappings().size() : 0)

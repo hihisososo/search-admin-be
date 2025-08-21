@@ -293,7 +293,6 @@ public class SynonymDictionaryService {
                     SynonymDictionarySnapshot.createSnapshot(
                         DictionaryEnvironmentType.PROD,
                         SynonymDictionary.builder()
-                            .id(devSnapshot.getOriginalDictionaryId())
                             .keyword(devSnapshot.getKeyword())
                             .description(devSnapshot.getDescription())
                             .build()))

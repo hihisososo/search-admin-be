@@ -26,9 +26,6 @@ public class StopwordDictionarySnapshot {
   @Enumerated(EnumType.STRING)
   DictionaryEnvironmentType environmentType;
 
-  @Column(nullable = false)
-  Long originalDictionaryId; // 원본 사전 ID
-
   // 스냅샷 시점의 사전 데이터
   @Column(nullable = false, length = 1000)
   String keyword; // 스냅샷 시점의 전체 키워드 정보
@@ -45,7 +42,6 @@ public class StopwordDictionarySnapshot {
       DictionaryEnvironmentType environmentType, StopwordDictionary dictionary) {
     return StopwordDictionarySnapshot.builder()
         .environmentType(environmentType)
-        .originalDictionaryId(dictionary.getId())
         .keyword(dictionary.getKeyword())
         .description(dictionary.getDescription())
         .build();
@@ -53,7 +49,6 @@ public class StopwordDictionarySnapshot {
 
   // 환경별 스냅샷 업데이트
   public void updateSnapshot(StopwordDictionary dictionary) {
-    this.originalDictionaryId = dictionary.getId();
     this.keyword = dictionary.getKeyword();
     this.description = dictionary.getDescription();
   }

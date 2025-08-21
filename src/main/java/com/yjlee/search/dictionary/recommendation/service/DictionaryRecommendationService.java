@@ -3,6 +3,7 @@ package com.yjlee.search.dictionary.recommendation.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -13,7 +14,6 @@ import com.yjlee.search.dictionary.recommendation.model.DictionaryRecommendation
 import com.yjlee.search.dictionary.recommendation.repository.DictionaryRecommendationRepository;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService;
-import com.yjlee.search.evaluation.service.LLMService;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +22,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,7 @@ public class DictionaryRecommendationService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final DictionaryRecommendationRepository recommendationRepository;
-  private final LLMService llmService;
+  private final LLMQueueManager llmQueueManager;
   private final PromptTemplateLoader promptTemplateLoader;
   private final ElasticsearchAnalyzeService analyzeService;
   private final Object llmLogFileLock = new Object();
@@ -102,25 +103,33 @@ public class DictionaryRecommendationService {
 
         totalProcessedProducts += productNamesPage.size();
 
-        // 20개씩 배치로 분할 후 병렬 처리
+        // 20개씩 배치로 분할 후 큐 기반 처리
         List<List<String>> batches = partitionIntoBatches(productNamesPage, 20);
 
-        List<RecommendedWord> pageRecommendations =
-            batches.parallelStream()
-                .map(
-                    batch -> {
-                      try {
-                        String prompt = buildPrompt(batch);
-                        String llmResponse = llmService.callLLMAPI(prompt);
-                        writeRawLLMResponseToFile(llmResponse);
-                        return parseRecommendations(llmResponse);
-                      } catch (Exception e) {
-                        log.warn("배치 처리 실패, 빈 결과로 대체: {}", e.getMessage());
-                        return Collections.<RecommendedWord>emptyList();
-                      }
-                    })
-                .flatMap(List::stream)
-                .collect(Collectors.toList());
+        List<CompletableFuture<List<RecommendedWord>>> futures = new ArrayList<>();
+        for (List<String> batch : batches) {
+          String prompt = buildPrompt(batch);
+          CompletableFuture<List<RecommendedWord>> future =
+              llmQueueManager.submitTask(
+                  prompt,
+                  null,
+                  response -> {
+                    writeRawLLMResponseToFile(response);
+                    return parseRecommendations(response);
+                  },
+                  String.format("사전 추천 생성 (배치 %d개 상품)", batch.size()));
+          futures.add(future);
+        }
+
+        // 모든 비동기 작업 완료 대기
+        List<RecommendedWord> pageRecommendations = new ArrayList<>();
+        for (CompletableFuture<List<RecommendedWord>> future : futures) {
+          try {
+            pageRecommendations.addAll(future.join());
+          } catch (Exception e) {
+            log.warn("배치 처리 실패, 빈 결과로 대체: {}", e.getMessage());
+          }
+        }
 
         // 영숫자만으로 이루어진 단어는 제외 (모델명/코드 등으로 간주)
         pageRecommendations =

@@ -252,7 +252,6 @@ public class TypoCorrectionDictionaryService {
                     TypoCorrectionDictionarySnapshot.createSnapshot(
                         DictionaryEnvironmentType.PROD,
                         TypoCorrectionDictionary.builder()
-                            .id(devSnapshot.getOriginalDictionaryId())
                             .keyword(devSnapshot.getKeyword())
                             .correctedWord(devSnapshot.getCorrectedWord())
                             .description(devSnapshot.getDescription())
