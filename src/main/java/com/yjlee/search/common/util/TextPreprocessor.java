@@ -11,9 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class TextPreprocessor {
 
-  // 의미있는 특수문자를 보존: /, -, +, (, ), &
+  // 의미있는 특수문자를 보존: /, -, +, &
   private static final Pattern SPECIAL_CHARS_PATTERN =
-      Pattern.compile("[^\\p{L}\\p{N}\\s\\.\\-/+()&]");
+      Pattern.compile("[^\\p{L}\\p{N}\\s\\.\\-/+&]");
 
   // 영어 단위 패턴 - 공백 포함/미포함 모두 처리
   private static final Pattern UNIT_PATTERN_EN =
@@ -31,7 +31,7 @@ public class TextPreprocessor {
       return "";
     }
 
-    return normalizeUnicode(toLowerCase(cleanSpecialChars(text)));
+    return normalizeUnicode(toLowerCase(cleanSpecialChars(normalizeUnits(text))));
   }
 
   public static String normalizeUnits(String text) {

@@ -31,14 +31,17 @@ public class ESFields {
   // 가중치 포함 필드 조합
   public static final String NAME_WEIGHTED = NAME + "^3.0";
   public static final String SPECS_WEIGHTED = SPECS + "^1.0";
+  public static final String CATEGORY_WEIGHTED = "category^0.5";
   public static final String NAME_BIGRAM_WEIGHTED = NAME_BIGRAM + "^2.0";
   public static final String SPECS_BIGRAM_WEIGHTED = SPECS_BIGRAM + "^1.0";
+  public static final String CATEGORY_BIGRAM_WEIGHTED = "category.bigram^0.5";
   public static final String MODEL_BIGRAM_WEIGHTED = MODEL_BIGRAM + "^1.0";
 
   // 검색용 필드 리스트
-  public static final List<String> CROSS_FIELDS_MAIN = List.of(NAME_WEIGHTED, SPECS_WEIGHTED);
+  public static final List<String> CROSS_FIELDS_MAIN =
+      List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED);
   public static final List<String> CROSS_FIELDS_BIGRAM =
-      List.of(NAME_BIGRAM_WEIGHTED, SPECS_BIGRAM_WEIGHTED, MODEL_BIGRAM_WEIGHTED);
+      List.of(NAME_BIGRAM_WEIGHTED, SPECS_BIGRAM_WEIGHTED, CATEGORY_BIGRAM_WEIGHTED);
 
   // 부스팅 필드 리스트
   public static final List<String> BOOST_FIELDS = List.of(MODEL, BRAND_NAME, CATEGORY_NAME);

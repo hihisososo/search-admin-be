@@ -10,7 +10,11 @@ import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,6 +54,38 @@ public class ElasticsearchAnalyzeService {
     } catch (IOException e) {
       log.error("형태소 분석 중 오류 발생", e);
       throw new RuntimeException("형태소 분석 실패", e);
+    }
+  }
+
+  public Set<String> getExpandedSynonyms(String text, DictionaryEnvironmentType environment) {
+    try {
+      String indexName = getIndexName(environment);
+
+      AnalyzeRequest analyzeRequest =
+          AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_search_analyzer").text(text));
+
+      AnalyzeResponse response = elasticsearchClient.indices().analyze(analyzeRequest);
+
+      // position별로 토큰 그룹화
+      Map<Integer, List<String>> tokensByPosition = new HashMap<>();
+      for (AnalyzeToken token : response.tokens()) {
+        tokensByPosition
+            .computeIfAbsent((int) token.position(), k -> new ArrayList<>())
+            .add(token.token());
+      }
+
+      // 같은 position에 2개 이상 토큰이 있으면 동의어로 확장된 것
+      Set<String> expandedSynonyms = new LinkedHashSet<>();
+      for (List<String> tokens : tokensByPosition.values()) {
+        if (tokens.size() > 1) {
+          expandedSynonyms.addAll(tokens);
+        }
+      }
+
+      return expandedSynonyms;
+    } catch (IOException e) {
+      log.error("동의어 확장 분석 중 오류 발생", e);
+      return new LinkedHashSet<>();
     }
   }
 

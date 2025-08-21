@@ -17,8 +17,10 @@ import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,8 @@ public class SearchBasedGroundTruthService {
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final OpenAIEmbeddingService embeddingService;
+  private final com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService
+      elasticsearchAnalyzeService;
 
   private static final int FIXED_PER_STRATEGY = 300;
   private static final int FIXED_VECTOR_NUM_CANDIDATES = 900;
@@ -77,10 +81,19 @@ public class SearchBasedGroundTruthService {
       EvaluationQuery query = queries.get(i);
       try {
         float[] queryEmbedding = i < allEmbeddings.size() ? allEmbeddings.get(i) : null;
-        Set<String> allCandidates =
-            collectCandidatesForQueryWithEmbedding(query.getQuery(), queryEmbedding);
+        Map<String, String> candidatesWithSource =
+            collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-        for (String productId : allCandidates) {
+        // 동의어 확장 정보 추출
+        Set<String> expandedSynonyms =
+            elasticsearchAnalyzeService.getExpandedSynonyms(
+                query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
+        String synonymsString =
+            expandedSynonyms.isEmpty() ? null : String.join(",", expandedSynonyms);
+
+        for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
+          String productId = entry.getKey();
+          String searchSource = entry.getValue();
           ProductDocument product = fetchProduct(productId);
           QueryProductMapping mapping =
               QueryProductMapping.builder()
@@ -88,6 +101,9 @@ public class SearchBasedGroundTruthService {
                   .productId(productId)
                   .productName(product != null ? product.getNameRaw() : null)
                   .productSpecs(product != null ? product.getSpecsRaw() : null)
+                  .productCategory(product != null ? product.getCategoryName() : null)
+                  .expandedSynonyms(synonymsString)
+                  .searchSource(searchSource)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
           mappings.add(mapping);
@@ -96,7 +112,7 @@ public class SearchBasedGroundTruthService {
         log.debug(
             "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
             query.getQuery(),
-            allCandidates.size(),
+            candidatesWithSource.size(),
             FIXED_MAX_TOTAL_PER_QUERY);
 
         if (progressListener != null) {
@@ -161,10 +177,19 @@ public class SearchBasedGroundTruthService {
       EvaluationQuery query = queries.get(i);
       try {
         float[] queryEmbedding = i < allEmbeddings.size() ? allEmbeddings.get(i) : null;
-        Set<String> allCandidates =
-            collectCandidatesForQueryWithEmbedding(query.getQuery(), queryEmbedding);
+        Map<String, String> candidatesWithSource =
+            collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-        for (String productId : allCandidates) {
+        // 동의어 확장 정보 추출
+        Set<String> expandedSynonyms =
+            elasticsearchAnalyzeService.getExpandedSynonyms(
+                query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
+        String synonymsString =
+            expandedSynonyms.isEmpty() ? null : String.join(",", expandedSynonyms);
+
+        for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
+          String productId = entry.getKey();
+          String searchSource = entry.getValue();
           ProductDocument product = fetchProduct(productId);
           QueryProductMapping mapping =
               QueryProductMapping.builder()
@@ -172,6 +197,9 @@ public class SearchBasedGroundTruthService {
                   .productId(productId)
                   .productName(product != null ? product.getNameRaw() : null)
                   .productSpecs(product != null ? product.getSpecsRaw() : null)
+                  .productCategory(product != null ? product.getCategoryName() : null)
+                  .expandedSynonyms(synonymsString)
+                  .searchSource(searchSource)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
           mappings.add(mapping);
@@ -180,7 +208,7 @@ public class SearchBasedGroundTruthService {
         log.debug(
             "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
             query.getQuery(),
-            allCandidates.size(),
+            candidatesWithSource.size(),
             FIXED_MAX_TOTAL_PER_QUERY);
 
         if (progressListener != null) {
@@ -272,21 +300,59 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  private Set<String> collectCandidatesForQueryWithEmbedding(String query, float[] queryEmbedding) {
-    Set<String> allCandidates = new LinkedHashSet<>();
+  private Map<String, String> collectCandidatesWithSourceTracking(
+      String query, float[] queryEmbedding) {
+    Map<String, String> productSourceMap = new LinkedHashMap<>();
 
+    // 벡터 검색
     if (queryEmbedding != null) {
-      allCandidates.addAll(searchByVectorWithEmbedding(queryEmbedding, "name_specs_vector"));
+      List<String> vectorResults = searchByVectorWithEmbedding(queryEmbedding, "name_specs_vector");
+      for (String id : vectorResults) {
+        productSourceMap.put(id, "VECTOR");
+      }
     }
 
-    allCandidates.addAll(searchByCrossField(query, new String[] {"name", "specs", "model"}));
+    // 형태소 검색
+    List<String> morphemeResults =
+        searchByCrossField(
+            query, new String[] {"name_candidate", "specs_candidate", "category_candidate"});
+    for (String id : morphemeResults) {
+      if (!productSourceMap.containsKey(id)) {
+        productSourceMap.put(id, "MORPHEME");
+      } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
+        productSourceMap.put(id, "MULTIPLE");
+      }
+    }
 
-    allCandidates.addAll(
-        searchByCrossField(query, new String[] {"name.bigram", "specs.bigram", "model.bigram"}));
+    // 바이그램 검색
+    List<String> bigramResults =
+        searchByCrossField(
+            query,
+            new String[] {
+              "name_candidate.bigram", "specs_candidate.bigram", "category_candidate.bigram"
+            });
+    for (String id : bigramResults) {
+      if (!productSourceMap.containsKey(id)) {
+        productSourceMap.put(id, "BIGRAM");
+      } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
+        productSourceMap.put(id, "MULTIPLE");
+      }
+    }
 
-    return allCandidates.stream()
-        .limit(FIXED_MAX_TOTAL_PER_QUERY)
-        .collect(Collectors.toCollection(LinkedHashSet::new));
+    // 최대 개수 제한
+    Map<String, String> limitedMap = new LinkedHashMap<>();
+    int count = 0;
+    for (Map.Entry<String, String> entry : productSourceMap.entrySet()) {
+      if (count >= FIXED_MAX_TOTAL_PER_QUERY) break;
+      limitedMap.put(entry.getKey(), entry.getValue());
+      count++;
+    }
+
+    return limitedMap;
+  }
+
+  private Set<String> collectCandidatesForQueryWithEmbedding(String query, float[] queryEmbedding) {
+    return collectCandidatesWithSourceTracking(query, queryEmbedding).keySet();
   }
 
   // 동적 파라미터 버전
@@ -305,10 +371,19 @@ public class SearchBasedGroundTruthService {
               queryEmbedding, "name_specs_vector", perStrategy, numCandidates, minScore));
     }
 
-    allCandidates.addAll(searchByCrossField(query, new String[] {"name", "specs"}, perStrategy));
+    allCandidates.addAll(
+        searchByCrossField(
+            query,
+            new String[] {"name_candidate", "specs_candidate", "category_candidate"},
+            perStrategy));
 
     allCandidates.addAll(
-        searchByCrossField(query, new String[] {"name.bigram", "specs.bigram"}, perStrategy));
+        searchByCrossField(
+            query,
+            new String[] {
+              "name_candidate.bigram", "specs_candidate.bigram", "category_candidate.bigram"
+            },
+            perStrategy));
 
     return allCandidates.stream()
         .limit(maxTotal)
@@ -421,7 +496,7 @@ public class SearchBasedGroundTruthService {
                               q.multiMatch(
                                   mm ->
                                       mm.query(TextPreprocessor.preprocess(query))
-                                          .fields(fields[0], fields[1])
+                                          .fields(List.of(fields))
                                           .operator(Operator.And)
                                           .type(TextQueryType.CrossFields))));
 

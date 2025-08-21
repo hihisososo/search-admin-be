@@ -22,10 +22,14 @@ public class ProductDocumentConverter {
         .rating(document.getRating())
         .reviewCount(document.getReviewCount())
         .categoryName(document.getCategoryName())
+        .category(document.getCategory())
         .specs(document.getSpecs())
         .specsRaw(document.getSpecsRaw())
         .nameUnit(document.getNameUnit())
         .specsUnit(document.getSpecsUnit())
+        .nameCandidate(document.getNameCandidate())
+        .specsCandidate(document.getSpecsCandidate())
+        .categoryCandidate(document.getCategoryCandidate())
         .nameSpecsVector((vector == null || vector.isEmpty()) ? null : vector)
         .build();
   }

@@ -408,10 +408,13 @@ class SearchControllerTest extends BaseIntegrationTest {
         .price(price.intValue())
         .rating(new java.math.BigDecimal(score.toString()))
         .reviewCount(100)
-        .model(ModelExtractor.extractModels(name))
+        .model(
+            ModelExtractor.extractModels(name).isEmpty()
+                ? null
+                : String.join(" ", ModelExtractor.extractModels(name)))
         .registeredMonth("2024-01")
         .thumbnailUrl("https://example.com/" + id + ".jpg")
-        .specs(TextPreprocessor.preprocess(specs + " " + category))
+        .specs(TextPreprocessor.preprocess(specs))
         .specsRaw(specs)
         .nameSpecsVector(null)
         .build();

@@ -9,6 +9,17 @@
     "category_name": {
       "type": "keyword"
     },
+    "category": {
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
+    },
     "specs": {
       "type": "text",
       "fields": {
@@ -80,6 +91,39 @@
     "specs_unit": {
       "type": "text",
       "analyzer": "whitespace"
+    },
+    "name_candidate": {
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
+    },
+    "specs_candidate": {
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
+    },
+    "category_candidate": {
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
     }
   }
 }

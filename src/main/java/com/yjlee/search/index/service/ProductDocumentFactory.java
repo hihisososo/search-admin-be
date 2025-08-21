@@ -20,23 +20,31 @@ public class ProductDocumentFactory {
   }
 
   public ProductDocument create(Product product) {
-    // 모델명 먼저 추출
+    // 모델명 추출 (별도 저장용)
     List<String> models = ModelExtractor.extractModels(product.getName());
 
-    // 모델명 제거 후 정규화
-    String nameWithoutModels = TextPreprocessor.removeModels(product.getName(), models);
-    String normalizedName = TextPreprocessor.normalizeUnits(nameWithoutModels);
-    String preprocessedName = TextPreprocessor.preprocess(normalizedName);
+    // name 필드는 모델명 포함한 전체 상품명 전처리 (normalizeUnits 포함)
+    String preprocessedName = TextPreprocessor.preprocess(product.getName());
 
     String nameUnits = TextPreprocessor.extractUnits(product.getName());
     String specsUnits =
         TextPreprocessor.extractUnits(product.getSpecs() != null ? product.getSpecs() : "");
+
+    // 후보군 검색용 필드: 전처리 적용 (normalizeUnits 포함)
+    String nameCandidate = TextPreprocessor.preprocess(product.getName());
+    String specsCandidate =
+        TextPreprocessor.preprocess(product.getSpecs() != null ? product.getSpecs() : "");
+
+    String categoryCandidate =
+        TextPreprocessor.preprocess(
+            product.getCategoryName() != null ? product.getCategoryName() : "");
 
     return ProductDocument.builder()
         .id(String.valueOf(product.getId()))
         .name(preprocessedName)
         .nameRaw(product.getName())
         .nameUnit(nameUnits)
+        .nameCandidate(nameCandidate)
         .model(models.isEmpty() ? null : String.join(" ", models))
         .brandName(BrandExtractor.extractBrand(product.getName()))
         .thumbnailUrl(product.getThumbnailUrl())
@@ -45,9 +53,14 @@ public class ProductDocumentFactory {
         .rating(product.getRating())
         .reviewCount(product.getReviewCount() != null ? product.getReviewCount() : 0)
         .categoryName(product.getCategoryName())
-        .specs(TextPreprocessor.preprocess(product.getSpecs() + " " + product.getCategoryName()))
+        .category(
+            TextPreprocessor.preprocess(
+                product.getCategoryName() != null ? product.getCategoryName() : ""))
+        .specs(TextPreprocessor.preprocess(product.getSpecs() != null ? product.getSpecs() : ""))
         .specsRaw(product.getSpecs())
         .specsUnit(specsUnits)
+        .specsCandidate(specsCandidate)
+        .categoryCandidate(categoryCandidate)
         .build();
   }
 

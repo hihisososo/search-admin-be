@@ -40,6 +40,8 @@ public class ProductDocument {
   @JsonProperty("category_name")
   String categoryName;
 
+  String category;
+
   String specs;
 
   @JsonProperty("specs_raw")
@@ -53,4 +55,13 @@ public class ProductDocument {
 
   @JsonProperty("specs_unit")
   String specsUnit;
+
+  @JsonProperty("name_candidate")
+  String nameCandidate;
+
+  @JsonProperty("specs_candidate")
+  String specsCandidate;
+
+  @JsonProperty("category_candidate")
+  String categoryCandidate;
 }
