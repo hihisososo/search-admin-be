@@ -19,9 +19,6 @@ public interface CategoryRankingDictionarySnapshotRepository
   Page<CategoryRankingDictionarySnapshot> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
       DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
 
-  Optional<CategoryRankingDictionarySnapshot> findByOriginalDictionaryIdAndEnvironmentType(
-      Long originalId, DictionaryEnvironmentType environmentType);
-
   Optional<CategoryRankingDictionarySnapshot> findByKeywordAndEnvironmentType(
       String keyword, DictionaryEnvironmentType environmentType);
 

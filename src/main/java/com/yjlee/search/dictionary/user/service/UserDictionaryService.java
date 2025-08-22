@@ -153,7 +153,8 @@ public class UserDictionaryService
   @Override
   protected Optional<UserDictionarySnapshot> findSnapshotByOriginalIdAndEnvironment(
       Long originalId, DictionaryEnvironmentType environment) {
-    return snapshotRepository.findByOriginalDictionaryIdAndEnvironmentType(originalId, environment);
+    // 더 이상 사용되지 않음 - AbstractDictionaryService.get()에서 직접 스냅샷 ID로 조회
+    return Optional.empty();
   }
 
   @Override

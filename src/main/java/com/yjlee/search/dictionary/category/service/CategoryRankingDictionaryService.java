@@ -153,9 +153,10 @@ public class CategoryRankingDictionaryService {
               .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
       return convertToResponse(dictionary);
     } else {
+      // DEV/PROD 환경에서는 스냅샷 테이블의 ID로 직접 조회
       CategoryRankingDictionarySnapshot snapshot =
           snapshotRepository
-              .findByOriginalDictionaryIdAndEnvironmentType(id, environment)
+              .findById(id)
               .orElseThrow(() -> new EntityNotFoundException("스냅샷을 찾을 수 없습니다: " + id));
       return convertToResponseFromSnapshot(snapshot);
     }

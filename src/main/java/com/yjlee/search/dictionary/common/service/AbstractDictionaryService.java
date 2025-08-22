@@ -124,8 +124,10 @@ public abstract class AbstractDictionaryService<
                   () -> new EntityNotFoundException(getDictionaryType() + " 사전을 찾을 수 없습니다: " + id));
       return convertToResponse(entity);
     } else {
+      // DEV/PROD 환경에서는 스냅샷 테이블의 ID로 직접 조회
       S snapshot =
-          findSnapshotByOriginalIdAndEnvironment(id, environment)
+          getSnapshotRepository()
+              .findById(id)
               .orElseThrow(
                   () ->
                       new EntityNotFoundException(

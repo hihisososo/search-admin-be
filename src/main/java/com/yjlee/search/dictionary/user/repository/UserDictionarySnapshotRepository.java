@@ -33,10 +33,6 @@ public interface UserDictionarySnapshotRepository
   // 환경별 스냅샷 존재 여부 확인
   boolean existsByEnvironmentType(DictionaryEnvironmentType environmentType);
 
-  // 특정 환경의 스냅샷 단건 조회 (환경당 하나씩만 존재하는 경우)
-  Optional<UserDictionarySnapshot> findByEnvironmentTypeAndOriginalDictionaryId(
-      DictionaryEnvironmentType environmentType, Long originalDictionaryId);
-
   // 특정 환경의 모든 스냅샷 삭제
   void deleteByEnvironmentType(DictionaryEnvironmentType environmentType);
 
@@ -46,7 +42,4 @@ public interface UserDictionarySnapshotRepository
 
   Page<UserDictionarySnapshot> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
       DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
-
-  Optional<UserDictionarySnapshot> findByOriginalDictionaryIdAndEnvironmentType(
-      Long originalDictionaryId, DictionaryEnvironmentType environmentType);
 }
