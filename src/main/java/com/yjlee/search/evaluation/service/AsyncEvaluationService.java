@@ -3,6 +3,7 @@ package com.yjlee.search.evaluation.service;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
 import com.yjlee.search.evaluation.dto.GenerateQueriesRequest;
+import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
 import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
 import com.yjlee.search.evaluation.model.AsyncTask;
 import com.yjlee.search.evaluation.model.AsyncTaskType;
@@ -25,6 +26,7 @@ public class AsyncEvaluationService {
   private final SearchBasedGroundTruthService groundTruthService;
   private final EvaluationQueryService evaluationQueryService;
   private final EvaluationReportService evaluationReportService;
+  private final LLMCandidateEvaluationService llmCandidateEvaluationService;
 
   private static final int FIXED_MIN_CANDIDATES = 30;
 
@@ -126,6 +128,14 @@ public class AsyncEvaluationService {
         asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비 중...");
 
     executeEvaluationAsync(task.getId(), request);
+    return task.getId();
+  }
+
+  public Long startLLMCandidateEvaluation(LLMEvaluationRequest request) {
+    AsyncTask task =
+        asyncTaskService.createTask(AsyncTaskType.LLM_EVALUATION, "LLM 후보군 평가 준비 중...");
+
+    evaluateLLMCandidatesAsync(task.getId(), request);
     return task.getId();
   }
 
@@ -231,6 +241,40 @@ public class AsyncEvaluationService {
     }
   }
 
+  @Async("evaluationTaskExecutor")
+  public void evaluateLLMCandidatesAsync(Long taskId, LLMEvaluationRequest request) {
+    try {
+      log.info("비동기 LLM 후보군 평가 시작: taskId={}", taskId);
+
+      asyncTaskService.updateProgress(taskId, 10, "LLM 평가 시작...");
+
+      if (Boolean.TRUE.equals(request.getEvaluateAllQueries())) {
+        asyncTaskService.updateProgress(taskId, 30, "전체 쿼리 LLM 평가 진행 중...");
+        llmCandidateEvaluationService.evaluateAllCandidates();
+      } else if (request.getQueryIds() != null && !request.getQueryIds().isEmpty()) {
+        int total = request.getQueryIds().size();
+        asyncTaskService.updateProgress(
+            taskId, 30, String.format("선택된 %d개 쿼리 LLM 평가 진행 중...", total));
+        llmCandidateEvaluationService.evaluateCandidatesForQueries(request.getQueryIds());
+      }
+
+      asyncTaskService.updateProgress(taskId, 90, "LLM 평가 완료, 결과 정리 중...");
+
+      LLMEvaluationResult result =
+          LLMEvaluationResult.builder()
+              .evaluateAllQueries(request.getEvaluateAllQueries())
+              .queryIds(request.getQueryIds())
+              .build();
+
+      asyncTaskService.completeTask(taskId, result);
+      log.info("비동기 LLM 후보군 평가 완료: taskId={}", taskId);
+
+    } catch (Exception e) {
+      log.error("비동기 LLM 후보군 평가 실패: taskId={}", taskId, e);
+      asyncTaskService.failTask(taskId, "LLM 평가 실패: " + e.getMessage());
+    }
+  }
+
   private List<String> generateQueriesWithProgress(Long taskId, int count) {
     asyncTaskService.updateProgress(taskId, 40, "LLM 쿼리 생성 중...");
     List<String> queries = queryGenerationService.generateRandomQueries(count);
@@ -267,5 +311,14 @@ public class AsyncEvaluationService {
     private int totalQueries;
     private Double recall300;
     private Double ndcg20;
+  }
+
+  @lombok.Builder
+  @lombok.Getter
+  @lombok.AllArgsConstructor
+  @lombok.NoArgsConstructor
+  public static class LLMEvaluationResult {
+    private Boolean evaluateAllQueries;
+    private List<Long> queryIds;
   }
 }

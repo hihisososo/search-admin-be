@@ -3,7 +3,6 @@ package com.yjlee.search.dictionary.stopword.repository;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.stopword.model.StopwordDictionarySnapshot;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -33,10 +32,6 @@ public interface StopwordDictionarySnapshotRepository
 
   // 환경별 스냅샷 존재 여부 확인
   boolean existsByEnvironmentType(DictionaryEnvironmentType environmentType);
-
-  // 특정 환경의 스냅샷 단건 조회 (환경당 하나씩만 존재하는 경우)
-  Optional<StopwordDictionarySnapshot> findByEnvironmentTypeAndOriginalDictionaryId(
-      DictionaryEnvironmentType environmentType, Long originalDictionaryId);
 
   // 특정 환경의 모든 스냅샷 삭제
   void deleteByEnvironmentType(DictionaryEnvironmentType environmentType);

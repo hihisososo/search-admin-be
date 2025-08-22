@@ -13,6 +13,7 @@ import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse;
 import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse.EvaluationQueryDto;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
+import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
 import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
 import com.yjlee.search.evaluation.dto.QueryDocumentMappingResponse;
 import com.yjlee.search.evaluation.dto.QuerySuggestResponse;
@@ -203,6 +204,18 @@ public class EvaluationSetController {
         AsyncTaskStartResponse.builder()
             .taskId(taskId)
             .message("후보군 생성 작업이 시작되었습니다. 작업 ID: " + taskId)
+            .build());
+  }
+
+  @PostMapping("/candidates/evaluate-llm-async")
+  @Operation(summary = "LLM 자동 후보군 평가 (비동기)")
+  public ResponseEntity<AsyncTaskStartResponse> evaluateLLMCandidatesAsync(
+      @Valid @RequestBody LLMEvaluationRequest request) {
+    Long taskId = asyncEvaluationService.startLLMCandidateEvaluation(request);
+    return ResponseEntity.ok(
+        AsyncTaskStartResponse.builder()
+            .taskId(taskId)
+            .message("LLM 평가 작업이 시작되었습니다. 작업 ID: " + taskId)
             .build());
   }
 
