@@ -26,22 +26,26 @@ public class QueryBuilder {
   private final CategoryRankingService categoryRankingService;
 
   public BoolQuery buildBoolQuery(SearchExecuteRequest request) {
-    // 모델명 추출
-    List<String> models = ModelExtractor.extractModels(request.getQuery());
+    // 원본 쿼리 보관
+    String originalQuery = request.getQuery();
+
+    // 모델명 추출 (검색용 - 확장 없음)
+    List<String> models = ModelExtractor.extractModelsForSearch(originalQuery);
 
     // 단위 추출
-    String units = TextPreprocessor.extractUnits(request.getQuery());
+    String units = TextPreprocessor.extractUnits(originalQuery);
 
     // 모델명과 단위를 제거한 쿼리 생성
-    String queryWithoutModels = TextPreprocessor.removeModels(request.getQuery(), models);
+    String queryWithoutModels = TextPreprocessor.removeModels(originalQuery, models);
     String queryWithoutUnits = removeUnitsFromQuery(queryWithoutModels, units);
 
     // 처리된 쿼리
     String processedQuery = processQuery(queryWithoutUnits, request.getApplyTypoCorrection());
 
-    List<Query> mustMatchQueries = buildMustMatchQueries(processedQuery, units, models);
+    List<Query> mustMatchQueries =
+        buildMustMatchQueries(processedQuery, originalQuery, units, models);
     List<Query> filterQueries = buildFilterQueries(request);
-    List<Query> shouldBoostQueries = buildCategoryBoostQueries(request.getQuery());
+    List<Query> shouldBoostQueries = buildCategoryBoostQueries(originalQuery);
 
     return BoolQuery.of(
         b -> {
@@ -61,7 +65,8 @@ public class QueryBuilder {
         });
   }
 
-  private List<Query> buildMustMatchQueries(String query, String units, List<String> models) {
+  private List<Query> buildMustMatchQueries(
+      String query, String originalQuery, String units, List<String> models) {
     // 각 쿼리 생성 (없으면 match_all)
     Query mainFieldQuery =
         (query != null && !query.trim().isEmpty())
@@ -77,13 +82,14 @@ public class QueryBuilder {
                                 .boost(10.0f)))
             : Query.of(q -> q.matchAll(m -> m));
 
+    // CROSS_FIELDS_BIGRAM에는 원본 쿼리를 그대로 사용
     Query bigramFieldQuery =
-        (query != null && !query.trim().isEmpty())
+        (originalQuery != null && !originalQuery.trim().isEmpty())
             ? Query.of(
                 q ->
                     q.multiMatch(
                         m ->
-                            m.query(query)
+                            m.query(originalQuery)
                                 .fields(ESFields.CROSS_FIELDS_BIGRAM)
                                 .type(TextQueryType.CrossFields)
                                 .operator(
