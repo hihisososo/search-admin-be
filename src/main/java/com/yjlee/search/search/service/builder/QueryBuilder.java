@@ -252,19 +252,18 @@ public class QueryBuilder {
       return null;
     }
 
-    if (models.size() == 1) {
-      // 모델이 하나인 경우
-      return Query.of(
-          q -> q.match(m -> m.field(ESFields.MODEL_BIGRAM).query(models.get(0)).boost(3.0f)));
-    } else {
-      // 여러 모델이 있는 경우 OR 조건으로
-      List<Query> modelQueries = new ArrayList<>();
-      for (String model : models) {
-        modelQueries.add(
-            Query.of(q -> q.match(m -> m.field(ESFields.MODEL_BIGRAM).query(model).boost(3.0f))));
-      }
-      return Query.of(q -> q.bool(b -> b.should(modelQueries).minimumShouldMatch("1")));
-    }
+    // 스트림으로 모델 쿼리 생성 (최적화)
+    List<Query> modelQueries =
+        models.stream()
+            .map(
+                model ->
+                    Query.of(q -> q.match(m -> m.field(ESFields.MODEL).query(model).boost(3.0f))))
+            .toList();
+
+    // 단일 모델은 바로 반환, 여러 모델은 AND 조건으로
+    return modelQueries.size() == 1
+        ? modelQueries.get(0)
+        : Query.of(q -> q.bool(b -> b.must(modelQueries)));
   }
 
   private List<Query> buildCategoryBoostQueries(String query) {

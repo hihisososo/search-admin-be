@@ -523,13 +523,20 @@ public class EvaluationReportService {
       return false;
     }
     try {
-      EvaluationReport report = evaluationReportRepository.findById(reportId).orElse(null);
-      if (report == null) return false;
+      log.info("평가 리포트 삭제 시작: reportId={}", reportId);
 
-      // 상세/문서 레코드 선삭제 후 리포트 삭제
-      reportDetailRepository.deleteByReport(report);
-      reportDocumentRepository.deleteByReport(report);
-      evaluationReportRepository.delete(report);
+      // 벌크 삭제 쿼리 사용으로 성능 개선
+      // SELECT 없이 바로 DELETE 실행
+      reportDetailRepository.deleteByReportIdBulk(reportId);
+      log.debug("리포트 상세 삭제 완료");
+
+      reportDocumentRepository.deleteByReportIdBulk(reportId);
+      log.debug("리포트 문서 삭제 완료");
+
+      // 리포트 자체 삭제
+      evaluationReportRepository.deleteById(reportId);
+      log.info("평가 리포트 삭제 완료: reportId={}", reportId);
+
     } catch (Exception e) {
       log.error("리포트 삭제 실패: {}", reportId, e);
       throw e;

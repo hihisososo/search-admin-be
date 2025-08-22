@@ -41,6 +41,8 @@ public class LLMQueuedEvaluationService {
   private final List<Thread> workers = new ArrayList<>();
   private final AtomicBoolean running = new AtomicBoolean(true);
   private final AtomicInteger activeWorkers = new AtomicInteger(0);
+  private final AtomicInteger totalBatchesAdded = new AtomicInteger(0);
+  private final AtomicInteger totalBatchesProcessed = new AtomicInteger(0);
 
   @PostConstruct
   public void init() {
@@ -78,6 +80,9 @@ public class LLMQueuedEvaluationService {
   private void workerLoop(int workerId) {
     log.info("Worker {} 시작", workerId);
     while (running.get()) {
+      EvaluationBatch batch = null;
+      boolean isWorking = false;
+
       try {
         // Rate limit 상태일 때만 대기
         if (rateLimitManager.isRateLimited()) {
@@ -86,12 +91,15 @@ public class LLMQueuedEvaluationService {
         }
 
         // 큐에서 작업 가져오기 (최대 1초 대기)
-        EvaluationBatch batch = evaluationQueue.poll(1, TimeUnit.SECONDS);
+        batch = evaluationQueue.poll(1, TimeUnit.SECONDS);
         if (batch == null) {
           continue;
         }
 
+        // 배치를 가져온 직후 activeWorkers 증가
         activeWorkers.incrementAndGet();
+        isWorking = true;
+
         log.info("Worker {} - 배치 처리 시작: {} ({} 상품)", workerId, batch.query, batch.products.size());
 
         // 평가 수행
@@ -105,7 +113,10 @@ public class LLMQueuedEvaluationService {
       } catch (Exception e) {
         log.error("Worker {} - 오류 발생", workerId, e);
       } finally {
-        activeWorkers.decrementAndGet();
+        // 작업 중이었다면 activeWorkers 감소
+        if (isWorking) {
+          activeWorkers.decrementAndGet();
+        }
       }
     }
     log.info("Worker {} 종료", workerId);
@@ -116,6 +127,9 @@ public class LLMQueuedEvaluationService {
       // evaluationWorker의 평가 로직 호출
       evaluationWorker.processSingleBatch(
           batch.query, batch.products, batch.mappings, batch.evaluationQuery);
+
+      // 성공적으로 처리된 배치 카운트 증가
+      totalBatchesProcessed.incrementAndGet();
     } catch (Exception e) {
       if (e.getMessage() != null && e.getMessage().contains("429")) {
         log.warn("Rate limit 감지 - 모든 작업 중단");
@@ -128,12 +142,18 @@ public class LLMQueuedEvaluationService {
         }
       } else {
         log.error("배치 처리 실패", e);
+        // 실패해도 처리된 것으로 카운트
+        totalBatchesProcessed.incrementAndGet();
       }
     }
   }
 
   public void evaluateCandidatesForQueries(List<Long> queryIds) {
     log.info("큐 기반 LLM 평가 시작: {}개 쿼리", queryIds.size());
+
+    // 카운터 초기화
+    totalBatchesAdded.set(0);
+    totalBatchesProcessed.set(0);
 
     // Health check 스레드 시작
     rateLimitManager.startHealthCheck();
@@ -181,6 +201,7 @@ public class LLMQueuedEvaluationService {
           try {
             evaluationQueue.put(batch);
             totalBatches++;
+            totalBatchesAdded.incrementAndGet();
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("큐에 배치 추가 실패", e);
@@ -202,16 +223,54 @@ public class LLMQueuedEvaluationService {
   }
 
   private void waitForCompletion() {
-    while (!evaluationQueue.isEmpty() || activeWorkers.get() > 0) {
+    // 초기 대기: 워커들이 큐에서 작업을 가져갈 시간을 줌
+    try {
+      Thread.sleep(500);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return;
+    }
+
+    int emptyCheckCount = 0;
+    while (true) {
+      int queueSize = evaluationQueue.size();
+      int activeCount = activeWorkers.get();
+      int addedCount = totalBatchesAdded.get();
+      int processedCount = totalBatchesProcessed.get();
+
+      log.info(
+          "진행 상황: 큐 대기 {}개, 활성 Worker {}개, 처리 완료 {}/{}",
+          queueSize,
+          activeCount,
+          processedCount,
+          addedCount);
+
+      // 모든 배치가 처리되었는지 확인
+      if (addedCount > 0 && processedCount >= addedCount) {
+        log.info("모든 배치 처리 완료: {}/{}", processedCount, addedCount);
+        break;
+      }
+
+      // 큐가 비어있고 활성 워커가 없을 때 (fallback)
+      if (queueSize == 0 && activeCount == 0) {
+        emptyCheckCount++;
+        // 3번 연속으로 비어있으면 완료로 간주
+        if (emptyCheckCount >= 3) {
+          log.info("큐와 워커가 모두 비어있음 - 완료로 간주");
+          break;
+        }
+      } else {
+        emptyCheckCount = 0;
+      }
+
       try {
-        log.info("진행 상황: 큐 대기 {}개, 활성 Worker {}개", evaluationQueue.size(), activeWorkers.get());
         Thread.sleep(2000);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         break;
       }
     }
-    log.info("모든 평가 작업 완료");
+    log.info("모든 평가 작업 완료 - 총 {}개 배치 처리", totalBatchesProcessed.get());
   }
 
   // 평가 배치 데이터 클래스
