@@ -19,4 +19,10 @@ public interface StatsRepository {
   long getClickCount(LocalDateTime from, LocalDateTime to);
 
   long getClickCountForKeyword(String keyword, LocalDateTime from, LocalDateTime to);
+
+  java.util.Map<String, Long> getClickCountsForKeywords(
+      List<String> keywords, LocalDateTime from, LocalDateTime to);
+
+  java.util.Map<String, Long> getSearchesWithClicksForKeywords(
+      List<String> keywords, LocalDateTime from, LocalDateTime to);
 }

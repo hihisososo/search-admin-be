@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -226,6 +227,170 @@ public class ElasticsearchStatsRepository implements StatsRepository {
     }
   }
 
+  @Override
+  public Map<String, Long> getClickCountsForKeywords(
+      List<String> keywords, LocalDateTime from, LocalDateTime to) {
+    try {
+      BoolQuery boolQuery =
+          BoolQuery.of(
+              b ->
+                  b.must(
+                          Query.of(
+                              q ->
+                                  q.range(
+                                      r ->
+                                          r.date(
+                                              d ->
+                                                  d.field("timestamp")
+                                                      .gte(from.toString())
+                                                      .lte(to.toString())))))
+                      .must(
+                          Query.of(
+                              q ->
+                                  q.terms(
+                                      t ->
+                                          t.field("searchKeyword.keyword")
+                                              .terms(
+                                                  tv ->
+                                                      tv.value(
+                                                          keywords.stream()
+                                                              .map(
+                                                                  co.elastic.clients.elasticsearch
+                                                                          ._types.FieldValue
+                                                                      ::of)
+                                                              .collect(Collectors.toList())))))));
+
+      Map<String, Aggregation> aggregations =
+          Map.of(
+              "keywords",
+              Aggregation.of(
+                  a -> a.terms(t -> t.field("searchKeyword.keyword").size(keywords.size()))));
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index("click-logs-*")
+                      .size(0)
+                      .query(Query.of(q -> q.bool(boolQuery)))
+                      .aggregations(aggregations));
+
+      SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
+
+      Map<String, Long> clickCounts = new HashMap<>();
+      var keywordsAgg = response.aggregations().get("keywords");
+
+      if (keywordsAgg != null && keywordsAgg._kind().jsonValue().equals("sterms")) {
+        var termsAgg = keywordsAgg.sterms();
+        var buckets = termsAgg.buckets().array();
+
+        for (var bucket : buckets) {
+          String keyword = bucket.key().stringValue();
+          long count = bucket.docCount();
+          clickCounts.put(keyword, count);
+        }
+      }
+
+      // 결과에 없는 키워드는 0으로 설정
+      for (String keyword : keywords) {
+        clickCounts.putIfAbsent(keyword, 0L);
+      }
+
+      return clickCounts;
+
+    } catch (Exception e) {
+      log.error("키워드별 클릭 횟수 일괄 조회 실패: {}", e.getMessage(), e);
+      // 모든 키워드에 대해 0을 반환
+      return keywords.stream().collect(Collectors.toMap(k -> k, k -> 0L));
+    }
+  }
+
+  @Override
+  public Map<String, Long> getSearchesWithClicksForKeywords(
+      List<String> keywords, LocalDateTime from, LocalDateTime to) {
+    try {
+      BoolQuery boolQuery =
+          BoolQuery.of(
+              b ->
+                  b.must(
+                          Query.of(
+                              q ->
+                                  q.range(
+                                      r ->
+                                          r.date(
+                                              d ->
+                                                  d.field("timestamp")
+                                                      .gte(from.toString())
+                                                      .lte(to.toString())))))
+                      .must(
+                          Query.of(
+                              q ->
+                                  q.terms(
+                                      t ->
+                                          t.field("searchKeyword.keyword")
+                                              .terms(
+                                                  tv ->
+                                                      tv.value(
+                                                          keywords.stream()
+                                                              .map(
+                                                                  co.elastic.clients.elasticsearch
+                                                                          ._types.FieldValue
+                                                                      ::of)
+                                                              .collect(Collectors.toList())))))));
+
+      Map<String, Aggregation> subAggregations =
+          Map.of("unique_sessions", Aggregation.of(a -> a.cardinality(c -> c.field("session_id"))));
+
+      Map<String, Aggregation> aggregations =
+          Map.of(
+              "keywords",
+              Aggregation.of(
+                  a ->
+                      a.terms(t -> t.field("searchKeyword.keyword").size(keywords.size()))
+                          .aggregations(subAggregations)));
+
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index("click-logs-*")
+                      .size(0)
+                      .query(Query.of(q -> q.bool(boolQuery)))
+                      .aggregations(aggregations));
+
+      SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
+
+      Map<String, Long> searchesWithClicks = new HashMap<>();
+      var keywordsAgg = response.aggregations().get("keywords");
+
+      if (keywordsAgg != null && keywordsAgg._kind().jsonValue().equals("sterms")) {
+        var termsAgg = keywordsAgg.sterms();
+        var buckets = termsAgg.buckets().array();
+
+        for (var bucket : buckets) {
+          String keyword = bucket.key().stringValue();
+          var cardinalityAgg = bucket.aggregations().get("unique_sessions");
+          if (cardinalityAgg != null && cardinalityAgg.isCardinality()) {
+            long count = (long) cardinalityAgg.cardinality().value();
+            searchesWithClicks.put(keyword, count);
+          } else {
+            searchesWithClicks.put(keyword, 0L);
+          }
+        }
+      }
+
+      // 결과에 없는 키워드는 0으로 설정
+      for (String keyword : keywords) {
+        searchesWithClicks.putIfAbsent(keyword, 0L);
+      }
+
+      return searchesWithClicks;
+
+    } catch (Exception e) {
+      log.error("키워드별 클릭 세션수 일괄 조회 실패: {}", e.getMessage(), e);
+      // 모든 키워드에 대해 0을 반환
+      return keywords.stream().collect(Collectors.toMap(k -> k, k -> 0L));
+    }
+  }
+
   // (removed) getSearchCountForKeyword: 현재 미사용
 
   private BoolQuery buildDateRangeQuery(LocalDateTime from, LocalDateTime to, String index) {
@@ -319,7 +484,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
                             dh ->
                                 dh.field("timestamp")
                                     .fixedInterval(fi -> fi.time(dateHistogramInterval))
-                                    .timeZone("Asia/Seoul"))
+                                    .timeZone("UTC"))
                         .aggregations(subAggregations)));
 
     return SearchRequest.of(
@@ -373,12 +538,29 @@ public class ElasticsearchStatsRepository implements StatsRepository {
         var buckets = termsAgg.buckets().array();
         long totalCount = buckets.stream().mapToLong(bucket -> bucket.docCount()).sum();
 
-        for (int i = 0; i < buckets.size(); i++) {
-          var bucket = buckets.get(i);
+        // 키워드 목록 추출
+        List<String> keywordList = new ArrayList<>();
+        Map<String, Long> searchCounts = new HashMap<>();
+        for (var bucket : buckets) {
+          String keyword = bucket.key().stringValue();
+          keywordList.add(keyword);
+          searchCounts.put(keyword, bucket.docCount());
+        }
+
+        // 클릭수 일괄 조회
+        Map<String, Long> clickCounts = getClickCountsForKeywords(keywordList, from, to);
+
+        // 클릭 세션수 일괄 조회
+        Map<String, Long> searchesWithClicksMap =
+            getSearchesWithClicksForKeywords(keywordList, from, to);
+
+        // 결과 생성
+        int rank = 1;
+        for (var bucket : buckets) {
           String keyword = bucket.key().stringValue();
           long searchCount = bucket.docCount();
-          long clickCount = getClickCountForKeyword(keyword, from, to);
-          long searchesWithClicksForKeyword = getSearchesWithClicksForKeyword(keyword, from, to);
+          long clickCount = clickCounts.getOrDefault(keyword, 0L);
+          long searchesWithClicksForKeyword = searchesWithClicksMap.getOrDefault(keyword, 0L);
           double percentage = totalCount > 0 ? (double) searchCount / totalCount * 100 : 0.0;
           // CTR: 해당 키워드로 검색 후 클릭한 비율 (최대 100%)
           double ctr =
@@ -391,7 +573,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
                   .clickCount(clickCount)
                   .clickThroughRate(Math.round(ctr * 100.0) / 100.0)
                   .percentage(Math.round(percentage * 100.0) / 100.0)
-                  .rank(i + 1)
+                  .rank(rank++)
                   .build());
         }
       } catch (Exception e) {
