@@ -47,8 +47,8 @@ public class PopularKeywordQueryService {
       LocalDateTime from, LocalDateTime to, int limit) {
     log.info("급등검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
 
-    LocalDateTime previousFrom =
-        from.minusDays(to.toLocalDate().toEpochDay() - from.toLocalDate().toEpochDay());
+    long periodDays = java.time.Duration.between(from, to).toDays();
+    LocalDateTime previousFrom = from.minusDays(periodDays);
     LocalDateTime previousTo = from;
 
     List<KeywordStats> currentKeywords = statsRepository.getPopularKeywords(from, to, limit * 2);
