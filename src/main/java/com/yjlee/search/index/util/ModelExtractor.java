@@ -53,6 +53,32 @@ public class ModelExtractor {
     return models;
   }
 
+  // 검색용 모델 추출 (확장 없이 원본만 반환)
+  public static List<String> extractModelsForSearch(String query) {
+    List<String> models = new ArrayList<>();
+
+    if (query == null || query.isBlank()) {
+      return models;
+    }
+
+    String cleanedQuery = query.trim();
+
+    Matcher matcher = MODEL_PATTERN.matcher(cleanedQuery);
+    while (matcher.find()) {
+      String model = matcher.group(1);
+      if (isValidModel(model)) {
+        String trimmedModel = model.trim().toLowerCase();
+
+        // 원본 모델명만 추가 (확장 없음)
+        if (!models.contains(trimmedModel)) {
+          models.add(trimmedModel);
+        }
+      }
+    }
+
+    return models;
+  }
+
   private static boolean isValidModel(String model) {
     if (model == null || model.length() < 3) {
       return false;
