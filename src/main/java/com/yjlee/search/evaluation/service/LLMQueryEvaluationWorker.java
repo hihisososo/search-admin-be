@@ -164,6 +164,9 @@ public class LLMQueryEvaluationWorker {
                   .evaluationReason(evaluationReason)
                   .evaluationSource(EVALUATION_SOURCE_LLM)
                   .confidence(confidence)
+                  .expandedSynonyms(mapping.getExpandedSynonyms())
+                  .productCategory(mapping.getProductCategory())
+                  .searchSource(mapping.getSearchSource())
                   .build();
 
           updatedMappings.add(updatedMapping);
