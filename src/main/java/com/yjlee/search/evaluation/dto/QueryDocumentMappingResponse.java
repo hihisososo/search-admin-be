@@ -29,6 +29,7 @@ public class QueryDocumentMappingResponse {
     private String productId;
     private String productName;
     private String productSpecs;
+    private String productCategory;
     private Integer relevanceScore;
     private String evaluationReason;
     private Double confidence;
