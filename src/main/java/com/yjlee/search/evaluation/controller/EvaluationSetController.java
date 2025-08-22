@@ -135,6 +135,7 @@ public class EvaluationSetController {
                       .productId(m.getProductId())
                       .productName(product != null ? product.getNameRaw() : DEFAULT_PRODUCT_NAME)
                       .productSpecs(product != null ? product.getSpecsRaw() : DEFAULT_PRODUCT_SPECS)
+                      .productCategory(m.getProductCategory())
                       .relevanceScore(m.getRelevanceScore())
                       .evaluationReason(
                           m.getEvaluationReason() != null ? m.getEvaluationReason() : "")
