@@ -77,11 +77,7 @@
       "type": "keyword",
       "index": false
     },
-    "name_unit": {
-      "type": "text",
-      "analyzer": "whitespace"
-    },
-    "specs_unit": {
+    "units": {
       "type": "text",
       "analyzer": "whitespace"
     },
