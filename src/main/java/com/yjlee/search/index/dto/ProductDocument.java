@@ -50,11 +50,7 @@ public class ProductDocument {
   @JsonProperty("name_specs_vector")
   List<Float> nameSpecsVector;
 
-  @JsonProperty("name_unit")
-  String nameUnit;
-
-  @JsonProperty("specs_unit")
-  String specsUnit;
+  String units;
 
   @JsonProperty("name_candidate")
   String nameCandidate;

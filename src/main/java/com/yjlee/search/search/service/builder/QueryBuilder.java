@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.index.util.ModelExtractor;
+import com.yjlee.search.index.util.UnitExtractor;
 import com.yjlee.search.search.dto.PriceRangeDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.service.category.CategoryRankingService;
@@ -32,8 +33,8 @@ public class QueryBuilder {
     // 모델명 추출 (검색용 - 확장 없음)
     List<String> models = ModelExtractor.extractModelsForSearch(originalQuery);
 
-    // 단위 추출
-    String units = TextPreprocessor.extractUnits(originalQuery);
+    // 단위 추출 (검색용 - 확장 없음)
+    List<String> units = UnitExtractor.extractUnitsForSearch(originalQuery);
 
     // 모델명과 단위를 제거한 쿼리 생성
     String queryWithoutModels = TextPreprocessor.removeModels(originalQuery, models);
@@ -66,7 +67,7 @@ public class QueryBuilder {
   }
 
   private List<Query> buildMustMatchQueries(
-      String query, String originalQuery, String units, List<String> models) {
+      String query, String originalQuery, List<String> units, List<String> models) {
     // 각 쿼리 생성 (없으면 match_all)
     Query mainFieldQuery =
         (query != null && !query.trim().isEmpty())
@@ -190,29 +191,17 @@ public class QueryBuilder {
     return Optional.ofNullable(applyTypoCorrection).filter(Boolean::booleanValue).isPresent();
   }
 
-  private Query buildUnitQuery(String units) {
-    if (units == null || units.trim().isEmpty()) {
+  private Query buildUnitQuery(List<String> units) {
+    if (units == null || units.isEmpty()) {
       return null;
     }
 
-    String[] unitArray = units.split("\\s+");
     List<Query> unitQueries = new ArrayList<>();
 
-    for (String unit : unitArray) {
+    for (String unit : units) {
       if (!unit.isEmpty()) {
-        // name.unit 또는 specs.unit 중 하나만 매칭되면 OK
-        unitQueries.add(
-            Query.of(
-                q ->
-                    q.bool(
-                        b ->
-                            b.should(
-                                    Query.of(
-                                        t -> t.match(m -> m.field(ESFields.NAME_UNIT).query(unit))),
-                                    Query.of(
-                                        t ->
-                                            t.match(m -> m.field(ESFields.SPECS_UNIT).query(unit))))
-                                .minimumShouldMatch("1"))));
+        // units 필드에서 매칭
+        unitQueries.add(Query.of(q -> q.match(m -> m.field(ESFields.UNITS).query(unit))));
       }
     }
 
@@ -228,15 +217,14 @@ public class QueryBuilder {
     }
   }
 
-  private String removeUnitsFromQuery(String query, String units) {
-    if (units == null || units.trim().isEmpty()) {
+  private String removeUnitsFromQuery(String query, List<String> units) {
+    if (units == null || units.isEmpty()) {
       return query;
     }
 
     String result = query;
-    String[] unitArray = units.split("\\s+");
 
-    for (String unit : unitArray) {
+    for (String unit : units) {
       if (!unit.isEmpty()) {
         // 단위를 쿼리에서 제거 (대소문자 무시)
         result = result.replaceAll("(?i)\\b" + Pattern.quote(unit) + "\\b", "");

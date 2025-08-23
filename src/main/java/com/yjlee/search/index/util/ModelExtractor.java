@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ModelExtractor {
 
-  // 하이픈 포함 패턴: 영숫자로 시작하고 하이픈으로 연결된 영숫자 그룹
+  // 하이픈이나 점 포함 패턴: 영숫자로 시작하고 하이픈이나 점으로 연결된 영숫자 그룹
   private static final Pattern MODEL_PATTERN =
-      Pattern.compile("\\b([A-Z0-9]+(?:-[A-Z0-9]+)*)\\b", Pattern.CASE_INSENSITIVE);
+      Pattern.compile("\\b([A-Z0-9]+(?:[-.]?[A-Z0-9]+)*)\\b", Pattern.CASE_INSENSITIVE);
 
   // 단위 패턴 (제외할 것들)
   private static final Pattern UNIT_PATTERN =
@@ -40,11 +40,20 @@ public class ModelExtractor {
           models.add(trimmedModel);
         }
 
-        // 하이픈이 포함된 경우 하이픈 제거 버전도 추가
-        if (trimmedModel.contains("-")) {
-          String modelWithoutHyphen = trimmedModel.replace("-", "");
-          if (!models.contains(modelWithoutHyphen)) {
-            models.add(modelWithoutHyphen);
+        // 하이픈이나 점이 포함된 경우 처리
+        if (trimmedModel.contains("-") || trimmedModel.contains(".")) {
+          // 하이픈과 점 모두 제거한 버전 추가
+          String modelWithoutSeparators = trimmedModel.replace("-", "").replace(".", "");
+          if (!models.contains(modelWithoutSeparators)) {
+            models.add(modelWithoutSeparators);
+          }
+
+          // 하이픈이나 점으로 분리된 각 토큰도 추가
+          String[] tokens = trimmedModel.split("[-.]");
+          for (String token : tokens) {
+            if (!token.isEmpty() && !models.contains(token)) {
+              models.add(token);
+            }
           }
         }
       }
@@ -89,20 +98,20 @@ public class ModelExtractor {
       return false;
     }
 
-    // 하이픈 제거한 버전으로 검증
-    String modelWithoutHyphen = model.replace("-", "");
+    // 하이픈과 점 제거한 버전으로 검증
+    String modelWithoutSeparators = model.replace("-", "").replace(".", "");
 
     // 영어만 또는 숫자만으로 구성된 경우 제외
-    if (modelWithoutHyphen.matches("^[A-Za-z]+$")) {
+    if (modelWithoutSeparators.matches("^[A-Za-z]+$")) {
       return false; // 영어만
     }
-    if (modelWithoutHyphen.matches("^[0-9]+$")) {
+    if (modelWithoutSeparators.matches("^[0-9]+$")) {
       return false; // 숫자만
     }
 
     // 영어와 숫자가 모두 포함되어야 함
-    boolean hasLetter = modelWithoutHyphen.matches(".*[A-Za-z].*");
-    boolean hasDigit = modelWithoutHyphen.matches(".*[0-9].*");
+    boolean hasLetter = modelWithoutSeparators.matches(".*[A-Za-z].*");
+    boolean hasDigit = modelWithoutSeparators.matches(".*[0-9].*");
 
     return hasLetter && hasDigit;
   }

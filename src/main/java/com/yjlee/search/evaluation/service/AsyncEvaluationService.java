@@ -11,14 +11,13 @@ import com.yjlee.search.evaluation.model.EvaluationQuery;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AsyncEvaluationService {
 
   private final AsyncTaskService asyncTaskService;
@@ -27,13 +26,31 @@ public class AsyncEvaluationService {
   private final EvaluationQueryService evaluationQueryService;
   private final EvaluationReportService evaluationReportService;
   private final LLMCandidateEvaluationService llmCandidateEvaluationService;
+  private final AsyncEvaluationService self;
+
+  public AsyncEvaluationService(
+      AsyncTaskService asyncTaskService,
+      QueryGenerationService queryGenerationService,
+      SearchBasedGroundTruthService groundTruthService,
+      EvaluationQueryService evaluationQueryService,
+      EvaluationReportService evaluationReportService,
+      LLMCandidateEvaluationService llmCandidateEvaluationService,
+      @Lazy AsyncEvaluationService self) {
+    this.asyncTaskService = asyncTaskService;
+    this.queryGenerationService = queryGenerationService;
+    this.groundTruthService = groundTruthService;
+    this.evaluationQueryService = evaluationQueryService;
+    this.evaluationReportService = evaluationReportService;
+    this.llmCandidateEvaluationService = llmCandidateEvaluationService;
+    this.self = self;
+  }
 
   private static final int FIXED_MIN_CANDIDATES = 30;
 
   public Long startLLMQueryGeneration(LLMQueryGenerateRequest request) {
     AsyncTask task =
         asyncTaskService.createTask(AsyncTaskType.QUERY_GENERATION, "LLM 쿼리 생성 준비 중...");
-    generateLLMQueriesAsync(task.getId(), request);
+    self.generateLLMQueriesAsync(task.getId(), request);
     return task.getId();
   }
 
@@ -102,7 +119,7 @@ public class AsyncEvaluationService {
 
   private void generateCandidatesForOne(EvaluationQuery eq) {
     try {
-      generateCandidatesAsync(
+      self.generateCandidatesAsync(
           0L, GenerateCandidatesRequest.builder().queryIds(List.of(eq.getId())).build());
     } catch (Exception ignored) {
     }
@@ -111,7 +128,7 @@ public class AsyncEvaluationService {
   public Long startQueryGeneration(GenerateQueriesRequest request) {
     AsyncTask task = asyncTaskService.createTask(AsyncTaskType.QUERY_GENERATION, "쿼리 자동생성 준비 중...");
 
-    generateQueriesAsync(task.getId(), request);
+    self.generateQueriesAsync(task.getId(), request);
     return task.getId();
   }
 
@@ -119,7 +136,7 @@ public class AsyncEvaluationService {
     AsyncTask task =
         asyncTaskService.createTask(AsyncTaskType.CANDIDATE_GENERATION, "후보군 생성 준비 중...");
 
-    generateCandidatesAsync(task.getId(), request);
+    self.generateCandidatesAsync(task.getId(), request);
     return task.getId();
   }
 
@@ -127,7 +144,7 @@ public class AsyncEvaluationService {
     AsyncTask task =
         asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비 중...");
 
-    executeEvaluationAsync(task.getId(), request);
+    self.executeEvaluationAsync(task.getId(), request);
     return task.getId();
   }
 
@@ -135,7 +152,7 @@ public class AsyncEvaluationService {
     AsyncTask task =
         asyncTaskService.createTask(AsyncTaskType.LLM_EVALUATION, "LLM 후보군 평가 준비 중...");
 
-    evaluateLLMCandidatesAsync(task.getId(), request);
+    self.evaluateLLMCandidatesAsync(task.getId(), request);
     return task.getId();
   }
 
