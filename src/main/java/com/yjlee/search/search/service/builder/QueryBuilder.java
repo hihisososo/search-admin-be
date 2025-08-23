@@ -201,9 +201,7 @@ public class QueryBuilder {
     for (String unit : units) {
       if (!unit.isEmpty()) {
         // units 필드에서 매칭
-        unitQueries.add(
-            Query.of(
-                q -> q.match(m -> m.field(ESFields.UNITS).query(unit))));
+        unitQueries.add(Query.of(q -> q.match(m -> m.field(ESFields.UNITS).query(unit))));
       }
     }
 

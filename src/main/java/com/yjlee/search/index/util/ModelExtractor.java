@@ -47,7 +47,7 @@ public class ModelExtractor {
           if (!models.contains(modelWithoutSeparators)) {
             models.add(modelWithoutSeparators);
           }
-          
+
           // 하이픈이나 점으로 분리된 각 토큰도 추가
           String[] tokens = trimmedModel.split("[-.]");
           for (String token : tokens) {

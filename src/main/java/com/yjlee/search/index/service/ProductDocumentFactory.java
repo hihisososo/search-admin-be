@@ -26,8 +26,9 @@ public class ProductDocumentFactory {
   public ProductDocument create(Product product) {
     // 모델명 추출 (name과 specs 모두에서 추출)
     List<String> nameModels = ModelExtractor.extractModels(product.getName());
-    List<String> specsModels = ModelExtractor.extractModels(product.getSpecs() != null ? product.getSpecs() : "");
-    
+    List<String> specsModels =
+        ModelExtractor.extractModels(product.getSpecs() != null ? product.getSpecs() : "");
+
     // 중복 제거하여 병합
     List<String> models = new ArrayList<>(nameModels);
     for (String specModel : specsModels) {
@@ -41,8 +42,9 @@ public class ProductDocumentFactory {
 
     // name과 specs에서 단위 추출 후 중복 제거
     List<String> nameUnits = UnitExtractor.extractUnits(product.getName());
-    List<String> specsUnits = UnitExtractor.extractUnits(product.getSpecs() != null ? product.getSpecs() : "");
-    
+    List<String> specsUnits =
+        UnitExtractor.extractUnits(product.getSpecs() != null ? product.getSpecs() : "");
+
     // 중복 제거하여 하나의 units 필드로 통합
     Set<String> unitsSet = new HashSet<>();
     unitsSet.addAll(nameUnits);

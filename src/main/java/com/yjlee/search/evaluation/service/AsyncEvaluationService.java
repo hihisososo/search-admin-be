@@ -27,7 +27,7 @@ public class AsyncEvaluationService {
   private final EvaluationReportService evaluationReportService;
   private final LLMCandidateEvaluationService llmCandidateEvaluationService;
   private final AsyncEvaluationService self;
-  
+
   public AsyncEvaluationService(
       AsyncTaskService asyncTaskService,
       QueryGenerationService queryGenerationService,
