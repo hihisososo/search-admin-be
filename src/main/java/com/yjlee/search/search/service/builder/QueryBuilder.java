@@ -36,9 +36,8 @@ public class QueryBuilder {
     // 단위 추출 (검색용 - 확장 없음)
     List<String> units = UnitExtractor.extractUnitsForSearch(originalQuery);
 
-    // 모델명과 단위를 제거한 쿼리 생성
-    String queryWithoutModels = TextPreprocessor.removeModels(originalQuery, models);
-    String queryWithoutUnits = removeUnitsFromQuery(queryWithoutModels, units);
+    // 단위만 제거한 쿼리 생성 (모델명은 유지)
+    String queryWithoutUnits = removeUnitsFromQuery(originalQuery, units);
 
     // 처리된 쿼리
     String processedQuery = processQuery(queryWithoutUnits, request.getApplyTypoCorrection());
@@ -98,18 +97,35 @@ public class QueryBuilder {
                                 .boost(5.0f)))
             : Query.of(q -> q.matchAll(m -> m));
 
-    final Query modelQuery =
-        Optional.ofNullable(buildModelQuery(models)).orElse(Query.of(q -> q.matchAll(m -> m)));
+    // 모델 쿼리를 부가 점수로 변경
+    List<Query> modelBoostQueries = buildModelBoostQueries(models);
 
     final Query unitQuery =
         Optional.ofNullable(buildUnitQuery(units)).orElse(Query.of(q -> q.matchAll(m -> m)));
 
-    // 메인 그룹: 한국어 필드 AND 모델 AND 단위
+    // 메인 그룹: 한국어 필드 AND 단위 + 모델(부가 점수)
     Query mainGroup =
-        Query.of(q -> q.bool(b -> b.must(mainFieldQuery).must(modelQuery).must(unitQuery)));
+        Query.of(
+            q -> {
+              BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
+              boolBuilder.must(mainFieldQuery).must(unitQuery);
+              if (!modelBoostQueries.isEmpty()) {
+                boolBuilder.should(modelBoostQueries);
+              }
+              return q.bool(boolBuilder.build());
+            });
 
-    // 바이그램 그룹: 바이그램 필드 AND 단위
-    Query bigramGroup = Query.of(q -> q.bool(b -> b.must(bigramFieldQuery).must(unitQuery)));
+    // 바이그램 그룹: 바이그램 필드 AND 단위 + 모델(부가 점수)
+    Query bigramGroup =
+        Query.of(
+            q -> {
+              BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
+              boolBuilder.must(bigramFieldQuery).must(unitQuery);
+              if (!modelBoostQueries.isEmpty()) {
+                boolBuilder.should(modelBoostQueries);
+              }
+              return q.bool(boolBuilder.build());
+            });
 
     // 최종: 메인 그룹 OR 바이그램 그룹
     return List.of(
@@ -252,6 +268,21 @@ public class QueryBuilder {
     return modelQueries.size() == 1
         ? modelQueries.get(0)
         : Query.of(q -> q.bool(b -> b.must(modelQueries)));
+  }
+
+  private List<Query> buildModelBoostQueries(List<String> models) {
+    if (models == null || models.isEmpty()) {
+      return List.of();
+    }
+
+    // 모델별로 부가 점수 쿼리 생성 (OR 조건)
+    return models.stream()
+        .map(
+            model ->
+                Query.of(
+                    q ->
+                        q.match(m -> m.field(ESFields.MODEL).query(model).boost(8.0f)))) // 부스트 값 상향
+        .toList();
   }
 
   private List<Query> buildCategoryBoostQueries(String query) {
