@@ -137,7 +137,7 @@ public class LLMService {
       Map<String, Object> requestBody = new HashMap<>();
       requestBody.put("model", openaiModel);
       requestBody.put("messages", Arrays.asList(Map.of("role", "user", "content", "1")));
-      requestBody.put("max_tokens", 1); // 최소 응답 토큰
+      requestBody.put("max_completion_tokens", 1); // 최소 응답 토큰
 
       HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
