@@ -5,9 +5,24 @@
 - 상품 검색 페이지 : http://fe.hihisososo.link/search-demo
 - 검색 관리 페이지 : http://fe.hihisososo.link/dashboard
 
-![검색 데모](docs/images/search.gif)
-![대시보드](docs/images/dashboard.gif)
-![모니터링](docs/images/monitoring.gif)
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="33%">
+        <sub><b>상품 검색</b></sub><br/>
+        <img src="docs/images/search.gif" width="100%" />
+      </td>
+      <td align="center" width="33%">
+        <sub><b>검색 관리 대시보드</b></sub><br/>
+        <img src="docs/images/dashboard.gif" width="100%" />
+      </td>
+      <td align="center" width="33%">
+        <sub><b>실시간 모니터링</b></sub><br/>
+        <img src="docs/images/monitoring.gif" width="100%" />
+      </td>
+    </tr>
+  </table>
+</div>
 
 #### 특징
 - 관리 페이지를 통해 실 반영 전 미리 색인 -> 검색 테스트 -> 배포 할 수 있게 기획하였습니다
