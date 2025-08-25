@@ -124,11 +124,10 @@ public class SynonymDictionaryService {
     Page<SynonymDictionarySnapshot> snapshotPage;
     if (search != null && !search.trim().isEmpty()) {
       snapshotPage =
-          snapshotRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCaseOrderByKeywordAsc(
+          snapshotRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
               environmentType, search.trim(), pageable);
     } else {
-      snapshotPage =
-          snapshotRepository.findByEnvironmentTypeOrderByKeywordAsc(environmentType, pageable);
+      snapshotPage = snapshotRepository.findByEnvironmentType(environmentType, pageable);
     }
 
     return PageResponse.from(

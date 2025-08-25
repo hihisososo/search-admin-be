@@ -11,6 +11,8 @@ import lombok.*;
 public class QueryDocumentMappingResponse {
 
   private String query;
+  private String expandedTokens;
+  private String expandedSynonymsMap;
   private List<ProductDocumentDto> documents;
   private Long totalCount;
   private Integer totalPages;
@@ -33,6 +35,5 @@ public class QueryDocumentMappingResponse {
     private Integer relevanceScore;
     private String evaluationReason;
     private Double confidence;
-    private List<String> expandedSynonyms;
   }
 }

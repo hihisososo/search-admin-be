@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -164,7 +165,6 @@ public class LLMQueryEvaluationWorker {
                   .evaluationReason(evaluationReason)
                   .evaluationSource(EVALUATION_SOURCE_LLM)
                   .confidence(confidence)
-                  .expandedSynonyms(mapping.getExpandedSynonyms())
                   .productCategory(mapping.getProductCategory())
                   .searchSource(mapping.getSearchSource())
                   .build();
@@ -216,7 +216,8 @@ public class LLMQueryEvaluationWorker {
       log.info("배치 처리 시작: 쿼리='{}', 상품 {}개", query, products.size());
 
       // 프롬프트 생성
-      String prompt = buildBulkEvaluationPromptWithMappings(query, products, mappings);
+      String prompt =
+          buildBulkEvaluationPromptWithMappings(query, products, mappings, evaluationQuery);
 
       // LLM 호출 - LLMQueueManager 사용
       CompletableFuture<String> future =
@@ -249,45 +250,106 @@ public class LLMQueryEvaluationWorker {
   }
 
   private String buildBulkEvaluationPromptWithMappings(
-      String query, List<ProductDocument> products, List<QueryProductMapping> mappings) {
-    // 첫 번째 매핑에서 동의어 확장 정보 가져오기
-    String expandedSynonyms =
-        mappings.isEmpty() || mappings.get(0).getExpandedSynonyms() == null
-            ? ""
-            : mappings.get(0).getExpandedSynonyms();
+      String query,
+      List<ProductDocument> products,
+      List<QueryProductMapping> mappings,
+      EvaluationQuery evaluationQuery) {
+    // 토큰 추출
+    List<String> tokens = new ArrayList<>();
+    if (evaluationQuery.getExpandedTokens() != null
+        && !evaluationQuery.getExpandedTokens().isEmpty()) {
+      tokens = List.of(evaluationQuery.getExpandedTokens().split(","));
+    }
 
-    // 상품 리스트 문자열 생성
+    // 토큰별 동의어 매핑 가져오기
+    Map<String, List<String>> synonymMap = new HashMap<>();
+    if (evaluationQuery.getExpandedSynonymsMap() != null
+        && !evaluationQuery.getExpandedSynonymsMap().isEmpty()) {
+      try {
+        synonymMap = objectMapper.readValue(evaluationQuery.getExpandedSynonymsMap(), Map.class);
+      } catch (Exception e) {
+        log.warn("동의어 매핑 파싱 실패: {}", e.getMessage());
+      }
+    }
+
+    // 검색 정보 JSON 생성
+    StringBuilder searchInfoBuilder = new StringBuilder();
+    searchInfoBuilder.append("{\n");
+    searchInfoBuilder.append("  \"query\": \"").append(query).append("\",\n");
+    searchInfoBuilder.append("  \"tokens\": ").append(toJsonArray(tokens)).append(",\n");
+    searchInfoBuilder.append("  \"synonyms\": ");
+
+    if (synonymMap.isEmpty()) {
+      searchInfoBuilder.append("{}");
+    } else {
+      searchInfoBuilder.append("{\n");
+      int count = 0;
+      for (Map.Entry<String, List<String>> entry : synonymMap.entrySet()) {
+        if (count > 0) searchInfoBuilder.append(",\n");
+        searchInfoBuilder
+            .append("    \"")
+            .append(entry.getKey())
+            .append("\": ")
+            .append(toJsonArray(entry.getValue()));
+        count++;
+      }
+      searchInfoBuilder.append("\n  }");
+    }
+    searchInfoBuilder.append("\n}");
+
+    // 상품 리스트 JSON 생성
     StringBuilder productListBuilder = new StringBuilder();
+    productListBuilder.append("[\n");
     for (int i = 0; i < products.size(); i++) {
       ProductDocument product = products.get(i);
       QueryProductMapping mapping = i < mappings.size() ? mappings.get(i) : null;
 
-      productListBuilder.append("상품 ").append(i + 1).append(":\n");
-      productListBuilder.append("- ID: ").append(product.getId()).append("\n");
+      if (i > 0) productListBuilder.append(",\n");
+      productListBuilder.append("  {\n");
+      productListBuilder.append("    \"id\": \"").append(product.getId()).append("\",\n");
       productListBuilder
-          .append("- 상품명: ")
-          .append(product.getNameRaw() != null ? product.getNameRaw() : "N/A")
-          .append("\n");
+          .append("    \"name\": \"")
+          .append(escapeJson(product.getNameRaw() != null ? product.getNameRaw() : "N/A"))
+          .append("\",\n");
       productListBuilder
-          .append("- 카테고리: ")
+          .append("    \"category\": \"")
           .append(
-              mapping != null && mapping.getProductCategory() != null
-                  ? mapping.getProductCategory()
-                  : product.getCategoryName() != null ? product.getCategoryName() : "N/A")
-          .append("\n");
+              escapeJson(
+                  mapping != null && mapping.getProductCategory() != null
+                      ? mapping.getProductCategory()
+                      : product.getCategoryName() != null ? product.getCategoryName() : "N/A"))
+          .append("\",\n");
       productListBuilder
-          .append("- 스펙: ")
-          .append(product.getSpecsRaw() != null ? product.getSpecsRaw() : "N/A")
-          .append("\n\n");
+          .append("    \"specs\": \"")
+          .append(escapeJson(product.getSpecsRaw() != null ? product.getSpecsRaw() : "N/A"))
+          .append("\"\n");
+      productListBuilder.append("  }");
     }
+    productListBuilder.append("\n]");
 
     // 템플릿 변수 설정
     Map<String, String> variables = new HashMap<>();
-    variables.put("QUERY", query);
-    variables.put("PRODUCT_COUNT", String.valueOf(products.size()));
+    variables.put("SEARCH_INFO", searchInfoBuilder.toString());
     variables.put("PRODUCT_LIST", productListBuilder.toString());
-    variables.put("EXPANDED_SYNONYMS", expandedSynonyms);
 
     return promptTemplateLoader.loadTemplate("bulk-product-relevance-evaluation.txt", variables);
+  }
+
+  private String toJsonArray(List<String> list) {
+    if (list == null || list.isEmpty()) {
+      return "[]";
+    }
+    return "["
+        + list.stream().map(s -> "\"" + escapeJson(s) + "\"").collect(Collectors.joining(", "))
+        + "]";
+  }
+
+  private String escapeJson(String str) {
+    if (str == null) return "";
+    return str.replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t");
   }
 }
