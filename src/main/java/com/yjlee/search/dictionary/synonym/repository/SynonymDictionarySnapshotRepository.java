@@ -15,9 +15,8 @@ public interface SynonymDictionarySnapshotRepository
       DictionaryEnvironmentType environmentType, Pageable pageable);
 
   // 특정 환경에서 키워드 검색 (페이징)
-  Page<SynonymDictionarySnapshot>
-      findByEnvironmentTypeAndKeywordContainingIgnoreCase(
-          DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
+  Page<SynonymDictionarySnapshot> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
+      DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
 
   // 특정 환경의 스냅샷 개수
   long countByEnvironmentType(DictionaryEnvironmentType environmentType);

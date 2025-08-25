@@ -127,8 +127,7 @@ public class SynonymDictionaryService {
           snapshotRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
               environmentType, search.trim(), pageable);
     } else {
-      snapshotPage =
-          snapshotRepository.findByEnvironmentType(environmentType, pageable);
+      snapshotPage = snapshotRepository.findByEnvironmentType(environmentType, pageable);
     }
 
     return PageResponse.from(

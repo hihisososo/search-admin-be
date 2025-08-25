@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -217,7 +216,8 @@ public class LLMQueryEvaluationWorker {
       log.info("배치 처리 시작: 쿼리='{}', 상품 {}개", query, products.size());
 
       // 프롬프트 생성
-      String prompt = buildBulkEvaluationPromptWithMappings(query, products, mappings, evaluationQuery);
+      String prompt =
+          buildBulkEvaluationPromptWithMappings(query, products, mappings, evaluationQuery);
 
       // LLM 호출 - LLMQueueManager 사용
       CompletableFuture<String> future =
@@ -250,30 +250,35 @@ public class LLMQueryEvaluationWorker {
   }
 
   private String buildBulkEvaluationPromptWithMappings(
-      String query, List<ProductDocument> products, List<QueryProductMapping> mappings, EvaluationQuery evaluationQuery) {
+      String query,
+      List<ProductDocument> products,
+      List<QueryProductMapping> mappings,
+      EvaluationQuery evaluationQuery) {
     // 토큰 추출
     List<String> tokens = new ArrayList<>();
-    if (evaluationQuery.getExpandedTokens() != null && !evaluationQuery.getExpandedTokens().isEmpty()) {
+    if (evaluationQuery.getExpandedTokens() != null
+        && !evaluationQuery.getExpandedTokens().isEmpty()) {
       tokens = List.of(evaluationQuery.getExpandedTokens().split(","));
     }
-    
+
     // 토큰별 동의어 매핑 가져오기
     Map<String, List<String>> synonymMap = new HashMap<>();
-    if (evaluationQuery.getExpandedSynonymsMap() != null && !evaluationQuery.getExpandedSynonymsMap().isEmpty()) {
+    if (evaluationQuery.getExpandedSynonymsMap() != null
+        && !evaluationQuery.getExpandedSynonymsMap().isEmpty()) {
       try {
         synonymMap = objectMapper.readValue(evaluationQuery.getExpandedSynonymsMap(), Map.class);
       } catch (Exception e) {
         log.warn("동의어 매핑 파싱 실패: {}", e.getMessage());
       }
     }
-    
+
     // 검색 정보 JSON 생성
     StringBuilder searchInfoBuilder = new StringBuilder();
     searchInfoBuilder.append("{\n");
     searchInfoBuilder.append("  \"query\": \"").append(query).append("\",\n");
     searchInfoBuilder.append("  \"tokens\": ").append(toJsonArray(tokens)).append(",\n");
     searchInfoBuilder.append("  \"synonyms\": ");
-    
+
     if (synonymMap.isEmpty()) {
       searchInfoBuilder.append("{}");
     } else {
@@ -281,7 +286,10 @@ public class LLMQueryEvaluationWorker {
       int count = 0;
       for (Map.Entry<String, List<String>> entry : synonymMap.entrySet()) {
         if (count > 0) searchInfoBuilder.append(",\n");
-        searchInfoBuilder.append("    \"").append(entry.getKey()).append("\": ")
+        searchInfoBuilder
+            .append("    \"")
+            .append(entry.getKey())
+            .append("\": ")
             .append(toJsonArray(entry.getValue()));
         count++;
       }
@@ -295,16 +303,26 @@ public class LLMQueryEvaluationWorker {
     for (int i = 0; i < products.size(); i++) {
       ProductDocument product = products.get(i);
       QueryProductMapping mapping = i < mappings.size() ? mappings.get(i) : null;
-      
+
       if (i > 0) productListBuilder.append(",\n");
       productListBuilder.append("  {\n");
       productListBuilder.append("    \"id\": \"").append(product.getId()).append("\",\n");
-      productListBuilder.append("    \"name\": \"").append(escapeJson(product.getNameRaw() != null ? product.getNameRaw() : "N/A")).append("\",\n");
-      productListBuilder.append("    \"category\": \"").append(escapeJson(
-          mapping != null && mapping.getProductCategory() != null
-              ? mapping.getProductCategory()
-              : product.getCategoryName() != null ? product.getCategoryName() : "N/A")).append("\",\n");
-      productListBuilder.append("    \"specs\": \"").append(escapeJson(product.getSpecsRaw() != null ? product.getSpecsRaw() : "N/A")).append("\"\n");
+      productListBuilder
+          .append("    \"name\": \"")
+          .append(escapeJson(product.getNameRaw() != null ? product.getNameRaw() : "N/A"))
+          .append("\",\n");
+      productListBuilder
+          .append("    \"category\": \"")
+          .append(
+              escapeJson(
+                  mapping != null && mapping.getProductCategory() != null
+                      ? mapping.getProductCategory()
+                      : product.getCategoryName() != null ? product.getCategoryName() : "N/A"))
+          .append("\",\n");
+      productListBuilder
+          .append("    \"specs\": \"")
+          .append(escapeJson(product.getSpecsRaw() != null ? product.getSpecsRaw() : "N/A"))
+          .append("\"\n");
       productListBuilder.append("  }");
     }
     productListBuilder.append("\n]");
@@ -316,16 +334,16 @@ public class LLMQueryEvaluationWorker {
 
     return promptTemplateLoader.loadTemplate("bulk-product-relevance-evaluation.txt", variables);
   }
-  
+
   private String toJsonArray(List<String> list) {
     if (list == null || list.isEmpty()) {
       return "[]";
     }
-    return "[" + list.stream()
-        .map(s -> "\"" + escapeJson(s) + "\"")
-        .collect(Collectors.joining(", ")) + "]";
+    return "["
+        + list.stream().map(s -> "\"" + escapeJson(s) + "\"").collect(Collectors.joining(", "))
+        + "]";
   }
-  
+
   private String escapeJson(String str) {
     if (str == null) return "";
     return str.replace("\\", "\\\\")

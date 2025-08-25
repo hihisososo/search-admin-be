@@ -88,14 +88,12 @@ public class ElasticsearchAnalyzeService {
       return new LinkedHashSet<>();
     }
   }
-  
-  /**
-   * 토큰별 동의어 매핑을 반환합니다.
-   * 예: "삼성전자" -> {"삼성": ["samsung"], "전자": ["electronics"]}
-   */
-  public Map<String, List<String>> getTokenSynonymsMapping(String text, DictionaryEnvironmentType environment) {
+
+  /** 토큰별 동의어 매핑을 반환합니다. 예: "삼성전자" -> {"삼성": ["samsung"], "전자": ["electronics"]} */
+  public Map<String, List<String>> getTokenSynonymsMapping(
+      String text, DictionaryEnvironmentType environment) {
     Map<String, List<String>> tokenSynonymMap = new HashMap<>();
-    
+
     try {
       String indexName = getIndexName(environment);
 
@@ -103,22 +101,22 @@ public class ElasticsearchAnalyzeService {
       AnalyzeRequest indexAnalyzeRequest =
           AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_index_analyzer").text(text));
       AnalyzeResponse indexResponse = elasticsearchClient.indices().analyze(indexAnalyzeRequest);
-      
+
       // 검색 시 동의어 확장된 토큰 추출
       AnalyzeRequest searchAnalyzeRequest =
           AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_search_analyzer").text(text));
       AnalyzeResponse searchResponse = elasticsearchClient.indices().analyze(searchAnalyzeRequest);
-      
+
       // position별로 원본 토큰과 확장된 토큰을 그룹화
       Map<Integer, String> positionToOriginalToken = new HashMap<>();
       Map<Integer, List<String>> positionToExpandedTokens = new HashMap<>();
-      
+
       // 원본 토큰 매핑
       for (AnalyzeToken token : indexResponse.tokens()) {
         int position = (int) token.position();
         positionToOriginalToken.putIfAbsent(position, token.token());
       }
-      
+
       // 확장된 토큰 매핑
       for (AnalyzeToken token : searchResponse.tokens()) {
         int position = (int) token.position();
@@ -126,13 +124,13 @@ public class ElasticsearchAnalyzeService {
             .computeIfAbsent(position, k -> new ArrayList<>())
             .add(token.token());
       }
-      
+
       // 각 position에서 원본 토큰과 다른 동의어들을 매핑
       for (Map.Entry<Integer, String> entry : positionToOriginalToken.entrySet()) {
         int position = entry.getKey();
         String originalToken = entry.getValue();
         List<String> expandedTokens = positionToExpandedTokens.get(position);
-        
+
         if (expandedTokens != null && expandedTokens.size() > 1) {
           // 원본 토큰과 다른 토큰들만 동의어로 수집
           List<String> synonyms = new ArrayList<>();
@@ -146,7 +144,7 @@ public class ElasticsearchAnalyzeService {
           }
         }
       }
-      
+
       return tokenSynonymMap;
     } catch (IOException e) {
       log.error("토큰별 동의어 매핑 생성 중 오류 발생", e);
