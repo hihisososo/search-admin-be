@@ -40,6 +40,12 @@ public class EvaluationQuery {
   @Column(nullable = false, unique = true, length = 500)
   String query;
 
+  @Column(name = "expanded_tokens", columnDefinition = "TEXT")
+  String expandedTokens;
+
+  @Column(name = "expanded_synonyms_map", columnDefinition = "TEXT")
+  String expandedSynonymsMap;
+
   @OneToMany(
       mappedBy = "evaluationQuery",
       cascade = CascadeType.ALL,

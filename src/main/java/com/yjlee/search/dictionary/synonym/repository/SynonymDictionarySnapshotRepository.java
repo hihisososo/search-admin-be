@@ -11,12 +11,12 @@ public interface SynonymDictionarySnapshotRepository
     extends JpaRepository<SynonymDictionarySnapshot, Long> {
 
   // 특정 환경의 스냅샷 조회 (페이징)
-  Page<SynonymDictionarySnapshot> findByEnvironmentTypeOrderByKeywordAsc(
+  Page<SynonymDictionarySnapshot> findByEnvironmentType(
       DictionaryEnvironmentType environmentType, Pageable pageable);
 
   // 특정 환경에서 키워드 검색 (페이징)
   Page<SynonymDictionarySnapshot>
-      findByEnvironmentTypeAndKeywordContainingIgnoreCaseOrderByKeywordAsc(
+      findByEnvironmentTypeAndKeywordContainingIgnoreCase(
           DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
 
   // 특정 환경의 스냅샷 개수

@@ -16,6 +16,7 @@ import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -41,6 +42,7 @@ public class SearchBasedGroundTruthService {
   private final OpenAIEmbeddingService embeddingService;
   private final com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService
       elasticsearchAnalyzeService;
+  private final ObjectMapper objectMapper;
 
   private static final int FIXED_PER_STRATEGY = 300;
   private static final int FIXED_VECTOR_NUM_CANDIDATES = 900;
@@ -84,12 +86,29 @@ public class SearchBasedGroundTruthService {
         Map<String, String> candidatesWithSource =
             collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-        // 동의어 확장 정보 추출
-        Set<String> expandedSynonyms =
-            elasticsearchAnalyzeService.getExpandedSynonyms(
-                query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
-        String synonymsString =
-            expandedSynonyms.isEmpty() ? null : String.join(",", expandedSynonyms);
+        // 토큰 추출
+        List<String> tokens = elasticsearchAnalyzeService
+            .analyzeText(query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV)
+            .stream()
+            .map(t -> t.getToken())
+            .distinct()
+            .collect(Collectors.toList());
+        
+        // 토큰별 동의어 매핑 가져오기
+        Map<String, List<String>> synonymMap = elasticsearchAnalyzeService
+            .getTokenSynonymsMapping(query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
+        
+        // EvaluationQuery 업데이트
+        EvaluationQuery updatedQuery = EvaluationQuery.builder()
+            .id(query.getId())
+            .query(query.getQuery())
+            .expandedTokens(tokens.isEmpty() ? null : String.join(",", tokens))
+            .expandedSynonymsMap(synonymMap.isEmpty() ? null : objectMapper.writeValueAsString(synonymMap))
+            .queryProductMappings(query.getQueryProductMappings())
+            .createdAt(query.getCreatedAt())
+            .updatedAt(query.getUpdatedAt())
+            .build();
+        evaluationQueryRepository.save(updatedQuery);
 
         for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
           String productId = entry.getKey();
@@ -97,12 +116,11 @@ public class SearchBasedGroundTruthService {
           ProductDocument product = fetchProduct(productId);
           QueryProductMapping mapping =
               QueryProductMapping.builder()
-                  .evaluationQuery(query)
+                  .evaluationQuery(updatedQuery)
                   .productId(productId)
                   .productName(product != null ? product.getNameRaw() : null)
                   .productSpecs(product != null ? product.getSpecsRaw() : null)
                   .productCategory(product != null ? product.getCategoryName() : null)
-                  .expandedSynonyms(synonymsString)
                   .searchSource(searchSource)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
@@ -180,12 +198,29 @@ public class SearchBasedGroundTruthService {
         Map<String, String> candidatesWithSource =
             collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-        // 동의어 확장 정보 추출
-        Set<String> expandedSynonyms =
-            elasticsearchAnalyzeService.getExpandedSynonyms(
-                query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
-        String synonymsString =
-            expandedSynonyms.isEmpty() ? null : String.join(",", expandedSynonyms);
+        // 토큰 추출
+        List<String> tokens = elasticsearchAnalyzeService
+            .analyzeText(query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV)
+            .stream()
+            .map(t -> t.getToken())
+            .distinct()
+            .collect(Collectors.toList());
+        
+        // 토큰별 동의어 매핑 가져오기
+        Map<String, List<String>> synonymMap = elasticsearchAnalyzeService
+            .getTokenSynonymsMapping(query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
+        
+        // EvaluationQuery 업데이트
+        EvaluationQuery updatedQuery = EvaluationQuery.builder()
+            .id(query.getId())
+            .query(query.getQuery())
+            .expandedTokens(tokens.isEmpty() ? null : String.join(",", tokens))
+            .expandedSynonymsMap(synonymMap.isEmpty() ? null : objectMapper.writeValueAsString(synonymMap))
+            .queryProductMappings(query.getQueryProductMappings())
+            .createdAt(query.getCreatedAt())
+            .updatedAt(query.getUpdatedAt())
+            .build();
+        evaluationQueryRepository.save(updatedQuery);
 
         for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
           String productId = entry.getKey();
@@ -193,12 +228,11 @@ public class SearchBasedGroundTruthService {
           ProductDocument product = fetchProduct(productId);
           QueryProductMapping mapping =
               QueryProductMapping.builder()
-                  .evaluationQuery(query)
+                  .evaluationQuery(updatedQuery)
                   .productId(productId)
                   .productName(product != null ? product.getNameRaw() : null)
                   .productSpecs(product != null ? product.getSpecsRaw() : null)
                   .productCategory(product != null ? product.getCategoryName() : null)
-                  .expandedSynonyms(synonymsString)
                   .searchSource(searchSource)
                   .evaluationSource(EVALUATION_SOURCE_SEARCH)
                   .build();
