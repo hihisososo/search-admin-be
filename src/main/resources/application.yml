@@ -51,7 +51,7 @@ logging:
 evaluation:
   llm:
     batch-size: 10
-    worker-threads: 10
+    worker-threads: 20
 generation:
   query:
     batch-size: 20

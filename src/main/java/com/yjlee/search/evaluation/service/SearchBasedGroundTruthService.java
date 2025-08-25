@@ -18,11 +18,13 @@ import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,80 +79,99 @@ public class SearchBasedGroundTruthService {
     List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(queryTexts);
     log.info("벌크 임베딩 생성 완료");
 
-    List<QueryProductMapping> mappings = new ArrayList<>();
+    // Thread-safe collections for parallel processing
+    List<QueryProductMapping> mappings = new CopyOnWriteArrayList<>();
+    List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
 
-    for (int i = 0; i < queries.size(); i++) {
-      EvaluationQuery query = queries.get(i);
-      try {
-        float[] queryEmbedding = i < allEmbeddings.size() ? allEmbeddings.get(i) : null;
-        Map<String, String> candidatesWithSource =
-            collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
+    // 병렬 처리
+    queries.parallelStream()
+        .forEach(
+            queryWithIndex -> {
+              int index = queries.indexOf(queryWithIndex);
+              EvaluationQuery query = queryWithIndex;
 
-        // 토큰 추출
-        List<String> tokens =
-            elasticsearchAnalyzeService
-                .analyzeText(
-                    query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV)
-                .stream()
-                .map(t -> t.getToken())
-                .distinct()
-                .collect(Collectors.toList());
+              try {
+                float[] queryEmbedding =
+                    index < allEmbeddings.size() ? allEmbeddings.get(index) : null;
+                Map<String, String> candidatesWithSource =
+                    collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-        // 토큰별 동의어 매핑 가져오기
-        Map<String, List<String>> synonymMap =
-            elasticsearchAnalyzeService.getTokenSynonymsMapping(
-                query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
+                // 토큰 추출
+                List<String> tokens =
+                    elasticsearchAnalyzeService
+                        .analyzeText(
+                            query.getQuery(),
+                            com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV)
+                        .stream()
+                        .map(t -> t.getToken())
+                        .distinct()
+                        .collect(Collectors.toList());
 
-        // EvaluationQuery 업데이트
-        EvaluationQuery updatedQuery =
-            EvaluationQuery.builder()
-                .id(query.getId())
-                .query(query.getQuery())
-                .expandedTokens(tokens.isEmpty() ? null : String.join(",", tokens))
-                .expandedSynonymsMap(
-                    synonymMap.isEmpty() ? null : objectMapper.writeValueAsString(synonymMap))
-                .queryProductMappings(query.getQueryProductMappings())
-                .createdAt(query.getCreatedAt())
-                .updatedAt(query.getUpdatedAt())
-                .build();
-        evaluationQueryRepository.save(updatedQuery);
+                // 토큰별 동의어 매핑 가져오기
+                Map<String, List<String>> synonymMap =
+                    elasticsearchAnalyzeService.getTokenSynonymsMapping(
+                        query.getQuery(),
+                        com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
 
-        for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
-          String productId = entry.getKey();
-          String searchSource = entry.getValue();
-          ProductDocument product = fetchProduct(productId);
-          QueryProductMapping mapping =
-              QueryProductMapping.builder()
-                  .evaluationQuery(updatedQuery)
-                  .productId(productId)
-                  .productName(product != null ? product.getNameRaw() : null)
-                  .productSpecs(product != null ? product.getSpecsRaw() : null)
-                  .productCategory(product != null ? product.getCategoryName() : null)
-                  .searchSource(searchSource)
-                  .evaluationSource(EVALUATION_SOURCE_SEARCH)
-                  .build();
-          mappings.add(mapping);
-        }
+                // EvaluationQuery 업데이트 (나중에 한번에 저장)
+                EvaluationQuery updatedQuery =
+                    EvaluationQuery.builder()
+                        .id(query.getId())
+                        .query(query.getQuery())
+                        .expandedTokens(tokens.isEmpty() ? null : String.join(",", tokens))
+                        .expandedSynonymsMap(
+                            synonymMap.isEmpty()
+                                ? null
+                                : objectMapper.writeValueAsString(synonymMap))
+                        .queryProductMappings(query.getQueryProductMappings())
+                        .createdAt(query.getCreatedAt())
+                        .updatedAt(query.getUpdatedAt())
+                        .build();
+                updatedQueries.add(updatedQuery);
 
-        log.debug(
-            "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
-            query.getQuery(),
-            candidatesWithSource.size(),
-            FIXED_MAX_TOTAL_PER_QUERY);
+                // Bulk fetch products
+                Set<String> productIds = candidatesWithSource.keySet();
+                Map<String, ProductDocument> productMap = fetchProductsBulk(productIds);
 
-        if (progressListener != null) {
-          try {
-            progressListener.onProgress(i + 1, queries.size());
-          } catch (Exception ignored) {
-          }
-        }
+                for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
+                  String productId = entry.getKey();
+                  String searchSource = entry.getValue();
+                  ProductDocument product = productMap.get(productId);
 
-      } catch (Exception e) {
-        log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
-      }
-    }
+                  QueryProductMapping mapping =
+                      QueryProductMapping.builder()
+                          .evaluationQuery(updatedQuery)
+                          .productId(productId)
+                          .productName(product != null ? product.getNameRaw() : null)
+                          .productSpecs(product != null ? product.getSpecsRaw() : null)
+                          .productCategory(product != null ? product.getCategoryName() : null)
+                          .searchSource(searchSource)
+                          .evaluationSource(EVALUATION_SOURCE_SEARCH)
+                          .build();
+                  mappings.add(mapping);
+                }
 
-    queryProductMappingRepository.saveAll(mappings);
+                log.debug(
+                    "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
+                    query.getQuery(),
+                    candidatesWithSource.size(),
+                    FIXED_MAX_TOTAL_PER_QUERY);
+
+                if (progressListener != null) {
+                  try {
+                    progressListener.onProgress(index + 1, queries.size());
+                  } catch (Exception ignored) {
+                  }
+                }
+
+              } catch (Exception e) {
+                log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
+              }
+            });
+
+    // Batch save
+    evaluationQueryRepository.saveAll(updatedQueries);
+    queryProductMappingRepository.saveAll(new ArrayList<>(mappings));
     log.info(
         "정답 후보군 생성 완료: {}개 쿼리, {}개 매핑 (각 검색방식 {}개씩, 최대 {}개)",
         queries.size(),
@@ -194,80 +215,99 @@ public class SearchBasedGroundTruthService {
     List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(queryTexts);
     log.info("벌크 임베딩 생성 완료");
 
-    List<QueryProductMapping> mappings = new ArrayList<>();
+    // Thread-safe collections for parallel processing
+    List<QueryProductMapping> mappings = new CopyOnWriteArrayList<>();
+    List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
 
-    for (int i = 0; i < queries.size(); i++) {
-      EvaluationQuery query = queries.get(i);
-      try {
-        float[] queryEmbedding = i < allEmbeddings.size() ? allEmbeddings.get(i) : null;
-        Map<String, String> candidatesWithSource =
-            collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
+    // 병렬 처리
+    queries.parallelStream()
+        .forEach(
+            queryWithIndex -> {
+              int index = queries.indexOf(queryWithIndex);
+              EvaluationQuery query = queryWithIndex;
 
-        // 토큰 추출
-        List<String> tokens =
-            elasticsearchAnalyzeService
-                .analyzeText(
-                    query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV)
-                .stream()
-                .map(t -> t.getToken())
-                .distinct()
-                .collect(Collectors.toList());
+              try {
+                float[] queryEmbedding =
+                    index < allEmbeddings.size() ? allEmbeddings.get(index) : null;
+                Map<String, String> candidatesWithSource =
+                    collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-        // 토큰별 동의어 매핑 가져오기
-        Map<String, List<String>> synonymMap =
-            elasticsearchAnalyzeService.getTokenSynonymsMapping(
-                query.getQuery(), com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
+                // 토큰 추출
+                List<String> tokens =
+                    elasticsearchAnalyzeService
+                        .analyzeText(
+                            query.getQuery(),
+                            com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV)
+                        .stream()
+                        .map(t -> t.getToken())
+                        .distinct()
+                        .collect(Collectors.toList());
 
-        // EvaluationQuery 업데이트
-        EvaluationQuery updatedQuery =
-            EvaluationQuery.builder()
-                .id(query.getId())
-                .query(query.getQuery())
-                .expandedTokens(tokens.isEmpty() ? null : String.join(",", tokens))
-                .expandedSynonymsMap(
-                    synonymMap.isEmpty() ? null : objectMapper.writeValueAsString(synonymMap))
-                .queryProductMappings(query.getQueryProductMappings())
-                .createdAt(query.getCreatedAt())
-                .updatedAt(query.getUpdatedAt())
-                .build();
-        evaluationQueryRepository.save(updatedQuery);
+                // 토큰별 동의어 매핑 가져오기
+                Map<String, List<String>> synonymMap =
+                    elasticsearchAnalyzeService.getTokenSynonymsMapping(
+                        query.getQuery(),
+                        com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
 
-        for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
-          String productId = entry.getKey();
-          String searchSource = entry.getValue();
-          ProductDocument product = fetchProduct(productId);
-          QueryProductMapping mapping =
-              QueryProductMapping.builder()
-                  .evaluationQuery(updatedQuery)
-                  .productId(productId)
-                  .productName(product != null ? product.getNameRaw() : null)
-                  .productSpecs(product != null ? product.getSpecsRaw() : null)
-                  .productCategory(product != null ? product.getCategoryName() : null)
-                  .searchSource(searchSource)
-                  .evaluationSource(EVALUATION_SOURCE_SEARCH)
-                  .build();
-          mappings.add(mapping);
-        }
+                // EvaluationQuery 업데이트 (나중에 한번에 저장)
+                EvaluationQuery updatedQuery =
+                    EvaluationQuery.builder()
+                        .id(query.getId())
+                        .query(query.getQuery())
+                        .expandedTokens(tokens.isEmpty() ? null : String.join(",", tokens))
+                        .expandedSynonymsMap(
+                            synonymMap.isEmpty()
+                                ? null
+                                : objectMapper.writeValueAsString(synonymMap))
+                        .queryProductMappings(query.getQueryProductMappings())
+                        .createdAt(query.getCreatedAt())
+                        .updatedAt(query.getUpdatedAt())
+                        .build();
+                updatedQueries.add(updatedQuery);
 
-        log.debug(
-            "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
-            query.getQuery(),
-            candidatesWithSource.size(),
-            FIXED_MAX_TOTAL_PER_QUERY);
+                // Bulk fetch products
+                Set<String> productIds = candidatesWithSource.keySet();
+                Map<String, ProductDocument> productMap = fetchProductsBulk(productIds);
 
-        if (progressListener != null) {
-          try {
-            progressListener.onProgress(i + 1, queries.size());
-          } catch (Exception ignored) {
-          }
-        }
+                for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
+                  String productId = entry.getKey();
+                  String searchSource = entry.getValue();
+                  ProductDocument product = productMap.get(productId);
 
-      } catch (Exception e) {
-        log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
-      }
-    }
+                  QueryProductMapping mapping =
+                      QueryProductMapping.builder()
+                          .evaluationQuery(updatedQuery)
+                          .productId(productId)
+                          .productName(product != null ? product.getNameRaw() : null)
+                          .productSpecs(product != null ? product.getSpecsRaw() : null)
+                          .productCategory(product != null ? product.getCategoryName() : null)
+                          .searchSource(searchSource)
+                          .evaluationSource(EVALUATION_SOURCE_SEARCH)
+                          .build();
+                  mappings.add(mapping);
+                }
 
-    queryProductMappingRepository.saveAll(mappings);
+                log.debug(
+                    "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
+                    query.getQuery(),
+                    candidatesWithSource.size(),
+                    FIXED_MAX_TOTAL_PER_QUERY);
+
+                if (progressListener != null) {
+                  try {
+                    progressListener.onProgress(index + 1, queries.size());
+                  } catch (Exception ignored) {
+                  }
+                }
+
+              } catch (Exception e) {
+                log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
+              }
+            });
+
+    // Batch save
+    evaluationQueryRepository.saveAll(updatedQueries);
+    queryProductMappingRepository.saveAll(new ArrayList<>(mappings));
     log.info(
         "선택된 쿼리들의 정답 후보군 생성 완료: {}개 쿼리, {}개 매핑 (각 검색방식 {}개씩, 최대 {}개)",
         queries.size(),
@@ -571,5 +611,43 @@ public class SearchBasedGroundTruthService {
       log.warn("상품 상세 조회 실패: {}", productId);
       return null;
     }
+  }
+
+  private Map<String, ProductDocument> fetchProductsBulk(Set<String> productIds) {
+    Map<String, ProductDocument> productMap = new HashMap<>();
+
+    if (productIds == null || productIds.isEmpty()) {
+      return productMap;
+    }
+
+    try {
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+
+      // mget 요청 생성
+      var mgetResponse =
+          elasticsearchClient.mget(
+              m -> m.index(indexName).ids(new ArrayList<>(productIds)), ProductDocument.class);
+
+      // 응답 처리
+      for (var doc : mgetResponse.docs()) {
+        if (doc.result().found() && doc.result().source() != null) {
+          productMap.put(doc.result().id(), doc.result().source());
+        }
+      }
+
+      log.debug("Bulk fetch 완료: 요청 {}개, 조회 성공 {}개", productIds.size(), productMap.size());
+
+    } catch (Exception e) {
+      log.error("Bulk 상품 조회 실패", e);
+      // 실패 시 개별 조회로 폴백
+      for (String productId : productIds) {
+        ProductDocument product = fetchProduct(productId);
+        if (product != null) {
+          productMap.put(productId, product);
+        }
+      }
+    }
+
+    return productMap;
   }
 }
