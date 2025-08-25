@@ -29,7 +29,7 @@ public class ESFields {
   // 가중치 포함 필드 조합
   public static final String NAME_WEIGHTED = NAME + "^3.0";
   public static final String SPECS_WEIGHTED = SPECS + "^1.0";
-  public static final String CATEGORY_WEIGHTED = "category^0.5";
+  public static final String CATEGORY_WEIGHTED = "category^3.0";
   public static final String NAME_BIGRAM_WEIGHTED = NAME_BIGRAM + "^2.0";
   public static final String SPECS_BIGRAM_WEIGHTED = SPECS_BIGRAM + "^1.0";
   public static final String CATEGORY_BIGRAM_WEIGHTED = "category.bigram^0.5";

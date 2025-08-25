@@ -42,18 +42,14 @@ public class QueryBuilder {
     // 처리된 쿼리
     String processedQuery = processQuery(queryWithoutUnits, request.getApplyTypoCorrection());
 
-    List<Query> mustMatchQueries =
-        buildMustMatchQueries(processedQuery, originalQuery, units, models);
+    Query mainQuery = buildMainQuery(processedQuery, originalQuery, units, models);
     List<Query> filterQueries = buildFilterQueries(request);
     List<Query> shouldBoostQueries = buildCategoryBoostQueries(originalQuery);
 
     return BoolQuery.of(
         b -> {
-          if (!mustMatchQueries.isEmpty()) {
-            b.must(
-                Query.of(
-                    q ->
-                        q.bool(nested -> nested.should(mustMatchQueries).minimumShouldMatch("1"))));
+          if (mainQuery != null) {
+            b.must(mainQuery);
           }
           if (!filterQueries.isEmpty()) {
             b.filter(filterQueries);
@@ -65,7 +61,7 @@ public class QueryBuilder {
         });
   }
 
-  private List<Query> buildMustMatchQueries(
+  private Query buildMainQuery(
       String query, String originalQuery, List<String> units, List<String> models) {
     // 각 쿼리 생성 (없으면 match_all)
     Query mainFieldQuery =
@@ -79,23 +75,11 @@ public class QueryBuilder {
                                 .type(TextQueryType.CrossFields)
                                 .operator(
                                     co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
-                                .boost(10.0f)))
+                                .boost(1.0f)))
             : Query.of(q -> q.matchAll(m -> m));
 
-    // CROSS_FIELDS_BIGRAM에는 원본 쿼리를 그대로 사용
-    Query bigramFieldQuery =
-        (originalQuery != null && !originalQuery.trim().isEmpty())
-            ? Query.of(
-                q ->
-                    q.multiMatch(
-                        m ->
-                            m.query(originalQuery)
-                                .fields(ESFields.CROSS_FIELDS_BIGRAM)
-                                .type(TextQueryType.CrossFields)
-                                .operator(
-                                    co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
-                                .boost(5.0f)))
-            : Query.of(q -> q.matchAll(m -> m));
+    // Phrase matching 쿼리 생성
+    List<Query> phraseBoostQueries = buildPhraseBoostQueries(query);
 
     // 모델 쿼리를 부가 점수로 변경
     List<Query> modelBoostQueries = buildModelBoostQueries(models);
@@ -103,34 +87,21 @@ public class QueryBuilder {
     final Query unitQuery =
         Optional.ofNullable(buildUnitQuery(units)).orElse(Query.of(q -> q.matchAll(m -> m)));
 
-    // 메인 그룹: 한국어 필드 AND 단위 + 모델(부가 점수)
-    Query mainGroup =
-        Query.of(
-            q -> {
-              BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
-              boolBuilder.must(mainFieldQuery).must(unitQuery);
-              if (!modelBoostQueries.isEmpty()) {
-                boolBuilder.should(modelBoostQueries);
-              }
-              return q.bool(boolBuilder.build());
-            });
+    // 메인 쿼리: 한국어 필드 AND 단위 + phrase(부가 점수) + 모델(부가 점수)
+    return Query.of(
+        q -> {
+          BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
+          boolBuilder.must(mainFieldQuery).must(unitQuery);
 
-    // 바이그램 그룹: 바이그램 필드 AND 단위 + 모델(부가 점수)
-    Query bigramGroup =
-        Query.of(
-            q -> {
-              BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
-              boolBuilder.must(bigramFieldQuery).must(unitQuery);
-              if (!modelBoostQueries.isEmpty()) {
-                boolBuilder.should(modelBoostQueries);
-              }
-              return q.bool(boolBuilder.build());
-            });
-
-    // 최종: 메인 그룹 OR 바이그램 그룹
-    return List.of(
-        Query.of(
-            q -> q.bool(b -> b.should(mainGroup).should(bigramGroup).minimumShouldMatch("1"))));
+          // phrase와 모델 쿼리를 should로 추가
+          if (!phraseBoostQueries.isEmpty()) {
+            boolBuilder.should(phraseBoostQueries);
+          }
+          if (!modelBoostQueries.isEmpty()) {
+            boolBuilder.should(modelBoostQueries);
+          }
+          return q.bool(boolBuilder.build());
+        });
   }
 
   private List<Query> buildFilterQueries(SearchExecuteRequest request) {
@@ -283,6 +254,28 @@ public class QueryBuilder {
                     q ->
                         q.match(m -> m.field(ESFields.MODEL).query(model).boost(8.0f)))) // 부스트 값 상향
         .toList();
+  }
+
+  private List<Query> buildPhraseBoostQueries(String query) {
+    if (query == null || query.trim().isEmpty()) {
+      return List.of();
+    }
+
+    List<Query> phraseQueries = new ArrayList<>();
+
+    // name 필드에 대한 phrase matching (가장 높은 boost)
+    phraseQueries.add(
+        Query.of(q -> q.matchPhrase(mp -> mp.field(ESFields.NAME).query(query).boost(5.0f))));
+
+    // specs 필드에 대한 phrase matching
+    phraseQueries.add(
+        Query.of(q -> q.matchPhrase(mp -> mp.field(ESFields.SPECS).query(query).boost(2.0f))));
+
+    // category 필드에 대한 phrase matching
+    phraseQueries.add(
+        Query.of(q -> q.matchPhrase(mp -> mp.field("category").query(query).boost(1.0f))));
+
+    return phraseQueries;
   }
 
   private List<Query> buildCategoryBoostQueries(String query) {

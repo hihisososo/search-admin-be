@@ -149,8 +149,6 @@ public class LLMQueryEvaluationWorker {
           String reason = evaluation.path("reason").asText("");
           double confidence = evaluation.path("confidence").asDouble(0.5);
 
-          // confidence 0.8 이하면 score = -1 (사람 확인 필요)
-          int finalScore = confidence <= 0.8 ? -1 : score;
           String evaluationReason =
               String.format("%s (score: %d, confidence: %.2f)", reason, score, confidence);
 
@@ -161,7 +159,7 @@ public class LLMQueryEvaluationWorker {
                   .productId(mapping.getProductId())
                   .productName(mapping.getProductName())
                   .productSpecs(mapping.getProductSpecs())
-                  .relevanceScore(finalScore)
+                  .relevanceScore(score)
                   .evaluationReason(evaluationReason)
                   .evaluationSource(EVALUATION_SOURCE_LLM)
                   .confidence(confidence)
