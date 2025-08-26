@@ -316,12 +316,20 @@ public class EvaluationReportService {
     }
 
     // IDCG 계산: 이상적인 순서 (정답을 먼저 배치)
+    // 올바른 방법: min(검색결과크기, 관련문서크기)개의 1을 상위에 배치
+    int k = retrievedOrder.size();
+    int numRelevant = relevantSet.size();
+    int numIdealOnes = Math.min(k, numRelevant);
+
     java.util.List<Integer> ideal = new java.util.ArrayList<>();
-    for (String pid : retrievedOrder) {
-      int rel = relevantSet.contains(pid) ? 1 : 0;
-      ideal.add(rel);
+    // 상위 numIdealOnes개는 1로 채움
+    for (int i = 0; i < numIdealOnes; i++) {
+      ideal.add(1);
     }
-    ideal.sort(java.util.Comparator.reverseOrder());
+    // 나머지는 0으로 채움
+    for (int i = numIdealOnes; i < k; i++) {
+      ideal.add(0);
+    }
 
     double idcg = 0.0;
     for (int i = 0; i < ideal.size(); i++) {

@@ -37,7 +37,13 @@
     },
     "model": {
       "type": "text",
-      "analyzer": "whitespace"
+      "analyzer": "whitespace",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
     },
     "name": {
       "type": "text",

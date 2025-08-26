@@ -271,6 +271,11 @@ public class QueryBuilder {
     phraseQueries.add(
         Query.of(q -> q.matchPhrase(mp -> mp.field(ESFields.SPECS).query(query).boost(2.0f))));
 
+    // model.bigram 필드에 대한 phrase matching
+    phraseQueries.add(
+        Query.of(
+            q -> q.matchPhrase(mp -> mp.field(ESFields.MODEL_BIGRAM).query(query).boost(3.0f))));
+
     // category 필드에 대한 phrase matching
     phraseQueries.add(
         Query.of(q -> q.matchPhrase(mp -> mp.field("category").query(query).boost(1.0f))));

@@ -40,10 +40,10 @@ public class ProductDocumentFactory {
     // name 필드는 모델명 포함한 전체 상품명 전처리 (normalizeUnits 포함)
     String preprocessedName = TextPreprocessor.preprocess(product.getName());
 
-    // name과 specs에서 단위 추출 후 중복 제거
-    List<String> nameUnits = UnitExtractor.extractUnits(product.getName());
+    // name과 specs에서 단위 추출 및 증강 후 중복 제거
+    List<String> nameUnits = UnitExtractor.extractUnitsForIndexing(product.getName());
     List<String> specsUnits =
-        UnitExtractor.extractUnits(product.getSpecs() != null ? product.getSpecs() : "");
+        UnitExtractor.extractUnitsForIndexing(product.getSpecs() != null ? product.getSpecs() : "");
 
     // 중복 제거하여 하나의 units 필드로 통합
     Set<String> unitsSet = new HashSet<>();
