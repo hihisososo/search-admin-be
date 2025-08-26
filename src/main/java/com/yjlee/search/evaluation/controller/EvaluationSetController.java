@@ -29,7 +29,6 @@ import com.yjlee.search.evaluation.service.EvaluationQueryService;
 import com.yjlee.search.evaluation.service.EvaluationStatisticsService;
 import com.yjlee.search.evaluation.service.QuerySuggestService;
 import com.yjlee.search.evaluation.util.PaginationUtils;
-import com.yjlee.search.index.dto.ProductDocument;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -118,22 +117,22 @@ public class EvaluationSetController {
     List<QueryDocumentMappingResponse.ProductDocumentDto> documents =
         mappingPage.getContent().stream()
             .map(
-                m -> {
-                  ProductDocument product =
-                      evaluationCandidateService.getProductDetails(m.getProductId());
-
-                  return QueryDocumentMappingResponse.ProductDocumentDto.builder()
-                      .id(m.getId())
-                      .productId(m.getProductId())
-                      .productName(product != null ? product.getNameRaw() : DEFAULT_PRODUCT_NAME)
-                      .productSpecs(product != null ? product.getSpecsRaw() : DEFAULT_PRODUCT_SPECS)
-                      .productCategory(m.getProductCategory())
-                      .relevanceScore(m.getRelevanceScore())
-                      .evaluationReason(
-                          m.getEvaluationReason() != null ? m.getEvaluationReason() : "")
-                      .confidence(m.getConfidence())
-                      .build();
-                })
+                m ->
+                    QueryDocumentMappingResponse.ProductDocumentDto.builder()
+                        .id(m.getId())
+                        .productId(m.getProductId())
+                        .productName(
+                            m.getProductName() != null ? m.getProductName() : DEFAULT_PRODUCT_NAME)
+                        .productSpecs(
+                            m.getProductSpecs() != null
+                                ? m.getProductSpecs()
+                                : DEFAULT_PRODUCT_SPECS)
+                        .productCategory(m.getProductCategory())
+                        .relevanceScore(m.getRelevanceScore())
+                        .evaluationReason(
+                            m.getEvaluationReason() != null ? m.getEvaluationReason() : "")
+                        .confidence(m.getConfidence())
+                        .build())
             .collect(Collectors.toList());
 
     var response =
