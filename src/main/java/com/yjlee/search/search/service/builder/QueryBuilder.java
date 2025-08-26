@@ -30,11 +30,11 @@ public class QueryBuilder {
     // 원본 쿼리 보관
     String originalQuery = request.getQuery();
 
-    // 모델명 추출 (검색용 - 확장 없음)
-    List<String> models = ModelExtractor.extractModelsForSearch(originalQuery);
-
-    // 단위 추출 (검색용 - 확장 없음)
+    // 단위 추출 (검색용 - 확장 없음) - 먼저 추출
     List<String> units = UnitExtractor.extractUnitsForSearch(originalQuery);
+
+    // 단위를 제외한 후 모델명 추출 (단위와 중복 방지)
+    List<String> models = ModelExtractor.extractModelsExcludingUnits(originalQuery, units);
 
     // 단위만 제거한 쿼리 생성 (모델명은 유지)
     String queryWithoutUnits = removeUnitsFromQuery(originalQuery, units);
@@ -63,20 +63,73 @@ public class QueryBuilder {
 
   private Query buildMainQuery(
       String query, String originalQuery, List<String> units, List<String> models) {
-    // 각 쿼리 생성 (없으면 match_all)
-    Query mainFieldQuery =
-        (query != null && !query.trim().isEmpty())
-            ? Query.of(
-                q ->
-                    q.multiMatch(
-                        m ->
-                            m.query(query)
-                                .fields(ESFields.CROSS_FIELDS_MAIN)
-                                .type(TextQueryType.CrossFields)
-                                .operator(
-                                    co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
-                                .boost(1.0f)))
-            : Query.of(q -> q.matchAll(m -> m));
+    // 기본 쿼리가 없으면 match_all
+    if (query == null || query.trim().isEmpty()) {
+      return Query.of(q -> q.matchAll(m -> m));
+    }
+
+    // 모델명이 있는 경우 분리 쿼리 전략 사용
+    Query mainFieldQuery;
+    if (models != null && !models.isEmpty()) {
+      // 모델명 제외한 쿼리 생성
+      String queryWithoutModels = removeModelsFromQuery(query, models);
+      
+      // OR 조건으로 두 쿼리 결합
+      List<Query> orQueries = new ArrayList<>();
+      
+      // 1. 원본쿼리로 CROSS_FIELDS (model.bigram 제외)
+      orQueries.add(
+          Query.of(
+              q ->
+                  q.multiMatch(
+                      m ->
+                          m.query(query)
+                              .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
+                              .type(TextQueryType.CrossFields)
+                              .operator(co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                              .boost(1.0f))));
+      
+      // 2. 모델명제외쿼리 + 모델명 별도 AND 검색
+      if (queryWithoutModels != null && !queryWithoutModels.trim().isEmpty()) {
+        Query modelFieldsQuery = Query.of(
+            q ->
+                q.multiMatch(
+                    m ->
+                        m.query(queryWithoutModels)
+                            .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
+                            .type(TextQueryType.CrossFields)
+                            .operator(co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                            .boost(1.0f)));
+        
+        // 모델명들을 model.edge_ngram에서 검색 (AND 조건)
+        List<Query> modelQueries = models.stream()
+            .map(model -> 
+                Query.of(q -> q.match(m -> m.field(ESFields.MODEL_EDGE_NGRAM).query(model).boost(1.0f))))
+            .toList();
+        
+        Query combinedModelQuery = modelQueries.size() == 1 
+            ? modelQueries.get(0) 
+            : Query.of(q -> q.bool(b -> b.must(modelQueries)));
+        
+        // 모델명제외쿼리와 모델쿼리를 AND로 결합
+        orQueries.add(
+            Query.of(q -> q.bool(b -> b.must(modelFieldsQuery).must(combinedModelQuery))));
+      }
+      
+      // OR 조건으로 결합
+      mainFieldQuery = Query.of(q -> q.bool(b -> b.should(orQueries).minimumShouldMatch("1")));
+    } else {
+      // 모델명이 없는 경우 기존 방식 (model.bigram 제외)
+      mainFieldQuery = Query.of(
+          q ->
+              q.multiMatch(
+                  m ->
+                      m.query(query)
+                          .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
+                          .type(TextQueryType.CrossFields)
+                          .operator(co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                          .boost(1.0f)));
+    }
 
     // Phrase matching 쿼리 생성
     List<Query> phraseBoostQueries = buildPhraseBoostQueries(query);
@@ -222,6 +275,24 @@ public class QueryBuilder {
     return result.replaceAll("\\s+", " ").trim();
   }
 
+  private String removeModelsFromQuery(String query, List<String> models) {
+    if (models == null || models.isEmpty()) {
+      return query;
+    }
+
+    String result = query;
+
+    for (String model : models) {
+      if (!model.isEmpty()) {
+        // 모델명을 쿼리에서 제거 (대소문자 무시)
+        result = result.replaceAll("(?i)\\b" + Pattern.quote(model) + "\\b", "");
+      }
+    }
+
+    // 여러 공백을 하나로 정리
+    return result.replaceAll("\\s+", " ").trim();
+  }
+
   private Query buildModelQuery(List<String> models) {
     if (models == null || models.isEmpty()) {
       return null;
@@ -271,10 +342,10 @@ public class QueryBuilder {
     phraseQueries.add(
         Query.of(q -> q.matchPhrase(mp -> mp.field(ESFields.SPECS).query(query).boost(2.0f))));
 
-    // model.bigram 필드에 대한 phrase matching
+    // model.edge_ngram 필드에 대한 phrase matching
     phraseQueries.add(
         Query.of(
-            q -> q.matchPhrase(mp -> mp.field(ESFields.MODEL_BIGRAM).query(query).boost(3.0f))));
+            q -> q.matchPhrase(mp -> mp.field(ESFields.MODEL_EDGE_NGRAM).query(query).boost(3.0f))));
 
     // category 필드에 대한 phrase matching
     phraseQueries.add(

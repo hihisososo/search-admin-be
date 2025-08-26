@@ -73,31 +73,10 @@ public class TextPreprocessor {
     return String.join(" ", units);
   }
 
-  public static String removeModels(String text, List<String> models) {
-    if (text == null || text.isBlank() || models == null || models.isEmpty()) {
-      return text;
-    }
-
-    String result = text;
-    for (String model : models) {
-      // 대소문자 무시하고 모델명 제거
-      String pattern = "\\b" + Pattern.quote(model) + "\\b";
-      result = result.replaceAll("(?i)" + pattern, "");
-    }
-
-    // 연속된 공백 정리
-    result = result.replaceAll("\\s+", " ").trim();
-
-    return result;
-  }
-
   private static String cleanSpecialChars(String text) {
     // 특수문자 제거 후 연속된 공백 정리
     String cleaned =
         SPECIAL_CHARS_PATTERN.matcher(text.trim()).replaceAll(" ").replaceAll("\\s+", " ").trim();
-
-    // 하이픈을 공백으로 치환하여 검색 가능하게 함 (i7-12700K -> i7 12700K)
-    cleaned = cleaned.replaceAll("-", " ");
 
     return cleaned;
   }

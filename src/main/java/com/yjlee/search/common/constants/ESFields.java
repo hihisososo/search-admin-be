@@ -23,6 +23,7 @@ public class ESFields {
   public static final String NAME_ICU = "name_icu";
   public static final String SPECS_BIGRAM = "specs.bigram";
   public static final String MODEL_BIGRAM = "model.bigram";
+  public static final String MODEL_EDGE_NGRAM = "model.edge_ngram";
 
   // 단위 필드
   public static final String UNITS = "units";
@@ -35,10 +36,13 @@ public class ESFields {
   public static final String SPECS_BIGRAM_WEIGHTED = SPECS_BIGRAM + "^1.0";
   public static final String CATEGORY_BIGRAM_WEIGHTED = "category.bigram^0.5";
   public static final String MODEL_BIGRAM_WEIGHTED = MODEL_BIGRAM + "^1.5";
+  public static final String MODEL_EDGE_NGRAM_WEIGHTED = MODEL_EDGE_NGRAM + "^1.5";
 
   // 검색용 필드 리스트
   public static final List<String> CROSS_FIELDS_MAIN =
       List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED, MODEL_BIGRAM_WEIGHTED);
+  public static final List<String> CROSS_FIELDS_WITHOUT_MODEL =
+      List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED);
   public static final List<String> CROSS_FIELDS_BIGRAM =
       List.of(NAME_BIGRAM_WEIGHTED, SPECS_BIGRAM_WEIGHTED, CATEGORY_BIGRAM_WEIGHTED);
 

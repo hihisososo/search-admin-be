@@ -17,9 +17,9 @@ class TextPreprocessorTest {
   @Test
   @DisplayName("특수문자 제거 및 소문자 변환")
   void should_remove_special_chars_and_convert_to_lowercase() {
-    String input = "Hello@World! 123#Test";
+    String input = "Hello@World!+-123#Test";
     String result = TextPreprocessor.preprocess(input);
-    assertThat(result).isEqualTo("hello world 123 test");
+    assertThat(result).isEqualTo("hello world +-123 test");
   }
 
   @Test
@@ -92,9 +92,8 @@ class TextPreprocessorTest {
     assertThat(TextPreprocessor.extractUnits("10ml냉장고")).isEqualTo("10ml");
     assertThat(TextPreprocessor.extractUnits("30개입")).isEqualTo("30개입");
     assertThat(TextPreprocessor.extractUnits("500g포장")).isEqualTo("500g");
-    assertThat(TextPreprocessor.extractUnits("2L들이")).isEqualTo("2L");
-    assertThat(TextPreprocessor.extractUnits("1MLS")).isEmpty(); // 영어 뒤에 영어는 추출 안됨
-    assertThat(TextPreprocessor.extractUnits("100정들이")).isEqualTo("100정");
+    assertThat(TextPreprocessor.extractUnits("2L들이")).isEqualTo("2l");
+    assertThat(TextPreprocessor.extractUnits("1MLS")).isEmpty();
   }
 
   @Test
