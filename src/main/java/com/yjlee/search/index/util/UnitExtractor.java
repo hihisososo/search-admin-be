@@ -52,8 +52,8 @@ public class UnitExtractor {
     addUnitGroup("mile", "mile", "마일");
 
     // 개수/포장 단위
-    addUnitGroup("ea", "ea", "개", "pcs", "피스", "piece");
-    addUnitGroup("개입", "개입", "개들이");
+    addUnitGroup("ea", "ea", "개");
+    addUnitGroup("개입", "개입");
     addUnitGroup("장", "장", "매");
     addUnitGroup("box", "box", "박스", "boxes");
     addUnitGroup("pack", "pack", "팩", "packs");
@@ -139,15 +139,17 @@ public class UnitExtractor {
 
   // 일반 단위 패턴 (숫자 + 단위)
   private static final Pattern UNIT_PATTERN_EN =
-      Pattern.compile("(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(
+          "(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
+          Pattern.CASE_INSENSITIVE);
 
   private static final Pattern UNIT_PATTERN_KO =
-      Pattern.compile("(\\d+\\.?\\d*)\\s*(" + KO_UNITS + ")(?![가-힣])");
+      Pattern.compile("(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + KO_UNITS + ")(?![가-힣])");
 
   // 복합 패턴 (예: 25.4x24.4cm, 1920x1080px)
   private static final Pattern COMPLEX_UNIT_PATTERN =
       Pattern.compile(
-          "(\\d+\\.?\\d*)x(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
+          "(?<![a-zA-Z])(\\d+\\.?\\d*)x(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
           Pattern.CASE_INSENSITIVE);
 
   public static List<String> extractUnits(String text) {

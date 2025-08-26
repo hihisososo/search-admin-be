@@ -2,6 +2,8 @@ package com.yjlee.search.search.service.category;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.category.service.CategoryRankingDictionaryService;
+import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
+import com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService;
 import jakarta.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 public class CategoryRankingService {
 
   private final CategoryRankingDictionaryService dictionaryService;
+  private final ElasticsearchAnalyzeService analyzeService;
   private final Map<String, List<CategoryWeight>> cache = new ConcurrentHashMap<>();
   private volatile DictionaryEnvironmentType activeEnvironmentType =
       DictionaryEnvironmentType.CURRENT;
@@ -30,20 +33,51 @@ public class CategoryRankingService {
     }
 
     Map<String, Integer> categoryWeights = new HashMap<>();
-    String[] words = query.toLowerCase().split("\\s+");
+    Set<String> appliedKeywords = new HashSet<>(); // 이미 적용된 키워드 추적
 
+    // 1. 먼저 공백 단위로 매칭
+    String[] words = query.toLowerCase().split("\\s+");
     for (String word : words) {
+      if (appliedKeywords.contains(word)) {
+        continue; // 이미 적용된 키워드는 스킵
+      }
+
       List<CategoryWeight> weights = cache.get(word);
       if (weights != null && !weights.isEmpty()) {
         for (CategoryWeight cw : weights) {
           categoryWeights.merge(cw.getCategory(), cw.getWeight(), Integer::sum);
         }
-        log.debug("키워드 '{}' 매칭 - 카테고리 가중치: {}", word, weights);
+        appliedKeywords.add(word); // 적용된 키워드로 마킹
+        log.debug("키워드 '{}' 매칭 (공백 단위) - 카테고리 가중치: {}", word, weights);
       }
     }
 
+    // 2. nori 형태소 분석 결과로도 매칭
+    try {
+      List<AnalyzeTextResponse.TokenInfo> tokens =
+          analyzeService.analyzeText(query, activeEnvironmentType);
+      for (AnalyzeTextResponse.TokenInfo tokenInfo : tokens) {
+        String token = tokenInfo.getToken().toLowerCase();
+
+        if (appliedKeywords.contains(token)) {
+          continue; // 이미 적용된 키워드는 스킵
+        }
+
+        List<CategoryWeight> weights = cache.get(token);
+        if (weights != null && !weights.isEmpty()) {
+          for (CategoryWeight cw : weights) {
+            categoryWeights.merge(cw.getCategory(), cw.getWeight(), Integer::sum);
+          }
+          appliedKeywords.add(token); // 적용된 키워드로 마킹
+          log.debug("키워드 '{}' 매칭 (형태소 분석) - 카테고리 가중치: {}", token, weights);
+        }
+      }
+    } catch (Exception e) {
+      log.warn("형태소 분석 중 오류 발생, 공백 단위 매칭만 사용: {}", e.getMessage());
+    }
+
     if (!categoryWeights.isEmpty()) {
-      log.info("쿼리 '{}' - 적용된 카테고리 가중치: {}", query, categoryWeights);
+      log.info("쿼리 '{}' - 적용된 카테고리 가중치: {}, 적용된 키워드: {}", query, categoryWeights, appliedKeywords);
     }
 
     return categoryWeights;

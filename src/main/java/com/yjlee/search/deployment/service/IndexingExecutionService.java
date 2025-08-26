@@ -164,11 +164,11 @@ public class IndexingExecutionService {
       stopwordDictionaryService.deployToDev();
       typoCorrectionDictionaryService.deployToDev();
       categoryRankingDictionaryService.deployToDev();
-      
+
       // 캐시 업데이트
       typoCorrectionService.updateCacheRealtime(DictionaryEnvironmentType.DEV);
       categoryRankingService.updateCacheRealtime(DictionaryEnvironmentType.DEV);
-      
+
       log.info("모든 사전 개발 환경 배포 및 캐시 업데이트 완료");
     } catch (Exception e) {
       log.error("사전 개발 환경 배포 실패", e);

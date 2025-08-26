@@ -9,15 +9,27 @@
   <table>
     <tr>
       <td align="center" width="33%">
-        <sub><b>상품 검색</b></sub><br/>
+        <sub><b>상품검색</b></sub><br/><br/>
         <img src="docs/images/search.gif" width="100%" />
       </td>
       <td align="center" width="33%">
-        <sub><b>검색 관리 대시보드</b></sub><br/>
+        <sub><b>검색관리 대시보드</b></sub><br/><br/>
         <img src="docs/images/dashboard.gif" width="100%" />
       </td>
       <td align="center" width="33%">
-        <sub><b>실시간 모니터링</b></sub><br/>
+        <sub><b>동의어사전 적용</b></sub><br/><br/>
+        <img src="docs/images/synonym.gif" width="100%" />
+      </td>
+    </tr>
+  </table>
+  <table>
+      <td align="center" width="33%">
+        <sub><b>카테고리랭킹 적용</b></sub><br/><br/>
+        <img src="docs/images/synonym.gif" width="100%" />
+      </td>
+    <tr>
+      <td align="center" width="33%">
+        <sub><b>실시간 모니터링</b></sub><br/><br/>
         <img src="docs/images/monitoring.gif" width="100%" />
       </td>
     </tr>

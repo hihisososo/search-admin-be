@@ -42,6 +42,11 @@
         "bigram": {
           "type": "text",
           "analyzer": "bigram_analyzer"
+        },
+        "edge_ngram": {
+          "type": "text",
+          "analyzer": "edge_ngram_analyzer",
+          "search_analyzer": "whitespace"
         }
       }
     },
