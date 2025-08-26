@@ -1,5 +1,6 @@
 package com.yjlee.search.deployment.strategy;
 
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.category.service.CategoryRankingDictionaryService;
@@ -7,7 +8,6 @@ import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.search.service.category.CategoryRankingService;
 import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import lombok.RequiredArgsConstructor;
@@ -65,7 +65,7 @@ public class ProdEnvironmentStrategy implements EnvironmentDeploymentStrategy {
       stopwordDictionaryService.deployToProd();
       typoCorrectionDictionaryService.deployToProd();
       categoryRankingDictionaryService.deployToProd();
-      
+
       // 캐시 업데이트
       typoCorrectionService.updateCacheRealtime(DictionaryEnvironmentType.PROD);
       categoryRankingService.updateCacheRealtime(DictionaryEnvironmentType.PROD);

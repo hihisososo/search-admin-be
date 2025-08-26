@@ -139,7 +139,9 @@ public class UnitExtractor {
 
   // 일반 단위 패턴 (숫자 + 단위)
   private static final Pattern UNIT_PATTERN_EN =
-      Pattern.compile("(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(
+          "(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
+          Pattern.CASE_INSENSITIVE);
 
   private static final Pattern UNIT_PATTERN_KO =
       Pattern.compile("(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + KO_UNITS + ")(?![가-힣])");

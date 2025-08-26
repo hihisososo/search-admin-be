@@ -3,6 +3,8 @@ package com.yjlee.search.evaluation.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
@@ -12,8 +14,6 @@ import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,7 +41,7 @@ public class QueryGenerationService {
 
   @Value("${generation.query.batch-size:20}")
   private int generationBatchSize;
-  
+
   private static final int MAX_CONCURRENT_BATCHES = 5;
 
   public List<String> generateRandomQueries(int count) {
@@ -50,50 +50,51 @@ public class QueryGenerationService {
 
       Set<String> existingQueries = new HashSet<>(evaluationQueryRepository.findAllQueryStrings());
       Set<String> generatedQueries = new HashSet<>();
-      
+
       // 병렬 처리를 위한 배치 수 계산
       int totalBatches = (int) Math.ceil((double) count / generationBatchSize);
       totalBatches = Math.min(totalBatches * 2, count); // 여유있게 더 많이 준비
-      
+
       List<CompletableFuture<List<String>>> futures = new ArrayList<>();
-      
+
       // 병렬로 여러 배치 처리
       for (int i = 0; i < totalBatches; i += MAX_CONCURRENT_BATCHES) {
         int currentBatchCount = Math.min(MAX_CONCURRENT_BATCHES, totalBatches - i);
-        
+
         List<CompletableFuture<List<String>>> batchFutures = new ArrayList<>();
         for (int j = 0; j < currentBatchCount; j++) {
           int remainingQueries = count - generatedQueries.size();
           if (remainingQueries <= 0) break;
-          
+
           int batchSize = Math.min(generationBatchSize, remainingQueries);
           List<ProductInfoDto> products = fetchRandomProducts(batchSize);
-          
+
           if (!products.isEmpty()) {
             String prompt = buildBulkQueryPrompt(products);
-            CompletableFuture<List<String>> future = 
-                llmQueueManager.submitSimpleTask(
-                    prompt, String.format("쿼리 생성 배치 %d", i + j + 1))
-                .thenApply(this::extractQueriesFromBulkResponse)
-                .exceptionally(ex -> {
-                  log.warn("배치 처리 실패", ex);
-                  return new ArrayList<>();
-                });
+            CompletableFuture<List<String>> future =
+                llmQueueManager
+                    .submitSimpleTask(prompt, String.format("쿼리 생성 배치 %d", i + j + 1))
+                    .thenApply(this::extractQueriesFromBulkResponse)
+                    .exceptionally(
+                        ex -> {
+                          log.warn("배치 처리 실패", ex);
+                          return new ArrayList<>();
+                        });
             batchFutures.add(future);
           }
         }
-        
+
         // 현재 배치 그룹 완료 대기
         CompletableFuture.allOf(batchFutures.toArray(new CompletableFuture[0])).join();
-        
+
         // 결과 수집
         for (CompletableFuture<List<String>> future : batchFutures) {
           List<String> batchQueries = future.join();
           log.info("배치 결과: {}개 쿼리", batchQueries.size());
-          
+
           for (String query : batchQueries) {
             if (generatedQueries.size() >= count) break;
-            
+
             if (query != null
                 && !query.trim().isEmpty()
                 && !existingQueries.contains(query)
@@ -104,7 +105,7 @@ public class QueryGenerationService {
             }
           }
         }
-        
+
         if (generatedQueries.size() >= count) break;
       }
 
@@ -126,55 +127,56 @@ public class QueryGenerationService {
       log.info("[PREVIEW] 쿼리 생성 시작: {}개", count);
 
       Set<String> generated = new HashSet<>();
-      
+
       // 병렬 처리를 위한 배치 수 계산
       int totalBatches = (int) Math.ceil((double) count / generationBatchSize);
       totalBatches = Math.min(totalBatches * 2, count);
-      
+
       // 병렬로 여러 배치 처리
       for (int i = 0; i < totalBatches; i += MAX_CONCURRENT_BATCHES) {
         int currentBatchCount = Math.min(MAX_CONCURRENT_BATCHES, totalBatches - i);
-        
+
         List<CompletableFuture<List<String>>> batchFutures = new ArrayList<>();
         for (int j = 0; j < currentBatchCount; j++) {
           int remainingQueries = count - generated.size();
           if (remainingQueries <= 0) break;
-          
+
           int batchSize = Math.min(generationBatchSize, remainingQueries);
           List<ProductInfoDto> products = fetchRandomProducts(batchSize);
-          
+
           if (!products.isEmpty()) {
             String prompt = buildBulkQueryPrompt(products);
-            CompletableFuture<List<String>> future = 
-                llmQueueManager.submitSimpleTask(
-                    prompt, String.format("[PREVIEW] 배치 %d", i + j + 1))
-                .thenApply(this::extractQueriesFromBulkResponse)
-                .exceptionally(ex -> {
-                  log.warn("[PREVIEW] 배치 처리 실패", ex);
-                  return new ArrayList<>();
-                });
+            CompletableFuture<List<String>> future =
+                llmQueueManager
+                    .submitSimpleTask(prompt, String.format("[PREVIEW] 배치 %d", i + j + 1))
+                    .thenApply(this::extractQueriesFromBulkResponse)
+                    .exceptionally(
+                        ex -> {
+                          log.warn("[PREVIEW] 배치 처리 실패", ex);
+                          return new ArrayList<>();
+                        });
             batchFutures.add(future);
           }
         }
-        
+
         // 현재 배치 그룹 완료 대기
         CompletableFuture.allOf(batchFutures.toArray(new CompletableFuture[0])).join();
-        
+
         // 결과 수집
         for (CompletableFuture<List<String>> future : batchFutures) {
           List<String> batchQueries = future.join();
           log.info("[PREVIEW] 배치 결과: {}개 쿼리", batchQueries.size());
-          
+
           for (String q : batchQueries) {
             if (generated.size() >= count) break;
-            
+
             if (q != null && !q.trim().isEmpty() && isValidQuery(q) && !generated.contains(q)) {
               generated.add(q.trim());
               log.debug("[PREVIEW] 쿼리 추가: '{}'", q.trim());
             }
           }
         }
-        
+
         if (generated.size() >= count) break;
       }
 
@@ -194,55 +196,56 @@ public class QueryGenerationService {
       log.info("[PREVIEW] 쿼리 생성(카테고리) 시작: {}개, category={} ", count, category);
 
       Set<String> generated = new HashSet<>();
-      
+
       // 병렬 처리를 위한 배치 수 계산
       int totalBatches = (int) Math.ceil((double) count / generationBatchSize);
       totalBatches = Math.min(totalBatches * 2, count);
-      
+
       // 병렬로 여러 배치 처리
       for (int i = 0; i < totalBatches; i += MAX_CONCURRENT_BATCHES) {
         int currentBatchCount = Math.min(MAX_CONCURRENT_BATCHES, totalBatches - i);
-        
+
         List<CompletableFuture<List<String>>> batchFutures = new ArrayList<>();
         for (int j = 0; j < currentBatchCount; j++) {
           int remainingQueries = count - generated.size();
           if (remainingQueries <= 0) break;
-          
+
           int batchSize = Math.min(generationBatchSize, remainingQueries);
           List<ProductInfoDto> products = fetchRandomProductsByCategory(batchSize, category);
-          
+
           if (!products.isEmpty()) {
             String prompt = buildBulkQueryPrompt(products);
-            CompletableFuture<List<String>> future = 
-                llmQueueManager.submitSimpleTask(
-                    prompt, String.format("[PREVIEW/카테고리] 배치 %d", i + j + 1))
-                .thenApply(this::extractQueriesFromBulkResponse)
-                .exceptionally(ex -> {
-                  log.warn("[PREVIEW/카테고리] 배치 처리 실패", ex);
-                  return new ArrayList<>();
-                });
+            CompletableFuture<List<String>> future =
+                llmQueueManager
+                    .submitSimpleTask(prompt, String.format("[PREVIEW/카테고리] 배치 %d", i + j + 1))
+                    .thenApply(this::extractQueriesFromBulkResponse)
+                    .exceptionally(
+                        ex -> {
+                          log.warn("[PREVIEW/카테고리] 배치 처리 실패", ex);
+                          return new ArrayList<>();
+                        });
             batchFutures.add(future);
           }
         }
-        
+
         // 현재 배치 그룹 완료 대기
         CompletableFuture.allOf(batchFutures.toArray(new CompletableFuture[0])).join();
-        
+
         // 결과 수집
         for (CompletableFuture<List<String>> future : batchFutures) {
           List<String> batchQueries = future.join();
           log.info("[PREVIEW/카테고리] 배치 결과: {}개 쿼리", batchQueries.size());
-          
+
           for (String q : batchQueries) {
             if (generated.size() >= count) break;
-            
+
             if (q != null && !q.trim().isEmpty() && isValidQuery(q) && !generated.contains(q)) {
               generated.add(q.trim());
               log.debug("[PREVIEW/카테고리] 쿼리 추가: '{}'", q.trim());
             }
           }
         }
-        
+
         if (generated.size() >= count) break;
       }
 

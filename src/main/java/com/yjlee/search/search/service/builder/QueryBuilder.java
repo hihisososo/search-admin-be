@@ -73,10 +73,10 @@ public class QueryBuilder {
     if (models != null && !models.isEmpty()) {
       // 모델명 제외한 쿼리 생성
       String queryWithoutModels = removeModelsFromQuery(query, models);
-      
+
       // OR 조건으로 두 쿼리 결합
       List<Query> orQueries = new ArrayList<>();
-      
+
       // 1. 원본쿼리로 CROSS_FIELDS (model.bigram 제외)
       orQueries.add(
           Query.of(
@@ -86,49 +86,63 @@ public class QueryBuilder {
                           m.query(query)
                               .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
                               .type(TextQueryType.CrossFields)
-                              .operator(co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                              .operator(
+                                  co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
                               .boost(1.0f))));
-      
+
       // 2. 모델명제외쿼리 + 모델명 별도 AND 검색
       if (queryWithoutModels != null && !queryWithoutModels.trim().isEmpty()) {
-        Query modelFieldsQuery = Query.of(
-            q ->
-                q.multiMatch(
-                    m ->
-                        m.query(queryWithoutModels)
-                            .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
-                            .type(TextQueryType.CrossFields)
-                            .operator(co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
-                            .boost(1.0f)));
-        
+        Query modelFieldsQuery =
+            Query.of(
+                q ->
+                    q.multiMatch(
+                        m ->
+                            m.query(queryWithoutModels)
+                                .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
+                                .type(TextQueryType.CrossFields)
+                                .operator(
+                                    co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                                .boost(1.0f)));
+
         // 모델명들을 model.edge_ngram에서 검색 (AND 조건)
-        List<Query> modelQueries = models.stream()
-            .map(model -> 
-                Query.of(q -> q.match(m -> m.field(ESFields.MODEL_EDGE_NGRAM).query(model).boost(1.0f))))
-            .toList();
-        
-        Query combinedModelQuery = modelQueries.size() == 1 
-            ? modelQueries.get(0) 
-            : Query.of(q -> q.bool(b -> b.must(modelQueries)));
-        
+        List<Query> modelQueries =
+            models.stream()
+                .map(
+                    model ->
+                        Query.of(
+                            q ->
+                                q.match(
+                                    m ->
+                                        m.field(ESFields.MODEL_EDGE_NGRAM)
+                                            .query(model)
+                                            .boost(1.0f))))
+                .toList();
+
+        Query combinedModelQuery =
+            modelQueries.size() == 1
+                ? modelQueries.get(0)
+                : Query.of(q -> q.bool(b -> b.must(modelQueries)));
+
         // 모델명제외쿼리와 모델쿼리를 AND로 결합
         orQueries.add(
             Query.of(q -> q.bool(b -> b.must(modelFieldsQuery).must(combinedModelQuery))));
       }
-      
+
       // OR 조건으로 결합
       mainFieldQuery = Query.of(q -> q.bool(b -> b.should(orQueries).minimumShouldMatch("1")));
     } else {
       // 모델명이 없는 경우 기존 방식 (model.bigram 제외)
-      mainFieldQuery = Query.of(
-          q ->
-              q.multiMatch(
-                  m ->
-                      m.query(query)
-                          .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
-                          .type(TextQueryType.CrossFields)
-                          .operator(co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
-                          .boost(1.0f)));
+      mainFieldQuery =
+          Query.of(
+              q ->
+                  q.multiMatch(
+                      m ->
+                          m.query(query)
+                              .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
+                              .type(TextQueryType.CrossFields)
+                              .operator(
+                                  co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                              .boost(1.0f)));
     }
 
     // Phrase matching 쿼리 생성
@@ -345,7 +359,8 @@ public class QueryBuilder {
     // model.edge_ngram 필드에 대한 phrase matching
     phraseQueries.add(
         Query.of(
-            q -> q.matchPhrase(mp -> mp.field(ESFields.MODEL_EDGE_NGRAM).query(query).boost(3.0f))));
+            q ->
+                q.matchPhrase(mp -> mp.field(ESFields.MODEL_EDGE_NGRAM).query(query).boost(3.0f))));
 
     // category 필드에 대한 phrase matching
     phraseQueries.add(

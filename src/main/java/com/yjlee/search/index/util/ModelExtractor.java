@@ -10,12 +10,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ModelExtractor {
 
-  // 모델명 패턴: 
+  // 모델명 패턴:
   // 1. 하이픈으로 연결된 영숫자 그룹 (점 제외)
   // 2. 영숫자 혼합 3자리 이상 연속 문자열
   private static final Pattern MODEL_PATTERN_HYPHEN =
       Pattern.compile("\\b([A-Z0-9]+(?:-[A-Z0-9]+)+)\\b", Pattern.CASE_INSENSITIVE);
-  
+
   private static final Pattern MODEL_PATTERN_MIXED =
       Pattern.compile("\\b((?:[A-Z]+[0-9]+|[0-9]+[A-Z]+)[A-Z0-9]*)\\b", Pattern.CASE_INSENSITIVE);
 
@@ -61,7 +61,7 @@ public class ModelExtractor {
         }
       }
     }
-    
+
     // 혼합 패턴 매칭
     Matcher mixedMatcher = MODEL_PATTERN_MIXED.matcher(cleanedName);
     while (mixedMatcher.find()) {
@@ -98,7 +98,7 @@ public class ModelExtractor {
         }
       }
     }
-    
+
     // 혼합 패턴 매칭
     Matcher mixedMatcher = MODEL_PATTERN_MIXED.matcher(cleanedQuery);
     while (mixedMatcher.find()) {
@@ -113,22 +113,22 @@ public class ModelExtractor {
 
     return models;
   }
-  
+
   // 단위를 제외한 후 모델 추출 (검색용)
   public static List<String> extractModelsExcludingUnits(String query, List<String> units) {
     if (query == null || query.isBlank()) {
       return new ArrayList<>();
     }
-    
+
     String processedQuery = query;
-    
+
     // 단위 부분을 공백으로 치환하여 제거
     if (units != null && !units.isEmpty()) {
       for (String unit : units) {
         processedQuery = processedQuery.replaceAll("\\b" + Pattern.quote(unit) + "\\b", " ");
       }
     }
-    
+
     // 단위가 제거된 텍스트에서 모델명 추출
     return extractModelsForSearch(processedQuery);
   }
