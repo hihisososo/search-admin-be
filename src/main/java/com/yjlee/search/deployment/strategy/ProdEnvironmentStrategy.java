@@ -2,6 +2,7 @@ package com.yjlee.search.deployment.strategy;
 
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
+import com.yjlee.search.dictionary.category.service.CategoryRankingDictionaryService;
 import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
@@ -19,6 +20,7 @@ public class ProdEnvironmentStrategy implements EnvironmentDeploymentStrategy {
   private final UserDictionaryService userDictionaryService;
   private final StopwordDictionaryService stopwordDictionaryService;
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
+  private final CategoryRankingDictionaryService categoryRankingDictionaryService;
   private final ElasticsearchSynonymService elasticsearchSynonymService;
 
   @Override
@@ -57,6 +59,7 @@ public class ProdEnvironmentStrategy implements EnvironmentDeploymentStrategy {
       userDictionaryService.deployToProd();
       stopwordDictionaryService.deployToProd();
       typoCorrectionDictionaryService.deployToProd();
+      categoryRankingDictionaryService.deployToProd();
 
       log.info("모든 사전 운영 환경 배포 및 synonym_set 업데이트 완료");
     } catch (Exception e) {

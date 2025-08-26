@@ -5,6 +5,7 @@ import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.dictionary.category.service.CategoryRankingDictionaryService;
 import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
@@ -32,6 +33,7 @@ public class IndexingExecutionService {
   private final UserDictionaryService userDictionaryService;
   private final StopwordDictionaryService stopwordDictionaryService;
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
+  private final CategoryRankingDictionaryService categoryRankingDictionaryService;
   private final UserDictionaryRepository userDictionaryRepository;
   private final EC2DeploymentService ec2DeploymentService;
   private final ElasticsearchIndexService elasticsearchIndexService;
@@ -157,6 +159,7 @@ public class IndexingExecutionService {
       userDictionaryService.deployToDev();
       stopwordDictionaryService.deployToDev();
       typoCorrectionDictionaryService.deployToDev();
+      categoryRankingDictionaryService.deployToDev();
       log.info("모든 사전 개발 환경 배포 완료");
     } catch (Exception e) {
       log.error("사전 개발 환경 배포 실패", e);
