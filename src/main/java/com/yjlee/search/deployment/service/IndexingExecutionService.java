@@ -12,6 +12,8 @@ import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import com.yjlee.search.index.service.ProductIndexingService;
+import com.yjlee.search.search.service.category.CategoryRankingService;
+import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -34,6 +36,8 @@ public class IndexingExecutionService {
   private final StopwordDictionaryService stopwordDictionaryService;
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
   private final CategoryRankingDictionaryService categoryRankingDictionaryService;
+  private final TypoCorrectionService typoCorrectionService;
+  private final CategoryRankingService categoryRankingService;
   private final UserDictionaryRepository userDictionaryRepository;
   private final EC2DeploymentService ec2DeploymentService;
   private final ElasticsearchIndexService elasticsearchIndexService;
@@ -160,7 +164,12 @@ public class IndexingExecutionService {
       stopwordDictionaryService.deployToDev();
       typoCorrectionDictionaryService.deployToDev();
       categoryRankingDictionaryService.deployToDev();
-      log.info("모든 사전 개발 환경 배포 완료");
+      
+      // 캐시 업데이트
+      typoCorrectionService.updateCacheRealtime(DictionaryEnvironmentType.DEV);
+      categoryRankingService.updateCacheRealtime(DictionaryEnvironmentType.DEV);
+      
+      log.info("모든 사전 개발 환경 배포 및 캐시 업데이트 완료");
     } catch (Exception e) {
       log.error("사전 개발 환경 배포 실패", e);
       throw new RuntimeException("사전 개발 환경 배포 실패", e);

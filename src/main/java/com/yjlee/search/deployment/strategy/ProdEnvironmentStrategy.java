@@ -7,6 +7,9 @@ import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.search.service.category.CategoryRankingService;
+import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -21,6 +24,8 @@ public class ProdEnvironmentStrategy implements EnvironmentDeploymentStrategy {
   private final StopwordDictionaryService stopwordDictionaryService;
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
   private final CategoryRankingDictionaryService categoryRankingDictionaryService;
+  private final TypoCorrectionService typoCorrectionService;
+  private final CategoryRankingService categoryRankingService;
   private final ElasticsearchSynonymService elasticsearchSynonymService;
 
   @Override
@@ -60,8 +65,12 @@ public class ProdEnvironmentStrategy implements EnvironmentDeploymentStrategy {
       stopwordDictionaryService.deployToProd();
       typoCorrectionDictionaryService.deployToProd();
       categoryRankingDictionaryService.deployToProd();
+      
+      // 캐시 업데이트
+      typoCorrectionService.updateCacheRealtime(DictionaryEnvironmentType.PROD);
+      categoryRankingService.updateCacheRealtime(DictionaryEnvironmentType.PROD);
 
-      log.info("모든 사전 운영 환경 배포 및 synonym_set 업데이트 완료");
+      log.info("모든 사전 운영 환경 배포 및 캐시 업데이트 완료");
     } catch (Exception e) {
       log.error("사전 운영 환경 배포 실패", e);
       throw new RuntimeException("사전 운영 환경 배포 실패", e);
