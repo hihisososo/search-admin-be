@@ -395,7 +395,7 @@ public class QueryBuilder {
     if (query == null || query.trim().isEmpty()) {
       return List.of();
     }
-    
+
     Map<String, Integer> categoryWeights = categoryRankingService.getCategoryWeights(query);
 
     if (categoryWeights.isEmpty()) {
