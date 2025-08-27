@@ -188,30 +188,32 @@ public class AsyncEvaluationService {
     try {
       log.info("비동기 후보군 생성 시작: taskId={}", taskId);
 
-      asyncTaskService.updateProgress(taskId, 10, "후보군 생성 시작...");
+      asyncTaskService.updateProgress(taskId, 5, "후보군 생성 초기화...");
 
       if (Boolean.TRUE.equals(request.getGenerateForAllQueries())) {
-        asyncTaskService.updateProgress(taskId, 30, "전체 쿼리에 대한 후보군 생성 중...");
+        asyncTaskService.updateProgress(taskId, 10, "전체 쿼리에 대한 후보군 생성 준비 중...");
         groundTruthService.generateCandidatesFromSearch(
             (done, total) -> {
-              int p = 30 + Math.min(50, (int) Math.floor((double) done / Math.max(1, total) * 50));
+              // 10%에서 90%까지 사용 (80% 구간)
+              int progress = 10 + (int) Math.floor((double) done / Math.max(1, total) * 80);
               asyncTaskService.updateProgress(
-                  taskId, p, String.format("후보군 생성 진행: %d/%d", done, total));
+                  taskId, progress, String.format("후보군 생성 진행: %d/%d 쿼리 완료", done, total));
             });
       } else if (request.getQueryIds() != null && !request.getQueryIds().isEmpty()) {
         int total = request.getQueryIds().size();
         asyncTaskService.updateProgress(
-            taskId, 30, String.format("선택된 %d개 쿼리에 대한 후보군 생성 중...", total));
+            taskId, 10, String.format("선택된 %d개 쿼리에 대한 후보군 생성 준비 중...", total));
         groundTruthService.generateCandidatesForSelectedQueries(
             request.getQueryIds(),
             (done, t) -> {
-              int p = 30 + Math.min(50, (int) Math.floor((double) done / Math.max(1, t) * 50));
+              // 10%에서 90%까지 사용 (80% 구간)
+              int progress = 10 + (int) Math.floor((double) done / Math.max(1, t) * 80);
               asyncTaskService.updateProgress(
-                  taskId, p, String.format("후보군 생성 진행: %d/%d", done, t));
+                  taskId, progress, String.format("후보군 생성 진행: %d/%d 쿼리 완료", done, t));
             });
       }
 
-      asyncTaskService.updateProgress(taskId, 90, "후보군 생성 완료, 결과 정리 중...");
+      asyncTaskService.updateProgress(taskId, 95, "후보군 생성 완료, 결과 정리 중...");
 
       CandidateGenerationResult result =
           CandidateGenerationResult.builder()
@@ -235,8 +237,19 @@ public class AsyncEvaluationService {
 
       asyncTaskService.updateProgress(taskId, 10, "평가 실행 시작...");
 
+      // 진행률 업데이트 콜백 생성
+      ProgressCallback evaluationCallback =
+          (progress, message) -> {
+            asyncTaskService.updateProgress(taskId, progress, message);
+          };
+
       com.yjlee.search.evaluation.dto.EvaluationExecuteResponse response =
-          evaluationReportService.executeEvaluation(request.getReportName());
+          evaluationReportService.executeEvaluation(
+              request.getReportName(),
+              request.getSearchMode(),
+              request.getRrfK(),
+              request.getHybridTopK(),
+              evaluationCallback);
 
       asyncTaskService.updateProgress(taskId, 90, "평가 완료, 결과 정리 중...");
 
@@ -265,14 +278,21 @@ public class AsyncEvaluationService {
 
       asyncTaskService.updateProgress(taskId, 10, "LLM 평가 시작...");
 
+      // 진행률 업데이트 콜백 생성
+      ProgressCallback progressCallback =
+          (progress, message) -> {
+            asyncTaskService.updateProgress(taskId, progress, message);
+          };
+
       if (Boolean.TRUE.equals(request.getEvaluateAllQueries())) {
         asyncTaskService.updateProgress(taskId, 30, "전체 쿼리 LLM 평가 진행 중...");
-        llmCandidateEvaluationService.evaluateAllCandidates();
+        llmCandidateEvaluationService.evaluateAllCandidates(progressCallback);
       } else if (request.getQueryIds() != null && !request.getQueryIds().isEmpty()) {
         int total = request.getQueryIds().size();
         asyncTaskService.updateProgress(
             taskId, 30, String.format("선택된 %d개 쿼리 LLM 평가 진행 중...", total));
-        llmCandidateEvaluationService.evaluateCandidatesForQueries(request.getQueryIds());
+        llmCandidateEvaluationService.evaluateCandidatesForQueries(
+            request.getQueryIds(), progressCallback);
       }
 
       asyncTaskService.updateProgress(taskId, 90, "LLM 평가 완료, 결과 정리 중...");

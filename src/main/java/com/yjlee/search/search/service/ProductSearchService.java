@@ -24,15 +24,32 @@ public class ProductSearchService {
   private final SearchRequestBuilder searchRequestBuilder;
   private final QueryResponseBuilder responseBuilder;
   private final SearchQueryExecutor queryExecutor;
+  private final HybridSearchService hybridSearchService;
+  private final VectorSearchService vectorSearchService;
 
   public SearchExecuteResponse search(
       String indexName, SearchExecuteRequest request, boolean withExplain) {
     log.info(
-        "Product search - index: {}, query: {}, explain: {}",
+        "Product search - index: {}, query: {}, mode: {}, explain: {}",
         indexName,
         request.getQuery(),
+        request.getSearchMode(),
         withExplain);
 
+    // SearchMode에 따라 다른 검색 실행
+    switch (request.getSearchMode()) {
+      case VECTOR_ONLY:
+        return executeVectorOnlySearch(indexName, request, withExplain);
+      case KEYWORD_ONLY:
+        return executeKeywordOnlySearch(indexName, request, withExplain);
+      case HYBRID_RRF:
+      default:
+        return hybridSearchService.hybridSearch(indexName, request, withExplain);
+    }
+  }
+
+  private SearchExecuteResponse executeKeywordOnlySearch(
+      String indexName, SearchExecuteRequest request, boolean withExplain) {
     long startTime = System.currentTimeMillis();
 
     BoolQuery boolQuery = queryBuilder.buildBoolQuery(request);
@@ -45,5 +62,16 @@ public class ProductSearchService {
     long took = System.currentTimeMillis() - startTime;
 
     return responseBuilder.buildSearchResponse(request, response, took, withExplain, searchRequest);
+  }
+
+  private SearchExecuteResponse executeVectorOnlySearch(
+      String indexName, SearchExecuteRequest request, boolean withExplain) {
+    long startTime = System.currentTimeMillis();
+
+    SearchResponse<JsonNode> response =
+        vectorSearchService.vectorOnlySearch(indexName, request.getQuery(), request.getSize());
+    long took = System.currentTimeMillis() - startTime;
+
+    return responseBuilder.buildSearchResponse(request, response, took, withExplain, null);
   }
 }

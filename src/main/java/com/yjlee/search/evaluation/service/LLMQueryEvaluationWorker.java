@@ -266,7 +266,7 @@ public class LLMQueryEvaluationWorker {
 
       if (i > 0) productListBuilder.append(",\n");
       productListBuilder.append("  {\n");
-      productListBuilder.append("    \"id\": \"").append(product.getId()).append("\",\n");
+      productListBuilder.append("    \"productId\": \"").append(product.getId()).append("\",\n");
       productListBuilder
           .append("    \"name\": \"")
           .append(escapeJson(product.getNameRaw() != null ? product.getNameRaw() : "N/A"))

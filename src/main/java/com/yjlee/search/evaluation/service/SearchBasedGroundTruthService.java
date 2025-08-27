@@ -100,6 +100,11 @@ public class SearchBasedGroundTruthService {
     List<QueryProductMapping> mappings = new CopyOnWriteArrayList<>();
     List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
 
+    // 진행률 추적을 위한 AtomicInteger
+    java.util.concurrent.atomic.AtomicInteger completedCount =
+        new java.util.concurrent.atomic.AtomicInteger(0);
+    int totalQueries = queries.size();
+
     // 병렬 처리
     queries.parallelStream()
         .forEach(
@@ -160,15 +165,25 @@ public class SearchBasedGroundTruthService {
                     candidatesWithSource.size(),
                     limitedCandidates.size());
 
+                // 진행률 업데이트 - AtomicInteger 사용
+                int completed = completedCount.incrementAndGet();
                 if (progressListener != null) {
                   try {
-                    progressListener.onProgress(index + 1, queries.size());
+                    progressListener.onProgress(completed, totalQueries);
                   } catch (Exception ignored) {
                   }
                 }
 
               } catch (Exception e) {
                 log.warn("쿼리 '{}' 처리 실패", query.getQuery(), e);
+                // 실패해도 진행률은 업데이트
+                int completed = completedCount.incrementAndGet();
+                if (progressListener != null) {
+                  try {
+                    progressListener.onProgress(completed, totalQueries);
+                  } catch (Exception ignored) {
+                  }
+                }
               }
             });
 
