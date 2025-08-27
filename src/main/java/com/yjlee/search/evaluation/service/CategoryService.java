@@ -9,8 +9,11 @@ import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
+import java.text.Collator;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -56,6 +59,10 @@ public class CategoryService {
                   .build());
         }
       }
+
+      // 가나다순 정렬 (한국어 Collator 사용)
+      Collator koreanCollator = Collator.getInstance(Locale.KOREAN);
+      items.sort(Comparator.comparing(CategoryListResponse.CategoryItem::getName, koreanCollator));
 
       return CategoryListResponse.builder().categories(items).build();
     } catch (Exception e) {

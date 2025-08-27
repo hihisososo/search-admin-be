@@ -19,14 +19,13 @@ public class QuerySuggestService {
 
   public QuerySuggestResponse suggestQueries(Integer count, Integer minC, Integer maxC) {
     int target = count != null && count > 0 ? count : 20;
-    int perStrategyCap = 300;
 
     List<String> generated = queryGenerationService.generateQueriesPreview(target * 4);
     List<String> diversified = deduplicateByTokenJaccard(generated, 0.8);
 
     List<QuerySuggestResponse.SuggestItem> result = new ArrayList<>();
     for (String q : diversified) {
-      Set<String> union = groundTruthService.getCandidateUnionStrict(q, perStrategyCap);
+      Set<String> union = groundTruthService.getCandidateIdsForQuery(q);
 
       log.info("쿼리: '{}' → 검색 결과: {}개", q, union.size());
 

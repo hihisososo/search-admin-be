@@ -30,6 +30,19 @@ public class QueryBuilder {
     // 원본 쿼리 보관
     String originalQuery = request.getQuery();
 
+    // 쿼리가 없는 경우 필터만 적용
+    if (originalQuery == null || originalQuery.trim().isEmpty()) {
+      List<Query> filterQueries = buildFilterQueries(request);
+      return BoolQuery.of(
+          b -> {
+            b.must(Query.of(q -> q.matchAll(m -> m)));
+            if (!filterQueries.isEmpty()) {
+              b.filter(filterQueries);
+            }
+            return b;
+          });
+    }
+
     // 단위 추출 (검색용 - 확장 없음) - 먼저 추출
     List<String> units = UnitExtractor.extractUnitsForSearch(originalQuery);
 
@@ -227,6 +240,9 @@ public class QueryBuilder {
   }
 
   private String processQuery(String query, Boolean applyTypoCorrection) {
+    if (query == null || query.trim().isEmpty()) {
+      return "";
+    }
     String normalizedQuery = TextPreprocessor.normalizeUnits(query);
     String processedQuery = TextPreprocessor.preprocess(normalizedQuery);
 
@@ -272,6 +288,9 @@ public class QueryBuilder {
   }
 
   private String removeUnitsFromQuery(String query, List<String> units) {
+    if (query == null || query.trim().isEmpty()) {
+      return "";
+    }
     if (units == null || units.isEmpty()) {
       return query;
     }
@@ -290,6 +309,9 @@ public class QueryBuilder {
   }
 
   private String removeModelsFromQuery(String query, List<String> models) {
+    if (query == null || query.trim().isEmpty()) {
+      return "";
+    }
     if (models == null || models.isEmpty()) {
       return query;
     }
@@ -370,6 +392,10 @@ public class QueryBuilder {
   }
 
   private List<Query> buildCategoryBoostQueries(String query) {
+    if (query == null || query.trim().isEmpty()) {
+      return List.of();
+    }
+    
     Map<String, Integer> categoryWeights = categoryRankingService.getCategoryWeights(query);
 
     if (categoryWeights.isEmpty()) {
