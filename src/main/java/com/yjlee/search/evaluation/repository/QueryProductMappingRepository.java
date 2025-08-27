@@ -29,10 +29,8 @@ public interface QueryProductMappingRepository extends JpaRepository<QueryProduc
       SELECT
           eq.query as query,
           COUNT(m) as documentCount,
-          SUM(CASE WHEN m.relevanceScore = 2 THEN 1 ELSE 0 END) as score2Count,
           SUM(CASE WHEN m.relevanceScore = 1 THEN 1 ELSE 0 END) as score1Count,
           SUM(CASE WHEN m.relevanceScore = 0 THEN 1 ELSE 0 END) as score0Count,
-          SUM(CASE WHEN m.relevanceScore = -1 THEN 1 ELSE 0 END) as scoreMinus1Count,
           SUM(CASE WHEN m.relevanceScore IS NULL THEN 1 ELSE 0 END) as unevaluatedCount
       FROM QueryProductMapping m
       JOIN m.evaluationQuery eq

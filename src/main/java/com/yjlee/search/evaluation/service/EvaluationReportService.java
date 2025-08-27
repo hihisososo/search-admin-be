@@ -74,7 +74,7 @@ public class EvaluationReportService {
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
 
     double totalRecall300 = 0.0; // Recall@300
-    double totalNdcg20 = 0.0; // NDCG@20
+    double totalPrecision20 = 0.0; // Precision@20
 
     // 동기화된 리스트 사용으로 스레드 안전성 확보
     List<EvaluationExecuteResponse.QueryEvaluationDetail> synchronizedQueryDetails =
@@ -122,20 +122,17 @@ public class EvaluationReportService {
       totalRecall300 += recall300;
       detail.setRecallAt300(recall300);
 
-      // NDCG@20
-      double ndcg20 =
-          computeNdcg(
-              new ArrayList<>(retrievedDocs.subList(0, Math.min(20, retrievedDocs.size()))),
-              relevantDocs);
-      totalNdcg20 += ndcg20;
-      detail.setNdcgAt20(ndcg20);
+      // Precision@20
+      double precision20 = computePrecisionAtK(retrievedDocs, relevantDocs, 20);
+      totalPrecision20 += precision20;
+      detail.setPrecisionAt20(precision20);
     }
 
     double avgRecall300 = queries.isEmpty() ? 0.0 : totalRecall300 / queries.size();
-    double avgNdcg20 = queries.isEmpty() ? 0.0 : totalNdcg20 / queries.size();
+    double avgPrecision20 = queries.isEmpty() ? 0.0 : totalPrecision20 / queries.size();
 
     EvaluationReport report =
-        saveEvaluationReport(reportName, queries.size(), avgRecall300, avgNdcg20);
+        saveEvaluationReport(reportName, queries.size(), avgRecall300, avgPrecision20);
 
     // 세부 결과를 구조화 테이블에 저장 - queryDetails 재사용
     java.util.List<com.yjlee.search.evaluation.model.EvaluationReportDetail> detailRows =
@@ -150,7 +147,7 @@ public class EvaluationReportService {
               .relevantCount(d.getRelevantCount())
               .retrievedCount(d.getRetrievedCount())
               .correctCount(d.getCorrectCount())
-              .ndcgAt20(d.getNdcgAt20())
+              .precisionAt20(d.getPrecisionAt20())
               .recallAt300(d.getRecallAt300())
               .build());
       // MISSING, WRONG 타입만 저장
@@ -185,15 +182,15 @@ public class EvaluationReportService {
     if (!docRows.isEmpty()) reportDocumentRepository.saveAll(docRows);
 
     log.info(
-        "✅ 평가 실행 완료: Recall@300={}, NDCG@20={}",
+        "✅ 평가 실행 완료: Recall@300={}, Precision@20={}",
         String.format("%.3f", avgRecall300),
-        String.format("%.3f", avgNdcg20));
+        String.format("%.3f", avgPrecision20));
 
     return EvaluationExecuteResponse.builder()
         .reportId(report.getId())
         .reportName(reportName)
         .recall300(avgRecall300)
-        .ndcg20(avgNdcg20)
+        .precision20(avgPrecision20)
         .totalQueries(queries.size())
         .queryDetails(queryDetails)
         .createdAt(report.getCreatedAt())
@@ -421,7 +418,7 @@ public class EvaluationReportService {
 
   @Transactional
   private EvaluationReport saveEvaluationReport(
-      String reportName, int totalQueries, double averageRecall300, double averageNdcg20) {
+      String reportName, int totalQueries, double averageRecall300, double averagePrecision20) {
     try {
       // JSON은 더 이상 저장하지 않음 (대용량 방지)
       EvaluationReport report =
@@ -429,7 +426,7 @@ public class EvaluationReportService {
               .reportName(reportName)
               .totalQueries(totalQueries)
               .averageRecall300(averageRecall300)
-              .averageNdcg20(averageNdcg20)
+              .averagePrecision20(averagePrecision20)
               .detailedResults(null)
               .build();
 
@@ -504,7 +501,7 @@ public class EvaluationReportService {
               .relevantCount(r.getRelevantCount())
               .retrievedCount(r.getRetrievedCount())
               .correctCount(r.getCorrectCount())
-              .ndcgAt20(r.getNdcgAt20())
+              .precisionAt20(r.getPrecisionAt20())
               .recallAt300(r.getRecallAt300())
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
               .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
@@ -519,7 +516,7 @@ public class EvaluationReportService {
         .reportName(report.getReportName())
         .totalQueries(report.getTotalQueries())
         .averageRecall300(report.getAverageRecall300())
-        .averageNdcg20(report.getAverageNdcg20())
+        .averagePrecision20(report.getAveragePrecision20())
         .createdAt(report.getCreatedAt())
         .queryDetails(details)
         .build();

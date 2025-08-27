@@ -298,7 +298,12 @@ public class ElasticsearchStatsRepository implements StatsRepository {
       return clickCounts;
 
     } catch (Exception e) {
-      log.error("키워드별 클릭 횟수 일괄 조회 실패: {}", e.getMessage(), e);
+      // 인덱스가 없거나 데이터가 없는 경우는 debug 레벨로 기록
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found")) {
+        log.debug("클릭 로그 인덱스가 없음 - 기간: {} ~ {}", from, to);
+      } else {
+        log.error("키워드별 클릭 횟수 일괄 조회 중 에러 발생: {}", e.getMessage(), e);
+      }
       // 모든 키워드에 대해 0을 반환
       return keywords.stream().collect(Collectors.toMap(k -> k, k -> 0L));
     }
@@ -385,7 +390,12 @@ public class ElasticsearchStatsRepository implements StatsRepository {
       return searchesWithClicks;
 
     } catch (Exception e) {
-      log.error("키워드별 클릭 세션수 일괄 조회 실패: {}", e.getMessage(), e);
+      // 인덱스가 없거나 데이터가 없는 경우는 debug 레벨로 기록
+      if (e.getMessage() != null && e.getMessage().contains("index_not_found")) {
+        log.debug("클릭 로그 인덱스가 없음 - 기간: {} ~ {}", from, to);
+      } else {
+        log.error("키워드별 클릭 세션수 일괄 조회 중 에러 발생: {}", e.getMessage(), e);
+      }
       // 모든 키워드에 대해 0을 반환
       return keywords.stream().collect(Collectors.toMap(k -> k, k -> 0L));
     }

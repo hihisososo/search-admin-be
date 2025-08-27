@@ -131,12 +131,12 @@ public class SynonymTermRecommendationService {
       }
       log.info("[SynonymGen] 완료 - createdTotal: {}", createdTotal);
 
-      // 5) 생성된 추천을 유의어 사전에 병합
+      // 5) 생성된 추천을 동의어 사전에 병합
       mergeRecommendationsIntoDictionary(DictionaryEnvironmentType.CURRENT);
 
     } catch (Exception e) {
-      log.error("유의어(term) 추천 생성 실패", e);
-      throw new RuntimeException("유의어(term) 추천 생성 실패: " + e.getMessage(), e);
+      log.error("동의어(term) 추천 생성 실패", e);
+      throw new RuntimeException("동의어(term) 추천 생성 실패: " + e.getMessage(), e);
     }
   }
 
@@ -406,7 +406,7 @@ public class SynonymTermRecommendationService {
 
   private record Synonym(String term, String reason) {}
 
-  /** 추천 결과를 유의어 사전 포맷으로 병합한다. 예: "삼성,samsung,샘숭" */
+  /** 추천 결과를 동의어 사전 포맷으로 병합한다. 예: "삼성,samsung,샘숭" */
   private void mergeRecommendationsIntoDictionary(DictionaryEnvironmentType environment) {
     // 추천 테이블에서 baseTerm별 후보를 모아 사전 룰 문자열을 구성
     List<SynonymTermRecommendation> all =

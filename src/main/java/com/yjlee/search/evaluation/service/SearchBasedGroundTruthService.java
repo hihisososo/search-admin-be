@@ -8,7 +8,6 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
@@ -42,14 +41,11 @@ public class SearchBasedGroundTruthService {
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final OpenAIEmbeddingService embeddingService;
-  private final com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService
-      elasticsearchAnalyzeService;
-  private final ObjectMapper objectMapper;
 
-  private static final int FIXED_PER_STRATEGY = 300;
+  private static final int FIXED_PER_STRATEGY = 301;
   private static final int FIXED_VECTOR_NUM_CANDIDATES = 900;
 
-  @Value("${app.evaluation.candidate.min-score:0.85}")
+  @Value("${app.evaluation.candidate.min-score:0.75}")
   private double vectorMinScore;
 
   private static final int FIXED_MAX_TOTAL_PER_QUERY = 300;
@@ -96,33 +92,20 @@ public class SearchBasedGroundTruthService {
                 Map<String, String> candidatesWithSource =
                     collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-                // 토큰 추출
-                List<String> tokens =
-                    elasticsearchAnalyzeService
-                        .analyzeText(
-                            query.getQuery(),
-                            com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV)
-                        .stream()
-                        .map(t -> t.getToken())
-                        .distinct()
-                        .collect(Collectors.toList());
-
-                // 토큰별 동의어 매핑 가져오기
-                Map<String, List<String>> synonymMap =
-                    elasticsearchAnalyzeService.getTokenSynonymsMapping(
-                        query.getQuery(),
-                        com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
+                // 저장 시점에 300개 제한 적용
+                Map<String, String> limitedCandidates = new LinkedHashMap<>();
+                int count = 0;
+                for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
+                  if (count >= FIXED_MAX_TOTAL_PER_QUERY) break;
+                  limitedCandidates.put(entry.getKey(), entry.getValue());
+                  count++;
+                }
 
                 // EvaluationQuery 업데이트 (나중에 한번에 저장)
                 EvaluationQuery updatedQuery =
                     EvaluationQuery.builder()
                         .id(query.getId())
                         .query(query.getQuery())
-                        .expandedTokens(tokens.isEmpty() ? null : String.join(",", tokens))
-                        .expandedSynonymsMap(
-                            synonymMap.isEmpty()
-                                ? null
-                                : objectMapper.writeValueAsString(synonymMap))
                         .queryProductMappings(query.getQueryProductMappings())
                         .createdAt(query.getCreatedAt())
                         .updatedAt(query.getUpdatedAt())
@@ -130,10 +113,10 @@ public class SearchBasedGroundTruthService {
                 updatedQueries.add(updatedQuery);
 
                 // Bulk fetch products
-                Set<String> productIds = candidatesWithSource.keySet();
+                Set<String> productIds = limitedCandidates.keySet();
                 Map<String, ProductDocument> productMap = fetchProductsBulk(productIds);
 
-                for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
+                for (Map.Entry<String, String> entry : limitedCandidates.entrySet()) {
                   String productId = entry.getKey();
                   String searchSource = entry.getValue();
                   ProductDocument product = productMap.get(productId);
@@ -152,10 +135,10 @@ public class SearchBasedGroundTruthService {
                 }
 
                 log.debug(
-                    "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
+                    "쿼리 '{}' 처리 완료: 총 {}개 후보 중 {}개 저장",
                     query.getQuery(),
                     candidatesWithSource.size(),
-                    FIXED_MAX_TOTAL_PER_QUERY);
+                    limitedCandidates.size());
 
                 if (progressListener != null) {
                   try {
@@ -232,33 +215,20 @@ public class SearchBasedGroundTruthService {
                 Map<String, String> candidatesWithSource =
                     collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-                // 토큰 추출
-                List<String> tokens =
-                    elasticsearchAnalyzeService
-                        .analyzeText(
-                            query.getQuery(),
-                            com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV)
-                        .stream()
-                        .map(t -> t.getToken())
-                        .distinct()
-                        .collect(Collectors.toList());
-
-                // 토큰별 동의어 매핑 가져오기
-                Map<String, List<String>> synonymMap =
-                    elasticsearchAnalyzeService.getTokenSynonymsMapping(
-                        query.getQuery(),
-                        com.yjlee.search.common.enums.DictionaryEnvironmentType.DEV);
+                // 저장 시점에 300개 제한 적용
+                Map<String, String> limitedCandidates = new LinkedHashMap<>();
+                int count = 0;
+                for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
+                  if (count >= FIXED_MAX_TOTAL_PER_QUERY) break;
+                  limitedCandidates.put(entry.getKey(), entry.getValue());
+                  count++;
+                }
 
                 // EvaluationQuery 업데이트 (나중에 한번에 저장)
                 EvaluationQuery updatedQuery =
                     EvaluationQuery.builder()
                         .id(query.getId())
                         .query(query.getQuery())
-                        .expandedTokens(tokens.isEmpty() ? null : String.join(",", tokens))
-                        .expandedSynonymsMap(
-                            synonymMap.isEmpty()
-                                ? null
-                                : objectMapper.writeValueAsString(synonymMap))
                         .queryProductMappings(query.getQueryProductMappings())
                         .createdAt(query.getCreatedAt())
                         .updatedAt(query.getUpdatedAt())
@@ -266,10 +236,10 @@ public class SearchBasedGroundTruthService {
                 updatedQueries.add(updatedQuery);
 
                 // Bulk fetch products
-                Set<String> productIds = candidatesWithSource.keySet();
+                Set<String> productIds = limitedCandidates.keySet();
                 Map<String, ProductDocument> productMap = fetchProductsBulk(productIds);
 
-                for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
+                for (Map.Entry<String, String> entry : limitedCandidates.entrySet()) {
                   String productId = entry.getKey();
                   String searchSource = entry.getValue();
                   ProductDocument product = productMap.get(productId);
@@ -288,10 +258,10 @@ public class SearchBasedGroundTruthService {
                 }
 
                 log.debug(
-                    "쿼리 '{}' 처리 완료: {}개 후보 (최대 {}개 제한)",
+                    "쿼리 '{}' 처리 완료: 총 {}개 후보 중 {}개 저장",
                     query.getQuery(),
                     candidatesWithSource.size(),
-                    FIXED_MAX_TOTAL_PER_QUERY);
+                    limitedCandidates.size());
 
                 if (progressListener != null) {
                   try {
@@ -423,16 +393,8 @@ public class SearchBasedGroundTruthService {
       }
     }
 
-    // 최대 개수 제한
-    Map<String, String> limitedMap = new LinkedHashMap<>();
-    int count = 0;
-    for (Map.Entry<String, String> entry : productSourceMap.entrySet()) {
-      if (count >= FIXED_MAX_TOTAL_PER_QUERY) break;
-      limitedMap.put(entry.getKey(), entry.getValue());
-      count++;
-    }
-
-    return limitedMap;
+    // 제한 없이 전체 반환 (외부에서 후보 개수로 쿼리 품질 판단하기 위함)
+    return productSourceMap;
   }
 
   private Set<String> collectCandidatesForQueryWithEmbedding(String query, float[] queryEmbedding) {

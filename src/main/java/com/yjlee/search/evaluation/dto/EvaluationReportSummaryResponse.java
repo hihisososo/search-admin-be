@@ -17,7 +17,7 @@ public class EvaluationReportSummaryResponse {
   private Long id;
   private String reportName;
   private Integer totalQueries;
-  private Double averageNdcg20;
+  private Double averagePrecision20;
   private Double averageRecall300;
   private LocalDateTime createdAt;
 }

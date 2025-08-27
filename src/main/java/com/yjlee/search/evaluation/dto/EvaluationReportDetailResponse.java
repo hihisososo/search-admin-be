@@ -19,7 +19,7 @@ public class EvaluationReportDetailResponse {
   private String reportName;
   private Integer totalQueries;
   private Double averageRecall300; // Recall@300 평균
-  private Double averageNdcg20; // NDCG@20 평균
+  private Double averagePrecision20; // Precision@20 평균
   private LocalDateTime createdAt;
   private List<QueryDetail> queryDetails;
 
@@ -33,7 +33,7 @@ public class EvaluationReportDetailResponse {
     private Integer relevantCount;
     private Integer retrievedCount;
     private Integer correctCount;
-    private Double ndcgAt20;
+    private Double precisionAt20;
     private Double recallAt300;
     private List<DocumentInfo> missingDocuments;
     private List<DocumentInfo> wrongDocuments;

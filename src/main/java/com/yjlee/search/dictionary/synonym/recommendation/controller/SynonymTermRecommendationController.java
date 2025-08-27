@@ -15,17 +15,17 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/dictionaries/synonyms/term-recommendations")
 @RequiredArgsConstructor
-@Tag(name = "Synonym Term Recommendation", description = "형태소 term 기반 유의어 추천 API")
+@Tag(name = "Synonym Term Recommendation", description = "형태소 term 기반 동의어 추천 API")
 public class SynonymTermRecommendationController {
 
   private final SynonymTermRecommendationService service;
 
   @PostMapping("/generate")
-  @Operation(summary = "유의어(term) 추천 생성", description = "상품명 코퍼스에서 term을 추출하여 완전동의어를 추천합니다")
+  @Operation(summary = "동의어(term) 추천 생성", description = "상품명 코퍼스에서 term을 추출하여 완전동의어를 추천합니다")
   public ResponseEntity<Void> generate(@RequestBody(required = false) GenerateRequest request) {
     if (request == null) request = GenerateRequest.builder().build();
     log.info(
-        "유의어(term) 추천 요청 - sampleSize: {}, desiredRecommendationCount: {}",
+        "동의어(term) 추천 요청 - sampleSize: {}, desiredRecommendationCount: {}",
         request.getSampleSize(),
         request.getDesiredRecommendationCount());
     service.generate(request);
@@ -33,7 +33,7 @@ public class SynonymTermRecommendationController {
   }
 
   @GetMapping
-  @Operation(summary = "유의어(term) 추천 목록", description = "저장된 term별 유의어 추천 결과를 조회합니다")
+  @Operation(summary = "동의어(term) 추천 목록", description = "저장된 term별 동의어 추천 결과를 조회합니다")
   public ResponseEntity<ListResponse> list(
       @RequestParam(name = "sortBy", required = false, defaultValue = "count") String sortBy,
       @RequestParam(name = "sortDir", required = false, defaultValue = "desc") String sortDir) {
@@ -42,7 +42,7 @@ public class SynonymTermRecommendationController {
 
   @PostMapping("/merge-to-dictionary")
   @Operation(
-      summary = "추천 결과를 유의어 사전에 병합",
+      summary = "추천 결과를 동의어 사전에 병합",
       description = "추천된 항목을 'base => syn1,syn2' 포맷으로 현재 사전에 병합합니다")
   public ResponseEntity<Void> mergeToDictionary(
       @RequestParam(name = "env", required = false) String env) {

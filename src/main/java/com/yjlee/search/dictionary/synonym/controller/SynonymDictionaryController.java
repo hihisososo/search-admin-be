@@ -25,7 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
-@Tag(name = "Synonym Dictionary Management", description = "유의어 사전 관리 API")
+@Tag(name = "Synonym Dictionary Management", description = "동의어 사전 관리 API")
 @RestController
 @RequestMapping("/api/v1/dictionaries/synonyms")
 @RequiredArgsConstructor
@@ -36,8 +36,8 @@ public class SynonymDictionaryController {
   private final IndexEnvironmentRepository indexEnvironmentRepository;
 
   @Operation(
-      summary = "유의어 사전 목록 조회",
-      description = "유의어 사전 목록을 페이징 및 검색어로 조회합니다. environment 파라미터로 현재/개발/운영 환경의 사전을 조회할 수 있습니다.")
+      summary = "동의어 사전 목록 조회",
+      description = "동의어 사전 목록을 페이징 및 검색어로 조회합니다. environment 파라미터로 현재/개발/운영 환경의 사전을 조회할 수 있습니다.")
   @ApiResponses({@ApiResponse(responseCode = "200", description = "성공")})
   @GetMapping
   public ResponseEntity<PageResponse<SynonymDictionaryListResponse>> getSynonymDictionaries(
@@ -54,7 +54,7 @@ public class SynonymDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.debug(
-        "유의어 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
+        "동의어 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
         page,
         size,
         search,
@@ -68,7 +68,7 @@ public class SynonymDictionaryController {
     return ResponseEntity.ok(response);
   }
 
-  @Operation(summary = "유의어 사전 상세 조회", description = "특정 유의어 사전의 상세 정보를 조회합니다.")
+  @Operation(summary = "동의어 사전 상세 조회", description = "특정 동의어 사전의 상세 정보를 조회합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
     @ApiResponse(responseCode = "400", description = "존재하지 않는 사전")
@@ -77,13 +77,13 @@ public class SynonymDictionaryController {
   public ResponseEntity<SynonymDictionaryResponse> getSynonymDictionaryDetail(
       @Parameter(description = "사전 ID") @PathVariable Long dictionaryId) {
 
-    log.debug("유의어 사전 상세 조회: {}", dictionaryId);
+    log.debug("동의어 사전 상세 조회: {}", dictionaryId);
     SynonymDictionaryResponse response =
         synonymDictionaryService.getSynonymDictionaryDetail(dictionaryId);
     return ResponseEntity.ok(response);
   }
 
-  @Operation(summary = "유의어 사전 생성", description = "새로운 유의어 사전을 생성합니다.")
+  @Operation(summary = "동의어 사전 생성", description = "새로운 동의어 사전을 생성합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
     @ApiResponse(responseCode = "400", description = "잘못된 요청")
@@ -95,13 +95,13 @@ public class SynonymDictionaryController {
           @RequestParam(defaultValue = "CURRENT")
           DictionaryEnvironmentType environment) {
 
-    log.debug("유의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
+    log.debug("동의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
     SynonymDictionaryResponse response =
         synonymDictionaryService.createSynonymDictionary(request, environment);
     return ResponseEntity.ok(response);
   }
 
-  @Operation(summary = "유의어 사전 수정", description = "기존 유의어 사전을 수정합니다.")
+  @Operation(summary = "동의어 사전 수정", description = "기존 동의어 사전을 수정합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
     @ApiResponse(responseCode = "400", description = "잘못된 요청")
@@ -114,13 +114,13 @@ public class SynonymDictionaryController {
           @RequestParam(defaultValue = "CURRENT")
           DictionaryEnvironmentType environment) {
 
-    log.debug("유의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
+    log.debug("동의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     SynonymDictionaryResponse response =
         synonymDictionaryService.updateSynonymDictionary(dictionaryId, request, environment);
     return ResponseEntity.ok(response);
   }
 
-  @Operation(summary = "유의어 사전 삭제", description = "유의어 사전을 삭제합니다.")
+  @Operation(summary = "동의어 사전 삭제", description = "동의어 사전을 삭제합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "204", description = "성공"),
     @ApiResponse(responseCode = "400", description = "존재하지 않는 사전")
@@ -132,12 +132,12 @@ public class SynonymDictionaryController {
           @RequestParam(defaultValue = "CURRENT")
           DictionaryEnvironmentType environment) {
 
-    log.info("유의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
+    log.info("동의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
     synonymDictionaryService.deleteSynonymDictionary(dictionaryId, environment);
     return ResponseEntity.noContent().build();
   }
 
-  @Operation(summary = "유의어 사전 실시간 반영", description = "유의어 사전 변경사항을 Elasticsearch에 즉시 반영합니다.")
+  @Operation(summary = "동의어 사전 실시간 반영", description = "동의어 사전 변경사항을 Elasticsearch에 즉시 반영합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
     @ApiResponse(responseCode = "500", description = "서버 에러")
@@ -147,7 +147,7 @@ public class SynonymDictionaryController {
       @Parameter(description = "환경 타입 (CURRENT/DEV/PROD)", example = "DEV") @RequestParam
           DictionaryEnvironmentType environment) {
 
-    log.info("유의어 사전 실시간 반영 요청 - 환경: {}", environment.getDescription());
+    log.info("동의어 사전 실시간 반영 요청 - 환경: {}", environment.getDescription());
 
     try {
       String synonymSetName;
@@ -203,7 +203,7 @@ public class SynonymDictionaryController {
 
       Map<String, Object> response = new HashMap<>();
       response.put("success", true);
-      response.put("message", "유의어 사전 실시간 반영 완료");
+      response.put("message", "동의어 사전 실시간 반영 완료");
       response.put("environment", environment.getDescription());
       if (targetIndex != null) {
         response.put("targetIndex", targetIndex);
@@ -213,11 +213,11 @@ public class SynonymDictionaryController {
 
       return ResponseEntity.ok(response);
     } catch (Exception e) {
-      log.error("유의어 사전 실시간 반영 실패", e);
+      log.error("동의어 사전 실시간 반영 실패", e);
 
       Map<String, Object> response = new HashMap<>();
       response.put("success", false);
-      response.put("message", "유의어 사전 실시간 반영 실패: " + e.getMessage());
+      response.put("message", "동의어 사전 실시간 반영 실패: " + e.getMessage());
       response.put("environment", environment.getDescription());
       response.put("timestamp", System.currentTimeMillis());
 

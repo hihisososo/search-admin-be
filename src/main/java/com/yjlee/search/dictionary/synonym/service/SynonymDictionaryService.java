@@ -28,11 +28,11 @@ public class SynonymDictionaryService {
   private final SynonymDictionaryRepository synonymDictionaryRepository;
   private final SynonymDictionarySnapshotRepository snapshotRepository;
 
-  /** 유의어 사전 생성 */
+  /** 동의어 사전 생성 */
   @Transactional
   public SynonymDictionaryResponse createSynonymDictionary(
       SynonymDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
-    log.info("유의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
+    log.info("동의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
 
     if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
       // 현재 사전에 생성
@@ -43,7 +43,7 @@ public class SynonymDictionaryService {
               .build();
 
       SynonymDictionary saved = synonymDictionaryRepository.save(synonymDictionary);
-      log.info("유의어 사전 생성 완료: {} (ID: {}) - 환경: CURRENT", saved.getKeyword(), saved.getId());
+      log.info("동의어 사전 생성 완료: {} (ID: {}) - 환경: CURRENT", saved.getKeyword(), saved.getId());
 
       return toSynonymDictionaryResponse(saved);
     } else {
@@ -57,13 +57,13 @@ public class SynonymDictionaryService {
 
       SynonymDictionarySnapshot saved = snapshotRepository.save(snapshot);
       log.info(
-          "유의어 사전 스냅샷 생성 완료: {} (ID: {}) - 환경: {}", saved.getKeyword(), saved.getId(), environment);
+          "동의어 사전 스냅샷 생성 완료: {} (ID: {}) - 환경: {}", saved.getKeyword(), saved.getId(), environment);
 
       return toSynonymDictionaryResponseFromSnapshot(saved);
     }
   }
 
-  /** 유의어 사전 목록 조회 (페이징, 검색, 정렬, 환경별) */
+  /** 동의어 사전 목록 조회 (페이징, 검색, 정렬, 환경별) */
   @Transactional(readOnly = true)
   public PageResponse<SynonymDictionaryListResponse> getSynonymDictionaries(
       int page,
@@ -74,7 +74,7 @@ public class SynonymDictionaryService {
       DictionaryEnvironmentType environmentType) {
 
     log.debug(
-        "유의어 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
+        "동의어 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
         page,
         size,
         search,
@@ -91,7 +91,7 @@ public class SynonymDictionaryService {
     }
   }
 
-  /** 현재 유의어 사전 목록 조회 */
+  /** 현재 동의어 사전 목록 조회 */
   private PageResponse<SynonymDictionaryListResponse> getSynonymDictionariesFromCurrent(
       int page, int size, String search, String sortBy, String sortDir) {
 
@@ -109,7 +109,7 @@ public class SynonymDictionaryService {
     return PageResponse.from(dictionaryPage.map(this::toSynonymDictionaryListResponse));
   }
 
-  /** 스냅샷에서 유의어 사전 목록 조회 */
+  /** 스냅샷에서 동의어 사전 목록 조회 */
   private PageResponse<SynonymDictionaryListResponse> getSynonymDictionariesFromSnapshot(
       int page,
       int size,
@@ -134,26 +134,26 @@ public class SynonymDictionaryService {
         snapshotPage.map(snapshot -> toSynonymDictionaryListResponseFromSnapshot(snapshot)));
   }
 
-  /** 유의어 사전 상세 조회 */
+  /** 동의어 사전 상세 조회 */
   @Transactional(readOnly = true)
   public SynonymDictionaryResponse getSynonymDictionaryDetail(Long dictionaryId) {
-    log.debug("유의어 사전 상세 조회 요청: {}", dictionaryId);
+    log.debug("동의어 사전 상세 조회 요청: {}", dictionaryId);
 
     SynonymDictionary synonymDictionary =
         synonymDictionaryRepository
             .findById(dictionaryId)
-            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유의어 사전입니다: " + dictionaryId));
+            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 동의어 사전입니다: " + dictionaryId));
 
     return toSynonymDictionaryResponse(synonymDictionary);
   }
 
-  /** 유의어 사전 수정 */
+  /** 동의어 사전 수정 */
   @Transactional
   public SynonymDictionaryResponse updateSynonymDictionary(
       Long dictionaryId,
       SynonymDictionaryUpdateRequest request,
       DictionaryEnvironmentType environment) {
-    log.info("유의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
+    log.info("동의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
 
     if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
       // 현재 사전 수정
@@ -161,7 +161,7 @@ public class SynonymDictionaryService {
           synonymDictionaryRepository
               .findById(dictionaryId)
               .orElseThrow(
-                  () -> new IllegalArgumentException("존재하지 않는 유의어 사전입니다: " + dictionaryId));
+                  () -> new IllegalArgumentException("존재하지 않는 동의어 사전입니다: " + dictionaryId));
 
       if (request.getKeyword() != null) {
         existing.updateKeyword(request.getKeyword());
@@ -172,7 +172,7 @@ public class SynonymDictionaryService {
       }
 
       SynonymDictionary updated = synonymDictionaryRepository.save(existing);
-      log.info("유의어 사전 수정 완료: {}", dictionaryId);
+      log.info("동의어 사전 수정 완료: {}", dictionaryId);
 
       return toSynonymDictionaryResponse(updated);
     } else {
@@ -181,7 +181,7 @@ public class SynonymDictionaryService {
           snapshotRepository
               .findById(dictionaryId)
               .orElseThrow(
-                  () -> new IllegalArgumentException("존재하지 않는 유의어 사전 스냅샷입니다: " + dictionaryId));
+                  () -> new IllegalArgumentException("존재하지 않는 동의어 사전 스냅샷입니다: " + dictionaryId));
 
       if (request.getKeyword() != null) {
         existing.setKeyword(request.getKeyword());
@@ -192,44 +192,44 @@ public class SynonymDictionaryService {
       }
 
       SynonymDictionarySnapshot updated = snapshotRepository.save(existing);
-      log.info("유의어 사전 스냅샷 수정 완료: {} - 환경: {}", dictionaryId, environment);
+      log.info("동의어 사전 스냅샷 수정 완료: {} - 환경: {}", dictionaryId, environment);
 
       return toSynonymDictionaryResponseFromSnapshot(updated);
     }
   }
 
-  /** 유의어 사전 삭제 */
+  /** 동의어 사전 삭제 */
   @Transactional
   public void deleteSynonymDictionary(Long dictionaryId, DictionaryEnvironmentType environment) {
-    log.info("유의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
+    log.info("동의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
 
     if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
       // 현재 사전에서 삭제
       if (!synonymDictionaryRepository.existsById(dictionaryId)) {
-        throw new IllegalArgumentException("존재하지 않는 유의어 사전입니다: " + dictionaryId);
+        throw new IllegalArgumentException("존재하지 않는 동의어 사전입니다: " + dictionaryId);
       }
 
       synonymDictionaryRepository.deleteById(dictionaryId);
-      log.info("유의어 사전 삭제 완료: {} - 환경: CURRENT", dictionaryId);
+      log.info("동의어 사전 삭제 완료: {} - 환경: CURRENT", dictionaryId);
     } else {
       // DEV/PROD 스냅샷에서 삭제
       if (!snapshotRepository.existsById(dictionaryId)) {
-        throw new IllegalArgumentException("존재하지 않는 유의어 사전 스냅샷입니다: " + dictionaryId);
+        throw new IllegalArgumentException("존재하지 않는 동의어 사전 스냅샷입니다: " + dictionaryId);
       }
 
       snapshotRepository.deleteById(dictionaryId);
-      log.info("유의어 사전 스냅샷 삭제 완료: {} - 환경: {}", dictionaryId, environment);
+      log.info("동의어 사전 스냅샷 삭제 완료: {} - 환경: {}", dictionaryId, environment);
     }
   }
 
   /** 개발 환경으로 스냅샷 생성 (색인 실행 시 호출) */
   @Transactional
   public void createDevSnapshot() {
-    log.info("개발 환경 유의어 사전 스냅샷 생성 시작");
+    log.info("개발 환경 동의어 사전 스냅샷 생성 시작");
 
     List<SynonymDictionary> currentDictionaries = synonymDictionaryRepository.findAll();
     if (currentDictionaries.isEmpty()) {
-      log.warn("스냅샷으로 저장할 유의어 사전이 없습니다.");
+      log.warn("스냅샷으로 저장할 동의어 사전이 없습니다.");
       return;
     }
 
@@ -245,13 +245,13 @@ public class SynonymDictionaryService {
             .toList();
 
     snapshotRepository.saveAll(snapshots);
-    log.info("개발 환경 유의어 사전 스냅샷 생성 완료: {}개", snapshots.size());
+    log.info("개발 환경 동의어 사전 스냅샷 생성 완료: {}개", snapshots.size());
   }
 
   /** 개발 환경으로 현재사전 배포 (색인 시 호출) */
   @Transactional
   public void deployToDev() {
-    log.info("개발 환경 유의어 사전 배포 시작");
+    log.info("개발 환경 동의어 사전 배포 시작");
 
     // 현재사전 조회
     List<SynonymDictionary> currentDictionaries =
@@ -269,13 +269,13 @@ public class SynonymDictionaryService {
             .toList();
 
     snapshotRepository.saveAll(devSnapshots);
-    log.info("개발 환경 유의어 사전 배포 완료: {}개", devSnapshots.size());
+    log.info("개발 환경 동의어 사전 배포 완료: {}개", devSnapshots.size());
   }
 
   /** 운영 환경으로 스냅샷 배포 (배포 시 호출) */
   @Transactional
   public void deployToProd() {
-    log.info("운영 환경 유의어 사전 스냅샷 배포 시작");
+    log.info("운영 환경 동의어 사전 스냅샷 배포 시작");
 
     // 개발 환경 스냅샷 조회
     List<SynonymDictionarySnapshot> devSnapshots =
@@ -298,7 +298,7 @@ public class SynonymDictionaryService {
             .toList();
 
     snapshotRepository.saveAll(prodSnapshots);
-    log.info("운영 환경 유의어 사전 스냅샷 배포 완료: {}개", prodSnapshots.size());
+    log.info("운영 환경 동의어 사전 스냅샷 배포 완료: {}개", prodSnapshots.size());
   }
 
   /** 정렬 조건 생성 */

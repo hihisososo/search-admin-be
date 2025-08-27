@@ -138,8 +138,6 @@ public class EvaluationSetController {
     var response =
         QueryDocumentMappingResponse.builder()
             .query(query.getQuery())
-            .expandedTokens(query.getExpandedTokens())
-            .expandedSynonymsMap(query.getExpandedSynonymsMap())
             .documents(documents)
             .totalCount(mappingPage.getTotalElements())
             .totalPages(mappingPage.getTotalPages())
