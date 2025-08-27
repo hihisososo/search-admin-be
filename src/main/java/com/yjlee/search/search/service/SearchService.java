@@ -89,7 +89,7 @@ public class SearchService {
 
     Transaction txn = ElasticApm.currentTransaction();
     if (txn != null) {
-      txn.setLabel("search.query", request.getQuery());
+      txn.setLabel("search.query", request.getQuery() != null ? request.getQuery() : "no-query");
     }
 
     try {

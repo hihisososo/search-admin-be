@@ -16,13 +16,7 @@ import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -44,11 +38,10 @@ public class SearchBasedGroundTruthService {
 
   private static final int FIXED_PER_STRATEGY = 301;
   private static final int FIXED_VECTOR_NUM_CANDIDATES = 900;
-
-  @Value("${app.evaluation.candidate.min-score:0.75}")
-  private double vectorMinScore;
-
   private static final int FIXED_MAX_TOTAL_PER_QUERY = 300;
+
+  @Value("${app.evaluation.candidate.min-score:0.80}")
+  private double vectorMinScore;
 
   @Transactional
   public void generateCandidatesFromSearch() {
@@ -57,110 +50,9 @@ public class SearchBasedGroundTruthService {
 
   @Transactional
   public void generateCandidatesFromSearch(TaskProgressListener progressListener) {
-    log.info(
-        "🔍 전체 모든 쿼리의 정답 후보군 생성 시작 (각 검색방식 {}개씩, 최대 {}개)",
-        FIXED_PER_STRATEGY,
-        FIXED_MAX_TOTAL_PER_QUERY);
-
-    log.info("기존 매핑 전체 삭제");
     queryProductMappingRepository.deleteAll();
-
     List<EvaluationQuery> queries = evaluationQueryRepository.findAll();
-    log.info("총 처리할 쿼리: {}개", queries.size());
-
-    List<String> queryTexts =
-        queries.stream().map(EvaluationQuery::getQuery).collect(Collectors.toList());
-
-    log.info("전체 모든 쿼리 벌크 임베딩 생성 시작: {}개", queryTexts.size());
-    List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(queryTexts);
-    log.info("벌크 임베딩 생성 완료");
-
-    // Thread-safe collections for parallel processing
-    List<QueryProductMapping> mappings = new CopyOnWriteArrayList<>();
-    List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
-
-    // 병렬 처리
-    queries.parallelStream()
-        .forEach(
-            queryWithIndex -> {
-              int index = queries.indexOf(queryWithIndex);
-              EvaluationQuery query = queryWithIndex;
-
-              try {
-                float[] queryEmbedding =
-                    index < allEmbeddings.size() ? allEmbeddings.get(index) : null;
-                Map<String, String> candidatesWithSource =
-                    collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
-
-                // 저장 시점에 300개 제한 적용
-                Map<String, String> limitedCandidates = new LinkedHashMap<>();
-                int count = 0;
-                for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
-                  if (count >= FIXED_MAX_TOTAL_PER_QUERY) break;
-                  limitedCandidates.put(entry.getKey(), entry.getValue());
-                  count++;
-                }
-
-                // EvaluationQuery 업데이트 (나중에 한번에 저장)
-                EvaluationQuery updatedQuery =
-                    EvaluationQuery.builder()
-                        .id(query.getId())
-                        .query(query.getQuery())
-                        .queryProductMappings(query.getQueryProductMappings())
-                        .createdAt(query.getCreatedAt())
-                        .updatedAt(query.getUpdatedAt())
-                        .build();
-                updatedQueries.add(updatedQuery);
-
-                // Bulk fetch products
-                Set<String> productIds = limitedCandidates.keySet();
-                Map<String, ProductDocument> productMap = fetchProductsBulk(productIds);
-
-                for (Map.Entry<String, String> entry : limitedCandidates.entrySet()) {
-                  String productId = entry.getKey();
-                  String searchSource = entry.getValue();
-                  ProductDocument product = productMap.get(productId);
-
-                  QueryProductMapping mapping =
-                      QueryProductMapping.builder()
-                          .evaluationQuery(updatedQuery)
-                          .productId(productId)
-                          .productName(product != null ? product.getNameRaw() : null)
-                          .productSpecs(product != null ? product.getSpecsRaw() : null)
-                          .productCategory(product != null ? product.getCategoryName() : null)
-                          .searchSource(searchSource)
-                          .evaluationSource(EVALUATION_SOURCE_SEARCH)
-                          .build();
-                  mappings.add(mapping);
-                }
-
-                log.debug(
-                    "쿼리 '{}' 처리 완료: 총 {}개 후보 중 {}개 저장",
-                    query.getQuery(),
-                    candidatesWithSource.size(),
-                    limitedCandidates.size());
-
-                if (progressListener != null) {
-                  try {
-                    progressListener.onProgress(index + 1, queries.size());
-                  } catch (Exception ignored) {
-                  }
-                }
-
-              } catch (Exception e) {
-                log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
-              }
-            });
-
-    // Batch save
-    evaluationQueryRepository.saveAll(updatedQueries);
-    queryProductMappingRepository.saveAll(new ArrayList<>(mappings));
-    log.info(
-        "정답 후보군 생성 완료: {}개 쿼리, {}개 매핑 (각 검색방식 {}개씩, 최대 {}개)",
-        queries.size(),
-        mappings.size(),
-        FIXED_PER_STRATEGY,
-        FIXED_MAX_TOTAL_PER_QUERY);
+    processQueries(queries, progressListener, true);
   }
 
   @Transactional
@@ -171,60 +63,67 @@ public class SearchBasedGroundTruthService {
   @Transactional
   public void generateCandidatesForSelectedQueries(
       List<Long> queryIds, TaskProgressListener progressListener) {
-    log.info(
-        "🔍 선택된 쿼리들의 정답 후보군 생성 시작: {}개 (각 검색방식 {}개씩, 최대 {}개)",
-        queryIds.size(),
-        FIXED_PER_STRATEGY,
-        FIXED_MAX_TOTAL_PER_QUERY);
-
     List<EvaluationQuery> queries = evaluationQueryRepository.findAllById(queryIds);
-    log.info("총 처리할 쿼리: {}개", queries.size());
 
-    if (!queries.isEmpty()) {
-      log.info("선택된 쿼리들의 기존 매핑 삭제: {}개", queries.size());
-      for (EvaluationQuery query : queries) {
-        List<QueryProductMapping> existingMappings =
-            queryProductMappingRepository.findByEvaluationQuery(query);
-        if (!existingMappings.isEmpty()) {
-          queryProductMappingRepository.deleteAll(existingMappings);
-          log.debug("쿼리 '{}'의 기존 매핑 {}개 삭제", query.getQuery(), existingMappings.size());
-        }
-      }
+    // 선택된 쿼리들의 기존 매핑만 삭제
+    queries.forEach(
+        query -> {
+          List<QueryProductMapping> existingMappings =
+              queryProductMappingRepository.findByEvaluationQuery(query);
+          if (!existingMappings.isEmpty()) {
+            queryProductMappingRepository.deleteAll(existingMappings);
+            log.debug("쿼리 '{}'의 기존 매핑 {}개 삭제", query.getQuery(), existingMappings.size());
+          }
+        });
+
+    processQueries(queries, progressListener, false);
+  }
+
+  private void processQueries(
+      List<EvaluationQuery> queries, TaskProgressListener progressListener, boolean isFullProcess) {
+
+    String processType = isFullProcess ? "전체 모든" : "선택된";
+    log.info("🔍 {} 쿼리의 정답 후보군 생성 시작: {}개", processType, queries.size());
+
+    if (queries.isEmpty()) {
+      return;
     }
 
+    // 벌크 임베딩 생성
     List<String> queryTexts =
         queries.stream().map(EvaluationQuery::getQuery).collect(Collectors.toList());
-    log.info("선택된 쿼리의 벌크 임베딩 생성 시작: {}개", queryTexts.size());
-    List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(queryTexts);
-    log.info("벌크 임베딩 생성 완료");
 
-    // Thread-safe collections for parallel processing
+    log.info("벌크 임베딩 생성 시작: {}개", queryTexts.size());
+    List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(queryTexts);
+
+    // Thread-safe collections
     List<QueryProductMapping> mappings = new CopyOnWriteArrayList<>();
     List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
 
     // 병렬 처리
     queries.parallelStream()
         .forEach(
-            queryWithIndex -> {
-              int index = queries.indexOf(queryWithIndex);
-              EvaluationQuery query = queryWithIndex;
+            query -> {
+              int index = queries.indexOf(query);
 
               try {
                 float[] queryEmbedding =
                     index < allEmbeddings.size() ? allEmbeddings.get(index) : null;
+
+                // 후보 수집
                 Map<String, String> candidatesWithSource =
                     collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
 
-                // 저장 시점에 300개 제한 적용
-                Map<String, String> limitedCandidates = new LinkedHashMap<>();
-                int count = 0;
-                for (Map.Entry<String, String> entry : candidatesWithSource.entrySet()) {
-                  if (count >= FIXED_MAX_TOTAL_PER_QUERY) break;
-                  limitedCandidates.put(entry.getKey(), entry.getValue());
-                  count++;
-                }
+                // 300개 제한
+                Map<String, String> limitedCandidates =
+                    candidatesWithSource.entrySet().stream()
+                        .limit(FIXED_MAX_TOTAL_PER_QUERY)
+                        .collect(
+                            LinkedHashMap::new,
+                            (m, e) -> m.put(e.getKey(), e.getValue()),
+                            LinkedHashMap::putAll);
 
-                // EvaluationQuery 업데이트 (나중에 한번에 저장)
+                // EvaluationQuery 업데이트
                 EvaluationQuery updatedQuery =
                     EvaluationQuery.builder()
                         .id(query.getId())
@@ -235,27 +134,25 @@ public class SearchBasedGroundTruthService {
                         .build();
                 updatedQueries.add(updatedQuery);
 
-                // Bulk fetch products
-                Set<String> productIds = limitedCandidates.keySet();
-                Map<String, ProductDocument> productMap = fetchProductsBulk(productIds);
+                // 상품 정보 일괄 조회 및 매핑 생성
+                Map<String, ProductDocument> productMap =
+                    fetchProductsBulk(limitedCandidates.keySet());
 
-                for (Map.Entry<String, String> entry : limitedCandidates.entrySet()) {
-                  String productId = entry.getKey();
-                  String searchSource = entry.getValue();
-                  ProductDocument product = productMap.get(productId);
-
-                  QueryProductMapping mapping =
-                      QueryProductMapping.builder()
-                          .evaluationQuery(updatedQuery)
-                          .productId(productId)
-                          .productName(product != null ? product.getNameRaw() : null)
-                          .productSpecs(product != null ? product.getSpecsRaw() : null)
-                          .productCategory(product != null ? product.getCategoryName() : null)
-                          .searchSource(searchSource)
-                          .evaluationSource(EVALUATION_SOURCE_SEARCH)
-                          .build();
-                  mappings.add(mapping);
-                }
+                limitedCandidates.forEach(
+                    (productId, searchSource) -> {
+                      ProductDocument product = productMap.get(productId);
+                      QueryProductMapping mapping =
+                          QueryProductMapping.builder()
+                              .evaluationQuery(updatedQuery)
+                              .productId(productId)
+                              .productName(product != null ? product.getNameRaw() : null)
+                              .productSpecs(product != null ? product.getSpecsRaw() : null)
+                              .productCategory(product != null ? product.getCategoryName() : null)
+                              .searchSource(searchSource)
+                              .evaluationSource(EVALUATION_SOURCE_SEARCH)
+                              .build();
+                      mappings.add(mapping);
+                    });
 
                 log.debug(
                     "쿼리 '{}' 처리 완료: 총 {}개 후보 중 {}개 저장",
@@ -271,85 +168,23 @@ public class SearchBasedGroundTruthService {
                 }
 
               } catch (Exception e) {
-                log.warn("⚠️ 쿼리 '{}' 처리 실패", query.getQuery(), e);
+                log.warn("쿼리 '{}' 처리 실패", query.getQuery(), e);
               }
             });
 
-    // Batch save
+    // 일괄 저장
     evaluationQueryRepository.saveAll(updatedQueries);
     queryProductMappingRepository.saveAll(new ArrayList<>(mappings));
-    log.info(
-        "선택된 쿼리들의 정답 후보군 생성 완료: {}개 쿼리, {}개 매핑 (각 검색방식 {}개씩, 최대 {}개)",
-        queries.size(),
-        mappings.size(),
-        FIXED_PER_STRATEGY,
-        FIXED_MAX_TOTAL_PER_QUERY);
+
+    log.info("{} 쿼리 정답 후보군 생성 완료: {}개 쿼리, {}개 매핑", processType, queries.size(), mappings.size());
   }
 
-  /** 저장 없이 쿼리의 후보 상품 ID 집합을 계산하여 반환 (드라이런) 최대 300개 제한 로직을 그대로 따릅니다. */
   public Set<String> getCandidateIdsForQuery(String query) {
     try {
-      float[] embedding = null;
-      try {
-        embedding = embeddingService.getEmbedding(query);
-      } catch (Exception e) {
-        log.warn("임베딩 생성 실패, 임베딩 없이 후보 수집 진행: {}", query);
-      }
-
-      return collectCandidatesForQueryWithEmbedding(query, embedding);
+      float[] embedding = getEmbeddingOrNull(query);
+      return collectCandidatesWithSourceTracking(query, embedding).keySet();
     } catch (Exception e) {
-      log.warn("쿼리 후보 드라이런 실패: {}", query, e);
-      return new LinkedHashSet<>();
-    }
-  }
-
-  /** 각 전략별 perStrategy 개수씩 수집하여 중복 제거한 전체 집합을 반환 (상한 제한 없음). */
-  public Set<String> getCandidateUnionStrict(String query, int perStrategy) {
-    try {
-      float[] embedding = null;
-      try {
-        embedding = embeddingService.getEmbedding(query);
-      } catch (Exception e) {
-        log.warn("임베딩 생성 실패, 임베딩 없이 후보 수집 진행: {}", query);
-      }
-
-      int numCandidates = Math.max(perStrategy * 2, 600);
-      return collectCandidatesForQueryWithEmbedding(
-          query, embedding, perStrategy, numCandidates, vectorMinScore, Integer.MAX_VALUE);
-    } catch (Exception e) {
-      log.warn("쿼리 후보(strict) 수집 실패: {}", query, e);
-      return new LinkedHashSet<>();
-    }
-  }
-
-  /**
-   * 동적으로 최대 후보수(targetMaxTotal)를 기준으로 약간 여유 있게 더 많이 가져와서 판단할 때 사용. per-strategy 페치 개수는
-   * (targetMaxTotal * 1.3 / 3)로 계산하고, 벡터 numCandidates는 그 2배로 설정.
-   */
-  public Set<String> getCandidateIdsForQuery(String query, int targetMaxTotal) {
-    try {
-      float[] embedding = null;
-      try {
-        embedding = embeddingService.getEmbedding(query);
-      } catch (Exception e) {
-        log.warn("임베딩 생성 실패, 임베딩 없이 후보 수집 진행: {}", query);
-      }
-
-      // 각 전략이 단독으로도 상한을 초과하는지 검출하기 위해, 전략별 개수를 '상한보다 조금 더' 크게 가져온다
-      int dynamicPerStrategy = Math.max(targetMaxTotal + 20, (int) Math.ceil(targetMaxTotal * 1.1));
-      int dynamicNumCandidates = Math.max(dynamicPerStrategy * 2, targetMaxTotal + 50);
-      double dynamicMinScore = vectorMinScore;
-      int dynamicMaxTotal = Math.max(targetMaxTotal + 20, (int) Math.ceil(targetMaxTotal * 1.2));
-
-      return collectCandidatesForQueryWithEmbedding(
-          query,
-          embedding,
-          dynamicPerStrategy,
-          dynamicNumCandidates,
-          dynamicMinScore,
-          dynamicMaxTotal);
-    } catch (Exception e) {
-      log.warn("쿼리 후보 드라이런 실패(동적): {}", query, e);
+      log.warn("쿼리 후보 수집 실패: {}", query, e);
       return new LinkedHashSet<>();
     }
   }
@@ -360,83 +195,45 @@ public class SearchBasedGroundTruthService {
 
     // 벡터 검색
     if (queryEmbedding != null) {
-      List<String> vectorResults = searchByVectorWithEmbedding(queryEmbedding, "name_specs_vector");
-      for (String id : vectorResults) {
-        productSourceMap.put(id, "VECTOR");
-      }
+      searchByVector(queryEmbedding).forEach(id -> productSourceMap.put(id, "VECTOR"));
     }
 
     // 형태소 검색
-    List<String> morphemeResults =
-        searchByCrossField(
-            query, new String[] {"name_candidate", "specs_candidate", "category_candidate"});
-    for (String id : morphemeResults) {
-      if (!productSourceMap.containsKey(id)) {
-        productSourceMap.put(id, "MORPHEME");
-      } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
-        productSourceMap.put(id, "MULTIPLE");
-      }
-    }
+    String[] morphemeFields = {"name_candidate", "specs_candidate", "category_candidate"};
+    searchByCrossField(query, morphemeFields)
+        .forEach(
+            id -> {
+              if (!productSourceMap.containsKey(id)) {
+                productSourceMap.put(id, "MORPHEME");
+              } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
+                productSourceMap.put(id, "MULTIPLE");
+              }
+            });
 
     // 바이그램 검색
-    List<String> bigramResults =
-        searchByCrossField(
-            query,
-            new String[] {
-              "name_candidate.bigram", "specs_candidate.bigram", "category_candidate.bigram"
+    String[] bigramFields = {
+      "name_candidate.bigram", "specs_candidate.bigram", "category_candidate.bigram"
+    };
+    searchByCrossField(query, bigramFields)
+        .forEach(
+            id -> {
+              if (!productSourceMap.containsKey(id)) {
+                productSourceMap.put(id, "BIGRAM");
+              } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
+                productSourceMap.put(id, "MULTIPLE");
+              }
             });
-    for (String id : bigramResults) {
-      if (!productSourceMap.containsKey(id)) {
-        productSourceMap.put(id, "BIGRAM");
-      } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
-        productSourceMap.put(id, "MULTIPLE");
-      }
-    }
 
-    // 제한 없이 전체 반환 (외부에서 후보 개수로 쿼리 품질 판단하기 위함)
     return productSourceMap;
   }
 
-  private Set<String> collectCandidatesForQueryWithEmbedding(String query, float[] queryEmbedding) {
-    return collectCandidatesWithSourceTracking(query, queryEmbedding).keySet();
+  private List<String> searchByVector(float[] embedding) {
+    return searchByVector(
+        embedding, FIXED_PER_STRATEGY, FIXED_VECTOR_NUM_CANDIDATES, vectorMinScore);
   }
 
-  // 동적 파라미터 버전
-  private Set<String> collectCandidatesForQueryWithEmbedding(
-      String query,
-      float[] queryEmbedding,
-      int perStrategy,
-      int numCandidates,
-      double minScore,
-      int maxTotal) {
-    Set<String> allCandidates = new LinkedHashSet<>();
-
-    if (queryEmbedding != null) {
-      allCandidates.addAll(
-          searchByVectorWithEmbedding(
-              queryEmbedding, "name_specs_vector", perStrategy, numCandidates, minScore));
-    }
-
-    allCandidates.addAll(
-        searchByCrossField(
-            query,
-            new String[] {"name_candidate", "specs_candidate", "category_candidate"},
-            perStrategy));
-
-    allCandidates.addAll(
-        searchByCrossField(
-            query,
-            new String[] {
-              "name_candidate.bigram", "specs_candidate.bigram", "category_candidate.bigram"
-            },
-            perStrategy));
-
-    return allCandidates.stream()
-        .limit(maxTotal)
-        .collect(Collectors.toCollection(LinkedHashSet::new));
-  }
-
-  private List<String> searchByVectorWithEmbedding(float[] embedding, String vectorField) {
+  private List<String> searchByVector(
+      float[] embedding, int size, int numCandidates, double minScore) {
     try {
       List<Float> queryVector = new ArrayList<>();
       for (float f : embedding) {
@@ -448,68 +245,38 @@ public class SearchBasedGroundTruthService {
           SearchRequest.of(
               s ->
                   s.index(indexName)
-                      .size(FIXED_PER_STRATEGY)
-                      .minScore(vectorMinScore)
-                      .query(
-                          q ->
-                              q.knn(
-                                  k ->
-                                      k.field(vectorField)
-                                          .queryVector(queryVector)
-                                          .k(FIXED_PER_STRATEGY)
-                                          .numCandidates(FIXED_VECTOR_NUM_CANDIDATES))));
-
-      SearchResponse<ProductDocument> response =
-          elasticsearchClient.search(request, ProductDocument.class);
-      return extractProductIds(response);
-    } catch (Exception e) {
-      log.warn("Vector 검색 실패: {}", vectorField, e);
-      return new ArrayList<>();
-    }
-  }
-
-  // 동적 파라미터 버전
-  private List<String> searchByVectorWithEmbedding(
-      float[] embedding, String vectorField, int perStrategy, int numCandidates, double minScore) {
-    try {
-      List<Float> queryVector = new ArrayList<>();
-      for (float f : embedding) {
-        queryVector.add(f);
-      }
-
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
-      SearchRequest request =
-          SearchRequest.of(
-              s ->
-                  s.index(indexName)
-                      .size(perStrategy)
+                      .size(size)
                       .minScore(minScore)
                       .query(
                           q ->
                               q.knn(
                                   k ->
-                                      k.field(vectorField)
+                                      k.field("name_specs_vector")
                                           .queryVector(queryVector)
-                                          .k(perStrategy)
+                                          .k(size)
                                           .numCandidates(numCandidates))));
 
       SearchResponse<ProductDocument> response =
           elasticsearchClient.search(request, ProductDocument.class);
       return extractProductIds(response);
     } catch (Exception e) {
-      log.warn("Vector 검색 실패(동적): {}", vectorField, e);
+      log.warn("Vector 검색 실패", e);
       return new ArrayList<>();
     }
   }
 
   private List<String> searchByCrossField(String query, String[] fields) {
+    return searchByCrossField(query, fields, FIXED_PER_STRATEGY);
+  }
+
+  private List<String> searchByCrossField(String query, String[] fields, int size) {
     try {
       String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
       SearchRequest request =
           SearchRequest.of(
               s ->
                   s.index(indexName)
-                      .size(FIXED_PER_STRATEGY)
+                      .size(size)
                       .query(
                           q ->
                               q.multiMatch(
@@ -528,51 +295,12 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  // 동적 파라미터 버전
-  private List<String> searchByCrossField(String query, String[] fields, int perStrategy) {
-    try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
-      SearchRequest request =
-          SearchRequest.of(
-              s ->
-                  s.index(indexName)
-                      .size(perStrategy)
-                      .query(
-                          q ->
-                              q.multiMatch(
-                                  mm ->
-                                      mm.query(TextPreprocessor.preprocess(query))
-                                          .fields(List.of(fields))
-                                          .operator(Operator.And)
-                                          .type(TextQueryType.CrossFields))));
-
-      SearchResponse<ProductDocument> response =
-          elasticsearchClient.search(request, ProductDocument.class);
-      return extractProductIds(response);
-    } catch (Exception e) {
-      log.warn("Cross field 검색 실패(동적): {}", String.join(", ", fields), e);
-      return new ArrayList<>();
-    }
-  }
-
   private List<String> extractProductIds(SearchResponse<ProductDocument> response) {
     List<String> ids = new ArrayList<>();
     for (Hit<ProductDocument> hit : response.hits().hits()) {
       ids.add(hit.id());
     }
     return ids;
-  }
-
-  private ProductDocument fetchProduct(String productId) {
-    try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
-      var res =
-          elasticsearchClient.get(g -> g.index(indexName).id(productId), ProductDocument.class);
-      return res.found() ? res.source() : null;
-    } catch (Exception e) {
-      log.warn("상품 상세 조회 실패: {}", productId);
-      return null;
-    }
   }
 
   private Map<String, ProductDocument> fetchProductsBulk(Set<String> productIds) {
@@ -585,12 +313,10 @@ public class SearchBasedGroundTruthService {
     try {
       String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
 
-      // mget 요청 생성
       var mgetResponse =
           elasticsearchClient.mget(
               m -> m.index(indexName).ids(new ArrayList<>(productIds)), ProductDocument.class);
 
-      // 응답 처리
       for (var doc : mgetResponse.docs()) {
         if (doc.result().found() && doc.result().source() != null) {
           productMap.put(doc.result().id(), doc.result().source());
@@ -601,15 +327,18 @@ public class SearchBasedGroundTruthService {
 
     } catch (Exception e) {
       log.error("Bulk 상품 조회 실패", e);
-      // 실패 시 개별 조회로 폴백
-      for (String productId : productIds) {
-        ProductDocument product = fetchProduct(productId);
-        if (product != null) {
-          productMap.put(productId, product);
-        }
-      }
+      // Fallback 제거 - 실패 시 빈 맵 반환
     }
 
     return productMap;
+  }
+
+  private float[] getEmbeddingOrNull(String query) {
+    try {
+      return embeddingService.getEmbedding(query);
+    } catch (Exception e) {
+      log.warn("임베딩 생성 실패, 임베딩 없이 진행: {}", query);
+      return null;
+    }
   }
 }

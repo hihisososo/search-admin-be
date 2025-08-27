@@ -3,7 +3,6 @@ package com.yjlee.search.search.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,8 +11,7 @@ import lombok.Setter;
 @Setter
 public class SearchParams {
 
-  @Schema(description = "검색어", example = "노트북", required = true)
-  @NotBlank
+  @Schema(description = "검색어", example = "노트북", required = false)
   private String query;
 
   @Schema(description = "페이지 번호 (0부터 시작)", example = "0", defaultValue = "0")

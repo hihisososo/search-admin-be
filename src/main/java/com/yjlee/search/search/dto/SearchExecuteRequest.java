@@ -3,7 +3,6 @@ package com.yjlee.search.search.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -12,8 +11,7 @@ import lombok.Setter;
 @Schema(description = "상품 검색 요청")
 public class SearchExecuteRequest {
 
-  @NotBlank(message = "검색어는 필수입니다")
-  @Schema(description = "검색어", example = "아이폰", required = true)
+  @Schema(description = "검색어", example = "아이폰", required = false)
   private String query;
 
   @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다")
