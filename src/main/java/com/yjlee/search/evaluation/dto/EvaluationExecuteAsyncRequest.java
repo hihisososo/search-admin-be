@@ -22,7 +22,10 @@ public class EvaluationExecuteAsyncRequest {
   @Schema(description = "평가 리포트명", example = "2025-01 검색 품질 평가", required = true)
   private String reportName;
 
-  @Schema(description = "검색 모드 (KEYWORD_ONLY: BM25, VECTOR_ONLY: 벡터, HYBRID_RRF: RRF 융합)", example = "KEYWORD_ONLY", defaultValue = "KEYWORD_ONLY")
+  @Schema(
+      description = "검색 모드 (KEYWORD_ONLY: BM25, VECTOR_ONLY: 벡터, HYBRID_RRF: RRF 융합)",
+      example = "KEYWORD_ONLY",
+      defaultValue = "KEYWORD_ONLY")
   @Builder.Default
   private SearchMode searchMode = SearchMode.KEYWORD_ONLY;
 

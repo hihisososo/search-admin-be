@@ -29,7 +29,8 @@ public class LLMCandidateEvaluationService {
     }
 
     log.info("평가 대상 쿼리: {}개", queries.size());
-    evaluateCandidatesForQueries(queries.stream().map(EvaluationQuery::getId).toList(), progressCallback);
+    evaluateCandidatesForQueries(
+        queries.stream().map(EvaluationQuery::getId).toList(), progressCallback);
 
     log.info("전체 모든 쿼리의 후보군 LLM 평가 완료");
   }

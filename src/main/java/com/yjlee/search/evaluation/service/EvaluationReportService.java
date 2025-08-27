@@ -82,13 +82,20 @@ public class EvaluationReportService {
   private static final int DEFAULT_RETRIEVAL_SIZE = 300;
 
   @Transactional
-  public EvaluationExecuteResponse executeEvaluation(String reportName, ProgressCallback progressCallback) {
+  public EvaluationExecuteResponse executeEvaluation(
+      String reportName, ProgressCallback progressCallback) {
     return executeEvaluation(reportName, SearchMode.KEYWORD_ONLY, 60, 100, progressCallback);
   }
 
   @Transactional
-  public EvaluationExecuteResponse executeEvaluation(String reportName, SearchMode searchMode, Integer rrfK, Integer hybridTopK, ProgressCallback progressCallback) {
-    log.info("📊 평가 실행 시작: {}, 검색 결과 개수: {}, 검색모드: {}", reportName, DEFAULT_RETRIEVAL_SIZE, searchMode);
+  public EvaluationExecuteResponse executeEvaluation(
+      String reportName,
+      SearchMode searchMode,
+      Integer rrfK,
+      Integer hybridTopK,
+      ProgressCallback progressCallback) {
+    log.info(
+        "📊 평가 실행 시작: {}, 검색 결과 개수: {}, 검색모드: {}", reportName, DEFAULT_RETRIEVAL_SIZE, searchMode);
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
@@ -103,31 +110,34 @@ public class EvaluationReportService {
     // 진행률 추적을 위한 AtomicInteger
     AtomicInteger completed = new AtomicInteger(0);
     int totalQueries = queries.size();
-    
+
     // 병렬 처리로 성능 개선
     List<CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail>> futures =
         queries.stream()
-            .map(query -> {
-              CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future = 
-                  asyncWorker.evaluateQueryAsync(query.getQuery(), searchMode, rrfK, hybridTopK);
-              // 각 쿼리 완료시 진행률 업데이트
-              future.whenComplete((result, ex) -> {
-                int done = completed.incrementAndGet();
-                if (progressCallback != null) {
-                  int progress = 10 + (done * 80 / totalQueries);
-                  progressCallback.updateProgress(progress, 
-                      String.format("평가 진행 중: %d/%d 쿼리 완료", done, totalQueries));
-                }
-              });
-              return future;
-            })
+            .map(
+                query -> {
+                  CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future =
+                      asyncWorker.evaluateQueryAsync(
+                          query.getQuery(), searchMode, rrfK, hybridTopK);
+                  // 각 쿼리 완료시 진행률 업데이트
+                  future.whenComplete(
+                      (result, ex) -> {
+                        int done = completed.incrementAndGet();
+                        if (progressCallback != null) {
+                          int progress = 10 + (done * 80 / totalQueries);
+                          progressCallback.updateProgress(
+                              progress, String.format("평가 진행 중: %d/%d 쿼리 완료", done, totalQueries));
+                        }
+                      });
+                  return future;
+                })
             .collect(Collectors.toList());
 
     // 모든 작업 완료 대기 및 결과 수집
     try {
       CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
           .get(300, java.util.concurrent.TimeUnit.SECONDS); // 5분 타임아웃
-      
+
       for (CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future : futures) {
         try {
           EvaluationExecuteResponse.QueryEvaluationDetail detail = future.get();
@@ -149,7 +159,8 @@ public class EvaluationReportService {
     for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
       String query = detail.getQuery();
       Set<String> relevantDocs = getRelevantDocuments(query);
-      List<String> retrievedDocs = getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK);
+      List<String> retrievedDocs =
+          getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK);
 
       // Recall@300
       double recall300 = computeRecallAtK(retrievedDocs, relevantDocs, 300);
@@ -235,9 +246,11 @@ public class EvaluationReportService {
     return evaluateQuery(query, SearchMode.KEYWORD_ONLY, 60, 100);
   }
 
-  public EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
+  public EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(
+      String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
     Set<String> relevantDocs = getRelevantDocuments(query);
-    List<String> retrievedDocs = getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK); // 순서 유지
+    List<String> retrievedDocs =
+        getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK); // 순서 유지
     Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
 
@@ -427,7 +440,8 @@ public class EvaluationReportService {
     return getRetrievedDocumentsOrdered(query, SearchMode.KEYWORD_ONLY, 60, 100);
   }
 
-  private List<String> getRetrievedDocumentsOrdered(String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
+  private List<String> getRetrievedDocumentsOrdered(
+      String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
     try {
       log.info("🔍 DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, DEFAULT_RETRIEVAL_SIZE);
 

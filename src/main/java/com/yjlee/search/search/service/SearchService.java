@@ -156,7 +156,8 @@ public class SearchService {
     request.setPage(params.getPage() != null ? params.getPage() : 0);
     request.setSize(params.getSize() != null ? params.getSize() : 20);
     request.setSearchSessionId(params.getSearchSessionId());
-    request.setSearchMode(params.getSearchMode() != null ? params.getSearchMode() : SearchMode.KEYWORD_ONLY);
+    request.setSearchMode(
+        params.getSearchMode() != null ? params.getSearchMode() : SearchMode.KEYWORD_ONLY);
     request.setRrfK(params.getRrfK() != null ? params.getRrfK() : 60);
     request.setHybridTopK(params.getHybridTopK() != null ? params.getHybridTopK() : 100);
 
@@ -193,7 +194,8 @@ public class SearchService {
     request.setQuery(params.getQuery());
     request.setPage(params.getPage() != null ? params.getPage() : 0);
     request.setSize(params.getSize() != null ? params.getSize() : 20);
-    request.setSearchMode(params.getSearchMode() != null ? params.getSearchMode() : SearchMode.KEYWORD_ONLY);
+    request.setSearchMode(
+        params.getSearchMode() != null ? params.getSearchMode() : SearchMode.KEYWORD_ONLY);
     request.setRrfK(params.getRrfK() != null ? params.getRrfK() : 60);
     request.setHybridTopK(params.getHybridTopK() != null ? params.getHybridTopK() : 100);
 

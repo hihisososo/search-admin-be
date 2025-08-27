@@ -238,16 +238,17 @@ public class AsyncEvaluationService {
       asyncTaskService.updateProgress(taskId, 10, "평가 실행 시작...");
 
       // 진행률 업데이트 콜백 생성
-      ProgressCallback evaluationCallback = (progress, message) -> {
-        asyncTaskService.updateProgress(taskId, progress, message);
-      };
-      
+      ProgressCallback evaluationCallback =
+          (progress, message) -> {
+            asyncTaskService.updateProgress(taskId, progress, message);
+          };
+
       com.yjlee.search.evaluation.dto.EvaluationExecuteResponse response =
           evaluationReportService.executeEvaluation(
-              request.getReportName(), 
-              request.getSearchMode(), 
-              request.getRrfK(), 
-              request.getHybridTopK(), 
+              request.getReportName(),
+              request.getSearchMode(),
+              request.getRrfK(),
+              request.getHybridTopK(),
               evaluationCallback);
 
       asyncTaskService.updateProgress(taskId, 90, "평가 완료, 결과 정리 중...");
@@ -278,9 +279,10 @@ public class AsyncEvaluationService {
       asyncTaskService.updateProgress(taskId, 10, "LLM 평가 시작...");
 
       // 진행률 업데이트 콜백 생성
-      ProgressCallback progressCallback = (progress, message) -> {
-        asyncTaskService.updateProgress(taskId, progress, message);
-      };
+      ProgressCallback progressCallback =
+          (progress, message) -> {
+            asyncTaskService.updateProgress(taskId, progress, message);
+          };
 
       if (Boolean.TRUE.equals(request.getEvaluateAllQueries())) {
         asyncTaskService.updateProgress(taskId, 30, "전체 쿼리 LLM 평가 진행 중...");
@@ -289,7 +291,8 @@ public class AsyncEvaluationService {
         int total = request.getQueryIds().size();
         asyncTaskService.updateProgress(
             taskId, 30, String.format("선택된 %d개 쿼리 LLM 평가 진행 중...", total));
-        llmCandidateEvaluationService.evaluateCandidatesForQueries(request.getQueryIds(), progressCallback);
+        llmCandidateEvaluationService.evaluateCandidatesForQueries(
+            request.getQueryIds(), progressCallback);
       }
 
       asyncTaskService.updateProgress(taskId, 90, "LLM 평가 완료, 결과 정리 중...");

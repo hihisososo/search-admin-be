@@ -99,9 +99,10 @@ public class SearchBasedGroundTruthService {
     // Thread-safe collections
     List<QueryProductMapping> mappings = new CopyOnWriteArrayList<>();
     List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
-    
+
     // 진행률 추적을 위한 AtomicInteger
-    java.util.concurrent.atomic.AtomicInteger completedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+    java.util.concurrent.atomic.AtomicInteger completedCount =
+        new java.util.concurrent.atomic.AtomicInteger(0);
     int totalQueries = queries.size();
 
     // 병렬 처리

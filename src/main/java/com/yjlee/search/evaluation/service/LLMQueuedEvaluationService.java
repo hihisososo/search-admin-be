@@ -58,7 +58,7 @@ public class LLMQueuedEvaluationService {
     if (batch != null) {
       // activeWorkers 증가
       activeWorkers.incrementAndGet();
-      
+
       // 비동기로 배치 처리
       batchProcessor.processBatchAsync(
           batch.query,
@@ -74,8 +74,7 @@ public class LLMQueuedEvaluationService {
             // Rate limit 콜백
             evaluationQueue.offer(batch);
             activeWorkers.decrementAndGet();
-          }
-      );
+          });
     }
   }
 
@@ -177,7 +176,7 @@ public class LLMQueuedEvaluationService {
       // 진행률 콜백 호출
       if (progressCallback != null && addedCount > 0) {
         // 30%에서 시작해서 90%까지 진행 (60% 구간)
-        int progress = Math.min(90, 30 + (int)((processedCount * 60.0) / addedCount));
+        int progress = Math.min(90, 30 + (int) ((processedCount * 60.0) / addedCount));
         String message = String.format("LLM 평가 진행 중: %d/%d 배치 완료", processedCount, addedCount);
         progressCallback.updateProgress(progress, message);
       }

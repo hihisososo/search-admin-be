@@ -13,10 +13,10 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class LLMBatchProcessor {
-  
+
   private final LLMQueryEvaluationWorker evaluationWorker;
   private final LLMRateLimitManager rateLimitManager;
-  
+
   @Async("evaluationTaskExecutor")
   public void processBatchAsync(
       String query,
