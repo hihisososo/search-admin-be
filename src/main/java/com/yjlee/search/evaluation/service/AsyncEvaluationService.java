@@ -246,7 +246,7 @@ public class AsyncEvaluationService {
               .reportId(response.getReportId())
               .totalQueries(response.getTotalQueries())
               .recall300(response.getRecall300())
-              .ndcg20(response.getNdcg20())
+              .precision20(response.getPrecision20())
               .build();
 
       asyncTaskService.completeTask(taskId, result);
@@ -327,7 +327,7 @@ public class AsyncEvaluationService {
     private Long reportId;
     private int totalQueries;
     private Double recall300;
-    private Double ndcg20;
+    private Double precision20;
   }
 
   @lombok.Builder

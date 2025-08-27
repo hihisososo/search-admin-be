@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -252,47 +251,10 @@ public class LLMQueryEvaluationWorker {
       List<ProductDocument> products,
       List<QueryProductMapping> mappings,
       EvaluationQuery evaluationQuery) {
-    // 토큰 추출
-    List<String> tokens = new ArrayList<>();
-    if (evaluationQuery.getExpandedTokens() != null
-        && !evaluationQuery.getExpandedTokens().isEmpty()) {
-      tokens = List.of(evaluationQuery.getExpandedTokens().split(","));
-    }
-
-    // 토큰별 동의어 매핑 가져오기
-    Map<String, List<String>> synonymMap = new HashMap<>();
-    if (evaluationQuery.getExpandedSynonymsMap() != null
-        && !evaluationQuery.getExpandedSynonymsMap().isEmpty()) {
-      try {
-        synonymMap = objectMapper.readValue(evaluationQuery.getExpandedSynonymsMap(), Map.class);
-      } catch (Exception e) {
-        log.warn("동의어 매핑 파싱 실패: {}", e.getMessage());
-      }
-    }
-
-    // 검색 정보 JSON 생성
+    // 검색 정보 JSON 생성 (쿼리만 포함)
     StringBuilder searchInfoBuilder = new StringBuilder();
     searchInfoBuilder.append("{\n");
-    searchInfoBuilder.append("  \"query\": \"").append(query).append("\",\n");
-    searchInfoBuilder.append("  \"tokens\": ").append(toJsonArray(tokens)).append(",\n");
-    searchInfoBuilder.append("  \"synonyms\": ");
-
-    if (synonymMap.isEmpty()) {
-      searchInfoBuilder.append("{}");
-    } else {
-      searchInfoBuilder.append("{\n");
-      int count = 0;
-      for (Map.Entry<String, List<String>> entry : synonymMap.entrySet()) {
-        if (count > 0) searchInfoBuilder.append(",\n");
-        searchInfoBuilder
-            .append("    \"")
-            .append(entry.getKey())
-            .append("\": ")
-            .append(toJsonArray(entry.getValue()));
-        count++;
-      }
-      searchInfoBuilder.append("\n  }");
-    }
+    searchInfoBuilder.append("  \"query\": \"").append(query).append("\"");
     searchInfoBuilder.append("\n}");
 
     // 상품 리스트 JSON 생성
@@ -331,15 +293,6 @@ public class LLMQueryEvaluationWorker {
     variables.put("PRODUCT_LIST", productListBuilder.toString());
 
     return promptTemplateLoader.loadTemplate("bulk-product-relevance-evaluation.txt", variables);
-  }
-
-  private String toJsonArray(List<String> list) {
-    if (list == null || list.isEmpty()) {
-      return "[]";
-    }
-    return "["
-        + list.stream().map(s -> "\"" + escapeJson(s) + "\"").collect(Collectors.joining(", "))
-        + "]";
   }
 
   private String escapeJson(String str) {

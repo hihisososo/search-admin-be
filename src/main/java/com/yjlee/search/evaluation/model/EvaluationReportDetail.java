@@ -34,8 +34,8 @@ public class EvaluationReportDetail {
   @Column(name = "correct_count")
   private Integer correctCount;
 
-  @Column(name = "ndcg_at20")
-  private Double ndcgAt20;
+  @Column(name = "precision_at20")
+  private Double precisionAt20;
 
   @Column(name = "recall_at300")
   private Double recallAt300;

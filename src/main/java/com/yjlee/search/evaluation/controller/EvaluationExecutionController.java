@@ -79,7 +79,7 @@ public class EvaluationExecutionController {
                         .id(r.getId())
                         .reportName(r.getReportName())
                         .totalQueries(r.getTotalQueries())
-                        .averageNdcg20(r.getAverageNdcg20())
+                        .averagePrecision20(r.getAveragePrecision20())
                         .averageRecall300(r.getAverageRecall300())
                         .createdAt(r.getCreatedAt())
                         .build())

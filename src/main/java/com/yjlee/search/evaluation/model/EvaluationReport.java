@@ -26,8 +26,8 @@ public class EvaluationReport {
   @Column(nullable = false)
   private Integer totalQueries;
 
-  @Column(nullable = false, name = "average_ndcg20")
-  private Double averageNdcg20;
+  @Column(nullable = false, name = "average_precision20")
+  private Double averagePrecision20;
 
   @Column(nullable = false, name = "average_recall300")
   private Double averageRecall300;

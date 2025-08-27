@@ -10,6 +10,7 @@ import com.yjlee.search.index.repository.ProductRepository;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -191,6 +192,10 @@ public class ProductIndexingService {
       List<String> texts = documents.stream().map(documentConverter::createSearchableText).toList();
       List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
 
+      // 생성된 임베딩을 DB에 저장
+      productEmbeddingService.saveEmbeddings(products, texts, embeddings);
+      log.info("실시간 생성된 임베딩을 DB에 저장했습니다");
+
       return documents.stream()
           .map(
               doc -> {
@@ -202,15 +207,50 @@ public class ProductIndexingService {
           .toList();
     }
 
-    // 저장된 임베딩 사용
+    // 저장된 임베딩 사용 및 없는 상품만 실시간 생성
+    List<Product> productsWithoutEmbedding = new ArrayList<>();
+    List<String> textsForNewEmbeddings = new ArrayList<>();
+
+    for (int i = 0; i < products.size(); i++) {
+      Product product = products.get(i);
+      ProductDocument doc = documents.get(i);
+      Long productId = product.getId();
+      List<Float> embedding = embeddingMap.get(productId);
+
+      if (embedding == null || embedding.isEmpty()) {
+        productsWithoutEmbedding.add(product);
+        textsForNewEmbeddings.add(documentConverter.createSearchableText(doc));
+      }
+    }
+
+    // 일부 상품에 대해 임베딩이 없으면 해당 상품만 실시간 생성 후 저장
+    Map<Long, List<Float>> newEmbeddingsMap = new HashMap<>();
+    if (!productsWithoutEmbedding.isEmpty()) {
+      log.warn("{}개 상품의 임베딩이 없습니다. 실시간 생성 중...", productsWithoutEmbedding.size());
+      List<List<Float>> newEmbeddings =
+          embeddingGenerator.generateBulkEmbeddings(textsForNewEmbeddings);
+
+      // 생성된 임베딩을 DB에 저장
+      productEmbeddingService.saveEmbeddings(
+          productsWithoutEmbedding, textsForNewEmbeddings, newEmbeddings);
+      log.info("{}개의 실시간 생성된 임베딩을 DB에 저장했습니다", productsWithoutEmbedding.size());
+
+      // 맵에 추가
+      for (int i = 0; i < productsWithoutEmbedding.size(); i++) {
+        Long productId = productsWithoutEmbedding.get(i).getId();
+        List<Float> newEmbedding = i < newEmbeddings.size() ? newEmbeddings.get(i) : List.of();
+        newEmbeddingsMap.put(productId, newEmbedding);
+      }
+    }
+
+    // 최종 문서 생성
     return documents.stream()
         .map(
             doc -> {
               Long productId = Long.parseLong(doc.getId());
-              List<Float> embedding = embeddingMap.getOrDefault(productId, List.of());
-              if (embedding.isEmpty()) {
-                log.warn("상품 {} 임베딩 없음", productId);
-              }
+              List<Float> embedding =
+                  embeddingMap.getOrDefault(
+                      productId, newEmbeddingsMap.getOrDefault(productId, List.of()));
               return documentConverter.convert(doc, embedding);
             })
         .toList();

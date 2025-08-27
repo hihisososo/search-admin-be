@@ -5,13 +5,9 @@ public interface QueryStatsProjection {
 
   Long getDocumentCount();
 
-  Long getScore2Count();
-
   Long getScore1Count();
 
   Long getScore0Count();
-
-  Long getScoreMinus1Count();
 
   Long getUnevaluatedCount();
 }

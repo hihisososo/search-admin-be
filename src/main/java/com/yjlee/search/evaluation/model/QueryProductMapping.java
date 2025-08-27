@@ -46,7 +46,7 @@ public class QueryProductMapping {
   String productSpecs;
 
   @Column(name = "relevance_score")
-  Integer relevanceScore; // null: 미평가, -1: 사람확인 필요, 0: 비연관, 1: 스펙 매치, 2: 제목 매치
+  Integer relevanceScore; // null: 미평가, 0: 비연관, 1: 연관
 
   @Column(columnDefinition = "TEXT")
   String evaluationReason;

@@ -62,7 +62,7 @@ public class SynonymDictionarySnapshot {
     return keyword.split(" => ")[0];
   }
 
-  // 유의어 목록 추출
+  // 동의어 목록 추출
   public String getSynonyms() {
     if (keyword == null || !keyword.contains(" => ")) {
       return "";

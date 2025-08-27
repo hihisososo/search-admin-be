@@ -5,8 +5,6 @@ import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_QUERY;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE0_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE1_COUNT;
-import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE2_COUNT;
-import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_SCORE_MINUS1_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_UNEVALUATED_COUNT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_BY_UPDATED_AT;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.SORT_DIRECTION_DESC;
@@ -45,10 +43,8 @@ public class EvaluationStatisticsService {
                     new QueryStatsDto(
                         p.getQuery(),
                         p.getDocumentCount(),
-                        p.getScore2Count(),
                         p.getScore1Count(),
                         p.getScore0Count(),
-                        p.getScoreMinus1Count(),
                         p.getUnevaluatedCount()))
             .collect(Collectors.toMap(QueryStatsDto::getQuery, stats -> stats));
 
@@ -71,10 +67,8 @@ public class EvaluationStatisticsService {
                       .id(query.getId())
                       .query(query.getQuery())
                       .documentCount(stats != null ? stats.getDocumentCount().intValue() : 0)
-                      .score2Count(stats != null ? stats.getScore2Count().intValue() : 0)
                       .score1Count(stats != null ? stats.getScore1Count().intValue() : 0)
                       .score0Count(stats != null ? stats.getScore0Count().intValue() : 0)
-                      .scoreMinus1Count(stats != null ? stats.getScoreMinus1Count().intValue() : 0)
                       .unevaluatedCount(stats != null ? stats.getUnevaluatedCount().intValue() : 0)
                       .createdAt(query.getCreatedAt())
                       .updatedAt(query.getUpdatedAt())
@@ -105,14 +99,10 @@ public class EvaluationStatisticsService {
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getQuery);
       case SORT_BY_DOCUMENT_COUNT ->
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getDocumentCount);
-      case SORT_BY_SCORE2_COUNT ->
-          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScore2Count);
       case SORT_BY_SCORE1_COUNT ->
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScore1Count);
       case SORT_BY_SCORE0_COUNT ->
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScore0Count);
-      case SORT_BY_SCORE_MINUS1_COUNT ->
-          Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getScoreMinus1Count);
       case SORT_BY_UNEVALUATED_COUNT ->
           Comparator.comparing(EvaluationQueryListResponse.EvaluationQueryDto::getUnevaluatedCount);
       case SORT_BY_CREATED_AT ->
