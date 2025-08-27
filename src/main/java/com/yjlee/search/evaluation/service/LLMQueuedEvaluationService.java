@@ -5,19 +5,15 @@ import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -29,6 +25,7 @@ public class LLMQueuedEvaluationService {
   private final LLMQueryEvaluationWorker evaluationWorker;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
+  private final LLMBatchProcessor batchProcessor;
 
   @Value("${evaluation.llm.batch-size:10}")
   private int batchSize;
@@ -37,118 +34,56 @@ public class LLMQueuedEvaluationService {
   private int workerThreads;
 
   // 평가 작업 큐
-  private final BlockingQueue<EvaluationBatch> evaluationQueue = new LinkedBlockingQueue<>();
-  private final List<Thread> workers = new ArrayList<>();
-  private final AtomicBoolean running = new AtomicBoolean(true);
+  private final ConcurrentLinkedQueue<EvaluationBatch> evaluationQueue =
+      new ConcurrentLinkedQueue<>();
   private final AtomicInteger activeWorkers = new AtomicInteger(0);
   private final AtomicInteger totalBatchesAdded = new AtomicInteger(0);
   private final AtomicInteger totalBatchesProcessed = new AtomicInteger(0);
 
-  @PostConstruct
-  public void init() {
-    log.info("LLM 큐 평가 서비스 시작 - Worker 스레드: {}개", workerThreads);
-    for (int i = 0; i < workerThreads; i++) {
-      final int workerId = i;
-      Thread worker =
-          new Thread(
-              () -> {
-                workerLoop(workerId);
-              },
-              "llm-queue-worker-" + i);
-      worker.start();
-      workers.add(worker);
+  // 큐 처리 스케줄러 (100ms마다 실행)
+  @Scheduled(fixedDelay = 100)
+  public void processQueueScheduler() {
+    // Rate limit 상태 체크
+    if (rateLimitManager.isRateLimited()) {
+      return;
     }
-  }
 
-  @PreDestroy
-  public void shutdown() {
-    log.info("LLM 큐 평가 서비스 종료 중...");
-    running.set(false);
-    for (Thread worker : workers) {
-      worker.interrupt();
+    // 동시 실행 워커 수 제한
+    if (activeWorkers.get() >= workerThreads) {
+      return;
     }
-    for (Thread worker : workers) {
-      try {
-        worker.join(5000);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      }
-    }
-    log.info("LLM 큐 평가 서비스 종료 완료");
-  }
 
-  private void workerLoop(int workerId) {
-    log.info("Worker {} 시작", workerId);
-    while (running.get()) {
-      EvaluationBatch batch = null;
-      boolean isWorking = false;
-
-      try {
-        // Rate limit 상태일 때만 대기
-        if (rateLimitManager.isRateLimited()) {
-          rateLimitManager.waitIfRateLimited();
-          continue; // Rate limit 해제 후 다시 시도
-        }
-
-        // 큐에서 작업 가져오기 (최대 1초 대기)
-        batch = evaluationQueue.poll(1, TimeUnit.SECONDS);
-        if (batch == null) {
-          continue;
-        }
-
-        // 배치를 가져온 직후 activeWorkers 증가
-        activeWorkers.incrementAndGet();
-        isWorking = true;
-
-        log.info("Worker {} - 배치 처리 시작: {} ({} 상품)", workerId, batch.query, batch.products.size());
-
-        // 평가 수행
-        processBatch(batch);
-
-        log.info("Worker {} - 배치 처리 완료", workerId);
-
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        break;
-      } catch (Exception e) {
-        log.error("Worker {} - 오류 발생", workerId, e);
-      } finally {
-        // 작업 중이었다면 activeWorkers 감소
-        if (isWorking) {
-          activeWorkers.decrementAndGet();
-        }
-      }
-    }
-    log.info("Worker {} 종료", workerId);
-  }
-
-  private void processBatch(EvaluationBatch batch) {
-    try {
-      // evaluationWorker의 평가 로직 호출
-      evaluationWorker.processSingleBatch(
-          batch.query, batch.products, batch.mappings, batch.evaluationQuery);
-
-      // 성공적으로 처리된 배치 카운트 증가
-      totalBatchesProcessed.incrementAndGet();
-    } catch (Exception e) {
-      if (e.getMessage() != null && e.getMessage().contains("429")) {
-        log.warn("Rate limit 감지 - 모든 작업 중단");
-        rateLimitManager.setRateLimitActive();
-        // 실패한 배치를 다시 큐에 넣기
-        try {
-          evaluationQueue.put(batch);
-        } catch (InterruptedException ie) {
-          Thread.currentThread().interrupt();
-        }
-      } else {
-        log.error("배치 처리 실패", e);
-        // 실패해도 처리된 것으로 카운트
-        totalBatchesProcessed.incrementAndGet();
-      }
+    // 큐에서 배치 가져오기
+    EvaluationBatch batch = evaluationQueue.poll();
+    if (batch != null) {
+      // activeWorkers 증가
+      activeWorkers.incrementAndGet();
+      
+      // 비동기로 배치 처리
+      batchProcessor.processBatchAsync(
+          batch.query,
+          batch.products,
+          batch.mappings,
+          batch.evaluationQuery,
+          () -> {
+            // 성공 콜백
+            totalBatchesProcessed.incrementAndGet();
+            activeWorkers.decrementAndGet();
+          },
+          () -> {
+            // Rate limit 콜백
+            evaluationQueue.offer(batch);
+            activeWorkers.decrementAndGet();
+          }
+      );
     }
   }
 
   public void evaluateCandidatesForQueries(List<Long> queryIds) {
+    evaluateCandidatesForQueries(queryIds, null);
+  }
+
+  public void evaluateCandidatesForQueries(List<Long> queryIds, ProgressCallback progressCallback) {
     log.info("큐 기반 LLM 평가 시작: {}개 쿼리", queryIds.size());
 
     // 카운터 초기화
@@ -198,22 +133,16 @@ public class LLMQueuedEvaluationService {
                   validProducts.subList(i, endIdx),
                   validMappings.subList(i, endIdx),
                   query);
-          try {
-            evaluationQueue.put(batch);
-            totalBatches++;
-            totalBatchesAdded.incrementAndGet();
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("큐에 배치 추가 실패", e);
-            return;
-          }
+          evaluationQueue.offer(batch);
+          totalBatches++;
+          totalBatchesAdded.incrementAndGet();
         }
       }
 
       log.info("총 {}개 배치를 큐에 추가 완료", totalBatches);
 
       // 모든 작업이 완료될 때까지 대기
-      waitForCompletion();
+      waitForCompletion(totalBatches, progressCallback);
 
     } finally {
       // Health check 스레드 종료
@@ -222,7 +151,7 @@ public class LLMQueuedEvaluationService {
     }
   }
 
-  private void waitForCompletion() {
+  private void waitForCompletion(int totalBatches, ProgressCallback progressCallback) {
     // 초기 대기: 워커들이 큐에서 작업을 가져갈 시간을 줌
     try {
       Thread.sleep(500);
@@ -244,6 +173,14 @@ public class LLMQueuedEvaluationService {
           activeCount,
           processedCount,
           addedCount);
+
+      // 진행률 콜백 호출
+      if (progressCallback != null && addedCount > 0) {
+        // 30%에서 시작해서 90%까지 진행 (60% 구간)
+        int progress = Math.min(90, 30 + (int)((processedCount * 60.0) / addedCount));
+        String message = String.format("LLM 평가 진행 중: %d/%d 배치 완료", processedCount, addedCount);
+        progressCallback.updateProgress(progress, message);
+      }
 
       // 모든 배치가 처리되었는지 확인
       if (addedCount > 0 && processedCount >= addedCount) {

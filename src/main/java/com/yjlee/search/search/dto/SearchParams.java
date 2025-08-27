@@ -43,4 +43,16 @@ public class SearchParams {
 
   @Schema(description = "검색 세션 ID (FE에서 생성하여 전달)", example = "session-123456")
   private String searchSessionId;
+
+  @Schema(description = "검색 모드 (KEYWORD_ONLY: BM25 키워드 검색, VECTOR_ONLY: 벡터 검색, HYBRID_RRF: BM25+벡터 RRF 융합)", example = "KEYWORD_ONLY", defaultValue = "KEYWORD_ONLY")
+  private SearchMode searchMode = SearchMode.KEYWORD_ONLY;
+
+  @Schema(description = "RRF 알고리즘 K 상수 (rank + k)", example = "60", defaultValue = "60")
+  @Min(1)
+  private Integer rrfK = 60;
+
+  @Schema(description = "하이브리드 검색 시 각 검색의 상위 K개 결과", example = "100", defaultValue = "100")
+  @Min(1)
+  @Max(300)
+  private Integer hybridTopK = 100;
 }

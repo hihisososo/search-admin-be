@@ -35,4 +35,13 @@ public class SearchExecuteRequest {
 
   @Schema(description = "검색 세션 ID (FE에서 생성하여 전달)", example = "session-123456")
   private String searchSessionId;
+
+  @Schema(description = "검색 모드", example = "KEYWORD_ONLY", defaultValue = "KEYWORD_ONLY")
+  private SearchMode searchMode = SearchMode.KEYWORD_ONLY;
+
+  @Schema(description = "RRF 알고리즘 K 상수 (rank + k)", example = "60", defaultValue = "60")
+  private Integer rrfK = 60;
+
+  @Schema(description = "하이브리드 검색 시 각 검색의 상위 K개 결과", example = "100", defaultValue = "100")
+  private Integer hybridTopK = 100;
 }

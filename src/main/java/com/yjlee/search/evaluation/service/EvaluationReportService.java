@@ -14,10 +14,10 @@ import com.yjlee.search.evaluation.repository.EvaluationReportRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
+import com.yjlee.search.search.dto.SearchMode;
 import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.SearchService;
-import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,14 +27,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,7 +40,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class EvaluationReportService {
 
@@ -57,18 +54,41 @@ public class EvaluationReportService {
   // private final ObjectMapper objectMapper; // 미사용
   private final ElasticsearchClient elasticsearchClient;
   private final IndexResolver indexResolver;
-  private final ExecutorService executorService = Executors.newFixedThreadPool(5);
+  private final AsyncEvaluationReportWorker asyncWorker;
 
-  @PreDestroy
-  public void shutdown() {
-    executorService.shutdown();
+  public EvaluationReportService(
+      EvaluationQueryService evaluationQueryService,
+      QueryProductMappingRepository queryProductMappingRepository,
+      EvaluationReportRepository evaluationReportRepository,
+      com.yjlee.search.evaluation.repository.EvaluationReportDetailRepository
+          reportDetailRepository,
+      com.yjlee.search.evaluation.repository.EvaluationReportDocumentRepository
+          reportDocumentRepository,
+      SearchService searchService,
+      ElasticsearchClient elasticsearchClient,
+      IndexResolver indexResolver,
+      @org.springframework.context.annotation.Lazy AsyncEvaluationReportWorker asyncWorker) {
+    this.evaluationQueryService = evaluationQueryService;
+    this.queryProductMappingRepository = queryProductMappingRepository;
+    this.evaluationReportRepository = evaluationReportRepository;
+    this.reportDetailRepository = reportDetailRepository;
+    this.reportDocumentRepository = reportDocumentRepository;
+    this.searchService = searchService;
+    this.elasticsearchClient = elasticsearchClient;
+    this.indexResolver = indexResolver;
+    this.asyncWorker = asyncWorker;
   }
 
   private static final int DEFAULT_RETRIEVAL_SIZE = 300;
 
   @Transactional
-  public EvaluationExecuteResponse executeEvaluation(String reportName) {
-    log.info("📊 평가 실행 시작: {}, 검색 결과 개수: {}", reportName, DEFAULT_RETRIEVAL_SIZE);
+  public EvaluationExecuteResponse executeEvaluation(String reportName, ProgressCallback progressCallback) {
+    return executeEvaluation(reportName, SearchMode.KEYWORD_ONLY, 60, 100, progressCallback);
+  }
+
+  @Transactional
+  public EvaluationExecuteResponse executeEvaluation(String reportName, SearchMode searchMode, Integer rrfK, Integer hybridTopK, ProgressCallback progressCallback) {
+    log.info("📊 평가 실행 시작: {}, 검색 결과 개수: {}, 검색모드: {}", reportName, DEFAULT_RETRIEVAL_SIZE, searchMode);
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
@@ -80,30 +100,44 @@ public class EvaluationReportService {
     List<EvaluationExecuteResponse.QueryEvaluationDetail> synchronizedQueryDetails =
         Collections.synchronizedList(new ArrayList<>());
 
+    // 진행률 추적을 위한 AtomicInteger
+    AtomicInteger completed = new AtomicInteger(0);
+    int totalQueries = queries.size();
+    
     // 병렬 처리로 성능 개선
-    List<CompletableFuture<Void>> futures =
+    List<CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail>> futures =
         queries.stream()
-            .map(
-                query ->
-                    CompletableFuture.runAsync(
-                        () -> {
-                          try {
-                            EvaluationExecuteResponse.QueryEvaluationDetail detail =
-                                evaluateQuery(query.getQuery());
-                            if (detail != null) {
-                              synchronizedQueryDetails.add(detail);
-                            }
-                          } catch (Exception e) {
-                            log.warn("⚠️ 쿼리 '{}' 평가 실패", query.getQuery(), e);
-                          }
-                        },
-                        executorService))
+            .map(query -> {
+              CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future = 
+                  asyncWorker.evaluateQueryAsync(query.getQuery(), searchMode, rrfK, hybridTopK);
+              // 각 쿼리 완료시 진행률 업데이트
+              future.whenComplete((result, ex) -> {
+                int done = completed.incrementAndGet();
+                if (progressCallback != null) {
+                  int progress = 10 + (done * 80 / totalQueries);
+                  progressCallback.updateProgress(progress, 
+                      String.format("평가 진행 중: %d/%d 쿼리 완료", done, totalQueries));
+                }
+              });
+              return future;
+            })
             .collect(Collectors.toList());
 
-    // 모든 작업 완료 대기
+    // 모든 작업 완료 대기 및 결과 수집
     try {
       CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
           .get(300, java.util.concurrent.TimeUnit.SECONDS); // 5분 타임아웃
+      
+      for (CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future : futures) {
+        try {
+          EvaluationExecuteResponse.QueryEvaluationDetail detail = future.get();
+          if (detail != null) {
+            synchronizedQueryDetails.add(detail);
+          }
+        } catch (Exception e) {
+          log.warn("⚠️ 쿼리 평가 결과 수집 실패", e);
+        }
+      }
     } catch (Exception e) {
       log.error("⚠️ 병렬 처리 완료 대기 실패", e);
     }
@@ -115,7 +149,7 @@ public class EvaluationReportService {
     for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
       String query = detail.getQuery();
       Set<String> relevantDocs = getRelevantDocuments(query);
-      List<String> retrievedDocs = getRetrievedDocumentsOrdered(query);
+      List<String> retrievedDocs = getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK);
 
       // Recall@300
       double recall300 = computeRecallAtK(retrievedDocs, relevantDocs, 300);
@@ -197,9 +231,13 @@ public class EvaluationReportService {
         .build();
   }
 
-  private EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(String query) {
+  public EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(String query) {
+    return evaluateQuery(query, SearchMode.KEYWORD_ONLY, 60, 100);
+  }
+
+  public EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
     Set<String> relevantDocs = getRelevantDocuments(query);
-    List<String> retrievedDocs = getRetrievedDocumentsOrdered(query); // 순서 유지
+    List<String> retrievedDocs = getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK); // 순서 유지
     Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
 
@@ -386,6 +424,10 @@ public class EvaluationReportService {
 
   // 순서를 보존한 검색 결과 목록
   private List<String> getRetrievedDocumentsOrdered(String query) {
+    return getRetrievedDocumentsOrdered(query, SearchMode.KEYWORD_ONLY, 60, 100);
+  }
+
+  private List<String> getRetrievedDocumentsOrdered(String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
     try {
       log.info("🔍 DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, DEFAULT_RETRIEVAL_SIZE);
 
@@ -395,6 +437,9 @@ public class EvaluationReportService {
       searchRequest.setPage(0);
       searchRequest.setSize(DEFAULT_RETRIEVAL_SIZE);
       searchRequest.setExplain(false);
+      searchRequest.setSearchMode(searchMode);
+      searchRequest.setRrfK(rrfK);
+      searchRequest.setHybridTopK(hybridTopK);
 
       SearchExecuteResponse searchResponse = searchService.searchProductsSimulation(searchRequest);
 

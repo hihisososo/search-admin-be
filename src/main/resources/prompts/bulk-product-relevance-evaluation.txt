@@ -24,7 +24,7 @@
 ```
 [
   {
-    "id": "P12345",
+    "productId": "P12345",
     "name": "삼성전자 980 PRO NVMe M.2 SSD 1TB",
     "category": "컴퓨터/저장장치",
     "specs": "읽기속도: 7000MB/s, 쓰기속도: 5000MB/s, 인터페이스: PCIe 4.0"
@@ -32,7 +32,7 @@
 ]
 ```
 
-- id: 상품 고유 ID
+- productId: 상품 고유 ID
 - name: 상품명
 - category: 카테고리
 - specs: 상세스펙
@@ -51,17 +51,15 @@
   - 검색 의도와 다른 상품
 
 # 응답 형식
-반드시 JSON 배열만 출력하세요 (다른 텍스트, 마크다운 금지):
+반드시 아래 형식의 JSON 배열을 출력하세요. 각 상품은 한 줄로 작성하세요:
 
 [
-  {
-    "productId": "P12345",
-    "score": 1,
-    "reason": "평가 이유",
-    "confidence": 0.95
-  }
+{"productId":"P12345","score":1,"reason":"평가 이유","confidence":0.95},
+{"productId":"P67890","score":0,"reason":"관련 없음","confidence":0.9}
 ]
 
 # 주의사항
-- 모든 상품을 빠짐없이 평가
+- 모든 상품을 빠짐없이 평가 (입력된 모든 productId가 응답에 포함되어야 함)
+- 각 상품 객체는 한 줄로 압축, 상품 간에는 개행
+- 마크다운 코드블록(```) 사용 금지
 - 오직 JSON 배열만 출력
