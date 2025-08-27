@@ -174,20 +174,24 @@ public class ProductEmbeddingService {
   }
 
   @Transactional
-  public void saveEmbeddings(List<Product> products, List<String> texts, List<List<Float>> embeddings) {
+  public void saveEmbeddings(
+      List<Product> products, List<String> texts, List<List<Float>> embeddings) {
     if (products.size() != texts.size() || products.size() != embeddings.size()) {
-      log.error("입력 데이터 크기 불일치 - products: {}, texts: {}, embeddings: {}", 
-                products.size(), texts.size(), embeddings.size());
+      log.error(
+          "입력 데이터 크기 불일치 - products: {}, texts: {}, embeddings: {}",
+          products.size(),
+          texts.size(),
+          embeddings.size());
       return;
     }
 
     List<ProductEmbedding> embeddingsToSave = new ArrayList<>();
-    
+
     for (int i = 0; i < products.size(); i++) {
       Product product = products.get(i);
       String text = texts.get(i);
       List<Float> embedding = embeddings.get(i);
-      
+
       if (embedding != null && !embedding.isEmpty()) {
         // 이미 존재하는지 확인
         if (!productEmbeddingRepository.existsByProductId(product.getId())) {
@@ -199,7 +203,7 @@ public class ProductEmbeddingService {
         }
       }
     }
-    
+
     if (!embeddingsToSave.isEmpty()) {
       productEmbeddingRepository.saveAll(embeddingsToSave);
       log.info("{}개의 임베딩을 DB에 저장했습니다", embeddingsToSave.size());

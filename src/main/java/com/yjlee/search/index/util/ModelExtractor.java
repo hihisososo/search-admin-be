@@ -14,10 +14,13 @@ public class ModelExtractor {
   // 1. 하이픈으로 연결된 영숫자 그룹 (점 제외)
   // 2. 영숫자 혼합 3자리 이상 연속 문자열
   private static final Pattern MODEL_PATTERN_HYPHEN =
-      Pattern.compile("(?<![A-Z0-9])([A-Z0-9]+(?:-[A-Z0-9]+)+)(?![A-Z0-9])", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(
+          "(?<![A-Z0-9])([A-Z0-9]+(?:-[A-Z0-9]+)+)(?![A-Z0-9])", Pattern.CASE_INSENSITIVE);
 
   private static final Pattern MODEL_PATTERN_MIXED =
-      Pattern.compile("(?<![A-Z0-9])((?:[A-Z]+[0-9]+|[0-9]+[A-Z]+)[A-Z0-9]*)(?![A-Z0-9])", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(
+          "(?<![A-Z0-9])((?:[A-Z]+[0-9]+|[0-9]+[A-Z]+)[A-Z0-9]*)(?![A-Z0-9])",
+          Pattern.CASE_INSENSITIVE);
 
   // 단위 패턴 (제외할 것들)
   private static final Pattern UNIT_PATTERN =

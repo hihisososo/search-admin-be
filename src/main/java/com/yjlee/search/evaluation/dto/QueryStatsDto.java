@@ -15,11 +15,7 @@ public class QueryStatsDto {
   private Long unevaluatedCount; // 미평가(null) 개수
 
   public QueryStatsDto(
-      String query,
-      Long documentCount,
-      Long score1Count,
-      Long score0Count,
-      Long unevaluatedCount) {
+      String query, Long documentCount, Long score1Count, Long score0Count, Long unevaluatedCount) {
     this.query = query;
     this.documentCount = documentCount != null ? documentCount : 0L;
     this.score1Count = score1Count != null ? score1Count : 0L;
