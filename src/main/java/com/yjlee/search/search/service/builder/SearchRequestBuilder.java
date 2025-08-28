@@ -8,6 +8,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.util.KoreanTextUtils;
+import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.dto.*;
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +41,8 @@ public class SearchRequestBuilder {
         new SearchRequest.Builder()
             .index(indexName)
             .query(Query.of(q -> q.bool(boolQuery)))
-            .source(s -> s.filter(f -> f.excludes("name_vector", "specs_vector")))
+            .source(
+                s -> s.filter(f -> f.excludes(VectorSearchConstants.getVectorFieldsToExclude())))
             .aggregations(aggregations)
             .from(from)
             .size(request.getSize())

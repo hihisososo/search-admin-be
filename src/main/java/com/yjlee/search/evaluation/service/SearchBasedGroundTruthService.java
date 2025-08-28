@@ -8,6 +8,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
@@ -16,12 +17,12 @@ import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
+import com.yjlee.search.search.service.VectorSearchService;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,14 +35,10 @@ public class SearchBasedGroundTruthService {
   private final IndexResolver indexResolver;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
-  private final OpenAIEmbeddingService embeddingService;
+  private final VectorSearchService vectorSearchService;
 
   private static final int FIXED_PER_STRATEGY = 301;
-  private static final int FIXED_VECTOR_NUM_CANDIDATES = 900;
   private static final int FIXED_MAX_TOTAL_PER_QUERY = 300;
-
-  @Value("${app.evaluation.candidate.min-score:0.80}")
-  private double vectorMinScore;
 
   @Transactional
   public void generateCandidatesFromSearch() {
@@ -89,12 +86,13 @@ public class SearchBasedGroundTruthService {
       return;
     }
 
-    // 벌크 임베딩 생성
-    List<String> queryTexts =
-        queries.stream().map(EvaluationQuery::getQuery).collect(Collectors.toList());
-
-    log.info("벌크 임베딩 생성 시작: {}개", queryTexts.size());
-    List<float[]> allEmbeddings = embeddingService.getBulkEmbeddings(queryTexts);
+    // 벌크 임베딩 생성 제거 - VectorSearchService가 캐싱 처리
+    // 첫 번째 몇 개 쿼리에 대해 미리 캐시 워밍 (선택적)
+    int warmupCount = Math.min(10, queries.size());
+    for (int i = 0; i < warmupCount; i++) {
+      vectorSearchService.getQueryEmbedding(queries.get(i).getQuery());
+    }
+    log.info("벡터 검색 캐시 워밍 완료: {}개", warmupCount);
 
     // Thread-safe collections
     List<QueryProductMapping> mappings = new CopyOnWriteArrayList<>();
@@ -109,15 +107,10 @@ public class SearchBasedGroundTruthService {
     queries.parallelStream()
         .forEach(
             query -> {
-              int index = queries.indexOf(query);
-
               try {
-                float[] queryEmbedding =
-                    index < allEmbeddings.size() ? allEmbeddings.get(index) : null;
-
-                // 후보 수집
+                // 후보 수집 - 임베딩은 VectorSearchService에서 내부적으로 처리
                 Map<String, String> candidatesWithSource =
-                    collectCandidatesWithSourceTracking(query.getQuery(), queryEmbedding);
+                    collectCandidatesWithSourceTracking(query.getQuery(), null);
 
                 // 300개 제한
                 Map<String, String> limitedCandidates =
@@ -196,8 +189,8 @@ public class SearchBasedGroundTruthService {
 
   public Set<String> getCandidateIdsForQuery(String query) {
     try {
-      float[] embedding = getEmbeddingOrNull(query);
-      return collectCandidatesWithSourceTracking(query, embedding).keySet();
+      // 임베딩은 VectorSearchService에서 내부적으로 처리
+      return collectCandidatesWithSourceTracking(query, null).keySet();
     } catch (Exception e) {
       log.warn("쿼리 후보 수집 실패: {}", query, e);
       return new LinkedHashSet<>();
@@ -208,10 +201,8 @@ public class SearchBasedGroundTruthService {
       String query, float[] queryEmbedding) {
     Map<String, String> productSourceMap = new LinkedHashMap<>();
 
-    // 벡터 검색
-    if (queryEmbedding != null) {
-      searchByVector(queryEmbedding).forEach(id -> productSourceMap.put(id, "VECTOR"));
-    }
+    // 벡터 검색 - query 문자열 사용 (VectorSearchService가 임베딩 생성 및 캐싱 처리)
+    searchByVector(query).forEach(id -> productSourceMap.put(id, "VECTOR"));
 
     // 형태소 검색
     String[] morphemeFields = {"name_candidate", "specs_candidate", "category_candidate"};
@@ -242,40 +233,26 @@ public class SearchBasedGroundTruthService {
     return productSourceMap;
   }
 
-  private List<String> searchByVector(float[] embedding) {
-    return searchByVector(
-        embedding, FIXED_PER_STRATEGY, FIXED_VECTOR_NUM_CANDIDATES, vectorMinScore);
+  private List<String> searchByVector(String query) {
+    return searchByVector(query, FIXED_PER_STRATEGY);
   }
 
-  private List<String> searchByVector(
-      float[] embedding, int size, int numCandidates, double minScore) {
+  private List<String> searchByVector(String query, int size) {
     try {
-      List<Float> queryVector = new ArrayList<>();
-      for (float f : embedding) {
-        queryVector.add(f);
+      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+
+      SearchResponse<JsonNode> response =
+          vectorSearchService.multiFieldVectorSearch(indexName, query, size);
+
+      // JsonNode 결과에서 상품 ID 추출
+      List<String> productIds = new ArrayList<>();
+      for (Hit<JsonNode> hit : response.hits().hits()) {
+        productIds.add(hit.id());
       }
 
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
-      SearchRequest request =
-          SearchRequest.of(
-              s ->
-                  s.index(indexName)
-                      .size(size)
-                      .minScore(minScore)
-                      .query(
-                          q ->
-                              q.knn(
-                                  k ->
-                                      k.field("name_specs_vector")
-                                          .queryVector(queryVector)
-                                          .k(size)
-                                          .numCandidates(numCandidates))));
-
-      SearchResponse<ProductDocument> response =
-          elasticsearchClient.search(request, ProductDocument.class);
-      return extractProductIds(response);
+      return productIds.stream().limit(size).collect(Collectors.toList());
     } catch (Exception e) {
-      log.warn("Vector 검색 실패", e);
+      log.warn("Vector 검색 실패: {}", query, e);
       return new ArrayList<>();
     }
   }
@@ -346,14 +323,5 @@ public class SearchBasedGroundTruthService {
     }
 
     return productMap;
-  }
-
-  private float[] getEmbeddingOrNull(String query) {
-    try {
-      return embeddingService.getEmbedding(query);
-    } catch (Exception e) {
-      log.warn("임베딩 생성 실패, 임베딩 없이 진행: {}", query);
-      return null;
-    }
   }
 }

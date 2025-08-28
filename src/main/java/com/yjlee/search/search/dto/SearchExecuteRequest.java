@@ -56,6 +56,9 @@ public class SearchExecuteRequest {
 
   @Min(value = 0)
   @Max(value = 1)
-  @Schema(description = "벡터 검색 최소 점수 임계값 (0.0~1.0)", example = "0.8", defaultValue = "0.8")
-  private Double vectorMinScore = 0.8;
+  @Schema(
+      description = "벡터 검색 최소 점수 임계값 (0.0~1.0, null이면 기본값 0.6)",
+      example = "0.65",
+      required = false)
+  private Double vectorMinScore;
 }

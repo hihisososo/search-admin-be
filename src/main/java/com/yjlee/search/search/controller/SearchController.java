@@ -36,7 +36,7 @@ public class SearchController {
   @Operation(summary = "자동완성 검색")
   @GetMapping("/autocomplete")
   public ResponseEntity<AutocompleteResponse> autocomplete(
-      @RequestParam @NotBlank @Size(min = 1, max = 100) String keyword) {
+      @RequestParam(required = false, defaultValue = "") String keyword) {
     return ResponseEntity.ok(searchService.getAutocompleteSuggestions(keyword));
   }
 

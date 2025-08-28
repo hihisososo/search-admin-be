@@ -59,4 +59,10 @@ public class SearchParams {
   @Min(1)
   @Max(500)
   private Integer hybridTopK = 300;
+
+  @Schema(
+      description = "벡터 검색 최소 점수 임계값 (0.0~1.0, VECTOR_MULTI_FIELD 및 HYBRID_RRF 모드에서 적용)",
+      example = "0.65",
+      required = false)
+  private Double vectorMinScore;
 }

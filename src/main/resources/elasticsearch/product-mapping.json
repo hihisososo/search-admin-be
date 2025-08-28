@@ -65,7 +65,13 @@
       "type": "keyword",
       "index": false
     },
-    "name_specs_vector": {
+    "name_vector": {
+      "type": "dense_vector",
+      "dims": 1536,
+      "index": true,
+      "similarity": "cosine"
+    },
+    "specs_vector": {
       "type": "dense_vector",
       "dims": 1536,
       "index": true,

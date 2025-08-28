@@ -12,10 +12,10 @@ import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchHitsDto;
 import com.yjlee.search.search.dto.SearchMetaDto;
+import com.yjlee.search.search.dto.VectorSearchConfig;
 import com.yjlee.search.search.service.builder.QueryBuilder;
 import com.yjlee.search.search.service.builder.QueryResponseBuilder;
 import com.yjlee.search.search.service.builder.SearchRequestBuilder;
-import com.yjlee.search.search.utils.AggregationUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,10 +46,10 @@ public class ProductSearchService {
 
     // SearchMode에 따라 다른 검색 실행
     switch (request.getSearchMode()) {
-      case VECTOR_ONLY:
-        return executeVectorOnlySearch(indexName, request, withExplain);
       case KEYWORD_ONLY:
         return executeKeywordOnlySearch(indexName, request, withExplain);
+      case VECTOR_MULTI_FIELD:
+        return executeMultiFieldVectorSearch(indexName, request, withExplain);
       case HYBRID_RRF:
       default:
         return hybridSearchService.hybridSearch(indexName, request, withExplain);
@@ -72,22 +72,24 @@ public class ProductSearchService {
     return responseBuilder.buildSearchResponse(request, response, took, withExplain, searchRequest);
   }
 
-  private SearchExecuteResponse executeVectorOnlySearch(
+  private SearchExecuteResponse executeMultiFieldVectorSearch(
       String indexName, SearchExecuteRequest request, boolean withExplain) {
     long startTime = System.currentTimeMillis();
 
-    // 300개 가져오기
+    // 벡터 검색 설정 구성
+    VectorSearchConfig config =
+        VectorSearchConfig.builder()
+            .topK(request.getHybridTopK() != null ? request.getHybridTopK() : 300)
+            .vectorMinScore(request.getVectorMinScore())
+            .build();
+
     SearchResponse<JsonNode> response =
-        vectorSearchService.vectorOnlySearch(
-            indexName, request.getQuery(), 300, request.getVectorMinScore());
+        vectorSearchService.multiFieldVectorSearch(indexName, request.getQuery(), config);
 
     List<Hit<JsonNode>> allHits = response.hits().hits();
+    Map<String, List<AggregationBucketDto>> aggregations = new java.util.HashMap<>();
 
-    // 1. 전체 결과에서 Aggregation 계산
-    Map<String, List<AggregationBucketDto>> aggregations =
-        AggregationUtils.calculateFromHits(allHits);
-
-    // 2. 페이징 처리
+    // 페이징 처리
     int page = request.getPage();
     int size = request.getSize();
     int from = page * size;
@@ -96,10 +98,9 @@ public class ProductSearchService {
     List<Hit<JsonNode>> pagedHits =
         from < allHits.size() ? allHits.subList(from, to) : new ArrayList<>();
 
-    // 3. ProductDto 변환
+    // ProductDto 변환
     List<ProductDto> products = new ArrayList<>();
-    for (int i = 0; i < pagedHits.size(); i++) {
-      Hit<JsonNode> hit = pagedHits.get(i);
+    for (Hit<JsonNode> hit : pagedHits) {
       JsonNode source = hit.source();
 
       ProductDto.ProductDtoBuilder builder =
@@ -148,7 +149,7 @@ public class ProductSearchService {
       products.add(builder.build());
     }
 
-    // 4. Response 생성
+    // Response 생성
     SearchHitsDto hits =
         SearchHitsDto.builder().total((long) allHits.size()).data(products).build();
 
@@ -166,7 +167,7 @@ public class ProductSearchService {
         .hits(hits)
         .aggregations(aggregations)
         .meta(meta)
-        .queryDsl(withExplain ? "{\"searchMode\":\"VECTOR_ONLY\"}" : null)
+        .queryDsl(withExplain ? "" : null)
         .build();
   }
 }

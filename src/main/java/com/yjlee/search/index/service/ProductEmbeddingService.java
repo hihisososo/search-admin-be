@@ -79,7 +79,8 @@ public class ProductEmbeddingService {
   }
 
   private int processBatch(List<Product> products) {
-    List<String> texts = new ArrayList<>();
+    List<String> nameTexts = new ArrayList<>();
+    List<String> specsTexts = new ArrayList<>();
     List<Product> validProducts = new ArrayList<>();
 
     for (Product product : products) {
@@ -89,27 +90,37 @@ public class ProductEmbeddingService {
       }
 
       var document = documentFactory.create(product);
-      String searchableText = documentConverter.createSearchableText(document);
-      texts.add(searchableText);
+      String nameText = documentConverter.createNameText(document);
+      String specsText = documentConverter.createSpecsText(document);
+
+      nameTexts.add(nameText);
+      specsTexts.add(specsText);
       validProducts.add(product);
     }
 
-    if (texts.isEmpty()) {
+    if (nameTexts.isEmpty()) {
       return 0;
     }
 
-    List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
+    // 각 필드별로 임베딩 생성
+    List<List<Float>> nameEmbeddings = embeddingGenerator.generateBulkEmbeddings(nameTexts);
+    List<List<Float>> specsEmbeddings = embeddingGenerator.generateBulkEmbeddings(specsTexts);
 
     List<ProductEmbedding> embeddingsToSave = new ArrayList<>();
     for (int i = 0; i < validProducts.size(); i++) {
       Product product = validProducts.get(i);
-      List<Float> embedding = i < embeddings.size() ? embeddings.get(i) : new ArrayList<>();
+      List<Float> nameEmbedding =
+          i < nameEmbeddings.size() ? nameEmbeddings.get(i) : new ArrayList<>();
+      List<Float> specsEmbedding =
+          i < specsEmbeddings.size() ? specsEmbeddings.get(i) : new ArrayList<>();
 
-      if (!embedding.isEmpty()) {
+      if (!nameEmbedding.isEmpty() && !specsEmbedding.isEmpty()) {
         ProductEmbedding productEmbedding = new ProductEmbedding();
         productEmbedding.setProductId(product.getId());
-        productEmbedding.setEmbeddingText(texts.get(i));
-        productEmbedding.setEmbeddingVector(serializeVector(embedding));
+        productEmbedding.setNameText(nameTexts.get(i));
+        productEmbedding.setNameVector(serializeVector(nameEmbedding));
+        productEmbedding.setSpecsText(specsTexts.get(i));
+        productEmbedding.setSpecsVector(serializeVector(specsEmbedding));
         embeddingsToSave.add(productEmbedding);
       }
     }
@@ -119,14 +130,17 @@ public class ProductEmbeddingService {
   }
 
   @Transactional(readOnly = true)
-  public Map<Long, List<Float>> getEmbeddingsByProductIds(List<Long> productIds) {
+  public Map<Long, Map<String, List<Float>>> getEmbeddingsByProductIds(List<Long> productIds) {
     List<ProductEmbedding> embeddings = productEmbeddingRepository.findByProductIdIn(productIds);
 
     return embeddings.stream()
         .collect(
             Collectors.toMap(
                 ProductEmbedding::getProductId,
-                embedding -> deserializeVector(embedding.getEmbeddingVector())));
+                embedding ->
+                    Map.of(
+                        "name", deserializeVector(embedding.getNameVector()),
+                        "specs", deserializeVector(embedding.getSpecsVector()))));
   }
 
   @Transactional(readOnly = true)
@@ -175,13 +189,22 @@ public class ProductEmbeddingService {
 
   @Transactional
   public void saveEmbeddings(
-      List<Product> products, List<String> texts, List<List<Float>> embeddings) {
-    if (products.size() != texts.size() || products.size() != embeddings.size()) {
+      List<Product> products,
+      List<String> nameTexts,
+      List<String> specsTexts,
+      List<List<Float>> nameEmbeddings,
+      List<List<Float>> specsEmbeddings) {
+    if (products.size() != nameTexts.size()
+        || products.size() != specsTexts.size()
+        || products.size() != nameEmbeddings.size()
+        || products.size() != specsEmbeddings.size()) {
       log.error(
-          "입력 데이터 크기 불일치 - products: {}, texts: {}, embeddings: {}",
+          "입력 데이터 크기 불일치 - products: {}, nameTexts: {}, specsTexts: {}, nameEmbeddings: {}, specsEmbeddings: {}",
           products.size(),
-          texts.size(),
-          embeddings.size());
+          nameTexts.size(),
+          specsTexts.size(),
+          nameEmbeddings.size(),
+          specsEmbeddings.size());
       return;
     }
 
@@ -189,16 +212,23 @@ public class ProductEmbeddingService {
 
     for (int i = 0; i < products.size(); i++) {
       Product product = products.get(i);
-      String text = texts.get(i);
-      List<Float> embedding = embeddings.get(i);
+      String nameText = nameTexts.get(i);
+      String specsText = specsTexts.get(i);
+      List<Float> nameEmbedding = nameEmbeddings.get(i);
+      List<Float> specsEmbedding = specsEmbeddings.get(i);
 
-      if (embedding != null && !embedding.isEmpty()) {
+      if (nameEmbedding != null
+          && !nameEmbedding.isEmpty()
+          && specsEmbedding != null
+          && !specsEmbedding.isEmpty()) {
         // 이미 존재하는지 확인
         if (!productEmbeddingRepository.existsByProductId(product.getId())) {
           ProductEmbedding productEmbedding = new ProductEmbedding();
           productEmbedding.setProductId(product.getId());
-          productEmbedding.setEmbeddingText(text);
-          productEmbedding.setEmbeddingVector(serializeVector(embedding));
+          productEmbedding.setNameText(nameText);
+          productEmbedding.setNameVector(serializeVector(nameEmbedding));
+          productEmbedding.setSpecsText(specsText);
+          productEmbedding.setSpecsVector(serializeVector(specsEmbedding));
           embeddingsToSave.add(productEmbedding);
         }
       }

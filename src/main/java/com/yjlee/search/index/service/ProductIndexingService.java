@@ -40,7 +40,7 @@ public class ProductIndexingService {
   private final ProductEmbeddingService productEmbeddingService;
 
   private IndexingProgressCallback progressCallback;
-  private final ExecutorService executorService = Executors.newFixedThreadPool(3);
+  private final ExecutorService executorService = Executors.newFixedThreadPool(5);
 
   private static final int BATCH_SIZE = 300;
 
@@ -185,63 +185,80 @@ public class ProductIndexingService {
 
     // DB에서 저장된 임베딩 조회
     List<Long> productIds = products.stream().map(Product::getId).toList();
-    Map<Long, List<Float>> embeddingMap =
+    Map<Long, Map<String, List<Float>>> embeddingMap =
         productEmbeddingService.getEmbeddingsByProductIds(productIds);
 
     if (embeddingMap.isEmpty()) {
       log.warn("저장된 임베딩이 없습니다. 실시간 생성 모드로 전환");
       // 저장된 임베딩이 없으면 실시간 생성
-      List<String> texts = documents.stream().map(documentConverter::createSearchableText).toList();
-      List<List<Float>> embeddings = embeddingGenerator.generateBulkEmbeddings(texts);
+      List<String> nameTexts = documents.stream().map(documentConverter::createNameText).toList();
+      List<String> specsTexts = documents.stream().map(documentConverter::createSpecsText).toList();
+      List<List<Float>> nameEmbeddings = embeddingGenerator.generateBulkEmbeddings(nameTexts);
+      List<List<Float>> specsEmbeddings = embeddingGenerator.generateBulkEmbeddings(specsTexts);
 
       // 생성된 임베딩을 DB에 저장
-      productEmbeddingService.saveEmbeddings(products, texts, embeddings);
+      productEmbeddingService.saveEmbeddings(
+          products, nameTexts, specsTexts, nameEmbeddings, specsEmbeddings);
       log.info("실시간 생성된 임베딩을 DB에 저장했습니다");
 
       return documents.stream()
           .map(
               doc -> {
                 int index = documents.indexOf(doc);
-                List<Float> embedding =
-                    index < embeddings.size() ? embeddings.get(index) : List.of();
-                return documentConverter.convert(doc, embedding);
+                List<Float> nameEmbedding =
+                    index < nameEmbeddings.size() ? nameEmbeddings.get(index) : List.of();
+                List<Float> specsEmbedding =
+                    index < specsEmbeddings.size() ? specsEmbeddings.get(index) : List.of();
+                return documentConverter.convert(doc, nameEmbedding, specsEmbedding);
               })
           .toList();
     }
 
     // 저장된 임베딩 사용 및 없는 상품만 실시간 생성
     List<Product> productsWithoutEmbedding = new ArrayList<>();
-    List<String> textsForNewEmbeddings = new ArrayList<>();
+    List<String> nameTextsForNewEmbeddings = new ArrayList<>();
+    List<String> specsTextsForNewEmbeddings = new ArrayList<>();
 
     for (int i = 0; i < products.size(); i++) {
       Product product = products.get(i);
       ProductDocument doc = documents.get(i);
       Long productId = product.getId();
-      List<Float> embedding = embeddingMap.get(productId);
+      Map<String, List<Float>> embedding = embeddingMap.get(productId);
 
       if (embedding == null || embedding.isEmpty()) {
         productsWithoutEmbedding.add(product);
-        textsForNewEmbeddings.add(documentConverter.createSearchableText(doc));
+        nameTextsForNewEmbeddings.add(documentConverter.createNameText(doc));
+        specsTextsForNewEmbeddings.add(documentConverter.createSpecsText(doc));
       }
     }
 
     // 일부 상품에 대해 임베딩이 없으면 해당 상품만 실시간 생성 후 저장
-    Map<Long, List<Float>> newEmbeddingsMap = new HashMap<>();
+    Map<Long, Map<String, List<Float>>> newEmbeddingsMap = new HashMap<>();
     if (!productsWithoutEmbedding.isEmpty()) {
       log.warn("{}개 상품의 임베딩이 없습니다. 실시간 생성 중...", productsWithoutEmbedding.size());
-      List<List<Float>> newEmbeddings =
-          embeddingGenerator.generateBulkEmbeddings(textsForNewEmbeddings);
+      List<List<Float>> newNameEmbeddings =
+          embeddingGenerator.generateBulkEmbeddings(nameTextsForNewEmbeddings);
+      List<List<Float>> newSpecsEmbeddings =
+          embeddingGenerator.generateBulkEmbeddings(specsTextsForNewEmbeddings);
 
       // 생성된 임베딩을 DB에 저장
       productEmbeddingService.saveEmbeddings(
-          productsWithoutEmbedding, textsForNewEmbeddings, newEmbeddings);
+          productsWithoutEmbedding,
+          nameTextsForNewEmbeddings,
+          specsTextsForNewEmbeddings,
+          newNameEmbeddings,
+          newSpecsEmbeddings);
       log.info("{}개의 실시간 생성된 임베딩을 DB에 저장했습니다", productsWithoutEmbedding.size());
 
       // 맵에 추가
       for (int i = 0; i < productsWithoutEmbedding.size(); i++) {
         Long productId = productsWithoutEmbedding.get(i).getId();
-        List<Float> newEmbedding = i < newEmbeddings.size() ? newEmbeddings.get(i) : List.of();
-        newEmbeddingsMap.put(productId, newEmbedding);
+        List<Float> newNameEmbedding =
+            i < newNameEmbeddings.size() ? newNameEmbeddings.get(i) : List.of();
+        List<Float> newSpecsEmbedding =
+            i < newSpecsEmbeddings.size() ? newSpecsEmbeddings.get(i) : List.of();
+        newEmbeddingsMap.put(
+            productId, Map.of("name", newNameEmbedding, "specs", newSpecsEmbedding));
       }
     }
 
@@ -250,10 +267,12 @@ public class ProductIndexingService {
         .map(
             doc -> {
               Long productId = Long.parseLong(doc.getId());
-              List<Float> embedding =
+              Map<String, List<Float>> embedding =
                   embeddingMap.getOrDefault(
-                      productId, newEmbeddingsMap.getOrDefault(productId, List.of()));
-              return documentConverter.convert(doc, embedding);
+                      productId, newEmbeddingsMap.getOrDefault(productId, Map.of()));
+              List<Float> nameVector = embedding.getOrDefault("name", List.of());
+              List<Float> specsVector = embedding.getOrDefault("specs", List.of());
+              return documentConverter.convert(doc, nameVector, specsVector);
             })
         .toList();
   }
