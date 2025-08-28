@@ -36,12 +36,19 @@ public class VectorSearchService {
 
   /** 쿼리 임베딩 생성 (캐싱 포함) */
   public float[] getQueryEmbedding(String query) {
-    return embeddingCache.computeIfAbsent(
-        query,
-        k -> {
-          log.debug("Generating embedding for query: {}", query);
-          return embeddingService.getEmbedding(query);
-        });
+    // 캐시 체크
+    float[] cached = embeddingCache.get(query);
+    if (cached != null) {
+      return cached;
+    }
+    
+    // 캐시에 없으면 생성 (락 밖에서)
+    log.debug("Generating embedding for query: {}", query);
+    float[] embedding = embeddingService.getEmbedding(query);
+    
+    // 캐시에 저장
+    embeddingCache.put(query, embedding);
+    return embedding;
   }
 
   /** KNN 벡터 검색 실행 */
@@ -89,8 +96,8 @@ public class VectorSearchService {
     }
   }
 
-  /** 벡터 검색만 실행 (VECTOR_ONLY 모드용) */
-  public SearchResponse<JsonNode> vectorOnlySearch(String index, String query, int size) {
+  /** 벡터 검색만 실행 (VECTOR_ONLY 모드용) - 300개 가져오기 */
+  public SearchResponse<JsonNode> vectorOnlySearch(String index, String query, int topK) {
     try {
       float[] queryVector = getQueryEmbedding(query);
 
@@ -103,15 +110,15 @@ public class VectorSearchService {
           SearchRequest.of(
               s ->
                   s.index(index)
-                      .size(size)
+                      .size(topK) // 전체 TopK 개수만큼 가져오기
                       .query(
                           q ->
                               q.knn(
                                   knn ->
                                       knn.field("name_specs_vector")
                                           .queryVector(queryVectorList)
-                                          .k(size)
-                                          .numCandidates(size * 3) // 일반적으로 k의 3배 정도
+                                          .k(topK)
+                                          .numCandidates(topK * 3) // 일반적으로 k의 3배 정도
                                   ))
                       .source(src -> src.filter(f -> f.excludes("name_specs_vector"))));
 

@@ -7,8 +7,11 @@ import com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService;
 import jakarta.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -21,10 +24,25 @@ public class CategoryRankingService {
   private final Map<String, List<CategoryWeight>> cache = new ConcurrentHashMap<>();
   private volatile DictionaryEnvironmentType activeEnvironmentType =
       DictionaryEnvironmentType.CURRENT;
+  private final ReadWriteLock cacheLock = new ReentrantReadWriteLock();
+  private volatile boolean cacheInitialized = false;
 
   @PostConstruct
   public void init() {
-    loadCache(activeEnvironmentType);
+    log.info("Initializing category ranking cache...");
+    loadCacheAsync();
+  }
+
+  @Async("generalTaskExecutor")
+  public void loadCacheAsync() {
+    cacheLock.writeLock().lock();
+    try {
+      loadCache(activeEnvironmentType);
+      cacheInitialized = true;
+      log.info("Category ranking cache initialized with {} keywords", cache.size());
+    } finally {
+      cacheLock.writeLock().unlock();
+    }
   }
 
   public Map<String, Integer> getCategoryWeights(String query) {
@@ -32,8 +50,15 @@ public class CategoryRankingService {
       return Collections.emptyMap();
     }
 
-    Map<String, Integer> categoryWeights = new HashMap<>();
-    Set<String> appliedKeywords = new HashSet<>(); // 이미 적용된 키워드 추적
+    if (!cacheInitialized) {
+      log.debug("Cache not initialized, returning empty weights for query: {}", query);
+      return Collections.emptyMap();
+    }
+
+    cacheLock.readLock().lock();
+    try {
+      Map<String, Integer> categoryWeights = new HashMap<>();
+      Set<String> appliedKeywords = new HashSet<>(); // 이미 적용된 키워드 추적
 
     // 1. 먼저 공백 단위로 매칭
     String[] words = query.toLowerCase().split("\\s+");
@@ -76,11 +101,14 @@ public class CategoryRankingService {
       log.warn("형태소 분석 중 오류 발생, 공백 단위 매칭만 사용: {}", e.getMessage());
     }
 
-    if (!categoryWeights.isEmpty()) {
-      log.info("쿼리 '{}' - 적용된 카테고리 가중치: {}, 적용된 키워드: {}", query, categoryWeights, appliedKeywords);
-    }
+      if (!categoryWeights.isEmpty()) {
+        log.info("쿼리 '{}' - 적용된 카테고리 가중치: {}, 적용된 키워드: {}", query, categoryWeights, appliedKeywords);
+      }
 
-    return categoryWeights;
+      return categoryWeights;
+    } finally {
+      cacheLock.readLock().unlock();
+    }
   }
 
   private void loadCache(DictionaryEnvironmentType environmentType) {
@@ -120,20 +148,30 @@ public class CategoryRankingService {
   }
 
   public void updateCacheRealtime(DictionaryEnvironmentType environmentType) {
-    cache.clear();
-    if (environmentType != null) {
-      activeEnvironmentType = environmentType;
-    } else {
-      activeEnvironmentType = DictionaryEnvironmentType.CURRENT;
+    cacheLock.writeLock().lock();
+    try {
+      cache.clear();
+      if (environmentType != null) {
+        activeEnvironmentType = environmentType;
+      } else {
+        activeEnvironmentType = DictionaryEnvironmentType.CURRENT;
+      }
+      loadCache(activeEnvironmentType);
+    } finally {
+      cacheLock.writeLock().unlock();
     }
-    loadCache(activeEnvironmentType);
   }
 
   public String getCacheStatus() {
-    int totalMappings = cache.values().stream().mapToInt(List::size).sum();
-    return String.format(
-        "Env: %s, Keywords: %d, Total mappings: %d",
-        activeEnvironmentType.name(), cache.size(), totalMappings);
+    cacheLock.readLock().lock();
+    try {
+      int totalMappings = cache.values().stream().mapToInt(List::size).sum();
+      return String.format(
+          "Env: %s, Keywords: %d, Total mappings: %d, Initialized: %b",
+          activeEnvironmentType.name(), cache.size(), totalMappings, cacheInitialized);
+    } finally {
+      cacheLock.readLock().unlock();
+    }
   }
 
   public static class CategoryWeight {

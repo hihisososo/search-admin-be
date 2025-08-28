@@ -8,9 +8,13 @@ import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
 import com.yjlee.search.evaluation.model.AsyncTask;
 import com.yjlee.search.evaluation.model.AsyncTaskType;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
+import com.yjlee.search.search.dto.SearchMode;
+import com.yjlee.search.search.service.VectorSearchService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
@@ -27,6 +31,7 @@ public class AsyncEvaluationService {
   private final EvaluationReportService evaluationReportService;
   private final LLMCandidateEvaluationService llmCandidateEvaluationService;
   private final AsyncEvaluationService self;
+  private final VectorSearchService vectorSearchService;
 
   public AsyncEvaluationService(
       AsyncTaskService asyncTaskService,
@@ -35,6 +40,7 @@ public class AsyncEvaluationService {
       EvaluationQueryService evaluationQueryService,
       EvaluationReportService evaluationReportService,
       LLMCandidateEvaluationService llmCandidateEvaluationService,
+      VectorSearchService vectorSearchService,
       @Lazy AsyncEvaluationService self) {
     this.asyncTaskService = asyncTaskService;
     this.queryGenerationService = queryGenerationService;
@@ -42,6 +48,7 @@ public class AsyncEvaluationService {
     this.evaluationQueryService = evaluationQueryService;
     this.evaluationReportService = evaluationReportService;
     this.llmCandidateEvaluationService = llmCandidateEvaluationService;
+    this.vectorSearchService = vectorSearchService;
     this.self = self;
   }
 
@@ -233,14 +240,28 @@ public class AsyncEvaluationService {
   @Async("evaluationTaskExecutor")
   public void executeEvaluationAsync(Long taskId, EvaluationExecuteAsyncRequest request) {
     try {
-      log.info("비동기 평가 실행 시작: taskId={}, reportName={}", taskId, request.getReportName());
+      log.info("비동기 평가 실행 시작: taskId={}, reportName={}, searchMode={}", 
+          taskId, request.getReportName(), request.getSearchMode());
 
-      asyncTaskService.updateProgress(taskId, 10, "평가 실행 시작...");
+      asyncTaskService.updateProgress(taskId, 5, "평가 실행 준비 중...");
 
-      // 진행률 업데이트 콜백 생성
+      // 하이브리드 모드일 경우 임베딩 사전 캐싱
+      if (SearchMode.HYBRID_RRF.equals(request.getSearchMode())) {
+        asyncTaskService.updateProgress(taskId, 10, "임베딩 사전 캐싱 시작...");
+        precacheEmbeddings(taskId);
+        asyncTaskService.updateProgress(taskId, 20, "임베딩 캐싱 완료, 평가 시작...");
+      } else {
+        asyncTaskService.updateProgress(taskId, 10, "평가 실행 시작...");
+      }
+
+      // 진행률 업데이트 콜백 생성 (하이브리드 모드는 20부터 시작)
+      int startProgress = SearchMode.HYBRID_RRF.equals(request.getSearchMode()) ? 20 : 10;
+      int endProgress = 90;
       ProgressCallback evaluationCallback =
           (progress, message) -> {
-            asyncTaskService.updateProgress(taskId, progress, message);
+            // 진행률을 조정하여 전체 범위에 맞춤
+            int adjustedProgress = startProgress + (int)((endProgress - startProgress) * progress / 100.0);
+            asyncTaskService.updateProgress(taskId, adjustedProgress, message);
           };
 
       com.yjlee.search.evaluation.dto.EvaluationExecuteResponse response =
@@ -316,6 +337,54 @@ public class AsyncEvaluationService {
     asyncTaskService.updateProgress(taskId, 40, "LLM 쿼리 생성 중...");
     List<String> queries = queryGenerationService.generateRandomQueries(count);
     return queries;
+  }
+
+  /**
+   * 하이브리드 검색 평가 전 모든 쿼리에 대한 임베딩 사전 캐싱
+   */
+  private void precacheEmbeddings(Long taskId) {
+    try {
+      // 모든 평가 쿼리 가져오기
+      List<EvaluationQuery> allQueries = evaluationQueryService.getAllQueries();
+      log.info("임베딩 사전 캐싱 시작: {}개 쿼리", allQueries.size());
+      
+      // 병렬로 임베딩 생성 (10개씩 배치 처리)
+      int batchSize = 10;
+      List<CompletableFuture<Void>> futures = new ArrayList<>();
+      
+      for (int i = 0; i < allQueries.size(); i += batchSize) {
+        int start = i;
+        int end = Math.min(i + batchSize, allQueries.size());
+        List<EvaluationQuery> batch = allQueries.subList(start, end);
+        
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+          for (EvaluationQuery q : batch) {
+            try {
+              // 임베딩 생성 (캐시에 저장됨)
+              vectorSearchService.getQueryEmbedding(q.getQuery());
+            } catch (Exception e) {
+              log.warn("임베딩 생성 실패 (쿼리: {}): {}", q.getQuery(), e.getMessage());
+            }
+          }
+        });
+        
+        futures.add(future);
+        
+        // 진행률 업데이트 (10-20% 구간)
+        int progress = 10 + (int)((end * 10.0) / allQueries.size());
+        asyncTaskService.updateProgress(taskId, progress, 
+            String.format("임베딩 캐싱 중: %d/%d", end, allQueries.size()));
+      }
+      
+      // 모든 배치 완료 대기
+      CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+      
+      log.info("임베딩 사전 캐싱 완료: 캐시 크기 {}", vectorSearchService.getCacheSize());
+      
+    } catch (Exception e) {
+      log.error("임베딩 사전 캐싱 중 오류 발생", e);
+      // 오류가 발생해도 평가는 계속 진행 (각 쿼리 실행 시 임베딩 생성됨)
+    }
   }
 
   // 결과 DTO 클래스들

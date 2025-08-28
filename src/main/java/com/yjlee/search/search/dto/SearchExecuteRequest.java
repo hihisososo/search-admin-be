@@ -42,6 +42,6 @@ public class SearchExecuteRequest {
   @Schema(description = "RRF 알고리즘 K 상수 (rank + k)", example = "60", defaultValue = "60")
   private Integer rrfK = 60;
 
-  @Schema(description = "하이브리드 검색 시 각 검색의 상위 K개 결과", example = "100", defaultValue = "100")
-  private Integer hybridTopK = 100;
+  @Schema(description = "하이브리드 검색 시 각 검색의 상위 K개 결과", example = "300", defaultValue = "300")
+  private Integer hybridTopK = 300;
 }
