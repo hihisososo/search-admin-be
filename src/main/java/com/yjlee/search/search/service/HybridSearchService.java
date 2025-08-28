@@ -47,11 +47,12 @@ public class HybridSearchService {
       String indexName, SearchExecuteRequest request, boolean withExplain) {
 
     log.info(
-        "Starting hybrid search - query: {}, mode: {}, rrfK: {}, topK: {}",
+        "Starting hybrid search - query: {}, mode: {}, rrfK: {}, topK: {}, vectorMinScore: {}",
         request.getQuery(),
         request.getSearchMode(),
         request.getRrfK(),
-        request.getHybridTopK());
+        request.getHybridTopK(),
+        request.getVectorMinScore());
 
     long startTime = System.currentTimeMillis();
 
@@ -68,8 +69,8 @@ public class HybridSearchService {
                       indexName,
                       request.getQuery(),
                       request.getHybridTopK(),
-                      request.getHybridTopK() * 3) // numCandidates는 k의 3배
-              );
+                      request.getHybridTopK() * 3, // numCandidates는 k의 3배
+                      request.getVectorMinScore()));
 
       // 두 검색 완료 대기
       List<Hit<JsonNode>> bm25Results = bm25Future.get();
@@ -83,7 +84,11 @@ public class HybridSearchService {
       // 2. RRF 병합 - 전체 TopK 결과를 병합
       List<RRFScorer.RRFResult> allMergedResults =
           rrfScorer.mergeWithRRF(
-              bm25Results, vectorResults, request.getRrfK(), request.getHybridTopK());
+              bm25Results,
+              vectorResults,
+              request.getRrfK(),
+              request.getHybridTopK(),
+              request.getBm25Weight());
 
       // 3. 응답 생성
       long took = System.currentTimeMillis() - startTime;

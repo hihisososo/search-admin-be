@@ -19,12 +19,18 @@ public class RRFScorer {
    * @param vectorResults 벡터 검색 결과
    * @param k RRF 상수 (기본값 60)
    * @param finalSize 최종 반환할 결과 크기
+   * @param bm25Weight BM25 가중치 (0.0~1.0)
    * @return 병합된 검색 결과
    */
   public List<RRFResult> mergeWithRRF(
-      List<Hit<JsonNode>> bm25Results, List<Hit<JsonNode>> vectorResults, int k, int finalSize) {
+      List<Hit<JsonNode>> bm25Results,
+      List<Hit<JsonNode>> vectorResults,
+      int k,
+      int finalSize,
+      double bm25Weight) {
 
     Map<String, RRFResult> scoreMap = new HashMap<>();
+    double vectorWeight = 1.0 - bm25Weight;
 
     // BM25 결과 처리
     for (int rank = 0; rank < bm25Results.size(); rank++) {
@@ -32,7 +38,8 @@ public class RRFScorer {
       String docId = hit.id();
       double rrfScore = 1.0 / (rank + 1 + k);
 
-      RRFResult result = scoreMap.computeIfAbsent(docId, id -> new RRFResult(id, hit));
+      RRFResult result =
+          scoreMap.computeIfAbsent(docId, id -> new RRFResult(id, hit, bm25Weight, vectorWeight));
       result.setBm25RrfScore(rrfScore);
       result.setBm25Rank(rank + 1);
       result.setOriginalBm25Score(hit.score() != null ? hit.score() : 0.0);
@@ -46,7 +53,8 @@ public class RRFScorer {
       String docId = hit.id();
       double rrfScore = 1.0 / (rank + 1 + k);
 
-      RRFResult result = scoreMap.computeIfAbsent(docId, id -> new RRFResult(id, hit));
+      RRFResult result =
+          scoreMap.computeIfAbsent(docId, id -> new RRFResult(id, hit, bm25Weight, vectorWeight));
       result.setVectorRrfScore(rrfScore);
       result.setVectorRank(rank + 1);
       result.setOriginalVectorScore(hit.score() != null ? hit.score() : 0.0);
@@ -64,8 +72,8 @@ public class RRFScorer {
     // 로깅
     if (log.isDebugEnabled()) {
       log.debug("RRF Merge completed:");
-      log.debug("  - BM25 results: {}", bm25Results.size());
-      log.debug("  - Vector results: {}", vectorResults.size());
+      log.debug("  - BM25 results: {} (weight: {})", bm25Results.size(), bm25Weight);
+      log.debug("  - Vector results: {} (weight: {})", vectorResults.size(), vectorWeight);
       log.debug("  - Unique documents: {}", scoreMap.size());
       log.debug("  - Final results: {}", sortedResults.size());
 
@@ -92,6 +100,8 @@ public class RRFScorer {
   public static class RRFResult {
     private final String id;
     private final Hit<JsonNode> document;
+    private final double bm25Weight;
+    private final double vectorWeight;
 
     private double bm25RrfScore = 0.0;
     private double vectorRrfScore = 0.0;
@@ -102,14 +112,16 @@ public class RRFScorer {
     private double originalBm25Score = 0.0;
     private double originalVectorScore = 0.0;
 
-    public RRFResult(String id, Hit<JsonNode> document) {
+    public RRFResult(String id, Hit<JsonNode> document, double bm25Weight, double vectorWeight) {
       this.id = id;
       this.document = document;
+      this.bm25Weight = bm25Weight;
+      this.vectorWeight = vectorWeight;
     }
 
-    /** 총 RRF 점수 계산 */
+    /** 총 RRF 점수 계산 (가중치 적용) */
     public double getTotalRrfScore() {
-      return bm25RrfScore + vectorRrfScore;
+      return (bm25RrfScore * bm25Weight) + (vectorRrfScore * vectorWeight);
     }
 
     /** 하이브리드 점수 설명 생성 (디버깅용) */
@@ -118,6 +130,10 @@ public class RRFScorer {
       explanation.put("totalRrfScore", getTotalRrfScore());
       explanation.put("bm25RrfScore", bm25RrfScore);
       explanation.put("vectorRrfScore", vectorRrfScore);
+      explanation.put("bm25Weight", bm25Weight);
+      explanation.put("vectorWeight", vectorWeight);
+      explanation.put("weightedBm25Score", bm25RrfScore * bm25Weight);
+      explanation.put("weightedVectorScore", vectorRrfScore * vectorWeight);
       explanation.put("bm25Rank", bm25Rank);
       explanation.put("vectorRank", vectorRank);
       explanation.put("originalBm25Score", originalBm25Score);

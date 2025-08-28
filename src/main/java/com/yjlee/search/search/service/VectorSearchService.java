@@ -52,7 +52,8 @@ public class VectorSearchService {
   }
 
   /** KNN 벡터 검색 실행 */
-  public List<Hit<JsonNode>> searchByVector(String index, String query, int k, int numCandidates) {
+  public List<Hit<JsonNode>> searchByVector(
+      String index, String query, int k, int numCandidates, double minScore) {
     try {
       float[] queryVector = getQueryEmbedding(query);
 
@@ -68,6 +69,7 @@ public class VectorSearchService {
               s ->
                   s.index(index)
                       .size(k)
+                      .minScore(minScore)
                       .query(
                           q ->
                               q.knn(
@@ -79,7 +81,7 @@ public class VectorSearchService {
                       // 벡터 필드 제외하여 응답 크기 최소화
                       .source(src -> src.filter(f -> f.excludes("name_specs_vector"))));
 
-      log.debug("Executing vector search for query: {}, k: {}", query, k);
+      log.debug("Executing vector search for query: {}, k: {}, minScore: {}", query, k, minScore);
       SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
 
       List<Hit<JsonNode>> hits = response.hits().hits();
@@ -97,7 +99,8 @@ public class VectorSearchService {
   }
 
   /** 벡터 검색만 실행 (VECTOR_ONLY 모드용) - 300개 가져오기 */
-  public SearchResponse<JsonNode> vectorOnlySearch(String index, String query, int topK) {
+  public SearchResponse<JsonNode> vectorOnlySearch(
+      String index, String query, int topK, double minScore) {
     try {
       float[] queryVector = getQueryEmbedding(query);
 
@@ -111,6 +114,7 @@ public class VectorSearchService {
               s ->
                   s.index(index)
                       .size(topK) // 전체 TopK 개수만큼 가져오기
+                      .minScore(minScore)
                       .query(
                           q ->
                               q.knn(
@@ -122,6 +126,11 @@ public class VectorSearchService {
                                   ))
                       .source(src -> src.filter(f -> f.excludes("name_specs_vector"))));
 
+      log.debug(
+          "Executing vector-only search for query: {}, topK: {}, minScore: {}",
+          query,
+          topK,
+          minScore);
       return elasticsearchClient.search(searchRequest, JsonNode.class);
 
     } catch (IOException e) {

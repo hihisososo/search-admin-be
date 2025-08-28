@@ -6,6 +6,7 @@ import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
+import com.yjlee.search.index.repository.ProductEmbeddingRepository;
 import com.yjlee.search.index.repository.ProductRepository;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
 public class ProductIndexingService {
 
   private final ProductRepository productRepository;
+  private final ProductEmbeddingRepository productEmbeddingRepository;
   private final ProductDocumentConverter documentConverter;
   private final ProductEmbeddingGenerator embeddingGenerator;
   private final ElasticsearchBulkIndexer bulkIndexer;

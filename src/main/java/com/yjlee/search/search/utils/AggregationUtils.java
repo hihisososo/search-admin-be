@@ -93,13 +93,13 @@ public class AggregationUtils {
     // 카테고리 버킷 생성
     List<AggregationBucketDto> categoryBuckets = convertToBuckets(categoryCount);
     if (!categoryBuckets.isEmpty()) {
-      aggregations.put("category", categoryBuckets);
+      aggregations.put("category_name", categoryBuckets);
     }
 
     // 브랜드 버킷 생성
     List<AggregationBucketDto> brandBuckets = convertToBuckets(brandCount);
     if (!brandBuckets.isEmpty()) {
-      aggregations.put("brand", brandBuckets);
+      aggregations.put("brand_name", brandBuckets);
     }
 
     return aggregations;

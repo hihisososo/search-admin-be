@@ -78,7 +78,8 @@ public class ProductSearchService {
 
     // 300개 가져오기
     SearchResponse<JsonNode> response =
-        vectorSearchService.vectorOnlySearch(indexName, request.getQuery(), 300);
+        vectorSearchService.vectorOnlySearch(
+            indexName, request.getQuery(), 300, request.getVectorMinScore());
 
     List<Hit<JsonNode>> allHits = response.hits().hits();
 
