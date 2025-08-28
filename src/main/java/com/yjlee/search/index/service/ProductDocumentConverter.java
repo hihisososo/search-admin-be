@@ -36,15 +36,25 @@ public class ProductDocumentConverter {
   public String createSearchableText(ProductDocument document) {
     StringBuilder text = new StringBuilder();
 
-    if (document.getNameRaw() != null) {
-      text.append(document.getNameRaw().trim());
+    // [TITLE] 섹션
+    if (document.getNameRaw() != null && !document.getNameRaw().trim().isEmpty()) {
+      text.append("[TITLE] ").append(document.getNameRaw().trim());
     }
 
+    // [CATEGORY] 섹션
+    if (document.getCategoryName() != null && !document.getCategoryName().trim().isEmpty()) {
+      if (text.length() > 0) {
+        text.append("\n");
+      }
+      text.append("[CATEGORY] ").append(document.getCategoryName().trim());
+    }
+
+    // [SPECS] 섹션
     if (document.getSpecsRaw() != null && !document.getSpecsRaw().trim().isEmpty()) {
       if (text.length() > 0) {
-        text.append(" ");
+        text.append("\n");
       }
-      text.append(document.getSpecsRaw().trim());
+      text.append("[SPECS] ").append(document.getSpecsRaw().trim());
     }
 
     return text.toString();

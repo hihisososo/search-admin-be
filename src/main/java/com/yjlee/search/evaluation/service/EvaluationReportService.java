@@ -18,6 +18,7 @@ import com.yjlee.search.search.dto.SearchMode;
 import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.SearchService;
+import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,6 +59,28 @@ public class EvaluationReportService {
   private final EvaluationReportPersistenceService persistenceService;
   private final ExecutorService executorService = Executors.newFixedThreadPool(20);
 
+  // 평가 데이터 캐시 (DB 조회 제거용)
+  private Map<String, Set<String>> relevantDocumentsCache;
+  private Map<String, ProductDocument> productDocumentsCache;
+
+  @PreDestroy
+  public void shutdown() {
+    log.info("🔄 ExecutorService 종료 시작");
+    executorService.shutdown();
+    try {
+      if (!executorService.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+        executorService.shutdownNow();
+        if (!executorService.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+          log.error("❌ ExecutorService 종료 실패");
+        }
+      }
+    } catch (InterruptedException e) {
+      executorService.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
+    log.info("✅ ExecutorService 종료 완료");
+  }
+
   public EvaluationReportService(
       EvaluationQueryService evaluationQueryService,
       QueryProductMappingRepository queryProductMappingRepository,
@@ -83,6 +106,54 @@ public class EvaluationReportService {
 
   private static final int DEFAULT_RETRIEVAL_SIZE = 300;
 
+  /** 평가 데이터 사전 로드 (DB connection pool 문제 방지) */
+  private void preloadEvaluationData(List<EvaluationQuery> queries) {
+    log.info("📦 평가 데이터 사전 로드 시작: {} 개 쿼리", queries.size());
+
+    // 1. 모든 쿼리의 정답셋 한 번에 로드
+    relevantDocumentsCache = new HashMap<>();
+    Set<String> allProductIds = new HashSet<>();
+
+    for (EvaluationQuery query : queries) {
+      Set<String> relevantDocs = loadRelevantDocumentsFromDB(query.getQuery());
+      relevantDocumentsCache.put(query.getQuery(), relevantDocs);
+      allProductIds.addAll(relevantDocs);
+    }
+
+    log.info("✅ 정답셋 로드 완료: {} 개 쿼리, {} 개 고유 상품", queries.size(), allProductIds.size());
+
+    // 2. 모든 필요한 상품 정보 bulk 로드
+    productDocumentsCache = getProductsBulk(new ArrayList<>(allProductIds));
+    log.info("✅ 상품 정보 로드 완료: {} 개", productDocumentsCache.size());
+  }
+
+  /** DB에서 정답셋 조회 (프리로딩용) */
+  private Set<String> loadRelevantDocumentsFromDB(String query) {
+    Optional<EvaluationQuery> evaluationQueryOpt = evaluationQueryService.findByQuery(query);
+    if (evaluationQueryOpt.isEmpty()) {
+      log.warn("⚠️ 평가 쿼리를 찾을 수 없습니다: {}", query);
+      return Collections.emptySet();
+    }
+
+    List<QueryProductMapping> mappings =
+        queryProductMappingRepository.findByEvaluationQueryAndRelevanceScoreGreaterThanEqual(
+            evaluationQueryOpt.get(), 1);
+    return mappings.stream().map(QueryProductMapping::getProductId).collect(Collectors.toSet());
+  }
+
+  /** 캐시 클리어 */
+  private void clearEvaluationCache() {
+    if (relevantDocumentsCache != null) {
+      relevantDocumentsCache.clear();
+      relevantDocumentsCache = null;
+    }
+    if (productDocumentsCache != null) {
+      productDocumentsCache.clear();
+      productDocumentsCache = null;
+    }
+    log.info("🧹 평가 캐시 클리어 완료");
+  }
+
   public EvaluationExecuteResponse executeEvaluation(
       String reportName, ProgressCallback progressCallback) {
     return executeEvaluation(reportName, SearchMode.KEYWORD_ONLY, 60, 100, progressCallback);
@@ -98,6 +169,10 @@ public class EvaluationReportService {
         "📊 평가 실행 시작: {}, 검색 결과 개수: {}, 검색모드: {}", reportName, DEFAULT_RETRIEVAL_SIZE, searchMode);
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
+
+    // 평가 데이터 사전 로드 (DB connection pool 문제 방지)
+    preloadEvaluationData(queries);
+
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
 
     double totalRecall300 = 0.0; // Recall@300
@@ -159,7 +234,8 @@ public class EvaluationReportService {
     // 각 쿼리마다 메트릭 계산해서 합산 및 detail에 저장
     for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
       String query = detail.getQuery();
-      Set<String> relevantDocs = getRelevantDocuments(query);
+      // 캐시에서 정답셋 가져오기
+      Set<String> relevantDocs = getRelevantDocumentsFromCache(query);
       List<String> retrievedDocs =
           getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK);
 
@@ -187,6 +263,9 @@ public class EvaluationReportService {
         String.format("%.3f", avgRecall300),
         String.format("%.3f", avgPrecision20));
 
+    // 캐시 클리어
+    clearEvaluationCache();
+
     return EvaluationExecuteResponse.builder()
         .reportId(report.getId())
         .reportName(reportName)
@@ -204,7 +283,8 @@ public class EvaluationReportService {
 
   public EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(
       String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
-    Set<String> relevantDocs = getRelevantDocuments(query);
+    // 캐시에서 정답셋 가져오기 (DB 조회 없음)
+    Set<String> relevantDocs = getRelevantDocumentsFromCache(query);
     List<String> retrievedDocs =
         getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK); // 순서 유지
     Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
@@ -220,11 +300,11 @@ public class EvaluationReportService {
             .filter(doc -> !relevantDocs.contains(doc))
             .collect(Collectors.toList());
 
-    // MISSING과 WRONG 문서들의 정보만 구성
+    // MISSING과 WRONG 문서들의 정보만 구성 (캐시에서 가져오기)
     Set<String> docIdsToFetch = new HashSet<>();
     docIdsToFetch.addAll(missingIds);
     docIdsToFetch.addAll(wrongIds);
-    Map<String, ProductDocument> productMap = getProductsBulk(new ArrayList<>(docIdsToFetch));
+    Map<String, ProductDocument> productMap = getProductsFromCache(docIdsToFetch);
 
     List<EvaluationExecuteResponse.DocumentInfo> missingDocs =
         missingIds.stream()
@@ -345,6 +425,33 @@ public class EvaluationReportService {
 
     if (idcg == 0.0) return 0.0;
     return dcg / idcg;
+  }
+
+  /** 캐시에서 정답셋 가져오기 (평가 스레드용) */
+  private Set<String> getRelevantDocumentsFromCache(String query) {
+    if (relevantDocumentsCache != null && relevantDocumentsCache.containsKey(query)) {
+      return relevantDocumentsCache.get(query);
+    }
+    // 캐시 없으면 기존 방식으로 fallback
+    return getRelevantDocuments(query);
+  }
+
+  /** 캐시에서 상품 정보 가져오기 (평가 스레드용) */
+  private Map<String, ProductDocument> getProductsFromCache(Set<String> productIds) {
+    Map<String, ProductDocument> result = new HashMap<>();
+
+    if (productDocumentsCache != null) {
+      for (String id : productIds) {
+        ProductDocument doc = productDocumentsCache.get(id);
+        if (doc != null) {
+          result.put(id, doc);
+        }
+      }
+      return result;
+    }
+
+    // 캐시 없으면 기존 방식으로 fallback
+    return getProductsBulk(new ArrayList<>(productIds));
   }
 
   private Set<String> getRelevantDocuments(String query) {

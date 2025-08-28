@@ -2,6 +2,7 @@ package com.yjlee.search.search.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.Getter;
 import lombok.Setter;
@@ -44,4 +45,17 @@ public class SearchExecuteRequest {
 
   @Schema(description = "하이브리드 검색 시 각 검색의 상위 K개 결과", example = "300", defaultValue = "300")
   private Integer hybridTopK = 300;
+
+  @Min(value = 0)
+  @Max(value = 1)
+  @Schema(
+      description = "BM25 가중치 (0.0~1.0, Vector 가중치는 1-bm25Weight)",
+      example = "0.8",
+      defaultValue = "0.8")
+  private Double bm25Weight = 0.8;
+
+  @Min(value = 0)
+  @Max(value = 1)
+  @Schema(description = "벡터 검색 최소 점수 임계값 (0.0~1.0)", example = "0.8", defaultValue = "0.8")
+  private Double vectorMinScore = 0.8;
 }
