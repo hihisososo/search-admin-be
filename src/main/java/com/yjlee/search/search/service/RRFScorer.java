@@ -76,7 +76,7 @@ public class RRFScorer {
             .forEach(
                 r ->
                     log.debug(
-                        "    {} - Total RRF: {:.4f} (BM25: rank={}, Vector: rank={})",
+                        "    {} - Total RRF: {} (BM25: rank={}, Vector: rank={})",
                         r.getId(),
                         r.getTotalRrfScore(),
                         r.getBm25Rank(),

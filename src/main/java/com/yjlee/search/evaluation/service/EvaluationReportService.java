@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -40,7 +42,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 public class EvaluationReportService {
 
   private final EvaluationQueryService evaluationQueryService;
@@ -54,7 +55,8 @@ public class EvaluationReportService {
   // private final ObjectMapper objectMapper; // 미사용
   private final ElasticsearchClient elasticsearchClient;
   private final IndexResolver indexResolver;
-  private final AsyncEvaluationReportWorker asyncWorker;
+  private final EvaluationReportPersistenceService persistenceService;
+  private final ExecutorService executorService = Executors.newFixedThreadPool(20);
 
   public EvaluationReportService(
       EvaluationQueryService evaluationQueryService,
@@ -67,7 +69,7 @@ public class EvaluationReportService {
       SearchService searchService,
       ElasticsearchClient elasticsearchClient,
       IndexResolver indexResolver,
-      @org.springframework.context.annotation.Lazy AsyncEvaluationReportWorker asyncWorker) {
+      EvaluationReportPersistenceService persistenceService) {
     this.evaluationQueryService = evaluationQueryService;
     this.queryProductMappingRepository = queryProductMappingRepository;
     this.evaluationReportRepository = evaluationReportRepository;
@@ -76,18 +78,16 @@ public class EvaluationReportService {
     this.searchService = searchService;
     this.elasticsearchClient = elasticsearchClient;
     this.indexResolver = indexResolver;
-    this.asyncWorker = asyncWorker;
+    this.persistenceService = persistenceService;
   }
 
   private static final int DEFAULT_RETRIEVAL_SIZE = 300;
 
-  @Transactional
   public EvaluationExecuteResponse executeEvaluation(
       String reportName, ProgressCallback progressCallback) {
     return executeEvaluation(reportName, SearchMode.KEYWORD_ONLY, 60, 100, progressCallback);
   }
 
-  @Transactional
   public EvaluationExecuteResponse executeEvaluation(
       String reportName,
       SearchMode searchMode,
@@ -117,8 +117,9 @@ public class EvaluationReportService {
             .map(
                 query -> {
                   CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future =
-                      asyncWorker.evaluateQueryAsync(
-                          query.getQuery(), searchMode, rrfK, hybridTopK);
+                      CompletableFuture.supplyAsync(
+                          () -> evaluateQuery(query.getQuery(), searchMode, rrfK, hybridTopK),
+                          executorService);
                   // 각 쿼리 완료시 진행률 업데이트
                   future.whenComplete(
                       (result, ex) -> {
@@ -176,55 +177,10 @@ public class EvaluationReportService {
     double avgRecall300 = queries.isEmpty() ? 0.0 : totalRecall300 / queries.size();
     double avgPrecision20 = queries.isEmpty() ? 0.0 : totalPrecision20 / queries.size();
 
+    // 트랜잭션 내에서 DB 저장 처리 (외부 서비스 호출)
     EvaluationReport report =
-        saveEvaluationReport(reportName, queries.size(), avgRecall300, avgPrecision20);
-
-    // 세부 결과를 구조화 테이블에 저장 - queryDetails 재사용
-    java.util.List<com.yjlee.search.evaluation.model.EvaluationReportDetail> detailRows =
-        new java.util.ArrayList<>();
-    java.util.List<com.yjlee.search.evaluation.model.EvaluationReportDocument> docRows =
-        new java.util.ArrayList<>();
-    for (EvaluationExecuteResponse.QueryEvaluationDetail d : queryDetails) {
-      detailRows.add(
-          com.yjlee.search.evaluation.model.EvaluationReportDetail.builder()
-              .report(report)
-              .query(d.getQuery())
-              .relevantCount(d.getRelevantCount())
-              .retrievedCount(d.getRetrievedCount())
-              .correctCount(d.getCorrectCount())
-              .precisionAt20(d.getPrecisionAt20())
-              .recallAt300(d.getRecallAt300())
-              .build());
-      // MISSING, WRONG 타입만 저장
-      if (d.getMissingDocuments() != null) {
-        for (EvaluationExecuteResponse.DocumentInfo m : d.getMissingDocuments()) {
-          docRows.add(
-              com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
-                  .report(report)
-                  .query(d.getQuery())
-                  .productId(m.getProductId())
-                  .docType(com.yjlee.search.evaluation.model.ReportDocumentType.MISSING)
-                  .productName(m.getProductName())
-                  .productSpecs(m.getProductSpecs())
-                  .build());
-        }
-      }
-      if (d.getWrongDocuments() != null) {
-        for (EvaluationExecuteResponse.DocumentInfo w : d.getWrongDocuments()) {
-          docRows.add(
-              com.yjlee.search.evaluation.model.EvaluationReportDocument.builder()
-                  .report(report)
-                  .query(d.getQuery())
-                  .productId(w.getProductId())
-                  .docType(com.yjlee.search.evaluation.model.ReportDocumentType.WRONG)
-                  .productName(w.getProductName())
-                  .productSpecs(w.getProductSpecs())
-                  .build());
-        }
-      }
-    }
-    if (!detailRows.isEmpty()) reportDetailRepository.saveAll(detailRows);
-    if (!docRows.isEmpty()) reportDocumentRepository.saveAll(docRows);
+        persistenceService.saveEvaluationResults(
+            reportName, queries.size(), avgRecall300, avgPrecision20, queryDetails);
 
     log.info(
         "✅ 평가 실행 완료: Recall@300={}, Precision@20={}",
@@ -475,34 +431,12 @@ public class EvaluationReportService {
     return intersection;
   }
 
-  @Transactional
-  private EvaluationReport saveEvaluationReport(
-      String reportName, int totalQueries, double averageRecall300, double averagePrecision20) {
-    try {
-      // JSON은 더 이상 저장하지 않음 (대용량 방지)
-      EvaluationReport report =
-          EvaluationReport.builder()
-              .reportName(reportName)
-              .totalQueries(totalQueries)
-              .averageRecall300(averageRecall300)
-              .averagePrecision20(averagePrecision20)
-              .detailedResults(null)
-              .build();
-
-      EvaluationReport savedReport = evaluationReportRepository.save(report);
-      log.info("✅ 리포트 저장 완료: ID {}", savedReport.getId());
-      return savedReport;
-
-    } catch (Exception e) {
-      log.error("❌ 리포트 저장 실패", e);
-      throw new RuntimeException("리포트 저장 중 오류가 발생했습니다", e);
-    }
-  }
-
+  @Transactional(readOnly = true)
   public List<EvaluationReport> getAllReports() {
     return evaluationReportRepository.findByOrderByCreatedAtDesc();
   }
 
+  @Transactional(readOnly = true)
   public List<EvaluationReport> getReportsByKeyword(String keyword) {
     if (keyword == null || keyword.trim().isEmpty()) {
       return getAllReports();
@@ -511,10 +445,12 @@ public class EvaluationReportService {
         keyword.trim());
   }
 
+  @Transactional(readOnly = true)
   public EvaluationReport getReportById(Long reportId) {
     return evaluationReportRepository.findById(reportId).orElse(null);
   }
 
+  @Transactional(readOnly = true)
   public EvaluationReportDetailResponse getReportDetail(Long reportId) {
     EvaluationReport report = evaluationReportRepository.findById(reportId).orElse(null);
     if (report == null) return null;

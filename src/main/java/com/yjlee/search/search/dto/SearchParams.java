@@ -57,6 +57,6 @@ public class SearchParams {
 
   @Schema(description = "하이브리드 검색 시 각 검색의 상위 K개 결과", example = "100", defaultValue = "100")
   @Min(1)
-  @Max(300)
-  private Integer hybridTopK = 100;
+  @Max(500)
+  private Integer hybridTopK = 300;
 }

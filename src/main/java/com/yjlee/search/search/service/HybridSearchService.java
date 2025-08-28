@@ -17,6 +17,7 @@ import com.yjlee.search.search.dto.SearchMetaDto;
 import com.yjlee.search.search.service.builder.QueryBuilder;
 import com.yjlee.search.search.service.builder.QueryResponseBuilder;
 import com.yjlee.search.search.service.builder.SearchRequestBuilder;
+import com.yjlee.search.search.utils.AggregationUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,12 +55,6 @@ public class HybridSearchService {
 
     long startTime = System.currentTimeMillis();
 
-    // 쿼리가 없는 경우 키워드 검색으로 폴백
-    if (request.getQuery() == null || request.getQuery().trim().isEmpty()) {
-      log.debug("Empty query, falling back to keyword-only search");
-      return executeKeywordSearch(indexName, request, withExplain);
-    }
-
     try {
       // 1. BM25와 Vector 검색을 동시에 실행
       CompletableFuture<List<Hit<JsonNode>>> bm25Future =
@@ -85,17 +80,24 @@ public class HybridSearchService {
           bm25Results.size(),
           vectorResults.size());
 
-      // 2. RRF 병합
-      List<RRFScorer.RRFResult> mergedResults =
-          rrfScorer.mergeWithRRF(bm25Results, vectorResults, request.getRrfK(), request.getSize());
+      // 2. RRF 병합 - 전체 TopK 결과를 병합
+      List<RRFScorer.RRFResult> allMergedResults =
+          rrfScorer.mergeWithRRF(
+              bm25Results, vectorResults, request.getRrfK(), request.getHybridTopK());
 
       // 3. 응답 생성
       long took = System.currentTimeMillis() - startTime;
       SearchExecuteResponse response =
           buildHybridResponse(
-              request, mergedResults, bm25Results.size(), vectorResults.size(), took, withExplain);
+              request,
+              allMergedResults,
+              bm25Results.size(),
+              vectorResults.size(),
+              took,
+              withExplain);
 
-      log.info("Hybrid search completed in {}ms - final results: {}", took, mergedResults.size());
+      log.info(
+          "Hybrid search completed in {}ms - final results: {}", took, allMergedResults.size());
 
       return response;
 
@@ -154,10 +156,23 @@ public class HybridSearchService {
       long took,
       boolean withExplain) {
 
-    // ProductDto 리스트 생성
+    // 1. 전체 결과에서 Aggregation 계산 (300개 기준)
+    Map<String, List<com.yjlee.search.search.dto.AggregationBucketDto>> aggregations =
+        AggregationUtils.calculateFromRRFResults(mergedResults);
+
+    // 2. 페이징 처리
+    int page = request.getPage();
+    int size = request.getSize();
+    int from = page * size;
+    int to = Math.min(from + size, mergedResults.size());
+
+    List<RRFScorer.RRFResult> pagedResults =
+        from < mergedResults.size() ? mergedResults.subList(from, to) : new ArrayList<>();
+
+    // 3. ProductDto 리스트 생성 (페이징된 결과만)
     List<ProductDto> products = new ArrayList<>();
-    for (int i = 0; i < mergedResults.size(); i++) {
-      RRFScorer.RRFResult result = mergedResults.get(i);
+    for (int i = 0; i < pagedResults.size(); i++) {
+      RRFScorer.RRFResult result = pagedResults.get(i);
       JsonNode source = result.getDocument().source();
 
       // JsonNode를 ProductDto로 변환
@@ -184,8 +199,11 @@ public class HybridSearchService {
       if (source.has("registered_month")) {
         productBuilder.registeredMonth(source.get("registered_month").asText());
       }
-      if (source.has("rating")) {
-        productBuilder.rating(new java.math.BigDecimal(source.get("rating").asText()));
+      if (source.has("rating") && !source.get("rating").isNull()) {
+        String ratingText = source.get("rating").asText();
+        if (!"null".equals(ratingText) && !ratingText.isEmpty()) {
+          productBuilder.rating(new java.math.BigDecimal(ratingText));
+        }
       }
       if (source.has("review_count")) {
         productBuilder.reviewCount(source.get("review_count").asInt());
@@ -205,14 +223,14 @@ public class HybridSearchService {
       if (withExplain) {
         ObjectNode explainNode = objectMapper.createObjectNode();
         explainNode.putPOJO("hybrid_score", result.getScoreExplanation());
-        explainNode.put("hybrid_rank", i + 1);
+        explainNode.put("hybrid_rank", from + i + 1);
         productBuilder.explain(explainNode.toString());
       }
 
       products.add(productBuilder.build());
     }
 
-    // SearchHitsDto 생성
+    // SearchHitsDto 생성 - 전체 병합 결과 개수 표시
     SearchHitsDto hits =
         SearchHitsDto.builder().total((long) mergedResults.size()).data(products).build();
 
@@ -242,7 +260,7 @@ public class HybridSearchService {
 
     return SearchExecuteResponse.builder()
         .hits(hits)
-        .aggregations(null) // 하이브리드 검색에서는 aggregation 지원 안함
+        .aggregations(aggregations)
         .meta(meta)
         .queryDsl(queryDsl)
         .build();

@@ -92,34 +92,41 @@ public class SearchService {
       txn.setLabel("search.query", request.getQuery() != null ? request.getQuery() : "no-query");
     }
 
+    // query가 있는 경우에만 로그 수집
+    boolean shouldCollectLog = request.getQuery() != null && !request.getQuery().trim().isEmpty();
+
     try {
       SearchExecuteResponse response = executor.execute();
       long responseTime = System.currentTimeMillis() - startTime;
 
-      collectSearchLog(
-          request,
-          requestTime,
-          clientIp,
-          userAgent,
-          responseTime,
-          response,
-          false,
-          null,
-          sessionId);
+      if (shouldCollectLog) {
+        collectSearchLog(
+            request,
+            requestTime,
+            clientIp,
+            userAgent,
+            responseTime,
+            response,
+            false,
+            null,
+            sessionId);
+      }
       return response;
 
     } catch (Exception e) {
       long responseTime = System.currentTimeMillis() - startTime;
-      collectSearchLog(
-          request,
-          requestTime,
-          clientIp,
-          userAgent,
-          responseTime,
-          null,
-          true,
-          e.getMessage(),
-          sessionId);
+      if (shouldCollectLog) {
+        collectSearchLog(
+            request,
+            requestTime,
+            clientIp,
+            userAgent,
+            responseTime,
+            null,
+            true,
+            e.getMessage(),
+            sessionId);
+      }
       throw new SearchException("상품 검색 실패", e);
     }
   }

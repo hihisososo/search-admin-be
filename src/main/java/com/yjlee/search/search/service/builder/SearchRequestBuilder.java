@@ -44,6 +44,7 @@ public class SearchRequestBuilder {
             .aggregations(aggregations)
             .from(from)
             .size(request.getSize())
+            .trackTotalHits(t -> t.enabled(true))
             .explain(withExplain);
 
     sortType.applySorting(searchBuilder, sortOrder);
