@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
@@ -240,8 +239,11 @@ public class AsyncEvaluationService {
   @Async("evaluationTaskExecutor")
   public void executeEvaluationAsync(Long taskId, EvaluationExecuteAsyncRequest request) {
     try {
-      log.info("비동기 평가 실행 시작: taskId={}, reportName={}, searchMode={}", 
-          taskId, request.getReportName(), request.getSearchMode());
+      log.info(
+          "비동기 평가 실행 시작: taskId={}, reportName={}, searchMode={}",
+          taskId,
+          request.getReportName(),
+          request.getSearchMode());
 
       asyncTaskService.updateProgress(taskId, 5, "평가 실행 준비 중...");
 
@@ -260,7 +262,8 @@ public class AsyncEvaluationService {
       ProgressCallback evaluationCallback =
           (progress, message) -> {
             // 진행률을 조정하여 전체 범위에 맞춤
-            int adjustedProgress = startProgress + (int)((endProgress - startProgress) * progress / 100.0);
+            int adjustedProgress =
+                startProgress + (int) ((endProgress - startProgress) * progress / 100.0);
             asyncTaskService.updateProgress(taskId, adjustedProgress, message);
           };
 
@@ -339,48 +342,48 @@ public class AsyncEvaluationService {
     return queries;
   }
 
-  /**
-   * 하이브리드 검색 평가 전 모든 쿼리에 대한 임베딩 사전 캐싱
-   */
+  /** 하이브리드 검색 평가 전 모든 쿼리에 대한 임베딩 사전 캐싱 */
   private void precacheEmbeddings(Long taskId) {
     try {
       // 모든 평가 쿼리 가져오기
       List<EvaluationQuery> allQueries = evaluationQueryService.getAllQueries();
       log.info("임베딩 사전 캐싱 시작: {}개 쿼리", allQueries.size());
-      
+
       // 병렬로 임베딩 생성 (10개씩 배치 처리)
       int batchSize = 10;
       List<CompletableFuture<Void>> futures = new ArrayList<>();
-      
+
       for (int i = 0; i < allQueries.size(); i += batchSize) {
         int start = i;
         int end = Math.min(i + batchSize, allQueries.size());
         List<EvaluationQuery> batch = allQueries.subList(start, end);
-        
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-          for (EvaluationQuery q : batch) {
-            try {
-              // 임베딩 생성 (캐시에 저장됨)
-              vectorSearchService.getQueryEmbedding(q.getQuery());
-            } catch (Exception e) {
-              log.warn("임베딩 생성 실패 (쿼리: {}): {}", q.getQuery(), e.getMessage());
-            }
-          }
-        });
-        
+
+        CompletableFuture<Void> future =
+            CompletableFuture.runAsync(
+                () -> {
+                  for (EvaluationQuery q : batch) {
+                    try {
+                      // 임베딩 생성 (캐시에 저장됨)
+                      vectorSearchService.getQueryEmbedding(q.getQuery());
+                    } catch (Exception e) {
+                      log.warn("임베딩 생성 실패 (쿼리: {}): {}", q.getQuery(), e.getMessage());
+                    }
+                  }
+                });
+
         futures.add(future);
-        
+
         // 진행률 업데이트 (10-20% 구간)
-        int progress = 10 + (int)((end * 10.0) / allQueries.size());
-        asyncTaskService.updateProgress(taskId, progress, 
-            String.format("임베딩 캐싱 중: %d/%d", end, allQueries.size()));
+        int progress = 10 + (int) ((end * 10.0) / allQueries.size());
+        asyncTaskService.updateProgress(
+            taskId, progress, String.format("임베딩 캐싱 중: %d/%d", end, allQueries.size()));
       }
-      
+
       // 모든 배치 완료 대기
       CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-      
+
       log.info("임베딩 사전 캐싱 완료: 캐시 크기 {}", vectorSearchService.getCacheSize());
-      
+
     } catch (Exception e) {
       log.error("임베딩 사전 캐싱 중 오류 발생", e);
       // 오류가 발생해도 평가는 계속 진행 (각 쿼리 실행 시 임베딩 생성됨)

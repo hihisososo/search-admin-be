@@ -79,35 +79,35 @@ public class ProductSearchService {
     // 300개 가져오기
     SearchResponse<JsonNode> response =
         vectorSearchService.vectorOnlySearch(indexName, request.getQuery(), 300);
-    
+
     List<Hit<JsonNode>> allHits = response.hits().hits();
-    
+
     // 1. 전체 결과에서 Aggregation 계산
-    Map<String, List<AggregationBucketDto>> aggregations = AggregationUtils.calculateFromHits(allHits);
-    
+    Map<String, List<AggregationBucketDto>> aggregations =
+        AggregationUtils.calculateFromHits(allHits);
+
     // 2. 페이징 처리
     int page = request.getPage();
     int size = request.getSize();
     int from = page * size;
     int to = Math.min(from + size, allHits.size());
-    
-    List<Hit<JsonNode>> pagedHits = 
+
+    List<Hit<JsonNode>> pagedHits =
         from < allHits.size() ? allHits.subList(from, to) : new ArrayList<>();
-    
+
     // 3. ProductDto 변환
     List<ProductDto> products = new ArrayList<>();
     for (int i = 0; i < pagedHits.size(); i++) {
       Hit<JsonNode> hit = pagedHits.get(i);
       JsonNode source = hit.source();
-      
-      ProductDto.ProductDtoBuilder builder = ProductDto.builder()
-          .id(hit.id())
-          .score(hit.score() != null ? hit.score() : 0.0);
-      
+
+      ProductDto.ProductDtoBuilder builder =
+          ProductDto.builder().id(hit.id()).score(hit.score() != null ? hit.score() : 0.0);
+
       if (source.has("name")) {
         builder.name(source.get("name").asText());
-        builder.nameRaw(source.has("name_raw") ? 
-            source.get("name_raw").asText() : source.get("name").asText());
+        builder.nameRaw(
+            source.has("name_raw") ? source.get("name_raw").asText() : source.get("name").asText());
       }
       if (source.has("model")) {
         builder.model(source.get("model").asText());
@@ -138,28 +138,29 @@ public class ProductSearchService {
       }
       if (source.has("specs")) {
         builder.specs(source.get("specs").asText());
-        builder.specsRaw(source.has("specs_raw") ?
-            source.get("specs_raw").asText() : source.get("specs").asText());
+        builder.specsRaw(
+            source.has("specs_raw")
+                ? source.get("specs_raw").asText()
+                : source.get("specs").asText());
       }
-      
+
       products.add(builder.build());
     }
-    
+
     // 4. Response 생성
-    SearchHitsDto hits = SearchHitsDto.builder()
-        .total((long) allHits.size())
-        .data(products)
-        .build();
-    
+    SearchHitsDto hits =
+        SearchHitsDto.builder().total((long) allHits.size()).data(products).build();
+
     int totalPages = (int) Math.ceil((double) allHits.size() / request.getSize());
-    SearchMetaDto meta = SearchMetaDto.builder()
-        .page(request.getPage())
-        .size(request.getSize())
-        .totalPages(totalPages)
-        .processingTime(System.currentTimeMillis() - startTime)
-        .searchSessionId(request.getSearchSessionId())
-        .build();
-    
+    SearchMetaDto meta =
+        SearchMetaDto.builder()
+            .page(request.getPage())
+            .size(request.getSize())
+            .totalPages(totalPages)
+            .processingTime(System.currentTimeMillis() - startTime)
+            .searchSessionId(request.getSearchSessionId())
+            .build();
+
     return SearchExecuteResponse.builder()
         .hits(hits)
         .aggregations(aggregations)

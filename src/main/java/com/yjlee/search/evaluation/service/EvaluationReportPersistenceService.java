@@ -31,15 +31,15 @@ public class EvaluationReportPersistenceService {
       double avgRecall300,
       double avgPrecision20,
       List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails) {
-    
+
     // 리포트 저장
-    EvaluationReport report = saveEvaluationReport(
-        reportName, totalQueries, avgRecall300, avgPrecision20);
-    
+    EvaluationReport report =
+        saveEvaluationReport(reportName, totalQueries, avgRecall300, avgPrecision20);
+
     // 세부 결과를 구조화 테이블에 저장
     List<EvaluationReportDetail> detailRows = new ArrayList<>();
     List<EvaluationReportDocument> docRows = new ArrayList<>();
-        
+
     for (EvaluationExecuteResponse.QueryEvaluationDetail d : queryDetails) {
       detailRows.add(
           EvaluationReportDetail.builder()
@@ -51,7 +51,7 @@ public class EvaluationReportPersistenceService {
               .precisionAt20(d.getPrecisionAt20())
               .recallAt300(d.getRecallAt300())
               .build());
-              
+
       // MISSING, WRONG 타입만 저장
       if (d.getMissingDocuments() != null) {
         for (EvaluationExecuteResponse.DocumentInfo m : d.getMissingDocuments()) {
@@ -80,13 +80,16 @@ public class EvaluationReportPersistenceService {
         }
       }
     }
-    
+
     if (!detailRows.isEmpty()) reportDetailRepository.saveAll(detailRows);
     if (!docRows.isEmpty()) reportDocumentRepository.saveAll(docRows);
-    
-    log.info("✅ 평가 결과 저장 완료: 리포트 ID {}, 상세 {}개, 문서 {}개", 
-        report.getId(), detailRows.size(), docRows.size());
-    
+
+    log.info(
+        "✅ 평가 결과 저장 완료: 리포트 ID {}, 상세 {}개, 문서 {}개",
+        report.getId(),
+        detailRows.size(),
+        docRows.size());
+
     return report;
   }
 

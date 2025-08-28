@@ -60,49 +60,50 @@ public class CategoryRankingService {
       Map<String, Integer> categoryWeights = new HashMap<>();
       Set<String> appliedKeywords = new HashSet<>(); // 이미 적용된 키워드 추적
 
-    // 1. 먼저 공백 단위로 매칭
-    String[] words = query.toLowerCase().split("\\s+");
-    for (String word : words) {
-      if (appliedKeywords.contains(word)) {
-        continue; // 이미 적용된 키워드는 스킵
-      }
-
-      List<CategoryWeight> weights = cache.get(word);
-      if (weights != null && !weights.isEmpty()) {
-        for (CategoryWeight cw : weights) {
-          categoryWeights.merge(cw.getCategory(), cw.getWeight(), Integer::sum);
-        }
-        appliedKeywords.add(word); // 적용된 키워드로 마킹
-        log.debug("키워드 '{}' 매칭 (공백 단위) - 카테고리 가중치: {}", word, weights);
-      }
-    }
-
-    // 2. nori 형태소 분석 결과로도 매칭
-    try {
-      List<AnalyzeTextResponse.TokenInfo> tokens =
-          analyzeService.analyzeText(query, activeEnvironmentType);
-      for (AnalyzeTextResponse.TokenInfo tokenInfo : tokens) {
-        String token = tokenInfo.getToken().toLowerCase();
-
-        if (appliedKeywords.contains(token)) {
+      // 1. 먼저 공백 단위로 매칭
+      String[] words = query.toLowerCase().split("\\s+");
+      for (String word : words) {
+        if (appliedKeywords.contains(word)) {
           continue; // 이미 적용된 키워드는 스킵
         }
 
-        List<CategoryWeight> weights = cache.get(token);
+        List<CategoryWeight> weights = cache.get(word);
         if (weights != null && !weights.isEmpty()) {
           for (CategoryWeight cw : weights) {
             categoryWeights.merge(cw.getCategory(), cw.getWeight(), Integer::sum);
           }
-          appliedKeywords.add(token); // 적용된 키워드로 마킹
-          log.debug("키워드 '{}' 매칭 (형태소 분석) - 카테고리 가중치: {}", token, weights);
+          appliedKeywords.add(word); // 적용된 키워드로 마킹
+          log.debug("키워드 '{}' 매칭 (공백 단위) - 카테고리 가중치: {}", word, weights);
         }
       }
-    } catch (Exception e) {
-      log.warn("형태소 분석 중 오류 발생, 공백 단위 매칭만 사용: {}", e.getMessage());
-    }
+
+      // 2. nori 형태소 분석 결과로도 매칭
+      try {
+        List<AnalyzeTextResponse.TokenInfo> tokens =
+            analyzeService.analyzeText(query, activeEnvironmentType);
+        for (AnalyzeTextResponse.TokenInfo tokenInfo : tokens) {
+          String token = tokenInfo.getToken().toLowerCase();
+
+          if (appliedKeywords.contains(token)) {
+            continue; // 이미 적용된 키워드는 스킵
+          }
+
+          List<CategoryWeight> weights = cache.get(token);
+          if (weights != null && !weights.isEmpty()) {
+            for (CategoryWeight cw : weights) {
+              categoryWeights.merge(cw.getCategory(), cw.getWeight(), Integer::sum);
+            }
+            appliedKeywords.add(token); // 적용된 키워드로 마킹
+            log.debug("키워드 '{}' 매칭 (형태소 분석) - 카테고리 가중치: {}", token, weights);
+          }
+        }
+      } catch (Exception e) {
+        log.warn("형태소 분석 중 오류 발생, 공백 단위 매칭만 사용: {}", e.getMessage());
+      }
 
       if (!categoryWeights.isEmpty()) {
-        log.info("쿼리 '{}' - 적용된 카테고리 가중치: {}, 적용된 키워드: {}", query, categoryWeights, appliedKeywords);
+        log.info(
+            "쿼리 '{}' - 적용된 카테고리 가중치: {}, 적용된 키워드: {}", query, categoryWeights, appliedKeywords);
       }
 
       return categoryWeights;

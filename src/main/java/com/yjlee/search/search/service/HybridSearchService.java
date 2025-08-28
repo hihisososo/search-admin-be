@@ -82,15 +82,22 @@ public class HybridSearchService {
 
       // 2. RRF 병합 - 전체 TopK 결과를 병합
       List<RRFScorer.RRFResult> allMergedResults =
-          rrfScorer.mergeWithRRF(bm25Results, vectorResults, request.getRrfK(), request.getHybridTopK());
+          rrfScorer.mergeWithRRF(
+              bm25Results, vectorResults, request.getRrfK(), request.getHybridTopK());
 
       // 3. 응답 생성
       long took = System.currentTimeMillis() - startTime;
       SearchExecuteResponse response =
           buildHybridResponse(
-              request, allMergedResults, bm25Results.size(), vectorResults.size(), took, withExplain);
+              request,
+              allMergedResults,
+              bm25Results.size(),
+              vectorResults.size(),
+              took,
+              withExplain);
 
-      log.info("Hybrid search completed in {}ms - final results: {}", took, allMergedResults.size());
+      log.info(
+          "Hybrid search completed in {}ms - final results: {}", took, allMergedResults.size());
 
       return response;
 
@@ -150,7 +157,7 @@ public class HybridSearchService {
       boolean withExplain) {
 
     // 1. 전체 결과에서 Aggregation 계산 (300개 기준)
-    Map<String, List<com.yjlee.search.search.dto.AggregationBucketDto>> aggregations = 
+    Map<String, List<com.yjlee.search.search.dto.AggregationBucketDto>> aggregations =
         AggregationUtils.calculateFromRRFResults(mergedResults);
 
     // 2. 페이징 처리
@@ -158,8 +165,8 @@ public class HybridSearchService {
     int size = request.getSize();
     int from = page * size;
     int to = Math.min(from + size, mergedResults.size());
-    
-    List<RRFScorer.RRFResult> pagedResults = 
+
+    List<RRFScorer.RRFResult> pagedResults =
         from < mergedResults.size() ? mergedResults.subList(from, to) : new ArrayList<>();
 
     // 3. ProductDto 리스트 생성 (페이징된 결과만)
@@ -258,5 +265,4 @@ public class HybridSearchService {
         .queryDsl(queryDsl)
         .build();
   }
-
 }

@@ -178,8 +178,9 @@ public class EvaluationReportService {
     double avgPrecision20 = queries.isEmpty() ? 0.0 : totalPrecision20 / queries.size();
 
     // 트랜잭션 내에서 DB 저장 처리 (외부 서비스 호출)
-    EvaluationReport report = persistenceService.saveEvaluationResults(
-        reportName, queries.size(), avgRecall300, avgPrecision20, queryDetails);
+    EvaluationReport report =
+        persistenceService.saveEvaluationResults(
+            reportName, queries.size(), avgRecall300, avgPrecision20, queryDetails);
 
     log.info(
         "✅ 평가 실행 완료: Recall@300={}, Precision@20={}",
@@ -196,7 +197,6 @@ public class EvaluationReportService {
         .createdAt(report.getCreatedAt())
         .build();
   }
-
 
   public EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(String query) {
     return evaluateQuery(query, SearchMode.KEYWORD_ONLY, 60, 100);
@@ -430,7 +430,6 @@ public class EvaluationReportService {
     intersection.retainAll(set2);
     return intersection;
   }
-
 
   @Transactional(readOnly = true)
   public List<EvaluationReport> getAllReports() {

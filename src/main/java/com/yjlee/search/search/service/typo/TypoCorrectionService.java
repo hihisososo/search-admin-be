@@ -117,7 +117,8 @@ public class TypoCorrectionService {
   public String getCacheStatus() {
     cacheLock.readLock().lock();
     try {
-      return String.format("Env: %s, Cache size: %d, Initialized: %b", 
+      return String.format(
+          "Env: %s, Cache size: %d, Initialized: %b",
           activeEnvironmentType.name(), cache.size(), cacheInitialized);
     } finally {
       cacheLock.readLock().unlock();

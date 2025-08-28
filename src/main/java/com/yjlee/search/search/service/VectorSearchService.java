@@ -41,11 +41,11 @@ public class VectorSearchService {
     if (cached != null) {
       return cached;
     }
-    
+
     // 캐시에 없으면 생성 (락 밖에서)
     log.debug("Generating embedding for query: {}", query);
     float[] embedding = embeddingService.getEmbedding(query);
-    
+
     // 캐시에 저장
     embeddingCache.put(query, embedding);
     return embedding;
