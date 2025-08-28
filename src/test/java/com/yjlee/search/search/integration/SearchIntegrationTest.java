@@ -416,7 +416,6 @@ class SearchControllerTest extends BaseIntegrationTest {
         .thumbnailUrl("https://example.com/" + id + ".jpg")
         .specs(TextPreprocessor.preprocess(specs))
         .specsRaw(specs)
-        .nameSpecsVector(null)
         .build();
   }
 

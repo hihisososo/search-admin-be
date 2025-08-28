@@ -9,11 +9,13 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.dto.ProductDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchHitsDto;
 import com.yjlee.search.search.dto.SearchMetaDto;
+import com.yjlee.search.search.dto.VectorSearchConfig;
 import com.yjlee.search.search.service.builder.QueryBuilder;
 import com.yjlee.search.search.service.builder.QueryResponseBuilder;
 import com.yjlee.search.search.service.builder.SearchRequestBuilder;
@@ -64,13 +66,19 @@ public class HybridSearchService {
 
       CompletableFuture<List<Hit<JsonNode>>> vectorFuture =
           CompletableFuture.supplyAsync(
-              () ->
-                  vectorSearchService.searchByVector(
-                      indexName,
-                      request.getQuery(),
-                      request.getHybridTopK(),
-                      request.getHybridTopK() * 3, // numCandidates는 k의 3배
-                      request.getVectorMinScore()));
+              () -> {
+                // 벡터 검색 설정 구성
+                VectorSearchConfig vectorConfig =
+                    VectorSearchConfig.builder()
+                        .topK(request.getHybridTopK())
+                        .vectorMinScore(request.getVectorMinScore())
+                        .build();
+
+                SearchResponse<JsonNode> vectorResponse =
+                    vectorSearchService.multiFieldVectorSearch(
+                        indexName, request.getQuery(), vectorConfig);
+                return vectorResponse.hits().hits();
+              });
 
       // 두 검색 완료 대기
       List<Hit<JsonNode>> bm25Results = bm25Future.get();
@@ -125,7 +133,12 @@ public class HybridSearchService {
                   s.index(indexName)
                       .query(q -> q.bool(boolQuery))
                       .size(topK)
-                      .source(src -> src.filter(f -> f.excludes("name_specs_vector"))));
+                      .source(
+                          src ->
+                              src.filter(
+                                  f ->
+                                      f.excludes(
+                                          VectorSearchConstants.getVectorFieldsToExclude()))));
 
       SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
       return response.hits().hits();

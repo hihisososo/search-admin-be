@@ -11,6 +11,7 @@ import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import com.yjlee.search.searchlog.service.SearchLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,8 @@ public class SearchService {
         request.getQuery());
 
     String indexName = indexResolver.resolveProductIndexForSimulation(request.getEnvironmentType());
-    return productSearchService.search(indexName, request, request.isExplain());
+    return productSearchService.search(
+        indexName, (SearchExecuteRequest) request, request.isExplain());
   }
 
   public AutocompleteResponse getAutocompleteSuggestionsSimulation(
@@ -89,7 +91,7 @@ public class SearchService {
 
     Transaction txn = ElasticApm.currentTransaction();
     if (txn != null) {
-      txn.setLabel("search.query", request.getQuery() != null ? request.getQuery() : "no-query");
+      txn.setLabel("search.query", Optional.ofNullable(request.getQuery()).orElse(""));
     }
 
     // query가 있는 경우에만 로그 수집
@@ -167,6 +169,7 @@ public class SearchService {
         params.getSearchMode() != null ? params.getSearchMode() : SearchMode.KEYWORD_ONLY);
     request.setRrfK(params.getRrfK() != null ? params.getRrfK() : 60);
     request.setHybridTopK(params.getHybridTopK() != null ? params.getHybridTopK() : 100);
+    request.setVectorMinScore(params.getVectorMinScore());
 
     if (params.getSortField() != null || params.getSortOrder() != null) {
       ProductSortDto sort = new ProductSortDto();
@@ -205,6 +208,7 @@ public class SearchService {
         params.getSearchMode() != null ? params.getSearchMode() : SearchMode.KEYWORD_ONLY);
     request.setRrfK(params.getRrfK() != null ? params.getRrfK() : 60);
     request.setHybridTopK(params.getHybridTopK() != null ? params.getHybridTopK() : 100);
+    request.setVectorMinScore(params.getVectorMinScore());
 
     if (params.getSortField() != null || params.getSortOrder() != null) {
       ProductSortDto sort = new ProductSortDto();

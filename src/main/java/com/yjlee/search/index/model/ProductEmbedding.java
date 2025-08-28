@@ -23,11 +23,17 @@ public class ProductEmbedding {
   @Column(name = "product_id", nullable = false, unique = true)
   Long productId;
 
-  @Column(name = "embedding_text", columnDefinition = "TEXT")
-  String embeddingText;
+  @Column(name = "name_text", columnDefinition = "TEXT")
+  String nameText;
 
-  @Column(name = "embedding_vector", columnDefinition = "TEXT")
-  String embeddingVector;
+  @Column(name = "name_vector", columnDefinition = "TEXT")
+  String nameVector;
+
+  @Column(name = "specs_text", columnDefinition = "TEXT")
+  String specsText;
+
+  @Column(name = "specs_vector", columnDefinition = "TEXT")
+  String specsVector;
 
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)

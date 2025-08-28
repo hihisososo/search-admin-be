@@ -47,8 +47,11 @@ public class ProductDocument {
   @JsonProperty("specs_raw")
   String specsRaw;
 
-  @JsonProperty("name_specs_vector")
-  List<Float> nameSpecsVector;
+  @JsonProperty("name_vector")
+  List<Float> nameVector;
+
+  @JsonProperty("specs_vector")
+  List<Float> specsVector;
 
   String units;
 

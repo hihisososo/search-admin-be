@@ -3,9 +3,10 @@ package com.yjlee.search.search.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
-import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.evaluation.service.OpenAIEmbeddingService;
+import com.yjlee.search.search.constants.VectorSearchConstants;
+import com.yjlee.search.search.dto.VectorSearchConfig;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,12 +15,16 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class VectorSearchService {
+
+  @Value("${app.evaluation.candidate.min-score:0.60}")
+  private double defaultVectorMinScore;
 
   private final OpenAIEmbeddingService embeddingService;
   private final ElasticsearchClient elasticsearchClient;
@@ -51,90 +56,67 @@ public class VectorSearchService {
     return embedding;
   }
 
-  /** KNN 벡터 검색 실행 */
-  public List<Hit<JsonNode>> searchByVector(
-      String index, String query, int k, int numCandidates, double minScore) {
-    try {
-      float[] queryVector = getQueryEmbedding(query);
-
-      // float[]를 List<Float>로 변환
-      List<Float> queryVectorList = new ArrayList<>();
-      for (float f : queryVector) {
-        queryVectorList.add(f);
-      }
-
-      // KNN 검색 쿼리 구성
-      SearchRequest searchRequest =
-          SearchRequest.of(
-              s ->
-                  s.index(index)
-                      .size(k)
-                      .minScore(minScore)
-                      .query(
-                          q ->
-                              q.knn(
-                                  knn ->
-                                      knn.field("name_specs_vector")
-                                          .queryVector(queryVectorList)
-                                          .k(k)
-                                          .numCandidates(numCandidates)))
-                      // 벡터 필드 제외하여 응답 크기 최소화
-                      .source(src -> src.filter(f -> f.excludes("name_specs_vector"))));
-
-      log.debug("Executing vector search for query: {}, k: {}, minScore: {}", query, k, minScore);
-      SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
-
-      List<Hit<JsonNode>> hits = response.hits().hits();
-      log.info("Vector search completed. Found {} results", hits.size());
-
-      return hits;
-
-    } catch (IOException e) {
-      log.error("Vector search failed for query: {}", query, e);
-      return new ArrayList<>();
-    } catch (Exception e) {
-      log.error("Unexpected error in vector search", e);
-      return new ArrayList<>();
-    }
+  /** 다중 필드 KNN 벡터 검색 실행 (기본 설정) */
+  public SearchResponse<JsonNode> multiFieldVectorSearch(String index, String query, int topK) {
+    VectorSearchConfig config =
+        VectorSearchConfig.builder().topK(topK).vectorMinScore(defaultVectorMinScore).build();
+    return multiFieldVectorSearch(index, query, config);
   }
 
-  /** 벡터 검색만 실행 (VECTOR_ONLY 모드용) - 300개 가져오기 */
-  public SearchResponse<JsonNode> vectorOnlySearch(
-      String index, String query, int topK, double minScore) {
+  /** 다중 필드 KNN 벡터 검색 실행 (설정 객체 사용) */
+  public SearchResponse<JsonNode> multiFieldVectorSearch(
+      String index, String query, VectorSearchConfig config) {
     try {
       float[] queryVector = getQueryEmbedding(query);
+      int topK = config.getTopK();
 
       List<Float> queryVectorList = new ArrayList<>();
       for (float f : queryVector) {
         queryVectorList.add(f);
       }
 
+      // 벡터 검색 설정
+      double minScore =
+          config.getVectorMinScore() != null ? config.getVectorMinScore() : defaultVectorMinScore;
+
+      // sub_searches를 사용한 다중 벡터 필드 검색
       SearchRequest searchRequest =
           SearchRequest.of(
               s ->
                   s.index(index)
-                      .size(topK) // 전체 TopK 개수만큼 가져오기
+                      .size(topK)
                       .minScore(minScore)
-                      .query(
-                          q ->
-                              q.knn(
-                                  knn ->
-                                      knn.field("name_specs_vector")
-                                          .queryVector(queryVectorList)
-                                          .k(topK)
-                                          .numCandidates(topK * 3) // 일반적으로 k의 3배 정도
-                                  ))
-                      .source(src -> src.filter(f -> f.excludes("name_specs_vector"))));
+                      .knn(
+                          k ->
+                              k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
+                                  .queryVector(queryVectorList)
+                                  .k(topK)
+                                  .numCandidates(config.getNumCandidates())
+                                  .boost(config.getNameVectorBoost()))
+                      .knn(
+                          k ->
+                              k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
+                                  .queryVector(queryVectorList)
+                                  .k(topK)
+                                  .numCandidates(config.getNumCandidates())
+                                  .boost(config.getSpecsVectorBoost()))
+                      .source(
+                          src ->
+                              src.filter(
+                                  f ->
+                                      f.excludes(
+                                          VectorSearchConstants.getVectorFieldsToExclude()))));
 
       log.debug(
-          "Executing vector-only search for query: {}, topK: {}, minScore: {}",
+          "Executing multi-field vector search - query: {}, topK: {}, minScore: {}",
           query,
           topK,
           minScore);
+
       return elasticsearchClient.search(searchRequest, JsonNode.class);
 
     } catch (IOException e) {
-      log.error("Vector-only search failed", e);
+      log.error("Multi-field vector search failed", e);
       throw new RuntimeException("Vector search failed", e);
     }
   }
