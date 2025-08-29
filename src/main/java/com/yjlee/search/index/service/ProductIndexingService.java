@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +41,7 @@ public class ProductIndexingService {
   private final ProductEmbeddingService productEmbeddingService;
 
   private IndexingProgressCallback progressCallback;
-  private final ExecutorService executorService = Executors.newFixedThreadPool(5);
+  private final ExecutorService executorService = Executors.newFixedThreadPool(3);
 
   private static final int BATCH_SIZE = 300;
 
@@ -333,7 +334,7 @@ public class ProductIndexingService {
     log.info("ExecutorService 종료 중...");
     executorService.shutdown();
     try {
-      if (!executorService.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+      if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
         executorService.shutdownNow();
       }
     } catch (InterruptedException e) {

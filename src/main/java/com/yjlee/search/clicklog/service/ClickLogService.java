@@ -6,6 +6,7 @@ import com.yjlee.search.clicklog.dto.ClickLogRequest;
 import com.yjlee.search.clicklog.dto.ClickLogResponse;
 import com.yjlee.search.clicklog.model.ClickLogDocument;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +24,7 @@ public class ClickLogService {
 
   public ClickLogResponse logClick(ClickLogRequest request) {
     try {
-      LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
+      LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
       String indexName = CLICK_LOG_INDEX_PREFIX + now.format(INDEX_DATE_FORMATTER);
 
       ClickLogDocument document =
@@ -56,7 +57,7 @@ public class ClickLogService {
       return ClickLogResponse.builder()
           .success(false)
           .message("클릭 로그 저장 중 오류가 발생했습니다: " + e.getMessage())
-          .timestamp(LocalDateTime.now(java.time.ZoneOffset.UTC))
+          .timestamp(LocalDateTime.now(ZoneOffset.UTC))
           .build();
     }
   }

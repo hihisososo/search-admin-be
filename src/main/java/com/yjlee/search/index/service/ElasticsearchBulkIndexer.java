@@ -1,6 +1,7 @@
 package com.yjlee.search.index.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import com.yjlee.search.common.constants.ESFields;
@@ -36,7 +37,7 @@ public class ElasticsearchBulkIndexer {
 
     BulkResponse response =
         elasticsearchClient.bulk(
-            bulkBuilder.refresh(co.elastic.clients.elasticsearch._types.Refresh.False).build());
+            bulkBuilder.refresh(Refresh.False).build());
     logErrors(response, "상품");
 
     return documents.size();
@@ -68,7 +69,7 @@ public class ElasticsearchBulkIndexer {
 
       BulkResponse response =
           elasticsearchClient.bulk(
-              bulkBuilder.refresh(co.elastic.clients.elasticsearch._types.Refresh.False).build());
+              bulkBuilder.refresh(Refresh.False).build());
       logErrors(response, indexName);
 
       return response;
@@ -91,7 +92,7 @@ public class ElasticsearchBulkIndexer {
 
     BulkResponse response =
         elasticsearchClient.bulk(
-            bulkBuilder.refresh(co.elastic.clients.elasticsearch._types.Refresh.False).build());
+            bulkBuilder.refresh(Refresh.False).build());
     logErrors(response, "상품");
 
     return documents.size();
@@ -113,7 +114,7 @@ public class ElasticsearchBulkIndexer {
 
     BulkResponse response =
         elasticsearchClient.bulk(
-            bulkBuilder.refresh(co.elastic.clients.elasticsearch._types.Refresh.False).build());
+            bulkBuilder.refresh(Refresh.False).build());
     logErrors(response, "자동완성");
 
     return documents.size();
@@ -135,7 +136,7 @@ public class ElasticsearchBulkIndexer {
 
     BulkResponse response =
         elasticsearchClient.bulk(
-            bulkBuilder.refresh(co.elastic.clients.elasticsearch._types.Refresh.False).build());
+            bulkBuilder.refresh(Refresh.False).build());
     logErrors(response, "자동완성");
 
     return documents.size();

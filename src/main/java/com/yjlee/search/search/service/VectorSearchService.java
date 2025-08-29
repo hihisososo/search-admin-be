@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.evaluation.service.OpenAIEmbeddingService;
+import com.yjlee.search.search.constants.SearchConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.dto.VectorSearchConfig;
 import java.io.IOException;
@@ -23,19 +24,22 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class VectorSearchService {
 
-  @Value("${app.evaluation.candidate.min-score:0.60}")
+  @Value("${app.evaluation.candidate.min-score:0.70}")
   private double defaultVectorMinScore;
 
   private final OpenAIEmbeddingService embeddingService;
   private final ElasticsearchClient elasticsearchClient;
 
-  // LRU 캐시 - 최대 1000개 항목 유지
+  // LRU 캐시 - 최대 항목 유지
   private final Map<String, float[]> embeddingCache =
       Collections.synchronizedMap(
-          new LinkedHashMap<String, float[]>(1001, 0.75f, true) {
+          new LinkedHashMap<String, float[]>(
+              SearchConstants.EMBEDDING_CACHE_SIZE + 1, 
+              SearchConstants.CACHE_LOAD_FACTOR, 
+              true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, float[]> eldest) {
-              return size() > 1000;
+              return size() > SearchConstants.EMBEDDING_CACHE_SIZE;
             }
           });
 
@@ -130,5 +134,10 @@ public class VectorSearchService {
   /** 캐시 크기 확인 */
   public int getCacheSize() {
     return embeddingCache.size();
+  }
+  
+  /** 기본 벡터 최소 점수 반환 */
+  public double getDefaultVectorMinScore() {
+    return defaultVectorMinScore;
   }
 }

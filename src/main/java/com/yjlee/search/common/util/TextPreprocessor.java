@@ -1,6 +1,7 @@
 package com.yjlee.search.common.util;
 
 import java.text.Normalizer;
+import static java.text.Normalizer.Form;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -86,6 +87,6 @@ public class TextPreprocessor {
   }
 
   private static String normalizeUnicode(String text) {
-    return Normalizer.normalize(text, Normalizer.Form.NFC);
+    return Normalizer.normalize(text, Form.NFC);
   }
 }

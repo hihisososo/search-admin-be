@@ -2,6 +2,7 @@ package com.yjlee.search.search.service.builder;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.yjlee.search.common.constants.ESFields;
@@ -99,8 +100,7 @@ public class QueryBuilder {
                           m.query(query)
                               .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
                               .type(TextQueryType.CrossFields)
-                              .operator(
-                                  co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                              .operator(Operator.And)
                               .boost(1.0f))));
 
       // 2. 모델명제외쿼리 + 모델명 별도 AND 검색
@@ -113,8 +113,7 @@ public class QueryBuilder {
                             m.query(queryWithoutModels)
                                 .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
                                 .type(TextQueryType.CrossFields)
-                                .operator(
-                                    co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                                .operator(Operator.And)
                                 .boost(1.0f)));
 
         // 모델명들을 model.edge_ngram에서 검색 (AND 조건)
@@ -153,8 +152,7 @@ public class QueryBuilder {
                           m.query(query)
                               .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
                               .type(TextQueryType.CrossFields)
-                              .operator(
-                                  co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
+                              .operator(Operator.And)
                               .boost(1.0f)));
     }
 

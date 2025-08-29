@@ -3,6 +3,9 @@ package com.yjlee.search.stats.service.query;
 import com.yjlee.search.stats.domain.KeywordStats;
 import com.yjlee.search.stats.dto.PopularKeywordResponse;
 import com.yjlee.search.stats.repository.StatsRepository;
+
+import static com.yjlee.search.stats.dto.PopularKeywordResponse.RankChangeStatus.*;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +29,7 @@ public class PopularKeywordQueryService {
     List<KeywordStats> currentKeywords = statsRepository.getPopularKeywords(from, to, limit);
 
     // 이전 기간 계산 (동일한 기간만큼 이전)
-    long periodDays = java.time.Duration.between(from, to).toDays();
+    long periodDays = Duration.between(from, to).toDays();
     LocalDateTime previousFrom = from.minusDays(periodDays);
     LocalDateTime previousTo = from;
 
@@ -47,7 +50,7 @@ public class PopularKeywordQueryService {
       LocalDateTime from, LocalDateTime to, int limit) {
     log.info("급등검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
 
-    long periodDays = java.time.Duration.between(from, to).toDays();
+    long periodDays = Duration.between(from, to).toDays();
     LocalDateTime previousFrom = from.minusDays(periodDays);
     LocalDateTime previousTo = from;
 
@@ -73,7 +76,7 @@ public class PopularKeywordQueryService {
                   PopularKeywordResponse.RankChangeStatus changeStatus =
                       previousRanks.containsKey(current.getKeyword())
                           ? null
-                          : PopularKeywordResponse.RankChangeStatus.NEW;
+                          : NEW;
                   return new RankChangeKeyword(current, rankChange, changeStatus);
                 })
             .filter(item -> item.rankChange > 0) // 순위가 상승한 키워드만
@@ -108,17 +111,17 @@ public class PopularKeywordQueryService {
 
               if (previousRank == null) {
                 // 신규 진입
-                changeStatus = PopularKeywordResponse.RankChangeStatus.NEW;
+                changeStatus = NEW;
               } else {
                 // 순위 변동 계산 (이전 순위 - 현재 순위, 양수면 상승)
                 rankChange = previousRank - current.getRank();
 
                 if (rankChange > 0) {
-                  changeStatus = PopularKeywordResponse.RankChangeStatus.UP;
+                  changeStatus = UP;
                 } else if (rankChange < 0) {
-                  changeStatus = PopularKeywordResponse.RankChangeStatus.DOWN;
+                  changeStatus = DOWN;
                 } else {
-                  changeStatus = PopularKeywordResponse.RankChangeStatus.SAME;
+                  changeStatus = SAME;
                 }
               }
 
