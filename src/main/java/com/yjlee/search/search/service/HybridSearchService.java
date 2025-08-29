@@ -174,7 +174,7 @@ public class HybridSearchService {
                                                                         .NAME_VECTOR_FIELD)
                                                                 .queryVector(queryVectorList)
                                                                 .k(topK)
-                                                                .numCandidates(100))
+                                                                .numCandidates(Math.max(topK * 3, 100)))
                                                     .knn(
                                                         k ->
                                                             k.field(
@@ -182,7 +182,7 @@ public class HybridSearchService {
                                                                         .SPECS_VECTOR_FIELD)
                                                                 .queryVector(queryVectorList)
                                                                 .k(topK)
-                                                                .numCandidates(100))
+                                                                .numCandidates(Math.max(topK * 3, 100)))
                                                     .source(
                                                         src ->
                                                             src.filter(

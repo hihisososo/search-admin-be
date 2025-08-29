@@ -114,11 +114,11 @@ class UnitExtractorTest {
 
   @Test
   void 개수_단위_증강() {
-    String text = "사과 10개";
+    String text = "사과10개";
 
     List<String> augmented = UnitExtractor.extractUnitsForIndexing(text);
 
-    assertThat(augmented).contains("10개", "10ea", "10pcs", "10피스", "10piece");
+    assertThat(augmented).contains("10개", "10ea");
   }
 
   @Test

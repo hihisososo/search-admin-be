@@ -1,5 +1,6 @@
 package com.yjlee.search.evaluation.service;
 
+import jakarta.annotation.PreDestroy;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +23,7 @@ public class LLMRateLimitManager {
     }
 
     running.set(true);
-    healthCheckThread = new Thread(this::healthCheckLoop, "llm-health-checker");
+    healthCheckThread = new Thread(this::healthCheckLoop, "llm-health-check");
     healthCheckThread.setDaemon(true);
     healthCheckThread.start();
     log.info("LLM health check 스레드 시작");
@@ -92,5 +93,10 @@ public class LLMRateLimitManager {
       log.debug("Rate limit 대기 중... Health check가 해제 확인 중");
       Thread.sleep(1000); // 1초씩 대기
     }
+  }
+
+  @PreDestroy
+  public void shutdown() {
+    stopHealthCheck();
   }
 }

@@ -7,8 +7,8 @@ import com.yjlee.search.search.constants.SearchConstants;
 import com.yjlee.search.search.converter.ProductDtoConverter;
 import com.yjlee.search.search.dto.*;
 import com.yjlee.search.search.service.VectorSearchService;
+import com.yjlee.search.search.utils.AggregationUtils;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -73,7 +73,9 @@ public class VectorSearchStrategy implements SearchStrategy {
             .searchSessionId(request.getSearchSessionId())
             .build();
 
-    Map<String, List<AggregationBucketDto>> aggregations = new HashMap<>();
+    // 벡터 검색 결과에서 aggregation 계산
+    Map<String, List<AggregationBucketDto>> aggregations = 
+        AggregationUtils.calculateFromHits(allHits);
 
     return SearchExecuteResponse.builder()
         .hits(hits)

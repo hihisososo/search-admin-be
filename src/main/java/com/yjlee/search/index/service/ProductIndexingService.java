@@ -8,16 +8,18 @@ import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.index.service.embedding.EmbeddingEnricher;
 import com.yjlee.search.index.service.monitor.IndexProgressMonitor;
+import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -38,11 +40,9 @@ public class ProductIndexingService {
   private final IndexProgressMonitor progressMonitor;
   private final ElasticsearchClient elasticsearchClient;
 
-  @Qualifier("indexingExecutor")
-  private final ExecutorService indexingExecutor;
-
   private IndexingProgressCallback progressCallback;
   private final Semaphore batchSemaphore = new Semaphore(MAX_CONCURRENT_BATCHES);
+  private final ExecutorService indexingExecutor = Executors.newFixedThreadPool(MAX_CONCURRENT_BATCHES);
 
   public int indexAllProducts() throws IOException {
     return indexProducts(null);
@@ -82,6 +82,9 @@ public class ProductIndexingService {
 
     progressMonitor.complete();
     refreshIndexes(targetIndex);
+    
+    // 색인 완료 후 임베딩 캐시 정리
+    embeddingEnricher.clearCache();
 
     log.info("상품 색인 완료: {}개 색인됨", totalIndexed);
     return totalIndexed;
@@ -117,8 +120,7 @@ public class ProductIndexingService {
           } finally {
             batchSemaphore.release();
           }
-        },
-        indexingExecutor);
+        }, indexingExecutor);
   }
 
   private List<ProductDocument> enrichAndConvertProducts(List<Product> products) {
@@ -128,10 +130,7 @@ public class ProductIndexingService {
       Map<Long, Map<String, List<Float>>> embeddings =
           embeddingEnricher.preloadEmbeddings(productIds);
 
-      CompletableFuture<List<ProductDocument>> documentsFuture =
-          embeddingEnricher.enrichProducts(products, embeddings);
-
-      return documentsFuture.join();
+      return embeddingEnricher.enrichProducts(products, embeddings);
     } catch (Exception e) {
       log.error("상품 변환 중 오류 발생", e);
       return products.stream().map(documentFactory::create).toList();
@@ -239,5 +238,20 @@ public class ProductIndexingService {
   @FunctionalInterface
   public interface IndexingProgressCallback {
     void onProgress(Long indexedCount, Long totalCount);
+  }
+
+  @PreDestroy
+  public void shutdown() {
+    log.info("색인 ExecutorService 종료 시작");
+    indexingExecutor.shutdown();
+    try {
+      if (!indexingExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+        indexingExecutor.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      indexingExecutor.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
+    log.info("색인 ExecutorService 종료 완료");
   }
 }

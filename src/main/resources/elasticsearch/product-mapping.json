@@ -96,7 +96,18 @@
     },
     "units": {
       "type": "text",
-      "analyzer": "whitespace"
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "whitespace": {
+          "type": "text",
+          "analyzer": "whitespace"
+        },
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
     },
     "name_candidate": {
       "type": "text",

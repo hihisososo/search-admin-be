@@ -38,8 +38,8 @@ public class DeploymentManagementService {
   public EnvironmentListResponse getEnvironments() {
     List<IndexEnvironment> environments = indexEnvironmentRepository.findAll();
 
-    // 실시간 문서 수 업데이트
-    updateEnvironmentDocumentCounts(environments);
+    // ES 조회 제거 - DB 값 사용
+    // updateEnvironmentDocumentCounts(environments);
 
     List<EnvironmentInfoResponse> responses =
         environments.stream()
@@ -65,38 +65,39 @@ public class DeploymentManagementService {
     return EnvironmentListResponse.of(responses);
   }
 
-  private void updateEnvironmentDocumentCounts(List<IndexEnvironment> environments) {
-    for (IndexEnvironment env : environments) {
-      if (env.getIndexName() != null && !env.getIndexName().endsWith("-temp")) {
-        try {
-          Long currentCount = getDocumentCount(env.getIndexName());
-          if (!currentCount.equals(env.getDocumentCount())) {
-            env.setDocumentCount(currentCount);
-            indexEnvironmentRepository.save(env);
-          }
-        } catch (Exception e) {
-          log.warn("문서 수 업데이트 실패 - Index: {}", env.getIndexName(), e);
-        }
-      }
-    }
-  }
+  // ES 실시간 조회 제거 - DB 값 사용
+  // private void updateEnvironmentDocumentCounts(List<IndexEnvironment> environments) {
+  //   for (IndexEnvironment env : environments) {
+  //     if (env.getIndexName() != null && !env.getIndexName().endsWith("-temp")) {
+  //       try {
+  //         Long currentCount = getDocumentCount(env.getIndexName());
+  //         if (!currentCount.equals(env.getDocumentCount())) {
+  //           env.setDocumentCount(currentCount);
+  //           indexEnvironmentRepository.save(env);
+  //         }
+  //       } catch (Exception e) {
+  //         log.warn("문서 수 업데이트 실패 - Index: {}", env.getIndexName(), e);
+  //       }
+  //     }
+  //   }
+  // }
 
-  private Long getDocumentCount(String indexName) throws IOException {
-    try {
-      if (!elasticsearchIndexService.indexExists(indexName)) {
-        return 0L;
-      }
+  // private Long getDocumentCount(String indexName) throws IOException {
+  //   try {
+  //     if (!elasticsearchIndexService.indexExists(indexName)) {
+  //       return 0L;
+  //     }
 
-      SearchRequest searchRequest =
-          SearchRequest.of(s -> s.index(indexName).size(0).trackTotalHits(t -> t.enabled(true)));
+  //     SearchRequest searchRequest =
+  //         SearchRequest.of(s -> s.index(indexName).size(0).trackTotalHits(t -> t.enabled(true)));
 
-      SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
-      return response.hits().total().value();
-    } catch (Exception e) {
-      log.error("문서 수 조회 실패 - Index: {}", indexName, e);
-      return 0L;
-    }
-  }
+  //     SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
+  //     return response.hits().total().value();
+  //   } catch (Exception e) {
+  //     log.error("문서 수 조회 실패 - Index: {}", indexName, e);
+  //     return 0L;
+  //   }
+  // }
 
   @Transactional(readOnly = false)
   public synchronized DeploymentOperationResponse executeIndexing(IndexingRequest request) {

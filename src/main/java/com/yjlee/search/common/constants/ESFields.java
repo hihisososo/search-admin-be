@@ -27,6 +27,7 @@ public class ESFields {
 
   // 단위 필드
   public static final String UNITS = "units";
+  public static final String UNITS_WHITESPACE = "units.whitespace";
 
   // 가중치 포함 필드 조합
   public static final String NAME_WEIGHTED = NAME + "^3.0";
@@ -37,10 +38,11 @@ public class ESFields {
   public static final String CATEGORY_BIGRAM_WEIGHTED = "category.bigram^0.5";
   public static final String MODEL_BIGRAM_WEIGHTED = MODEL_BIGRAM + "^1.5";
   public static final String MODEL_EDGE_NGRAM_WEIGHTED = MODEL_EDGE_NGRAM + "^1.5";
+  public static final String UNITS_WEIGHTED = UNITS + "^0.0";
 
   // 검색용 필드 리스트
   public static final List<String> CROSS_FIELDS_MAIN =
-      List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED, MODEL_BIGRAM_WEIGHTED);
+      List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED, MODEL_BIGRAM_WEIGHTED, UNITS_WEIGHTED);
   public static final List<String> CROSS_FIELDS_WITHOUT_MODEL =
       List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED);
   public static final List<String> CROSS_FIELDS_BIGRAM =

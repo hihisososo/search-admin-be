@@ -10,17 +10,16 @@ import com.yjlee.search.index.service.ProductDocumentConverter;
 import com.yjlee.search.index.service.ProductDocumentFactory;
 import com.yjlee.search.index.service.ProductEmbeddingGenerator;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -32,13 +31,29 @@ public class EmbeddingEnricher {
   private final ProductEmbeddingGenerator embeddingGenerator;
   private final ProductDocumentFactory documentFactory;
   private final ProductDocumentConverter documentConverter;
-
-  @Qualifier("embeddingExecutor")
-  private final ExecutorService indexingExecutor;
+  
+  @Value("${embedding.cache.max-size:1000}")
+  private int maxCacheSize;
 
   private final ObjectMapper objectMapper = new ObjectMapper();
-
-  private final Map<Long, Map<String, List<Float>>> embeddingCache = new ConcurrentHashMap<>();
+  
+  private Map<Long, Map<String, List<Float>>> embeddingCache;
+  
+  @jakarta.annotation.PostConstruct
+  public void init() {
+    embeddingCache = Collections.synchronizedMap(
+        new LinkedHashMap<Long, Map<String, List<Float>>>(maxCacheSize + 1, 0.75f, true) {
+          @Override
+          protected boolean removeEldestEntry(Map.Entry<Long, Map<String, List<Float>>> eldest) {
+            boolean shouldRemove = size() > maxCacheSize;
+            if (shouldRemove) {
+              log.trace("LRU 캐시 제거: productId={}", eldest.getKey());
+            }
+            return shouldRemove;
+          }
+        });
+    log.info("임베딩 캐시 초기화 - 최대 크기: {}", maxCacheSize);
+  }
 
   public Map<Long, Map<String, List<Float>>> preloadEmbeddings(List<Long> productIds) {
     log.debug("{}개 상품의 임베딩 사전 로딩", productIds.size());
@@ -67,38 +82,35 @@ public class EmbeddingEnricher {
       cached.putAll(loaded);
     }
 
-    log.debug("{}개 임베딩 로딩 완료 (캐시에서 {}개)", cached.size(), productIds.size() - uncachedIds.size());
+    log.debug("{}개 임베딩 로딩 완료 (캐시에서 {}개, 현재 캐시 크기: {})", 
+        cached.size(), productIds.size() - uncachedIds.size(), embeddingCache.size());
 
     return cached;
   }
 
-  public CompletableFuture<List<ProductDocument>> enrichProducts(
+  public List<ProductDocument> enrichProducts(
       List<Product> products, Map<Long, Map<String, List<Float>>> existingEmbeddings) {
 
-    return CompletableFuture.supplyAsync(
-        () -> {
-          List<ProductDocument> documents = products.stream().map(documentFactory::create).toList();
+    List<ProductDocument> documents = products.stream().map(documentFactory::create).toList();
 
-          // Find products without embeddings
-          Set<Long> existingIds = existingEmbeddings.keySet();
-          List<Product> productsWithoutEmbedding =
-              products.stream().filter(p -> !existingIds.contains(p.getId())).toList();
+    // Find products without embeddings
+    Set<Long> existingIds = existingEmbeddings.keySet();
+    List<Product> productsWithoutEmbedding =
+        products.stream().filter(p -> !existingIds.contains(p.getId())).toList();
 
-          Map<Long, Map<String, List<Float>>> newEmbeddings = new HashMap<>();
+    Map<Long, Map<String, List<Float>>> newEmbeddings = new HashMap<>();
 
-          if (!productsWithoutEmbedding.isEmpty()) {
-            log.info("{}개 상품의 임베딩 생성 중", productsWithoutEmbedding.size());
-            newEmbeddings = generateMissingEmbeddings(productsWithoutEmbedding, documents);
-          }
+    if (!productsWithoutEmbedding.isEmpty()) {
+      log.info("{}개 상품의 임베딩 생성 중", productsWithoutEmbedding.size());
+      newEmbeddings = generateMissingEmbeddings(productsWithoutEmbedding, documents);
+    }
 
-          // Combine embeddings
-          Map<Long, Map<String, List<Float>>> allEmbeddings = new HashMap<>(existingEmbeddings);
-          allEmbeddings.putAll(newEmbeddings);
+    // Combine embeddings
+    Map<Long, Map<String, List<Float>>> allEmbeddings = new HashMap<>(existingEmbeddings);
+    allEmbeddings.putAll(newEmbeddings);
 
-          // Apply embeddings to documents
-          return applyEmbeddings(documents, products, allEmbeddings);
-        },
-        indexingExecutor);
+    // Apply embeddings to documents
+    return applyEmbeddings(documents, products, allEmbeddings);
   }
 
   private Map<Long, Map<String, List<Float>>> generateMissingEmbeddings(
@@ -135,8 +147,8 @@ public class EmbeddingEnricher {
                 "name", nameEmbedding,
                 "specs", specsEmbedding));
 
-        // Save to database asynchronously
-        saveEmbeddingAsync(
+        // Save to database
+        saveEmbedding(
             productId, nameTexts.get(i), specsTexts.get(i), nameEmbedding, specsEmbedding);
       }
     }
@@ -169,32 +181,28 @@ public class EmbeddingEnricher {
         .toList();
   }
 
-  private void saveEmbeddingAsync(
+  private void saveEmbedding(
       Long productId,
       String nameText,
       String specsText,
       List<Float> nameVector,
       List<Float> specsVector) {
 
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            if (!embeddingRepository.existsByProductId(productId)) {
-              ProductEmbedding embedding = new ProductEmbedding();
-              embedding.setProductId(productId);
-              embedding.setNameText(nameText);
-              embedding.setNameVector(serializeVector(nameVector));
-              embedding.setSpecsText(specsText);
-              embedding.setSpecsVector(serializeVector(specsVector));
+    try {
+      if (!embeddingRepository.existsByProductId(productId)) {
+        ProductEmbedding embedding = new ProductEmbedding();
+        embedding.setProductId(productId);
+        embedding.setNameText(nameText);
+        embedding.setNameVector(serializeVector(nameVector));
+        embedding.setSpecsText(specsText);
+        embedding.setSpecsVector(serializeVector(specsVector));
 
-              embeddingRepository.save(embedding);
-              log.debug("상품 {} 임베딩 저장 완료", productId);
-            }
-          } catch (Exception e) {
-            log.error("상품 {} 임베딩 저장 실패", productId, e);
-          }
-        },
-        indexingExecutor);
+        embeddingRepository.save(embedding);
+        log.debug("상품 {} 임베딩 저장 완료", productId);
+      }
+    } catch (Exception e) {
+      log.error("상품 {} 임베딩 저장 실패", productId, e);
+    }
   }
 
   private Map<String, List<Float>> convertEmbedding(ProductEmbedding embedding) {
@@ -224,8 +232,9 @@ public class EmbeddingEnricher {
   }
 
   public void clearCache() {
+    int previousSize = embeddingCache.size();
     embeddingCache.clear();
-    log.info("임베딩 캐시 초기화 완료");
+    log.info("임베딩 캐시 초기화 완료 (제거된 항목: {}개)", previousSize);
   }
 
   public int getCacheSize() {

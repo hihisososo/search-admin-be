@@ -28,8 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -58,7 +56,6 @@ public class EvaluationReportService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexResolver indexResolver;
   private final EvaluationReportPersistenceService persistenceService;
-  private final ExecutorService executorService = Executors.newFixedThreadPool(20);
 
   // 평가 데이터 캐시 (DB 조회 제거용)
   private Map<String, Set<String>> relevantDocumentsCache;
@@ -66,20 +63,7 @@ public class EvaluationReportService {
 
   @PreDestroy
   public void shutdown() {
-    log.info("🔄 ExecutorService 종료 시작");
-    executorService.shutdown();
-    try {
-      if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-        executorService.shutdownNow();
-        if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-          log.error("❌ ExecutorService 종료 실패");
-        }
-      }
-    } catch (InterruptedException e) {
-      executorService.shutdownNow();
-      Thread.currentThread().interrupt();
-    }
-    log.info("✅ ExecutorService 종료 완료");
+    log.info("🔄 EvaluationReportService 종료 처리 완료");
   }
 
   public EvaluationReportService(
@@ -194,8 +178,7 @@ public class EvaluationReportService {
                 query -> {
                   CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future =
                       CompletableFuture.supplyAsync(
-                          () -> evaluateQuery(query.getQuery(), searchMode, rrfK, hybridTopK),
-                          executorService);
+                          () -> evaluateQuery(query.getQuery(), searchMode, rrfK, hybridTopK));
                   // 각 쿼리 완료시 진행률 업데이트
                   future.whenComplete(
                       (result, ex) -> {

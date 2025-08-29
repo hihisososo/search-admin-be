@@ -13,10 +13,10 @@ public class AsyncConfig {
   @Bean(name = "deploymentTaskExecutor")
   public Executor deploymentTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(4);
-    executor.setMaxPoolSize(8);
-    executor.setQueueCapacity(200);
-    executor.setThreadNamePrefix("deployment-async-");
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(5);
+    executor.setQueueCapacity(100);
+    executor.setThreadNamePrefix("deployment-");
     executor.initialize();
     return executor;
   }
@@ -24,10 +24,10 @@ public class AsyncConfig {
   @Bean(name = "evaluationTaskExecutor")
   public Executor evaluationTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(10);
-    executor.setMaxPoolSize(20);
-    executor.setQueueCapacity(200);
-    executor.setThreadNamePrefix("evaluation-async-");
+    executor.setCorePoolSize(3);
+    executor.setMaxPoolSize(10);
+    executor.setQueueCapacity(100);
+    executor.setThreadNamePrefix("evaluation-");
     executor.initialize();
     return executor;
   }
@@ -35,10 +35,10 @@ public class AsyncConfig {
   @Bean(name = "generalTaskExecutor")
   public Executor generalTaskExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(10);
-    executor.setMaxPoolSize(20);
-    executor.setQueueCapacity(200);
-    executor.setThreadNamePrefix("general-async-");
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(5);
+    executor.setQueueCapacity(100);
+    executor.setThreadNamePrefix("general-");
     executor.initialize();
     return executor;
   }

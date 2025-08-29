@@ -64,6 +64,9 @@ public class QueryBuilder {
         b -> {
           if (mainQuery != null) {
             b.must(mainQuery);
+          } else {
+            // mainQuery가 null인 경우 (예: 빈 쿼리, 필터만 있는 경우)
+            b.must(Query.of(q -> q.matchAll(m -> m)));
           }
           if (!filterQueries.isEmpty()) {
             b.filter(filterQueries);
@@ -77,8 +80,27 @@ public class QueryBuilder {
 
   private Query buildMainQuery(
       String query, String originalQuery, List<String> units, List<String> models) {
-    // 기본 쿼리가 없으면 match_all
+    // 쿼리가 비어있는 경우 처리
     if (query == null || query.trim().isEmpty()) {
+      // 단위만 있는 경우 (예: "1kg", "500ml" 등)
+      if (units != null && !units.isEmpty()) {
+        Query unitQuery = buildUnitQuery(units);
+        
+        // 모델명도 있으면 AND 조건으로 결합
+        if (models != null && !models.isEmpty()) {
+          Query modelQuery = buildModelQuery(models);
+          return Query.of(q -> q.bool(b -> b.must(unitQuery).must(modelQuery)));
+        }
+        
+        return unitQuery;
+      }
+      
+      // 모델명만 있는 경우 (예: "ABC-123" 등)
+      if (models != null && !models.isEmpty()) {
+        return buildModelQuery(models);
+      }
+      
+      // 쿼리도 없고 단위도 모델도 없으면 match_all
       return Query.of(q -> q.matchAll(m -> m));
     }
 
@@ -162,14 +184,18 @@ public class QueryBuilder {
     // 모델 쿼리를 부가 점수로 변경
     List<Query> modelBoostQueries = buildModelBoostQueries(models);
 
-    final Query unitQuery =
-        Optional.ofNullable(buildUnitQuery(units)).orElse(Query.of(q -> q.matchAll(m -> m)));
+    Query unitQuery = buildUnitQuery(units);
 
     // 메인 쿼리: 한국어 필드 AND 단위 + phrase(부가 점수) + 모델(부가 점수)
     return Query.of(
         q -> {
           BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
-          boolBuilder.must(mainFieldQuery).must(unitQuery);
+          boolBuilder.must(mainFieldQuery);
+          
+          // 단위 쿼리가 있을 때만 추가
+          if (unitQuery != null) {
+            boolBuilder.must(unitQuery);
+          }
 
           // phrase와 모델 쿼리를 should로 추가
           if (!phraseBoostQueries.isEmpty()) {
@@ -268,8 +294,8 @@ public class QueryBuilder {
 
     for (String unit : units) {
       if (!unit.isEmpty()) {
-        // units 필드에서 매칭
-        unitQueries.add(Query.of(q -> q.match(m -> m.field(ESFields.UNITS).query(unit))));
+        // units.whitespace 필드에서 정확한 매칭
+        unitQueries.add(Query.of(q -> q.match(m -> m.field(ESFields.UNITS_WHITESPACE).query(unit))));
       }
     }
 

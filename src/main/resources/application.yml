@@ -63,3 +63,14 @@ evaluation:
 generation:
   query:
     batch-size: 20
+
+thread-pool:
+  central:
+    core-size: 40
+    max-size: 50
+    queue-capacity: 1000
+    keep-alive-seconds: 60
+
+embedding:
+  cache:
+    max-size: 1000  # 임베딩 캐시 최대 크기

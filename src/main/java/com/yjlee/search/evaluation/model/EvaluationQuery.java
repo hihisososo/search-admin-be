@@ -1,5 +1,6 @@
 package com.yjlee.search.evaluation.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -40,6 +41,7 @@ public class EvaluationQuery {
   String query;
 
   @OneToMany(mappedBy = "evaluationQuery", fetch = FetchType.LAZY)
+  @JsonIgnore
   @Builder.Default
   List<QueryProductMapping> queryProductMappings = new ArrayList<>();
 

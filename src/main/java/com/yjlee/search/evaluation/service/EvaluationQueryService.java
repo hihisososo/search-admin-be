@@ -1,5 +1,6 @@
 package com.yjlee.search.evaluation.service;
 
+import com.yjlee.search.evaluation.dto.EvaluationQueryResponse;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
@@ -38,7 +39,7 @@ public class EvaluationQueryService {
   }
 
   @Transactional
-  public EvaluationQuery createQuery(String query) {
+  public EvaluationQueryResponse createQuery(String query) {
     log.info("쿼리 생성: {}", query);
 
     Optional<EvaluationQuery> existingQuery = evaluationQueryRepository.findByQuery(query);
@@ -48,11 +49,12 @@ public class EvaluationQueryService {
     }
 
     EvaluationQuery evaluationQuery = EvaluationQuery.builder().query(query).build();
-    return evaluationQueryRepository.save(evaluationQuery);
+    EvaluationQuery saved = evaluationQueryRepository.save(evaluationQuery);
+    return toDto(saved);
   }
 
   @Transactional
-  public EvaluationQuery updateQuery(Long queryId, String newQuery, Boolean reviewed) {
+  public EvaluationQueryResponse updateQuery(Long queryId, String newQuery, Boolean reviewed) {
     log.info("쿼리 수정: ID={}, 새 쿼리={}, reviewed={}", queryId, newQuery, reviewed);
 
     Optional<EvaluationQuery> existing = evaluationQueryRepository.findById(queryId);
@@ -73,8 +75,14 @@ public class EvaluationQueryService {
     }
 
     EvaluationQuery updatedQuery =
-        EvaluationQuery.builder().id(query.getId()).query(valueToUse).build();
-    return evaluationQueryRepository.save(updatedQuery);
+        EvaluationQuery.builder()
+            .id(query.getId())
+            .query(valueToUse)
+            .createdAt(query.getCreatedAt())
+            .updatedAt(query.getUpdatedAt())
+            .build();
+    EvaluationQuery saved = evaluationQueryRepository.save(updatedQuery);
+    return toDto(saved);
   }
 
   @Transactional
@@ -97,7 +105,8 @@ public class EvaluationQueryService {
   @Transactional
   public EvaluationQuery createQuerySafely(String query) {
     try {
-      return createQuery(query);
+      EvaluationQueryResponse response = createQuery(query);
+      return evaluationQueryRepository.findById(response.getId()).orElse(null);
     } catch (Exception e) {
       if (e.getMessage().contains("이미 존재하는 쿼리")) {
         log.debug("기존 쿼리 반환: {}", query);
@@ -105,5 +114,14 @@ public class EvaluationQueryService {
       }
       throw e;
     }
+  }
+
+  private EvaluationQueryResponse toDto(EvaluationQuery entity) {
+    return EvaluationQueryResponse.builder()
+        .id(entity.getId())
+        .query(entity.getQuery())
+        .createdAt(entity.getCreatedAt())
+        .updatedAt(entity.getUpdatedAt())
+        .build();
   }
 }

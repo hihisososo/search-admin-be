@@ -12,6 +12,7 @@ import com.yjlee.search.evaluation.dto.BulkDeleteRequest;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse;
 import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse.EvaluationQueryDto;
+import com.yjlee.search.evaluation.dto.EvaluationQueryResponse;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
 import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
@@ -212,17 +213,17 @@ public class EvaluationSetController {
 
   @PostMapping("/queries")
   @Operation(summary = "쿼리 생성")
-  public ResponseEntity<EvaluationQuery> createQuery(
+  public ResponseEntity<EvaluationQueryResponse> createQuery(
       @Valid @RequestBody SimpleTextRequest request) {
-    EvaluationQuery createdQuery = evaluationQueryService.createQuery(request.getValue());
+    EvaluationQueryResponse createdQuery = evaluationQueryService.createQuery(request.getValue());
     return ResponseEntity.ok(createdQuery);
   }
 
   @PutMapping("/queries/{queryId}")
   @Operation(summary = "쿼리 수정")
-  public ResponseEntity<EvaluationQuery> updateQuery(
+  public ResponseEntity<EvaluationQueryResponse> updateQuery(
       @PathVariable Long queryId, @Valid @RequestBody UpdateQueryRequest request) {
-    EvaluationQuery updatedQuery =
+    EvaluationQueryResponse updatedQuery =
         evaluationQueryService.updateQuery(queryId, request.getValue(), request.getReviewed());
     return ResponseEntity.ok(updatedQuery);
   }

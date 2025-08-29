@@ -56,23 +56,18 @@ public class AutoLogGeneratorService {
 
     int count = Math.max(0, eventsPerSecond);
     for (int i = 0; i < count; i++) {
-      Thread thread =
-          new Thread(
-              () -> {
-                try {
-                  String indexName = ESFields.PRODUCTS_SEARCH_ALIAS;
-                  JsonNode randomDoc = getRandomDocument(indexName);
+      try {
+        String indexName = ESFields.PRODUCTS_SEARCH_ALIAS;
+        JsonNode randomDoc = getRandomDocument(indexName);
 
-                  if (randomDoc != null) {
-                    String keyword = extractKeyword(indexName, randomDoc);
+        if (randomDoc != null) {
+          String keyword = extractKeyword(indexName, randomDoc);
 
-                    searchAndClick(indexName, keyword, randomDoc);
-                  }
-                } catch (Exception e) {
-                  log.error("로그 생성 중 오류 발생", e);
-                }
-              });
-      thread.start();
+          searchAndClick(indexName, keyword, randomDoc);
+        }
+      } catch (Exception e) {
+        log.error("로그 생성 중 오류 발생", e);
+      }
     }
   }
 

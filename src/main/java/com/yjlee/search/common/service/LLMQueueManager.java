@@ -6,6 +6,8 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -16,7 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-/** 모든 LLM API 호출을 관리하는 범용 큐 매니저 Rate Limit 처리와 재시도 로직을 중앙화 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,16 +32,20 @@ public class LLMQueueManager {
   private final BlockingQueue<LLMTask<?>> taskQueue = new LinkedBlockingQueue<>();
   private final AtomicBoolean running = new AtomicBoolean(true);
   private final AtomicInteger activeWorkers = new AtomicInteger(0);
-  private Thread[] workers;
+  private ExecutorService executorService;
 
   @PostConstruct
   public void init() {
-    workers = new Thread[workerThreads];
+    executorService = Executors.newFixedThreadPool(workerThreads, r -> {
+      Thread thread = new Thread(r);
+      thread.setName("llm-worker-" + thread.getId());
+      thread.setDaemon(true);
+      return thread;
+    });
+    
     for (int i = 0; i < workerThreads; i++) {
       final int workerId = i;
-      workers[i] = new Thread(() -> workerLoop(workerId), "llm-queue-worker-" + i);
-      workers[i].setDaemon(true);
-      workers[i].start();
+      executorService.submit(() -> workerLoop(workerId));
     }
     log.info("LLM Queue Manager 시작 - Worker 스레드: {}개", workerThreads);
   }
@@ -49,16 +54,19 @@ public class LLMQueueManager {
   public void shutdown() {
     log.info("LLM Queue Manager 종료 중...");
     running.set(false);
-    for (Thread worker : workers) {
-      worker.interrupt();
-    }
-    for (Thread worker : workers) {
+    
+    if (executorService != null) {
+      executorService.shutdown();
       try {
-        worker.join(5000);
+        if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+          executorService.shutdownNow();
+        }
       } catch (InterruptedException e) {
+        executorService.shutdownNow();
         Thread.currentThread().interrupt();
       }
     }
+    
     log.info("LLM Queue Manager 종료 완료");
   }
 

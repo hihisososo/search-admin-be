@@ -1,5 +1,6 @@
 package com.yjlee.search.evaluation.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -34,6 +35,7 @@ public class QueryProductMapping {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "evaluation_query_id", nullable = false)
+  @JsonIgnore
   EvaluationQuery evaluationQuery;
 
   @Column(nullable = false)
