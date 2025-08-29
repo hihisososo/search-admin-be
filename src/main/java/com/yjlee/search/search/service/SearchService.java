@@ -162,7 +162,6 @@ public class SearchService {
     }
   }
 
-
   @FunctionalInterface
   private interface SearchExecutor {
     SearchExecuteResponse execute() throws Exception;

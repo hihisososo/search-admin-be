@@ -1,10 +1,10 @@
 package com.yjlee.search.stats.service.query;
 
+import static com.yjlee.search.stats.dto.PopularKeywordResponse.RankChangeStatus.*;
+
 import com.yjlee.search.stats.domain.KeywordStats;
 import com.yjlee.search.stats.dto.PopularKeywordResponse;
 import com.yjlee.search.stats.repository.StatsRepository;
-
-import static com.yjlee.search.stats.dto.PopularKeywordResponse.RankChangeStatus.*;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -74,9 +74,7 @@ public class PopularKeywordQueryService {
                       previousRanks.getOrDefault(current.getKeyword(), lastPreviousRank);
                   int rankChange = previousRank - current.getRank();
                   PopularKeywordResponse.RankChangeStatus changeStatus =
-                      previousRanks.containsKey(current.getKeyword())
-                          ? null
-                          : NEW;
+                      previousRanks.containsKey(current.getKeyword()) ? null : NEW;
                   return new RankChangeKeyword(current, rankChange, changeStatus);
                 })
             .filter(item -> item.rankChange > 0) // 순위가 상승한 키워드만

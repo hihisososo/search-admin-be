@@ -54,8 +54,8 @@
 반드시 아래 형식의 JSON 배열을 출력하세요. 각 상품은 한 줄로 작성하세요:
 
 [
-{"productId":"P12345","score":1,"reason":"평가 이유","confidence":0.95},
-{"productId":"P67890","score":0,"reason":"관련 없음","confidence":0.9}
+{"productId":"P12345","score":1},
+{"productId":"P67890","score":0}
 ]
 
 # 주의사항

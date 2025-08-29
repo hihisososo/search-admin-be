@@ -13,7 +13,6 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.yjlee.search.search.constants.SearchConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.converter.ProductDtoConverter;
 import com.yjlee.search.search.dto.ProductDto;
@@ -21,12 +20,10 @@ import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchHitsDto;
 import com.yjlee.search.search.dto.SearchMetaDto;
-import com.yjlee.search.search.dto.VectorSearchConfig;
 import com.yjlee.search.search.service.builder.QueryBuilder;
 import com.yjlee.search.search.service.builder.QueryResponseBuilder;
 import com.yjlee.search.search.service.builder.SearchRequestBuilder;
 import com.yjlee.search.search.utils.AggregationUtils;
-import java.io.IOException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,23 +63,21 @@ public class HybridSearchService {
 
     try {
       // 1. Multi Search API로 BM25와 Vector 검색을 한번에 실행
-      MsearchResponse<JsonNode> msearchResponse = executeMultiSearch(
-          indexName, 
-          request, 
-          request.getHybridTopK(),
-          request.getVectorMinScore());
-      
+      MsearchResponse<JsonNode> msearchResponse =
+          executeMultiSearch(
+              indexName, request, request.getHybridTopK(), request.getVectorMinScore());
+
       // 검색 결과 추출
       List<Hit<JsonNode>> bm25Results = new ArrayList<>();
       List<Hit<JsonNode>> vectorResults = new ArrayList<>();
-      
+
       List<MultiSearchResponseItem<JsonNode>> responses = msearchResponse.responses();
       if (responses.size() >= 2) {
         // 첫번째 응답: BM25 검색 결과
         if (responses.get(0).isResult()) {
           bm25Results = responses.get(0).result().hits().hits();
         }
-        // 두번째 응답: Vector 검색 결과  
+        // 두번째 응답: Vector 검색 결과
         if (responses.get(1).isResult()) {
           vectorResults = responses.get(1).result().hits().hits();
         }
@@ -126,52 +121,76 @@ public class HybridSearchService {
 
   /** Multi Search API로 BM25와 Vector 검색 동시 실행 */
   private MsearchResponse<JsonNode> executeMultiSearch(
-      String indexName, SearchExecuteRequest request, int topK, Double vectorMinScore) throws IOException {
-    
+      String indexName, SearchExecuteRequest request, int topK, Double vectorMinScore)
+      throws IOException {
+
     // BM25 쿼리 생성
     BoolQuery boolQuery = queryBuilder.buildBoolQuery(request);
-    
+
     // 벡터 임베딩 생성
     float[] queryVector = vectorSearchService.getQueryEmbedding(request.getQuery());
     List<Float> queryVectorList = new ArrayList<>();
     for (float f : queryVector) {
       queryVectorList.add(f);
     }
-    
-    double minScore = vectorMinScore != null ? vectorMinScore : vectorSearchService.getDefaultVectorMinScore();
-    
+
+    double minScore =
+        vectorMinScore != null ? vectorMinScore : vectorSearchService.getDefaultVectorMinScore();
+
     // Multi Search 요청 생성
-    MsearchRequest msearchRequest = MsearchRequest.of(m -> m
-        .index(indexName)
-        .searches(List.of(
-            // BM25 검색
-            RequestItem.of(s -> s
-                .header(h -> h.index(indexName))
-                .body(b -> b
-                    .query(q -> q.bool(boolQuery))
-                    .size(topK)
-                    .source(src -> src.filter(f -> 
-                        f.excludes(VectorSearchConstants.getVectorFieldsToExclude()))))),
-            // Vector 검색 (다중 KNN 필드)
-            RequestItem.of(s -> s
-                .header(h -> h.index(indexName))
-                .body(b -> b
-                    .size(topK)
-                    .minScore(minScore)
-                    .knn(k -> k
-                        .field(VectorSearchConstants.NAME_VECTOR_FIELD)
-                        .queryVector(queryVectorList)
-                        .k(topK)
-                        .numCandidates(100))
-                    .knn(k -> k
-                        .field(VectorSearchConstants.SPECS_VECTOR_FIELD)
-                        .queryVector(queryVectorList)
-                        .k(topK)
-                        .numCandidates(100))
-                    .source(src -> src.filter(f -> 
-                        f.excludes(VectorSearchConstants.getVectorFieldsToExclude())))))
-        ))); 
-    
+    MsearchRequest msearchRequest =
+        MsearchRequest.of(
+            m ->
+                m.index(indexName)
+                    .searches(
+                        List.of(
+                            // BM25 검색
+                            RequestItem.of(
+                                s ->
+                                    s.header(h -> h.index(indexName))
+                                        .body(
+                                            b ->
+                                                b.query(q -> q.bool(boolQuery))
+                                                    .size(topK)
+                                                    .source(
+                                                        src ->
+                                                            src.filter(
+                                                                f ->
+                                                                    f.excludes(
+                                                                        VectorSearchConstants
+                                                                            .getVectorFieldsToExclude()))))),
+                            // Vector 검색 (다중 KNN 필드)
+                            RequestItem.of(
+                                s ->
+                                    s.header(h -> h.index(indexName))
+                                        .body(
+                                            b ->
+                                                b.size(topK)
+                                                    .minScore(minScore)
+                                                    .knn(
+                                                        k ->
+                                                            k.field(
+                                                                    VectorSearchConstants
+                                                                        .NAME_VECTOR_FIELD)
+                                                                .queryVector(queryVectorList)
+                                                                .k(topK)
+                                                                .numCandidates(100))
+                                                    .knn(
+                                                        k ->
+                                                            k.field(
+                                                                    VectorSearchConstants
+                                                                        .SPECS_VECTOR_FIELD)
+                                                                .queryVector(queryVectorList)
+                                                                .k(topK)
+                                                                .numCandidates(100))
+                                                    .source(
+                                                        src ->
+                                                            src.filter(
+                                                                f ->
+                                                                    f.excludes(
+                                                                        VectorSearchConstants
+                                                                            .getVectorFieldsToExclude()))))))));
+
     log.debug("Executing multi search with BM25 and Vector queries for index: {}", indexName);
     return elasticsearchClient.msearch(msearchRequest, JsonNode.class);
   }
@@ -218,21 +237,17 @@ public class HybridSearchService {
     List<ProductDto> products = new ArrayList<>();
     for (int i = 0; i < pagedResults.size(); i++) {
       RRFScorer.RRFResult result = pagedResults.get(i);
-      
-      ProductDto product = productDtoConverter.convert(
-          result.getDocument().id(),
-          result.getTotalRrfScore(),
-          result.getDocument().source()
-      );
+
+      ProductDto product =
+          productDtoConverter.convert(
+              result.getDocument().id(), result.getTotalRrfScore(), result.getDocument().source());
 
       // explain 모드일 때 RRF 점수 설명 추가
       if (withExplain) {
         ObjectNode explainNode = objectMapper.createObjectNode();
         explainNode.putPOJO("hybrid_score", result.getScoreExplanation());
         explainNode.put("hybrid_rank", from + i + 1);
-        product = product.toBuilder()
-            .explain(explainNode.toString())
-            .build();
+        product = product.toBuilder().explain(explainNode.toString()).build();
       }
 
       products.add(product);

@@ -5,7 +5,6 @@ import static com.yjlee.search.evaluation.constants.EvaluationConstants.EVALUATI
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.GetRequest;
 import co.elastic.clients.elasticsearch.core.GetResponse;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;

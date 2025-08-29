@@ -145,8 +145,8 @@ public class LLMQueryEvaluationWorker {
           }
 
           int score = evaluation.path("score").asInt(0);
-          String reason = evaluation.path("reason").asText("");
-          double confidence = evaluation.path("confidence").asDouble(0.5);
+          String reason = "자동 평가";
+          double confidence = 1.0;
 
           String evaluationReason =
               String.format("%s (score: %d, confidence: %.2f)", reason, score, confidence);

@@ -28,19 +28,21 @@ public class KeywordSearchStrategy implements SearchStrategy {
   private final SearchQueryExecutor queryExecutor;
 
   @Override
-  public SearchExecuteResponse search(String indexName, SearchExecuteRequest request, boolean withExplain) {
+  public SearchExecuteResponse search(
+      String indexName, SearchExecuteRequest request, boolean withExplain) {
     log.info("Executing keyword-only search for query: {}", request.getQuery());
-    
+
     long startTime = System.currentTimeMillis();
-    
+
     BoolQuery boolQuery = queryBuilder.buildBoolQuery(request);
     Map<String, Aggregation> aggregations = searchRequestBuilder.buildAggregations();
-    SearchRequest searchRequest = searchRequestBuilder.buildProductSearchRequest(
-        indexName, request, boolQuery, aggregations, withExplain);
-    
+    SearchRequest searchRequest =
+        searchRequestBuilder.buildProductSearchRequest(
+            indexName, request, boolQuery, aggregations, withExplain);
+
     SearchResponse<JsonNode> response = queryExecutor.execute(searchRequest);
     long took = System.currentTimeMillis() - startTime;
-    
+
     return responseBuilder.buildSearchResponse(request, response, took, withExplain, searchRequest);
   }
 

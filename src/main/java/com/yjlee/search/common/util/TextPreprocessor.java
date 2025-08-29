@@ -1,7 +1,8 @@
 package com.yjlee.search.common.util;
 
-import java.text.Normalizer;
 import static java.text.Normalizer.Form;
+
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;

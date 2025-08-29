@@ -1,6 +1,5 @@
 package com.yjlee.search.evaluation.model;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -40,11 +39,7 @@ public class EvaluationQuery {
   @Column(nullable = false, unique = true, length = 500)
   String query;
 
-  @OneToMany(
-      mappedBy = "evaluationQuery",
-      cascade = CascadeType.ALL,
-      orphanRemoval = true,
-      fetch = FetchType.LAZY)
+  @OneToMany(mappedBy = "evaluationQuery", fetch = FetchType.LAZY)
   @Builder.Default
   List<QueryProductMapping> queryProductMappings = new ArrayList<>();
 

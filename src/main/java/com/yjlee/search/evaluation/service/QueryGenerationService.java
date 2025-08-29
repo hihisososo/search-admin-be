@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.evaluation.dto.ProductInfoDto;
 import com.yjlee.search.evaluation.model.EvaluationQuery;

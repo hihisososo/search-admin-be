@@ -35,9 +35,7 @@ public class ElasticsearchBulkIndexer {
                           .document(document)));
     }
 
-    BulkResponse response =
-        elasticsearchClient.bulk(
-            bulkBuilder.refresh(Refresh.False).build());
+    BulkResponse response = elasticsearchClient.bulk(bulkBuilder.refresh(Refresh.False).build());
     logErrors(response, "상품");
 
     return documents.size();
@@ -67,9 +65,7 @@ public class ElasticsearchBulkIndexer {
         }
       }
 
-      BulkResponse response =
-          elasticsearchClient.bulk(
-              bulkBuilder.refresh(Refresh.False).build());
+      BulkResponse response = elasticsearchClient.bulk(bulkBuilder.refresh(Refresh.False).build());
       logErrors(response, indexName);
 
       return response;
@@ -90,9 +86,7 @@ public class ElasticsearchBulkIndexer {
           op -> op.index(idx -> idx.index(indexName).id(document.getId()).document(document)));
     }
 
-    BulkResponse response =
-        elasticsearchClient.bulk(
-            bulkBuilder.refresh(Refresh.False).build());
+    BulkResponse response = elasticsearchClient.bulk(bulkBuilder.refresh(Refresh.False).build());
     logErrors(response, "상품");
 
     return documents.size();
@@ -112,9 +106,7 @@ public class ElasticsearchBulkIndexer {
               op.index(idx -> idx.index(ESFields.AUTOCOMPLETE_INDEX).id(docId).document(document)));
     }
 
-    BulkResponse response =
-        elasticsearchClient.bulk(
-            bulkBuilder.refresh(Refresh.False).build());
+    BulkResponse response = elasticsearchClient.bulk(bulkBuilder.refresh(Refresh.False).build());
     logErrors(response, "자동완성");
 
     return documents.size();
@@ -134,9 +126,7 @@ public class ElasticsearchBulkIndexer {
           op -> op.index(idx -> idx.index(indexName).id(docId).document(document)));
     }
 
-    BulkResponse response =
-        elasticsearchClient.bulk(
-            bulkBuilder.refresh(Refresh.False).build());
+    BulkResponse response = elasticsearchClient.bulk(bulkBuilder.refresh(Refresh.False).build());
     logErrors(response, "자동완성");
 
     return documents.size();

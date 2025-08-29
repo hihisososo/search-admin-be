@@ -1,5 +1,7 @@
 package com.yjlee.search.stats.controller;
 
+import static org.springframework.format.annotation.DateTimeFormat.ISO;
+
 import com.yjlee.search.stats.dto.PopularKeywordResponse;
 import com.yjlee.search.stats.dto.StatsResponse;
 import com.yjlee.search.stats.dto.TrendResponse;
@@ -14,7 +16,6 @@ import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
-import static org.springframework.format.annotation.DateTimeFormat.ISO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

@@ -17,7 +17,6 @@ import org.springframework.stereotype.Service;
 public class DictionaryDeploymentService {
 
   private final SsmCommandService ssmCommandService;
-  private final ScriptTemplateService scriptTemplateService;
 
   @Value("${app.aws.dictionary.ec2-instance-ids}") // 사전 서버용 인스턴스 ID (DICTIONARY_EC2_INSTANCE_IDS)
   private String[] dictionaryInstanceIds;

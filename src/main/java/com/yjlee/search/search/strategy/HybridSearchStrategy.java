@@ -16,7 +16,8 @@ public class HybridSearchStrategy implements SearchStrategy {
   private final HybridSearchService hybridSearchService;
 
   @Override
-  public SearchExecuteResponse search(String indexName, SearchExecuteRequest request, boolean withExplain) {
+  public SearchExecuteResponse search(
+      String indexName, SearchExecuteRequest request, boolean withExplain) {
     log.info("Executing hybrid RRF search for query: {}", request.getQuery());
     return hybridSearchService.hybridSearch(indexName, request, withExplain);
   }

@@ -2,6 +2,7 @@ package com.yjlee.search.evaluation.service;
 
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
+import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EvaluationQueryService {
 
   private final EvaluationQueryRepository evaluationQueryRepository;
+  private final QueryProductMappingRepository queryProductMappingRepository;
 
   public List<EvaluationQuery> getAllQueries() {
     return evaluationQueryRepository.findAll();
@@ -77,8 +79,19 @@ public class EvaluationQueryService {
 
   @Transactional
   public void deleteQueries(List<Long> queryIds) {
-    log.info("쿼리 일괄 삭제: {}개 (관련 매핑들도 자동 삭제됨)", queryIds.size());
+    if (queryIds == null || queryIds.isEmpty()) {
+      return;
+    }
+
+    log.info("쿼리 일괄 삭제 시작: {}개", queryIds.size());
+
+    // 1. 먼저 관련 매핑들을 bulk delete로 삭제
+    queryProductMappingRepository.deleteByQueryIds(queryIds);
+    log.info("관련 매핑 삭제 완료");
+
+    // 2. 그 다음 쿼리들을 삭제
     evaluationQueryRepository.deleteAllById(queryIds);
+    log.info("쿼리 삭제 완료: {}개", queryIds.size());
   }
 
   @Transactional
