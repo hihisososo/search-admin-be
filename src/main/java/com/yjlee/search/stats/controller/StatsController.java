@@ -14,6 +14,7 @@ import java.time.ZoneOffset;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import static org.springframework.format.annotation.DateTimeFormat.ISO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,11 +36,11 @@ public class StatsController {
   public ResponseEntity<StatsResponse> getStats(
       @Parameter(description = "시작일시 (기본값: 7일 전)")
           @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          @DateTimeFormat(iso = ISO.DATE_TIME)
           LocalDateTime from,
       @Parameter(description = "종료일시 (기본값: 현재)")
           @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          @DateTimeFormat(iso = ISO.DATE_TIME)
           LocalDateTime to) {
 
     if (from == null) {
@@ -64,11 +65,11 @@ public class StatsController {
   public ResponseEntity<PopularKeywordResponse> getPopularKeywords(
       @Parameter(description = "시작일시 (기본값: 7일 전)")
           @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          @DateTimeFormat(iso = ISO.DATE_TIME)
           LocalDateTime from,
       @Parameter(description = "종료일시 (기본값: 현재)")
           @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          @DateTimeFormat(iso = ISO.DATE_TIME)
           LocalDateTime to,
       @Parameter(description = "조회할 키워드 수 (기본값: 10)") @RequestParam(defaultValue = "10")
           int limit) {
@@ -95,11 +96,11 @@ public class StatsController {
   public ResponseEntity<TrendResponse> getTrends(
       @Parameter(description = "시작일시 (기본값: 7일 전)")
           @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          @DateTimeFormat(iso = ISO.DATE_TIME)
           LocalDateTime from,
       @Parameter(description = "종료일시 (기본값: 현재)")
           @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          @DateTimeFormat(iso = ISO.DATE_TIME)
           LocalDateTime to,
       @Parameter(description = "집계 간격 (hour/day, 기본값: hour)") @RequestParam(defaultValue = "hour")
           String interval) {
@@ -126,11 +127,11 @@ public class StatsController {
   public ResponseEntity<PopularKeywordResponse> getTrendingKeywords(
       @Parameter(description = "시작일시 (기본값: 7일 전)")
           @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          @DateTimeFormat(iso = ISO.DATE_TIME)
           LocalDateTime from,
       @Parameter(description = "종료일시 (기본값: 현재)")
           @RequestParam(required = false)
-          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+          @DateTimeFormat(iso = ISO.DATE_TIME)
           LocalDateTime to,
       @Parameter(description = "조회할 키워드 수 (기본값: 10)") @RequestParam(defaultValue = "10")
           int limit) {

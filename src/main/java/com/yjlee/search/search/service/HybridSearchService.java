@@ -3,13 +3,19 @@ package com.yjlee.search.search.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch.core.MsearchRequest;
+import co.elastic.clients.elasticsearch.core.MsearchResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.msearch.MultiSearchResponseItem;
+import co.elastic.clients.elasticsearch.core.msearch.RequestItem;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.yjlee.search.search.constants.SearchConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
+import com.yjlee.search.search.converter.ProductDtoConverter;
 import com.yjlee.search.search.dto.ProductDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
@@ -21,11 +27,10 @@ import com.yjlee.search.search.service.builder.QueryResponseBuilder;
 import com.yjlee.search.search.service.builder.SearchRequestBuilder;
 import com.yjlee.search.search.utils.AggregationUtils;
 import java.io.IOException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,6 +48,7 @@ public class HybridSearchService {
   private final VectorSearchService vectorSearchService;
   private final RRFScorer rrfScorer;
   private final ObjectMapper objectMapper;
+  private final ProductDtoConverter productDtoConverter;
 
   /** 하이브리드 검색 실행 (BM25 + Vector with RRF) */
   public SearchExecuteResponse hybridSearch(
@@ -59,30 +65,28 @@ public class HybridSearchService {
     long startTime = System.currentTimeMillis();
 
     try {
-      // 1. BM25와 Vector 검색을 동시에 실행
-      CompletableFuture<List<Hit<JsonNode>>> bm25Future =
-          CompletableFuture.supplyAsync(
-              () -> executeBM25Search(indexName, request, request.getHybridTopK()));
-
-      CompletableFuture<List<Hit<JsonNode>>> vectorFuture =
-          CompletableFuture.supplyAsync(
-              () -> {
-                // 벡터 검색 설정 구성
-                VectorSearchConfig vectorConfig =
-                    VectorSearchConfig.builder()
-                        .topK(request.getHybridTopK())
-                        .vectorMinScore(request.getVectorMinScore())
-                        .build();
-
-                SearchResponse<JsonNode> vectorResponse =
-                    vectorSearchService.multiFieldVectorSearch(
-                        indexName, request.getQuery(), vectorConfig);
-                return vectorResponse.hits().hits();
-              });
-
-      // 두 검색 완료 대기
-      List<Hit<JsonNode>> bm25Results = bm25Future.get();
-      List<Hit<JsonNode>> vectorResults = vectorFuture.get();
+      // 1. Multi Search API로 BM25와 Vector 검색을 한번에 실행
+      MsearchResponse<JsonNode> msearchResponse = executeMultiSearch(
+          indexName, 
+          request, 
+          request.getHybridTopK(),
+          request.getVectorMinScore());
+      
+      // 검색 결과 추출
+      List<Hit<JsonNode>> bm25Results = new ArrayList<>();
+      List<Hit<JsonNode>> vectorResults = new ArrayList<>();
+      
+      List<MultiSearchResponseItem<JsonNode>> responses = msearchResponse.responses();
+      if (responses.size() >= 2) {
+        // 첫번째 응답: BM25 검색 결과
+        if (responses.get(0).isResult()) {
+          bm25Results = responses.get(0).result().hits().hits();
+        }
+        // 두번째 응답: Vector 검색 결과  
+        if (responses.get(1).isResult()) {
+          vectorResults = responses.get(1).result().hits().hits();
+        }
+      }
 
       log.debug(
           "Search results - BM25: {} hits, Vector: {} hits",
@@ -114,39 +118,62 @@ public class HybridSearchService {
 
       return response;
 
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (IOException e) {
       log.error("Hybrid search failed", e);
       throw new RuntimeException("Hybrid search failed", e);
     }
   }
 
-  /** BM25 키워드 검색 실행 */
-  private List<Hit<JsonNode>> executeBM25Search(
-      String indexName, SearchExecuteRequest request, int topK) {
-
-    try {
-      BoolQuery boolQuery = queryBuilder.buildBoolQuery(request);
-
-      SearchRequest searchRequest =
-          SearchRequest.of(
-              s ->
-                  s.index(indexName)
-                      .query(q -> q.bool(boolQuery))
-                      .size(topK)
-                      .source(
-                          src ->
-                              src.filter(
-                                  f ->
-                                      f.excludes(
-                                          VectorSearchConstants.getVectorFieldsToExclude()))));
-
-      SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
-      return response.hits().hits();
-
-    } catch (IOException e) {
-      log.error("BM25 search failed", e);
-      return new ArrayList<>();
+  /** Multi Search API로 BM25와 Vector 검색 동시 실행 */
+  private MsearchResponse<JsonNode> executeMultiSearch(
+      String indexName, SearchExecuteRequest request, int topK, Double vectorMinScore) throws IOException {
+    
+    // BM25 쿼리 생성
+    BoolQuery boolQuery = queryBuilder.buildBoolQuery(request);
+    
+    // 벡터 임베딩 생성
+    float[] queryVector = vectorSearchService.getQueryEmbedding(request.getQuery());
+    List<Float> queryVectorList = new ArrayList<>();
+    for (float f : queryVector) {
+      queryVectorList.add(f);
     }
+    
+    double minScore = vectorMinScore != null ? vectorMinScore : vectorSearchService.getDefaultVectorMinScore();
+    
+    // Multi Search 요청 생성
+    MsearchRequest msearchRequest = MsearchRequest.of(m -> m
+        .index(indexName)
+        .searches(List.of(
+            // BM25 검색
+            RequestItem.of(s -> s
+                .header(h -> h.index(indexName))
+                .body(b -> b
+                    .query(q -> q.bool(boolQuery))
+                    .size(topK)
+                    .source(src -> src.filter(f -> 
+                        f.excludes(VectorSearchConstants.getVectorFieldsToExclude()))))),
+            // Vector 검색 (다중 KNN 필드)
+            RequestItem.of(s -> s
+                .header(h -> h.index(indexName))
+                .body(b -> b
+                    .size(topK)
+                    .minScore(minScore)
+                    .knn(k -> k
+                        .field(VectorSearchConstants.NAME_VECTOR_FIELD)
+                        .queryVector(queryVectorList)
+                        .k(topK)
+                        .numCandidates(100))
+                    .knn(k -> k
+                        .field(VectorSearchConstants.SPECS_VECTOR_FIELD)
+                        .queryVector(queryVectorList)
+                        .k(topK)
+                        .numCandidates(100))
+                    .source(src -> src.filter(f -> 
+                        f.excludes(VectorSearchConstants.getVectorFieldsToExclude())))))
+        ))); 
+    
+    log.debug("Executing multi search with BM25 and Vector queries for index: {}", indexName);
+    return elasticsearchClient.msearch(msearchRequest, JsonNode.class);
   }
 
   /** 키워드 검색만 실행 (폴백용) */
@@ -191,61 +218,24 @@ public class HybridSearchService {
     List<ProductDto> products = new ArrayList<>();
     for (int i = 0; i < pagedResults.size(); i++) {
       RRFScorer.RRFResult result = pagedResults.get(i);
-      JsonNode source = result.getDocument().source();
-
-      // JsonNode를 ProductDto로 변환
-      ProductDto.ProductDtoBuilder productBuilder =
-          ProductDto.builder().id(result.getDocument().id()).score(result.getTotalRrfScore());
-
-      if (source.has("name")) {
-        productBuilder.name(source.get("name").asText());
-        productBuilder.nameRaw(
-            source.has("name_raw") ? source.get("name_raw").asText() : source.get("name").asText());
-      }
-      if (source.has("model")) {
-        productBuilder.model(source.get("model").asText());
-      }
-      if (source.has("brand_name")) {
-        productBuilder.brandName(source.get("brand_name").asText());
-      }
-      if (source.has("category_name")) {
-        productBuilder.categoryName(source.get("category_name").asText());
-      }
-      if (source.has("price")) {
-        productBuilder.price(source.get("price").asInt());
-      }
-      if (source.has("registered_month")) {
-        productBuilder.registeredMonth(source.get("registered_month").asText());
-      }
-      if (source.has("rating") && !source.get("rating").isNull()) {
-        String ratingText = source.get("rating").asText();
-        if (!"null".equals(ratingText) && !ratingText.isEmpty()) {
-          productBuilder.rating(new java.math.BigDecimal(ratingText));
-        }
-      }
-      if (source.has("review_count")) {
-        productBuilder.reviewCount(source.get("review_count").asInt());
-      }
-      if (source.has("thumbnail_url")) {
-        productBuilder.thumbnailUrl(source.get("thumbnail_url").asText());
-      }
-      if (source.has("specs")) {
-        productBuilder.specs(source.get("specs").asText());
-        productBuilder.specsRaw(
-            source.has("specs_raw")
-                ? source.get("specs_raw").asText()
-                : source.get("specs").asText());
-      }
+      
+      ProductDto product = productDtoConverter.convert(
+          result.getDocument().id(),
+          result.getTotalRrfScore(),
+          result.getDocument().source()
+      );
 
       // explain 모드일 때 RRF 점수 설명 추가
       if (withExplain) {
         ObjectNode explainNode = objectMapper.createObjectNode();
         explainNode.putPOJO("hybrid_score", result.getScoreExplanation());
         explainNode.put("hybrid_rank", from + i + 1);
-        productBuilder.explain(explainNode.toString());
+        product = product.toBuilder()
+            .explain(explainNode.toString())
+            .build();
       }
 
-      products.add(productBuilder.build());
+      products.add(product);
     }
 
     // SearchHitsDto 생성 - 전체 병합 결과 개수 표시

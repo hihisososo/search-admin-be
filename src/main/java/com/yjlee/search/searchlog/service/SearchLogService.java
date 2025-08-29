@@ -22,10 +22,14 @@ import com.yjlee.search.searchlog.dto.SearchLogResponse;
 import com.yjlee.search.searchlog.dto.TrendingKeywordDto;
 import com.yjlee.search.searchlog.dto.TrendingKeywordsResponse;
 import com.yjlee.search.searchlog.model.SearchLogDocument;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.yjlee.search.searchlog.dto.PopularKeywordDto.RankChangeStatus.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -84,7 +88,7 @@ public class SearchLogService {
       List<PopularKeywordDto> currentKeywords = getPopularKeywordsList(fromDate, toDate, limit);
 
       // 이전 기간 계산 (동일한 기간만큼 이전)
-      long periodDays = java.time.Duration.between(fromDate, toDate).toDays();
+      long periodDays = Duration.between(fromDate, toDate).toDays();
       LocalDateTime previousFromDate = fromDate.minusDays(periodDays);
       LocalDateTime previousToDate = fromDate;
 
@@ -103,7 +107,7 @@ public class SearchLogService {
           .fromDate(fromDate)
           .toDate(toDate)
           .totalCount(keywordsWithRankChange.size())
-          .lastUpdated(LocalDateTime.now(java.time.ZoneOffset.UTC))
+          .lastUpdated(LocalDateTime.now(ZoneOffset.UTC))
           .build();
 
     } catch (Exception e) {
@@ -180,17 +184,17 @@ public class SearchLogService {
 
               if (previousRank == null) {
                 // 신규 진입
-                changeStatus = PopularKeywordDto.RankChangeStatus.NEW;
+                changeStatus = NEW;
               } else {
                 // 순위 변동 계산 (이전 순위 - 현재 순위, 양수면 상승)
                 rankChange = previousRank - current.getRank();
 
                 if (rankChange > 0) {
-                  changeStatus = PopularKeywordDto.RankChangeStatus.UP;
+                  changeStatus = UP;
                 } else if (rankChange < 0) {
-                  changeStatus = PopularKeywordDto.RankChangeStatus.DOWN;
+                  changeStatus = DOWN;
                 } else {
-                  changeStatus = PopularKeywordDto.RankChangeStatus.SAME;
+                  changeStatus = SAME;
                 }
               }
 
@@ -289,7 +293,7 @@ public class SearchLogService {
           .previousFromDate(previousFromDate)
           .previousToDate(previousToDate)
           .totalCount(finalResult.size())
-          .lastUpdated(LocalDateTime.now(java.time.ZoneOffset.UTC))
+          .lastUpdated(LocalDateTime.now(ZoneOffset.UTC))
           .build();
 
     } catch (Exception e) {

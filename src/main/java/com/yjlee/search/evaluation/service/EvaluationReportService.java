@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -68,9 +69,9 @@ public class EvaluationReportService {
     log.info("🔄 ExecutorService 종료 시작");
     executorService.shutdown();
     try {
-      if (!executorService.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+      if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
         executorService.shutdownNow();
-        if (!executorService.awaitTermination(60, java.util.concurrent.TimeUnit.SECONDS)) {
+        if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
           log.error("❌ ExecutorService 종료 실패");
         }
       }
@@ -212,7 +213,7 @@ public class EvaluationReportService {
     // 모든 작업 완료 대기 및 결과 수집
     try {
       CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-          .get(300, java.util.concurrent.TimeUnit.SECONDS); // 5분 타임아웃
+          .get(300, TimeUnit.SECONDS); // 5분 타임아웃
 
       for (CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future : futures) {
         try {

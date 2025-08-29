@@ -11,6 +11,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
@@ -19,6 +20,7 @@ import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.VectorSearchService;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -99,8 +101,7 @@ public class SearchBasedGroundTruthService {
     List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
 
     // 진행률 추적을 위한 AtomicInteger
-    java.util.concurrent.atomic.AtomicInteger completedCount =
-        new java.util.concurrent.atomic.AtomicInteger(0);
+    AtomicInteger completedCount = new AtomicInteger(0);
     int totalQueries = queries.size();
 
     // 병렬 처리
@@ -239,7 +240,7 @@ public class SearchBasedGroundTruthService {
 
   private List<String> searchByVector(String query, int size) {
     try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
 
       SearchResponse<JsonNode> response =
           vectorSearchService.multiFieldVectorSearch(indexName, query, size);
@@ -263,7 +264,7 @@ public class SearchBasedGroundTruthService {
 
   private List<String> searchByCrossField(String query, String[] fields, int size) {
     try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
       SearchRequest request =
           SearchRequest.of(
               s ->
@@ -303,7 +304,7 @@ public class SearchBasedGroundTruthService {
     }
 
     try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
 
       var mgetResponse =
           elasticsearchClient.mget(

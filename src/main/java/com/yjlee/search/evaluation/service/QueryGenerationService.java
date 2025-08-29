@@ -9,6 +9,7 @@ import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.evaluation.dto.ProductInfoDto;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
@@ -261,7 +262,7 @@ public class QueryGenerationService {
 
   private List<ProductInfoDto> fetchRandomProductsByCategory(int count, String category) {
     try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
       SearchRequest request =
           SearchRequest.of(
               s ->
@@ -307,7 +308,7 @@ public class QueryGenerationService {
 
   private List<ProductInfoDto> fetchRandomProducts(int count) {
     try {
-      String indexName2 = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      String indexName2 = indexResolver.resolveProductIndex(EnvironmentType.DEV);
       SearchRequest request =
           SearchRequest.of(
               s ->

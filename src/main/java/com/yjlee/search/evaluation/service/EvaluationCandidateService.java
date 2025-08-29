@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.GetRequest;
 import co.elastic.clients.elasticsearch.core.GetResponse;
 import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
@@ -58,7 +59,7 @@ public class EvaluationCandidateService {
 
   public ProductDocument getProductDetails(String productId) {
     try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
       GetRequest request = GetRequest.of(g -> g.index(indexName).id(productId));
       GetResponse<ProductDocument> response =
           elasticsearchClient.get(request, ProductDocument.class);

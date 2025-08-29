@@ -5,12 +5,14 @@ import co.elastic.apm.api.Transaction;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.common.util.HttpRequestUtils;
 import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.search.converter.SearchRequestMapper;
 import com.yjlee.search.search.dto.*;
 import com.yjlee.search.search.exception.SearchException;
 import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import com.yjlee.search.searchlog.service.SearchLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class SearchService {
   private final TypoCorrectionService typoCorrectionService;
   private final SearchLogService searchLogService;
   private final HttpRequestUtils httpRequestUtils;
+  private final SearchRequestMapper searchRequestMapper;
 
   public AutocompleteResponse getAutocompleteSuggestions(String keyword) {
     String indexName = indexResolver.resolveAutocompleteIndex();
@@ -67,20 +70,20 @@ public class SearchService {
   }
 
   public SearchExecuteResponse executeSearch(SearchParams params, HttpServletRequest httpRequest) {
-    SearchExecuteRequest request = buildSearchRequest(params);
+    SearchExecuteRequest request = searchRequestMapper.toSearchExecuteRequest(params);
     return executeWithLogging(request, httpRequest, () -> searchProducts(request));
   }
 
   public SearchExecuteResponse executeSearchSimulation(
       SearchSimulationParams params, HttpServletRequest httpRequest) {
-    SearchSimulationRequest request = buildSearchSimulationRequest(params);
+    SearchSimulationRequest request = searchRequestMapper.toSearchSimulationRequest(params);
     return searchProductsSimulation(request);
   }
 
   private SearchExecuteResponse executeWithLogging(
       SearchExecuteRequest request, HttpServletRequest httpRequest, SearchExecutor executor) {
 
-    LocalDateTime requestTime = LocalDateTime.now(java.time.ZoneOffset.UTC);
+    LocalDateTime requestTime = LocalDateTime.now(ZoneOffset.UTC);
     String clientIp = httpRequestUtils.getClientIp(httpRequest);
     String userAgent = httpRequestUtils.getUserAgent(httpRequest);
     String sessionId =
@@ -159,82 +162,6 @@ public class SearchService {
     }
   }
 
-  private SearchExecuteRequest buildSearchRequest(SearchParams params) {
-    SearchExecuteRequest request = new SearchExecuteRequest();
-    request.setQuery(params.getQuery());
-    request.setPage(params.getPage() != null ? params.getPage() : 0);
-    request.setSize(params.getSize() != null ? params.getSize() : 20);
-    request.setSearchSessionId(params.getSearchSessionId());
-    request.setSearchMode(
-        params.getSearchMode() != null ? params.getSearchMode() : SearchMode.KEYWORD_ONLY);
-    request.setRrfK(params.getRrfK() != null ? params.getRrfK() : 60);
-    request.setHybridTopK(params.getHybridTopK() != null ? params.getHybridTopK() : 100);
-    request.setVectorMinScore(params.getVectorMinScore());
-
-    if (params.getSortField() != null || params.getSortOrder() != null) {
-      ProductSortDto sort = new ProductSortDto();
-      sort.setField(params.getSortField());
-      sort.setOrder(params.getSortOrder());
-      request.setSort(sort);
-    }
-
-    if (params.getBrand() != null
-        || params.getCategory() != null
-        || params.getPriceFrom() != null
-        || params.getPriceTo() != null) {
-      ProductFiltersDto filters = new ProductFiltersDto();
-      filters.setBrand(params.getBrand());
-      filters.setCategory(params.getCategory());
-
-      if (params.getPriceFrom() != null || params.getPriceTo() != null) {
-        PriceRangeDto priceRange = new PriceRangeDto();
-        priceRange.setFrom(params.getPriceFrom());
-        priceRange.setTo(params.getPriceTo());
-        filters.setPriceRange(priceRange);
-      }
-      request.setFilters(filters);
-    }
-    return request;
-  }
-
-  private SearchSimulationRequest buildSearchSimulationRequest(SearchSimulationParams params) {
-    SearchSimulationRequest request = new SearchSimulationRequest();
-    request.setEnvironmentType(params.getEnvironmentType());
-    request.setExplain(params.isExplain());
-    request.setQuery(params.getQuery());
-    request.setPage(params.getPage() != null ? params.getPage() : 0);
-    request.setSize(params.getSize() != null ? params.getSize() : 20);
-    request.setSearchMode(
-        params.getSearchMode() != null ? params.getSearchMode() : SearchMode.KEYWORD_ONLY);
-    request.setRrfK(params.getRrfK() != null ? params.getRrfK() : 60);
-    request.setHybridTopK(params.getHybridTopK() != null ? params.getHybridTopK() : 100);
-    request.setVectorMinScore(params.getVectorMinScore());
-
-    if (params.getSortField() != null || params.getSortOrder() != null) {
-      ProductSortDto sort = new ProductSortDto();
-      sort.setField(params.getSortField());
-      sort.setOrder(params.getSortOrder());
-      request.setSort(sort);
-    }
-
-    if (params.getBrand() != null
-        || params.getCategory() != null
-        || params.getPriceFrom() != null
-        || params.getPriceTo() != null) {
-      ProductFiltersDto filters = new ProductFiltersDto();
-      filters.setBrand(params.getBrand());
-      filters.setCategory(params.getCategory());
-
-      if (params.getPriceFrom() != null || params.getPriceTo() != null) {
-        PriceRangeDto priceRange = new PriceRangeDto();
-        priceRange.setFrom(params.getPriceFrom());
-        priceRange.setTo(params.getPriceTo());
-        filters.setPriceRange(priceRange);
-      }
-      request.setFilters(filters);
-    }
-    return request;
-  }
 
   @FunctionalInterface
   private interface SearchExecutor {
