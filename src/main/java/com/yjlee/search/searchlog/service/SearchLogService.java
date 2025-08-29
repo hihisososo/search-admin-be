@@ -1,5 +1,7 @@
 package com.yjlee.search.searchlog.service;
 
+import static com.yjlee.search.searchlog.dto.PopularKeywordDto.RankChangeStatus.*;
+
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
@@ -28,8 +30,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static com.yjlee.search.searchlog.dto.PopularKeywordDto.RankChangeStatus.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

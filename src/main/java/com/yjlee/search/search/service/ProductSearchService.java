@@ -25,11 +25,14 @@ public class ProductSearchService {
         withExplain);
 
     // 적절한 전략 선택
-    SearchStrategy strategy = searchStrategies.stream()
-        .filter(s -> s.supports(request))
-        .findFirst()
-        .orElseThrow(() -> new IllegalArgumentException(
-            "No search strategy found for mode: " + request.getSearchMode()));
+    SearchStrategy strategy =
+        searchStrategies.stream()
+            .filter(s -> s.supports(request))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        "No search strategy found for mode: " + request.getSearchMode()));
 
     // 전략 실행
     return strategy.search(indexName, request, withExplain);

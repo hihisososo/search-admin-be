@@ -22,10 +22,7 @@ public class ProductDtoConverter {
 
   public ProductDto convert(String id, Double score, JsonNode source) {
     if (source == null) {
-      return ProductDto.builder()
-          .id(id)
-          .score(score != null ? score : 0.0)
-          .build();
+      return ProductDto.builder().id(id).score(score != null ? score : 0.0).build();
     }
 
     return ProductDto.builder()
@@ -48,9 +45,7 @@ public class ProductDtoConverter {
 
   public ProductDto convertWithExplain(Hit<JsonNode> hit, String explainText) {
     ProductDto dto = convert(hit);
-    return dto.toBuilder()
-        .explain(explainText)
-        .build();
+    return dto.toBuilder().explain(explainText).build();
   }
 
   private String getTextValue(JsonNode node, String field) {

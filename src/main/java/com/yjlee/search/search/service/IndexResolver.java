@@ -43,8 +43,7 @@ public class IndexResolver {
     return environment.getIndexName();
   }
 
-  public String resolveAutocompleteIndexForSimulation(
-      EnvironmentType environmentType) {
+  public String resolveAutocompleteIndexForSimulation(EnvironmentType environmentType) {
     IndexEnvironment environment = findEnvironmentAllowingIndexing(environmentType);
     return environment
         .getIndexName()
@@ -52,18 +51,15 @@ public class IndexResolver {
             indexNameProvider.getProductsIndexPrefix(), indexNameProvider.getAutocompleteIndex());
   }
 
-  private IndexEnvironment findAndValidateEnvironment(
-      EnvironmentType environmentType) {
+  private IndexEnvironment findAndValidateEnvironment(EnvironmentType environmentType) {
     return findEnvironment(environmentType, false);
   }
 
-  private IndexEnvironment findEnvironmentAllowingIndexing(
-      EnvironmentType environmentType) {
+  private IndexEnvironment findEnvironmentAllowingIndexing(EnvironmentType environmentType) {
     return findEnvironment(environmentType, true);
   }
 
-  private IndexEnvironment findEnvironment(
-      EnvironmentType environmentType, boolean allowIndexing) {
+  private IndexEnvironment findEnvironment(EnvironmentType environmentType, boolean allowIndexing) {
     IndexEnvironment environment =
         indexEnvironmentRepository
             .findByEnvironmentType(environmentType)

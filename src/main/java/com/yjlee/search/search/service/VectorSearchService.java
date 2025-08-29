@@ -34,9 +34,7 @@ public class VectorSearchService {
   private final Map<String, float[]> embeddingCache =
       Collections.synchronizedMap(
           new LinkedHashMap<String, float[]>(
-              SearchConstants.EMBEDDING_CACHE_SIZE + 1, 
-              SearchConstants.CACHE_LOAD_FACTOR, 
-              true) {
+              SearchConstants.EMBEDDING_CACHE_SIZE + 1, SearchConstants.CACHE_LOAD_FACTOR, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<String, float[]> eldest) {
               return size() > SearchConstants.EMBEDDING_CACHE_SIZE;
@@ -135,7 +133,7 @@ public class VectorSearchService {
   public int getCacheSize() {
     return embeddingCache.size();
   }
-  
+
   /** 기본 벡터 최소 점수 반환 */
   public double getDefaultVectorMinScore() {
     return defaultVectorMinScore;

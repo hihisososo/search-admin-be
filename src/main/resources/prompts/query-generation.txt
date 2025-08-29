@@ -19,7 +19,7 @@ A. brand + model  (1%)
 B. model + 핵심스펙(용량/인치/규격 등)  (1%)
 C. category + 핵심스펙            (1%)
 D. brand + category + 핵심스펙          (1%)
-E. 브랜드 없는 상품명일부 + 핵심스펙 (96%)
+E. brand 제거한 상품명일부 + 핵심스펙 (96%)
 
 -- 품질 제약 --
 - 최소 하나의 식별 토큰을 포함: {brand | model | series | 고유스펙(용량/규격/규모)}
