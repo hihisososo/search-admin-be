@@ -1,0 +1,428 @@
+{
+  "units": [
+    {
+      "primary": "ml",
+      "synonyms": ["밀리리터", "cc"]
+    },
+    {
+      "primary": "밀리리터",
+      "synonyms": ["ml", "cc"]
+    },
+    {
+      "primary": "cc",
+      "synonyms": ["ml", "밀리리터"]
+    },
+    {
+      "primary": "l",
+      "synonyms": ["리터"]
+    },
+    {
+      "primary": "리터",
+      "synonyms": ["l"]
+    },
+    {
+      "primary": "oz",
+      "synonyms": ["온스"]
+    },
+    {
+      "primary": "온스",
+      "synonyms": ["oz"]
+    },
+    {
+      "primary": "gal",
+      "synonyms": ["갤런", "갤론"]
+    },
+    {
+      "primary": "갤런",
+      "synonyms": ["gal", "갤론"]
+    },
+    {
+      "primary": "갤론",
+      "synonyms": ["gal", "갤런"]
+    },
+    {
+      "primary": "mg",
+      "synonyms": ["밀리그램"]
+    },
+    {
+      "primary": "밀리그램",
+      "synonyms": ["mg"]
+    },
+    {
+      "primary": "g",
+      "synonyms": ["그램", "그람"]
+    },
+    {
+      "primary": "그램",
+      "synonyms": ["g", "그람"]
+    },
+    {
+      "primary": "그람",
+      "synonyms": ["g", "그램"]
+    },
+    {
+      "primary": "kg",
+      "synonyms": ["킬로그램", "킬로", "키로"]
+    },
+    {
+      "primary": "킬로그램",
+      "synonyms": ["kg", "킬로", "키로"]
+    },
+    {
+      "primary": "킬로",
+      "synonyms": ["kg", "킬로그램", "키로"]
+    },
+    {
+      "primary": "키로",
+      "synonyms": ["kg", "킬로그램", "킬로"]
+    },
+    {
+      "primary": "lb",
+      "synonyms": ["파운드"]
+    },
+    {
+      "primary": "파운드",
+      "synonyms": ["lb"]
+    },
+    {
+      "primary": "mm",
+      "synonyms": ["밀리미터"]
+    },
+    {
+      "primary": "밀리미터",
+      "synonyms": ["mm"]
+    },
+    {
+      "primary": "cm",
+      "synonyms": ["센티미터", "센티", "센치"]
+    },
+    {
+      "primary": "센티미터",
+      "synonyms": ["cm", "센티", "센치"]
+    },
+    {
+      "primary": "센티",
+      "synonyms": ["cm", "센티미터", "센치"]
+    },
+    {
+      "primary": "센치",
+      "synonyms": ["cm", "센티미터", "센티"]
+    },
+    {
+      "primary": "m",
+      "synonyms": ["미터"]
+    },
+    {
+      "primary": "미터",
+      "synonyms": ["m"]
+    },
+    {
+      "primary": "km",
+      "synonyms": ["킬로미터", "키로미터"]
+    },
+    {
+      "primary": "킬로미터",
+      "synonyms": ["km", "키로미터"]
+    },
+    {
+      "primary": "키로미터",
+      "synonyms": ["km", "킬로미터"]
+    },
+    {
+      "primary": "inch",
+      "synonyms": ["인치", "in"]
+    },
+    {
+      "primary": "인치",
+      "synonyms": ["inch", "in"]
+    },
+    {
+      "primary": "in",
+      "synonyms": ["inch", "인치"]
+    },
+    {
+      "primary": "ft",
+      "synonyms": ["피트", "feet"]
+    },
+    {
+      "primary": "피트",
+      "synonyms": ["ft", "feet"]
+    },
+    {
+      "primary": "feet",
+      "synonyms": ["ft", "피트"]
+    },
+    {
+      "primary": "yd",
+      "synonyms": []
+    },
+    {
+      "primary": "mile",
+      "synonyms": []
+    },
+    {
+      "primary": "ea",
+      "synonyms": ["개"]
+    },
+    {
+      "primary": "개",
+      "synonyms": ["ea"]
+    },
+    {
+      "primary": "개입",
+      "synonyms": []
+    },
+    {
+      "primary": "장",
+      "synonyms": ["매"]
+    },
+    {
+      "primary": "매",
+      "synonyms": ["장"]
+    },
+    {
+      "primary": "봉",
+      "synonyms": ["봉지", "포"]
+    },
+    {
+      "primary": "봉지",
+      "synonyms": ["봉", "포"]
+    },
+    {
+      "primary": "포",
+      "synonyms": ["봉", "봉지"]
+    },
+    {
+      "primary": "box",
+      "synonyms": ["박스"]
+    },
+    {
+      "primary": "박스",
+      "synonyms": ["box"]
+    },
+    {
+      "primary": "pack",
+      "synonyms": ["팩"]
+    },
+    {
+      "primary": "팩",
+      "synonyms": ["pack"]
+    },
+    {
+      "primary": "set",
+      "synonyms": ["세트", "셋트"]
+    },
+    {
+      "primary": "세트",
+      "synonyms": ["set", "셋트"]
+    },
+    {
+      "primary": "셋트",
+      "synonyms": ["set", "세트"]
+    },
+    {
+      "primary": "btl",
+      "synonyms": ["병"]
+    },
+    {
+      "primary": "병",
+      "synonyms": ["btl"]
+    },
+    {
+      "primary": "can",
+      "synonyms": ["캔"]
+    },
+    {
+      "primary": "캔",
+      "synonyms": ["can"]
+    },
+    {
+      "primary": "정",
+      "synonyms": ["알"]
+    },
+    {
+      "primary": "알",
+      "synonyms": ["정"]
+    },
+    {
+      "primary": "평",
+      "synonyms": []
+    },
+    {
+      "primary": "묶음",
+      "synonyms": []
+    },
+    {
+      "primary": "다발",
+      "synonyms": []
+    },
+    {
+      "primary": "켤레",
+      "synonyms": []
+    },
+    {
+      "primary": "족",
+      "synonyms": []
+    },
+    {
+      "primary": "쌍",
+      "synonyms": []
+    },
+    {
+      "primary": "pcs",
+      "synonyms": []
+    },
+    {
+      "primary": "kb",
+      "synonyms": ["킬로바이트"]
+    },
+    {
+      "primary": "킬로바이트",
+      "synonyms": ["kb"]
+    },
+    {
+      "primary": "mb",
+      "synonyms": ["메가바이트"]
+    },
+    {
+      "primary": "메가바이트",
+      "synonyms": ["mb"]
+    },
+    {
+      "primary": "gb",
+      "synonyms": ["기가바이트"]
+    },
+    {
+      "primary": "기가바이트",
+      "synonyms": ["gb"]
+    },
+    {
+      "primary": "tb",
+      "synonyms": ["테라바이트"]
+    },
+    {
+      "primary": "테라바이트",
+      "synonyms": ["tb"]
+    },
+    {
+      "primary": "gbps",
+      "synonyms": []
+    },
+    {
+      "primary": "mbps",
+      "synonyms": []
+    },
+    {
+      "primary": "kbps",
+      "synonyms": []
+    },
+    {
+      "primary": "bps",
+      "synonyms": []
+    },
+    {
+      "primary": "w",
+      "synonyms": ["와트"]
+    },
+    {
+      "primary": "와트",
+      "synonyms": ["w"]
+    },
+    {
+      "primary": "kw",
+      "synonyms": ["킬로와트"]
+    },
+    {
+      "primary": "킬로와트",
+      "synonyms": ["kw"]
+    },
+    {
+      "primary": "mw",
+      "synonyms": []
+    },
+    {
+      "primary": "v",
+      "synonyms": ["볼트"]
+    },
+    {
+      "primary": "볼트",
+      "synonyms": ["v"]
+    },
+    {
+      "primary": "kv",
+      "synonyms": []
+    },
+    {
+      "primary": "mv",
+      "synonyms": []
+    },
+    {
+      "primary": "a",
+      "synonyms": ["암페어"]
+    },
+    {
+      "primary": "암페어",
+      "synonyms": ["a"]
+    },
+    {
+      "primary": "ma",
+      "synonyms": ["밀리암페어"]
+    },
+    {
+      "primary": "밀리암페어",
+      "synonyms": ["ma"]
+    },
+    {
+      "primary": "mah",
+      "synonyms": []
+    },
+    {
+      "primary": "wh",
+      "synonyms": ["와트시"]
+    },
+    {
+      "primary": "와트시",
+      "synonyms": ["wh"]
+    },
+    {
+      "primary": "kwh",
+      "synonyms": ["킬로와트시"]
+    },
+    {
+      "primary": "킬로와트시",
+      "synonyms": ["kwh"]
+    },
+    {
+      "primary": "hz",
+      "synonyms": ["헤르츠"]
+    },
+    {
+      "primary": "헤르츠",
+      "synonyms": ["hz"]
+    },
+    {
+      "primary": "khz",
+      "synonyms": ["킬로헤르츠"]
+    },
+    {
+      "primary": "킬로헤르츠",
+      "synonyms": ["khz"]
+    },
+    {
+      "primary": "mhz",
+      "synonyms": ["메가헤르츠"]
+    },
+    {
+      "primary": "메가헤르츠",
+      "synonyms": ["mhz"]
+    },
+    {
+      "primary": "ghz",
+      "synonyms": ["기가헤르츠"]
+    },
+    {
+      "primary": "기가헤르츠",
+      "synonyms": ["ghz"]
+    }
+  ]
+}

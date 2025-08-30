@@ -74,7 +74,7 @@ public class VectorSearchStrategy implements SearchStrategy {
             .build();
 
     // 벡터 검색 결과에서 aggregation 계산
-    Map<String, List<AggregationBucketDto>> aggregations = 
+    Map<String, List<AggregationBucketDto>> aggregations =
         AggregationUtils.calculateFromHits(allHits);
 
     return SearchExecuteResponse.builder()

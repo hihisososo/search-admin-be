@@ -1,5 +1,8 @@
 package com.yjlee.search.index.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -9,148 +12,150 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.AccessLevel;
+import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class UnitExtractor {
 
-  // 영어 단위 목록 (하드코딩)
-  private static final String EN_UNITS =
-      "ml|l|cc|oz|gal|g|kg|mg|lb|ea|pcs|box|pack|set|btl|can|"
-          + "cm|mm|m|km|inch|ft|yd|mile|"
-          + "gb|mb|kb|tb|gbps|mbps|kbps|bps|hz|khz|mhz|ghz|"
-          + "w|kw|mw|v|kv|mv|a|ma|mah|wh|kwh";
+  // JSON에서 로드된 단위 패턴
+  private static String EN_UNITS;
+  private static String KO_UNITS;
 
-  // 한글 단위 목록 (하드코딩)
-  private static final String KO_UNITS =
-      "개입|개|장|매|봉|봉지|포|박스|팩|세트|켤레|족|쌍|병|캔|정|알|평|묶음|다발|인치|리터|밀리리터|그램|킬로그램|밀리그램|미터|센티미터|밀리미터|킬로미터|킬로바이트|메가바이트|기가바이트|테라바이트|와트|킬로와트|볼트|암페어|헤르츠";
+  // 단위 정의 맵 (primary -> UnitDefinition)
+  private static final Map<String, UnitDefinition> UNIT_DEFINITIONS = new HashMap<>();
 
-  // 단위 변환 매핑 (같은 의미의 단위들을 그룹화)
+  // 단위 변환 매핑 (모든 단위/동의어 -> 동의어 그룹)
   private static final Map<String, Set<String>> UNIT_MAPPING = new HashMap<>();
 
-  static {
-    // 용량 단위
-    addUnitGroup("ml", "ml", "밀리리터", "밀리", "cc", "시시");
-    addUnitGroup("l", "l", "리터", "ℓ");
-    addUnitGroup("oz", "oz", "온스");
-    addUnitGroup("gal", "gal", "갤런", "갤론");
-
-    // 무게 단위
-    addUnitGroup("mg", "mg", "밀리그램");
-    addUnitGroup("g", "g", "그램", "그람");
-    addUnitGroup("kg", "kg", "킬로그램", "킬로", "키로");
-    addUnitGroup("lb", "lb", "파운드");
-
-    // 길이 단위
-    addUnitGroup("mm", "mm", "밀리미터", "밀리");
-    addUnitGroup("cm", "cm", "센티미터", "센티", "센치");
-    addUnitGroup("m", "m", "미터");
-    addUnitGroup("km", "km", "킬로미터", "키로미터");
-    addUnitGroup("inch", "inch", "인치", "in", "\"");
-    addUnitGroup("ft", "ft", "피트", "feet");
-    addUnitGroup("yd", "yd", "야드");
-    addUnitGroup("mile", "mile", "마일");
-
-    // 개수/포장 단위
-    addUnitGroup("ea", "ea", "개");
-    addUnitGroup("개입", "개입");
-    addUnitGroup("장", "장", "매");
-    addUnitGroup("box", "box", "박스", "boxes");
-    addUnitGroup("pack", "pack", "팩", "packs");
-    addUnitGroup("set", "set", "세트", "셋트", "sets");
-    addUnitGroup("btl", "btl", "병", "bottle", "bottles");
-    addUnitGroup("can", "can", "캔", "cans");
-    addUnitGroup("정", "정", "알");
-    addUnitGroup("봉", "봉", "봉지", "포");
-    addUnitGroup("켤레", "켤레", "족", "쌍");
-    addUnitGroup("묶음", "묶음", "다발");
-
-    // 데이터 용량 단위
-    addUnitGroup("kb", "kb", "킬로바이트");
-    addUnitGroup("mb", "mb", "메가바이트");
-    addUnitGroup("gb", "gb", "기가바이트");
-    addUnitGroup("tb", "tb", "테라바이트");
-
-    // 전기/전력 단위
-    addUnitGroup("w", "w", "와트");
-    addUnitGroup("kw", "kw", "킬로와트");
-    addUnitGroup("v", "v", "볼트");
-    addUnitGroup("a", "a", "암페어");
-    addUnitGroup("ma", "ma", "밀리암페어");
-    addUnitGroup("mah", "mah", "밀리암페어시");
-    addUnitGroup("wh", "wh", "와트시");
-    addUnitGroup("kwh", "kwh", "킬로와트시");
-
-    // 주파수 단위
-    addUnitGroup("hz", "hz", "헤르츠");
-    addUnitGroup("khz", "khz", "킬로헤르츠");
-    addUnitGroup("mhz", "mhz", "메가헤르츠");
-    addUnitGroup("ghz", "ghz", "기가헤르츠");
+  // 단위 정의 모델
+  @Data
+  private static class UnitDefinition {
+    private String primary;
+    private List<String> synonyms;
   }
 
-  private static void addUnitGroup(String key, String... units) {
-    Set<String> group = new HashSet<>();
-    for (String unit : units) {
-      group.add(unit.toLowerCase());
-    }
-    for (String unit : units) {
-      UNIT_MAPPING.put(unit.toLowerCase(), group);
+  @Data
+  private static class UnitsData {
+    private List<UnitDefinition> units;
+  }
+
+  static {
+    try {
+      loadUnitsFromJson();
+      buildPatterns();
+      initializePatterns();
+    } catch (Exception e) {
+      log.error("단위 데이터 로드 실패", e);
+      // 기본값 설정 (fallback)
+      EN_UNITS = "ml|l|cc|oz|gal|g|kg|mg|lb|ea|pcs|box|pack|set|can";
+      KO_UNITS = "개|장|매|봉|병|캔|정|알|리터|밀리리터|그램|킬로그램";
+      initializePatterns();
     }
   }
 
-  // 단위 변환 관계 정의 (예: 1L = 1000ml)
-  private static final Map<String, Double> UNIT_CONVERSIONS = new HashMap<>();
+  private static void loadUnitsFromJson() throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
 
-  static {
-    // 용량 변환
-    UNIT_CONVERSIONS.put("l_to_ml", 1000.0);
-    UNIT_CONVERSIONS.put("ml_to_l", 0.001);
-    UNIT_CONVERSIONS.put("gal_to_l", 3.78541);
-    UNIT_CONVERSIONS.put("oz_to_ml", 29.5735);
+    try (InputStream is = UnitExtractor.class.getClassLoader().getResourceAsStream("units.json")) {
 
-    // 무게 변환
-    UNIT_CONVERSIONS.put("kg_to_g", 1000.0);
-    UNIT_CONVERSIONS.put("g_to_kg", 0.001);
-    UNIT_CONVERSIONS.put("g_to_mg", 1000.0);
-    UNIT_CONVERSIONS.put("mg_to_g", 0.001);
-    UNIT_CONVERSIONS.put("lb_to_kg", 0.453592);
-    UNIT_CONVERSIONS.put("kg_to_lb", 2.20462);
+      if (is == null) {
+        throw new IOException("units.json 파일을 찾을 수 없습니다.");
+      }
 
-    // 길이 변환
-    UNIT_CONVERSIONS.put("m_to_cm", 100.0);
-    UNIT_CONVERSIONS.put("cm_to_m", 0.01);
-    UNIT_CONVERSIONS.put("cm_to_mm", 10.0);
-    UNIT_CONVERSIONS.put("mm_to_cm", 0.1);
-    UNIT_CONVERSIONS.put("km_to_m", 1000.0);
-    UNIT_CONVERSIONS.put("m_to_km", 0.001);
-    UNIT_CONVERSIONS.put("inch_to_cm", 2.54);
-    UNIT_CONVERSIONS.put("cm_to_inch", 0.393701);
-    UNIT_CONVERSIONS.put("ft_to_m", 0.3048);
-    UNIT_CONVERSIONS.put("m_to_ft", 3.28084);
+      UnitsData data = mapper.readValue(is, UnitsData.class);
 
-    // 데이터 용량 변환
-    UNIT_CONVERSIONS.put("gb_to_mb", 1024.0);
-    UNIT_CONVERSIONS.put("mb_to_gb", 1.0 / 1024.0);
-    UNIT_CONVERSIONS.put("mb_to_kb", 1024.0);
-    UNIT_CONVERSIONS.put("kb_to_mb", 1.0 / 1024.0);
-    UNIT_CONVERSIONS.put("tb_to_gb", 1024.0);
-    UNIT_CONVERSIONS.put("gb_to_tb", 1.0 / 1024.0);
+      // 단위 정의 맵 구성
+      for (UnitDefinition unit : data.getUnits()) {
+        String primary = unit.getPrimary().toLowerCase();
+        UNIT_DEFINITIONS.put(primary, unit);
+
+        // UNIT_MAPPING 구성 (동의어 그룹화)
+        Set<String> group = new HashSet<>();
+        group.add(primary);
+        if (unit.getSynonyms() != null) {
+          for (String synonym : unit.getSynonyms()) {
+            group.add(synonym.toLowerCase());
+          }
+        }
+
+        // primary와 모든 synonym에 대해 매핑 추가
+        UNIT_MAPPING.put(primary, group);
+        if (unit.getSynonyms() != null) {
+          for (String synonym : unit.getSynonyms()) {
+            UNIT_MAPPING.put(synonym.toLowerCase(), group);
+          }
+        }
+      }
+
+      log.info("단위 데이터 로드 완료: {}개 단위", UNIT_DEFINITIONS.size());
+    }
   }
 
-  // 일반 단위 패턴 (숫자 + 단위)
-  private static final Pattern UNIT_PATTERN_EN =
-      Pattern.compile(
-          "(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
-          Pattern.CASE_INSENSITIVE);
+  private static void buildPatterns() {
+    Set<String> enUnits = new HashSet<>();
+    Set<String> koUnits = new HashSet<>();
 
-  private static final Pattern UNIT_PATTERN_KO =
-      Pattern.compile("(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + KO_UNITS + ")(?![가-힣])");
+    // 모든 단위와 동의어를 패턴에 추가
+    for (UnitDefinition unit : UNIT_DEFINITIONS.values()) {
+      String primary = unit.getPrimary();
 
-  // 복합 패턴 (예: 25.4x24.4cm, 1920x1080px)
-  private static final Pattern COMPLEX_UNIT_PATTERN =
-      Pattern.compile(
-          "(?<![a-zA-Z])(\\d+\\.?\\d*)x(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
-          Pattern.CASE_INSENSITIVE);
+      // 한글/영어 자동 판별
+      if (isKorean(primary)) {
+        koUnits.add(Pattern.quote(primary));
+      } else {
+        enUnits.add(Pattern.quote(primary));
+      }
+
+      // synonyms도 패턴에 추가
+      if (unit.getSynonyms() != null) {
+        for (String syn : unit.getSynonyms()) {
+          if (isKorean(syn)) {
+            koUnits.add(Pattern.quote(syn));
+          } else {
+            enUnits.add(Pattern.quote(syn));
+          }
+        }
+      }
+    }
+
+    // 패턴 문자열 생성
+    EN_UNITS = String.join("|", enUnits);
+    KO_UNITS = String.join("|", koUnits);
+
+    log.debug("영어 단위 패턴: {}", EN_UNITS);
+    log.debug("한글 단위 패턴: {}", KO_UNITS);
+  }
+
+  private static boolean isKorean(String text) {
+    return text != null && text.matches(".*[가-힣]+.*");
+  }
+
+  // 일반 단위 패턴 (숫자 + 단위) - 동적으로 생성
+  private static Pattern UNIT_PATTERN_EN;
+  private static Pattern UNIT_PATTERN_KO;
+  private static Pattern COMPLEX_UNIT_PATTERN;
+
+  private static void initializePatterns() {
+    if (EN_UNITS != null && !EN_UNITS.isEmpty()) {
+      UNIT_PATTERN_EN =
+          Pattern.compile(
+              "(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
+              Pattern.CASE_INSENSITIVE);
+
+      COMPLEX_UNIT_PATTERN =
+          Pattern.compile(
+              "(?<![a-zA-Z])(\\d+\\.?\\d*)x(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
+              Pattern.CASE_INSENSITIVE);
+    }
+
+    if (KO_UNITS != null && !KO_UNITS.isEmpty()) {
+      UNIT_PATTERN_KO =
+          Pattern.compile("(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + KO_UNITS + ")(?![가-힣])");
+    }
+  }
 
   public static List<String> extractUnits(String text) {
     if (text == null || text.isBlank()) {
@@ -250,171 +255,9 @@ public class UnitExtractor {
       }
     }
 
-    // 숫자 변환 처리
-    try {
-      double number = Double.parseDouble(numberStr);
-
-      // 단위 변환 적용
-      augmented.addAll(convertUnits(number, unitLower));
-
-    } catch (NumberFormatException e) {
-      // 숫자 파싱 실패 시 원본만 유지
-    }
+    // 숫자 변환 처리 제거 - 원본만 유지
 
     return augmented;
-  }
-
-  // 단위 변환을 통한 추가 표현 생성
-  private static Set<String> convertUnits(double value, String unit) {
-    Set<String> converted = new HashSet<>();
-    String unitLower = unit.toLowerCase();
-
-    // L <-> ml 변환
-    if (unitLower.equals("l") || unitLower.equals("리터")) {
-      double mlValue = value * 1000;
-      converted.add(formatNumber(mlValue) + "ml");
-      converted.add(formatNumber(mlValue) + "밀리리터");
-      converted.add(formatNumber(mlValue) + "밀리");
-      converted.add(formatNumber(mlValue) + "cc");
-      converted.add(formatNumber(mlValue) + "시시");
-    } else if (unitLower.equals("ml") || unitLower.equals("밀리리터") || unitLower.equals("cc")) {
-      double lValue = value / 1000;
-      if (lValue >= 0.1) { // 0.1L 이상만 L로 표시
-        converted.add(formatNumber(lValue) + "l");
-        converted.add(formatNumber(lValue) + "리터");
-        converted.add(formatNumber(lValue) + "ℓ");
-      }
-    }
-
-    // kg <-> g 변환
-    if (unitLower.equals("kg") || unitLower.equals("킬로그램") || unitLower.equals("키로")) {
-      double gValue = value * 1000;
-      converted.add(formatNumber(gValue) + "g");
-      converted.add(formatNumber(gValue) + "그램");
-      converted.add(formatNumber(gValue) + "그람");
-    } else if (unitLower.equals("g") || unitLower.equals("그램") || unitLower.equals("그람")) {
-      double kgValue = value / 1000;
-      if (kgValue >= 0.1) { // 0.1kg 이상만 kg로 표시
-        converted.add(formatNumber(kgValue) + "kg");
-        converted.add(formatNumber(kgValue) + "킬로그램");
-        converted.add(formatNumber(kgValue) + "킬로");
-        converted.add(formatNumber(kgValue) + "키로");
-      }
-      // mg 변환
-      if (value >= 100) { // 100g 이상은 mg로 변환하지 않음
-        // skip mg conversion for large values
-      } else {
-        double mgValue = value * 1000;
-        converted.add(formatNumber(mgValue) + "mg");
-        converted.add(formatNumber(mgValue) + "밀리그램");
-      }
-    } else if (unitLower.equals("mg") || unitLower.equals("밀리그램")) {
-      double gValue = value / 1000;
-      if (gValue >= 0.1) { // 0.1g 이상만 g로 표시
-        converted.add(formatNumber(gValue) + "g");
-        converted.add(formatNumber(gValue) + "그램");
-        converted.add(formatNumber(gValue) + "그람");
-      }
-    }
-
-    // m <-> cm <-> mm 변환
-    if (unitLower.equals("m") || unitLower.equals("미터")) {
-      double cmValue = value * 100;
-      converted.add(formatNumber(cmValue) + "cm");
-      converted.add(formatNumber(cmValue) + "센티미터");
-      converted.add(formatNumber(cmValue) + "센티");
-      converted.add(formatNumber(cmValue) + "센치");
-
-      double mmValue = value * 1000;
-      if (mmValue <= 10000) { // 10000mm 이하만 mm로 표시
-        converted.add(formatNumber(mmValue) + "mm");
-        converted.add(formatNumber(mmValue) + "밀리미터");
-        converted.add(formatNumber(mmValue) + "밀리");
-      }
-    } else if (unitLower.equals("cm")
-        || unitLower.equals("센티미터")
-        || unitLower.equals("센티")
-        || unitLower.equals("센치")) {
-      double mValue = value / 100;
-      if (mValue >= 0.1) { // 0.1m 이상만 m로 표시
-        converted.add(formatNumber(mValue) + "m");
-        converted.add(formatNumber(mValue) + "미터");
-      }
-
-      double mmValue = value * 10;
-      converted.add(formatNumber(mmValue) + "mm");
-      converted.add(formatNumber(mmValue) + "밀리미터");
-      converted.add(formatNumber(mmValue) + "밀리");
-    } else if (unitLower.equals("mm") || unitLower.equals("밀리미터")) {
-      double cmValue = value / 10;
-      if (cmValue >= 1) { // 1cm 이상만 cm로 표시
-        converted.add(formatNumber(cmValue) + "cm");
-        converted.add(formatNumber(cmValue) + "센티미터");
-        converted.add(formatNumber(cmValue) + "센티");
-        converted.add(formatNumber(cmValue) + "센치");
-      }
-
-      double mValue = value / 1000;
-      if (mValue >= 0.1) { // 0.1m 이상만 m로 표시
-        converted.add(formatNumber(mValue) + "m");
-        converted.add(formatNumber(mValue) + "미터");
-      }
-    }
-
-    // GB <-> MB <-> KB 변환
-    if (unitLower.equals("gb") || unitLower.equals("기가바이트")) {
-      double mbValue = value * 1024;
-      converted.add(formatNumber(mbValue) + "mb");
-      converted.add(formatNumber(mbValue) + "메가바이트");
-    } else if (unitLower.equals("mb") || unitLower.equals("메가바이트")) {
-      double gbValue = value / 1024;
-      if (gbValue >= 0.5) { // 0.5GB 이상만 GB로 표시
-        converted.add(formatNumber(gbValue) + "gb");
-        converted.add(formatNumber(gbValue) + "기가바이트");
-      }
-
-      double kbValue = value * 1024;
-      if (kbValue <= 100000) { // 100000KB 이하만 KB로 표시
-        converted.add(formatNumber(kbValue) + "kb");
-        converted.add(formatNumber(kbValue) + "킬로바이트");
-      }
-    } else if (unitLower.equals("kb") || unitLower.equals("킬로바이트")) {
-      double mbValue = value / 1024;
-      if (mbValue >= 0.5) { // 0.5MB 이상만 MB로 표시
-        converted.add(formatNumber(mbValue) + "mb");
-        converted.add(formatNumber(mbValue) + "메가바이트");
-      }
-    } else if (unitLower.equals("tb") || unitLower.equals("테라바이트")) {
-      double gbValue = value * 1024;
-      converted.add(formatNumber(gbValue) + "gb");
-      converted.add(formatNumber(gbValue) + "기가바이트");
-    }
-
-    // inch <-> cm 변환
-    if (unitLower.equals("inch")
-        || unitLower.equals("인치")
-        || unitLower.equals("in")
-        || unitLower.equals("\"")) {
-      double cmValue = value * 2.54;
-      converted.add(formatNumber(cmValue) + "cm");
-      converted.add(formatNumber(cmValue) + "센티미터");
-      converted.add(formatNumber(cmValue) + "센티");
-      converted.add(formatNumber(cmValue) + "센치");
-    }
-
-    return converted;
-  }
-
-  // 숫자를 적절한 형식으로 포맷팅 (소수점 처리)
-  private static String formatNumber(double value) {
-    if (value == (long) value) {
-      return String.valueOf((long) value);
-    } else {
-      // 소수점 둘째자리까지만 표시하고 불필요한 0 제거
-      String formatted = String.format("%.2f", value);
-      formatted = formatted.replaceAll("0+$", "").replaceAll("\\.$", "");
-      return formatted;
-    }
   }
 
   // 검색용 단위 추출 (증강 없이 원본만)
@@ -451,5 +294,41 @@ public class UnitExtractor {
     }
 
     return new ArrayList<>(units);
+  }
+
+  // 하나의 단위를 동의어로 확장 (검색용)
+  public static Set<String> expandUnitSynonyms(String unit) {
+    if (unit == null || unit.isBlank()) {
+      return new HashSet<>();
+    }
+
+    Set<String> expanded = new HashSet<>();
+
+    // 숫자와 단위 분리를 위한 패턴
+    Pattern numericUnitPattern = Pattern.compile("^(\\d+\\.?\\d*)(.+)$");
+    Matcher matcher = numericUnitPattern.matcher(unit);
+
+    if (matcher.matches()) {
+      String number = matcher.group(1);
+      String unitPart = matcher.group(2).toLowerCase();
+
+      // 동의어 그룹 찾기
+      Set<String> synonymGroup = UNIT_MAPPING.get(unitPart);
+
+      if (synonymGroup != null && !synonymGroup.isEmpty()) {
+        // 숫자 + 각 동의어 조합 (자기 자신 포함)
+        for (String synonym : synonymGroup) {
+          expanded.add(number + synonym);
+        }
+      } else {
+        // 매핑이 없으면 원본만 반환
+        expanded.add(unit);
+      }
+    } else {
+      // 숫자가 없는 단위는 원본만 반환
+      expanded.add(unit);
+    }
+
+    return expanded;
   }
 }

@@ -82,24 +82,42 @@ public class QueryBuilder {
       String query, String originalQuery, List<String> units, List<String> models) {
     // 쿼리가 비어있는 경우 처리
     if (query == null || query.trim().isEmpty()) {
-      // 단위만 있는 경우 (예: "1kg", "500ml" 등)
+      // 단위만 있는 경우 (예: "1kg", "500ml" 등) - match_all과 단위 부가점수
       if (units != null && !units.isEmpty()) {
-        Query unitQuery = buildUnitQuery(units);
-        
-        // 모델명도 있으면 AND 조건으로 결합
+        List<Query> unitBoostQueries = buildUnitBoostQueries(units);
+
+        // 모델명도 있으면 모델쿼리 추가
         if (models != null && !models.isEmpty()) {
           Query modelQuery = buildModelQuery(models);
-          return Query.of(q -> q.bool(b -> b.must(unitQuery).must(modelQuery)));
+          return Query.of(
+              q ->
+                  q.bool(
+                      b -> {
+                        b.must(Query.of(mq -> mq.matchAll(m -> m)));
+                        b.must(modelQuery);
+                        if (!unitBoostQueries.isEmpty()) {
+                          b.should(unitBoostQueries);
+                        }
+                        return b;
+                      }));
         }
-        
-        return unitQuery;
+
+        // 단위만 있는 경우
+        return Query.of(
+            q ->
+                q.bool(
+                    b -> {
+                      b.must(Query.of(mq -> mq.matchAll(m -> m)));
+                      b.should(unitBoostQueries);
+                      return b;
+                    }));
       }
-      
+
       // 모델명만 있는 경우 (예: "ABC-123" 등)
       if (models != null && !models.isEmpty()) {
         return buildModelQuery(models);
       }
-      
+
       // 쿼리도 없고 단위도 모델도 없으면 match_all
       return Query.of(q -> q.matchAll(m -> m));
     }
@@ -120,7 +138,7 @@ public class QueryBuilder {
                   q.multiMatch(
                       m ->
                           m.query(query)
-                              .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
+                              .fields(ESFields.CROSS_FIELDS_MAIN)
                               .type(TextQueryType.CrossFields)
                               .operator(Operator.And)
                               .boost(1.0f))));
@@ -133,7 +151,7 @@ public class QueryBuilder {
                     q.multiMatch(
                         m ->
                             m.query(queryWithoutModels)
-                                .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
+                                .fields(ESFields.CROSS_FIELDS_MAIN)
                                 .type(TextQueryType.CrossFields)
                                 .operator(Operator.And)
                                 .boost(1.0f)));
@@ -172,7 +190,7 @@ public class QueryBuilder {
                   q.multiMatch(
                       m ->
                           m.query(query)
-                              .fields(ESFields.CROSS_FIELDS_WITHOUT_MODEL)
+                              .fields(ESFields.CROSS_FIELDS_MAIN)
                               .type(TextQueryType.CrossFields)
                               .operator(Operator.And)
                               .boost(1.0f)));
@@ -184,25 +202,24 @@ public class QueryBuilder {
     // 모델 쿼리를 부가 점수로 변경
     List<Query> modelBoostQueries = buildModelBoostQueries(models);
 
-    Query unitQuery = buildUnitQuery(units);
+    // 단위 쿼리를 부가 점수로 변경
+    List<Query> unitBoostQueries = buildUnitBoostQueries(units);
 
-    // 메인 쿼리: 한국어 필드 AND 단위 + phrase(부가 점수) + 모델(부가 점수)
+    // 메인 쿼리: 한국어 필드 + phrase(부가 점수) + 모델(부가 점수) + 단위(부가 점수)
     return Query.of(
         q -> {
           BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
           boolBuilder.must(mainFieldQuery);
-          
-          // 단위 쿼리가 있을 때만 추가
-          if (unitQuery != null) {
-            boolBuilder.must(unitQuery);
-          }
 
-          // phrase와 모델 쿼리를 should로 추가
+          // phrase, 모델, 단위 쿼리를 should로 추가
           if (!phraseBoostQueries.isEmpty()) {
             boolBuilder.should(phraseBoostQueries);
           }
           if (!modelBoostQueries.isEmpty()) {
             boolBuilder.should(modelBoostQueries);
+          }
+          if (!unitBoostQueries.isEmpty()) {
+            boolBuilder.should(unitBoostQueries);
           }
           return q.bool(boolBuilder.build());
         });
@@ -294,8 +311,26 @@ public class QueryBuilder {
 
     for (String unit : units) {
       if (!unit.isEmpty()) {
-        // units.whitespace 필드에서 정확한 매칭
-        unitQueries.add(Query.of(q -> q.match(m -> m.field(ESFields.UNITS_WHITESPACE).query(unit))));
+        // 각 단위를 동의어로 확장
+        Set<String> expandedUnits = UnitExtractor.expandUnitSynonyms(unit);
+
+        if (expandedUnits.size() == 1) {
+          // 동의어가 없으면 단일 쿼리
+          unitQueries.add(
+              Query.of(q -> q.match(m -> m.field(ESFields.UNITS_WHITESPACE).query(unit))));
+        } else {
+          // 동의어들을 OR 조건으로 묶기
+          List<Query> synonymQueries = new ArrayList<>();
+          for (String expandedUnit : expandedUnits) {
+            synonymQueries.add(
+                Query.of(
+                    q -> q.match(m -> m.field(ESFields.UNITS_WHITESPACE).query(expandedUnit))));
+          }
+
+          // 하나의 단위에 대한 동의어들은 OR 조건
+          unitQueries.add(
+              Query.of(q -> q.bool(b -> b.should(synonymQueries).minimumShouldMatch("1"))));
+        }
       }
     }
 
@@ -413,6 +448,45 @@ public class QueryBuilder {
         Query.of(q -> q.matchPhrase(mp -> mp.field("category").query(query).boost(1.0f))));
 
     return phraseQueries;
+  }
+
+  private List<Query> buildUnitBoostQueries(List<String> units) {
+    if (units == null || units.isEmpty()) {
+      return List.of();
+    }
+
+    List<Query> unitBoostQueries = new ArrayList<>();
+
+    for (String unit : units) {
+      if (!unit.isEmpty()) {
+        // 각 단위를 동의어로 확장
+        Set<String> expandedUnits = UnitExtractor.expandUnitSynonyms(unit);
+
+        // 동의어들을 OR 조건으로 묶어서 하나의 부가 점수 쿼리 생성
+        List<Query> synonymQueries = new ArrayList<>();
+        for (String expandedUnit : expandedUnits) {
+          synonymQueries.add(
+              Query.of(
+                  q ->
+                      q.match(
+                          m ->
+                              m.field(ESFields.UNITS_WHITESPACE)
+                                  .query(expandedUnit)
+                                  .boost(2.0f)))); // 단위 매칭에 부가 점수
+        }
+
+        if (synonymQueries.size() == 1) {
+          unitBoostQueries.add(synonymQueries.get(0));
+        } else {
+          // 하나의 단위에 대한 동의어들은 OR 조건
+          unitBoostQueries.add(
+              Query.of(
+                  q -> q.bool(b -> b.should(synonymQueries).minimumShouldMatch("1").boost(2.0f))));
+        }
+      }
+    }
+
+    return unitBoostQueries;
   }
 
   private List<Query> buildCategoryBoostQueries(String query) {

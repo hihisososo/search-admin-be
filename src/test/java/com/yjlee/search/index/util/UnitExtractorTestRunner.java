@@ -73,10 +73,9 @@ public class UnitExtractorTestRunner {
     System.out.println("예상: [1l, 1000ml, 10개입, 10개들이, ...]\n");
 
     // 검색용 추출 (증강 없음) 테스트
-    System.out.println("테스트 12: '서울우유 1L' (검색용 - 증강 없음)");
-    List<String> result12 = UnitExtractor.extractUnitsForSearch("서울우유 1L");
+    System.out.println("발사믹크림500밀리리터");
+    List<String> result12 = UnitExtractor.extractUnitsForSearch("발사믹크림500밀리리터");
     System.out.println("결과: " + result12);
-    System.out.println("예상: [1l] (증강 없음)\n");
 
     System.out.println("=== 테스트 완료 ===");
   }

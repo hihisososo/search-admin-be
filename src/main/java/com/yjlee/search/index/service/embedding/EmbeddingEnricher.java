@@ -31,27 +31,29 @@ public class EmbeddingEnricher {
   private final ProductEmbeddingGenerator embeddingGenerator;
   private final ProductDocumentFactory documentFactory;
   private final ProductDocumentConverter documentConverter;
-  
+
   @Value("${embedding.cache.max-size:1000}")
   private int maxCacheSize;
 
   private final ObjectMapper objectMapper = new ObjectMapper();
-  
+
   private Map<Long, Map<String, List<Float>>> embeddingCache;
-  
+
   @jakarta.annotation.PostConstruct
   public void init() {
-    embeddingCache = Collections.synchronizedMap(
-        new LinkedHashMap<Long, Map<String, List<Float>>>(maxCacheSize + 1, 0.75f, true) {
-          @Override
-          protected boolean removeEldestEntry(Map.Entry<Long, Map<String, List<Float>>> eldest) {
-            boolean shouldRemove = size() > maxCacheSize;
-            if (shouldRemove) {
-              log.trace("LRU 캐시 제거: productId={}", eldest.getKey());
-            }
-            return shouldRemove;
-          }
-        });
+    embeddingCache =
+        Collections.synchronizedMap(
+            new LinkedHashMap<Long, Map<String, List<Float>>>(maxCacheSize + 1, 0.75f, true) {
+              @Override
+              protected boolean removeEldestEntry(
+                  Map.Entry<Long, Map<String, List<Float>>> eldest) {
+                boolean shouldRemove = size() > maxCacheSize;
+                if (shouldRemove) {
+                  log.trace("LRU 캐시 제거: productId={}", eldest.getKey());
+                }
+                return shouldRemove;
+              }
+            });
     log.info("임베딩 캐시 초기화 - 최대 크기: {}", maxCacheSize);
   }
 
@@ -82,8 +84,11 @@ public class EmbeddingEnricher {
       cached.putAll(loaded);
     }
 
-    log.debug("{}개 임베딩 로딩 완료 (캐시에서 {}개, 현재 캐시 크기: {})", 
-        cached.size(), productIds.size() - uncachedIds.size(), embeddingCache.size());
+    log.debug(
+        "{}개 임베딩 로딩 완료 (캐시에서 {}개, 현재 캐시 크기: {})",
+        cached.size(),
+        productIds.size() - uncachedIds.size(),
+        embeddingCache.size());
 
     return cached;
   }

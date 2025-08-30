@@ -1,15 +1,12 @@
 package com.yjlee.search.deployment.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.SearchRequest;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.yjlee.search.deployment.dto.*;
 import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.deployment.strategy.EnvironmentStrategyFactory;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;

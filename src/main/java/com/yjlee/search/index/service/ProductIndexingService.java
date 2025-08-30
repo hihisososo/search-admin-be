@@ -42,7 +42,8 @@ public class ProductIndexingService {
 
   private IndexingProgressCallback progressCallback;
   private final Semaphore batchSemaphore = new Semaphore(MAX_CONCURRENT_BATCHES);
-  private final ExecutorService indexingExecutor = Executors.newFixedThreadPool(MAX_CONCURRENT_BATCHES);
+  private final ExecutorService indexingExecutor =
+      Executors.newFixedThreadPool(MAX_CONCURRENT_BATCHES);
 
   public int indexAllProducts() throws IOException {
     return indexProducts(null);
@@ -82,7 +83,7 @@ public class ProductIndexingService {
 
     progressMonitor.complete();
     refreshIndexes(targetIndex);
-    
+
     // 색인 완료 후 임베딩 캐시 정리
     embeddingEnricher.clearCache();
 
@@ -120,7 +121,8 @@ public class ProductIndexingService {
           } finally {
             batchSemaphore.release();
           }
-        }, indexingExecutor);
+        },
+        indexingExecutor);
   }
 
   private List<ProductDocument> enrichAndConvertProducts(List<Product> products) {

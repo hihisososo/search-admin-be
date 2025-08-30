@@ -36,13 +36,16 @@ public class LLMQueueManager {
 
   @PostConstruct
   public void init() {
-    executorService = Executors.newFixedThreadPool(workerThreads, r -> {
-      Thread thread = new Thread(r);
-      thread.setName("llm-worker-" + thread.getId());
-      thread.setDaemon(true);
-      return thread;
-    });
-    
+    executorService =
+        Executors.newFixedThreadPool(
+            workerThreads,
+            r -> {
+              Thread thread = new Thread(r);
+              thread.setName("llm-worker-" + thread.getId());
+              thread.setDaemon(true);
+              return thread;
+            });
+
     for (int i = 0; i < workerThreads; i++) {
       final int workerId = i;
       executorService.submit(() -> workerLoop(workerId));
@@ -54,7 +57,7 @@ public class LLMQueueManager {
   public void shutdown() {
     log.info("LLM Queue Manager 종료 중...");
     running.set(false);
-    
+
     if (executorService != null) {
       executorService.shutdown();
       try {
@@ -66,7 +69,7 @@ public class LLMQueueManager {
         Thread.currentThread().interrupt();
       }
     }
-    
+
     log.info("LLM Queue Manager 종료 완료");
   }
 
