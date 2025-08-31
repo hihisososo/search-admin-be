@@ -138,7 +138,14 @@ public class EmbeddingEnricher {
     List<List<Float>> nameEmbeddings = embeddingGenerator.generateBulkEmbeddings(nameTexts);
     List<List<Float>> specsEmbeddings = embeddingGenerator.generateBulkEmbeddings(specsTexts);
 
+    // 기존 임베딩이 있는 product ID들 조회
+    List<Long> productIds = products.stream().map(Product::getId).toList();
+    List<ProductEmbedding> existingEmbeddings = embeddingRepository.findByProductIdIn(productIds);
+    Set<Long> existingProductIds =
+        existingEmbeddings.stream().map(ProductEmbedding::getProductId).collect(Collectors.toSet());
+
     Map<Long, Map<String, List<Float>>> newEmbeddings = new HashMap<>();
+    List<ProductEmbedding> toSave = new ArrayList<>();
 
     for (int i = 0; i < products.size(); i++) {
       Long productId = products.get(i).getId();
@@ -152,9 +159,26 @@ public class EmbeddingEnricher {
                 "name", nameEmbedding,
                 "specs", specsEmbedding));
 
-        // Save to database
-        saveEmbedding(
-            productId, nameTexts.get(i), specsTexts.get(i), nameEmbedding, specsEmbedding);
+        // 기존에 없는 경우만 저장 리스트에 추가
+        if (!existingProductIds.contains(productId)) {
+          ProductEmbedding embedding = new ProductEmbedding();
+          embedding.setProductId(productId);
+          embedding.setNameText(nameTexts.get(i));
+          embedding.setNameVector(serializeVector(nameEmbedding));
+          embedding.setSpecsText(specsTexts.get(i));
+          embedding.setSpecsVector(serializeVector(specsEmbedding));
+          toSave.add(embedding);
+        }
+      }
+    }
+
+    // 한번에 저장
+    if (!toSave.isEmpty()) {
+      try {
+        embeddingRepository.saveAll(toSave);
+        log.info("{}개 상품 임베딩 벌크 저장 완료", toSave.size());
+      } catch (Exception e) {
+        log.error("임베딩 벌크 저장 실패", e);
       }
     }
 
@@ -184,30 +208,6 @@ public class EmbeddingEnricher {
               return doc;
             })
         .toList();
-  }
-
-  private void saveEmbedding(
-      Long productId,
-      String nameText,
-      String specsText,
-      List<Float> nameVector,
-      List<Float> specsVector) {
-
-    try {
-      if (!embeddingRepository.existsByProductId(productId)) {
-        ProductEmbedding embedding = new ProductEmbedding();
-        embedding.setProductId(productId);
-        embedding.setNameText(nameText);
-        embedding.setNameVector(serializeVector(nameVector));
-        embedding.setSpecsText(specsText);
-        embedding.setSpecsVector(serializeVector(specsVector));
-
-        embeddingRepository.save(embedding);
-        log.debug("상품 {} 임베딩 저장 완료", productId);
-      }
-    } catch (Exception e) {
-      log.error("상품 {} 임베딩 저장 실패", productId, e);
-    }
   }
 
   private Map<String, List<Float>> convertEmbedding(ProductEmbedding embedding) {

@@ -46,6 +46,7 @@ public class HybridSearchService {
   private final RRFScorer rrfScorer;
   private final ObjectMapper objectMapper;
   private final ProductDtoConverter productDtoConverter;
+  private final com.yjlee.search.search.service.builder.query.FilterQueryBuilder filterQueryBuilder;
 
   /** 하이브리드 검색 실행 (BM25 + Vector with RRF) */
   public SearchExecuteResponse hybridSearch(
@@ -127,6 +128,10 @@ public class HybridSearchService {
     // BM25 쿼리 생성
     BoolQuery boolQuery = queryBuilder.buildBoolQuery(request);
 
+    // 필터 쿼리 생성 (벡터 검색용)
+    java.util.List<co.elastic.clients.elasticsearch._types.query_dsl.Query> filterQueries =
+        filterQueryBuilder.buildFilterQueries(request.getFilters());
+
     // 벡터 임베딩 생성
     float[] queryVector = vectorSearchService.getQueryEmbedding(request.getQuery());
     List<Float> queryVectorList = new ArrayList<>();
@@ -164,34 +169,54 @@ public class HybridSearchService {
                                 s ->
                                     s.header(h -> h.index(indexName))
                                         .body(
-                                            b ->
-                                                b.size(topK)
-                                                    .minScore(minScore)
-                                                    .knn(
-                                                        k ->
-                                                            k.field(
-                                                                    VectorSearchConstants
-                                                                        .NAME_VECTOR_FIELD)
-                                                                .queryVector(queryVectorList)
-                                                                .k(topK)
-                                                                .numCandidates(
-                                                                    Math.max(topK * 3, 100)))
-                                                    .knn(
-                                                        k ->
-                                                            k.field(
-                                                                    VectorSearchConstants
-                                                                        .SPECS_VECTOR_FIELD)
-                                                                .queryVector(queryVectorList)
-                                                                .k(topK)
-                                                                .numCandidates(
-                                                                    Math.max(topK * 3, 100)))
-                                                    .source(
-                                                        src ->
-                                                            src.filter(
-                                                                f ->
-                                                                    f.excludes(
-                                                                        VectorSearchConstants
-                                                                            .getVectorFieldsToExclude()))))))));
+                                            b -> {
+                                              b.size(topK)
+                                                  .minScore(minScore)
+                                                  .knn(
+                                                      k ->
+                                                          k.field(
+                                                                  VectorSearchConstants
+                                                                      .NAME_VECTOR_FIELD)
+                                                              .queryVector(queryVectorList)
+                                                              .k(topK)
+                                                              .numCandidates(
+                                                                  Math.max(topK * 3, 100))
+                                                              .boost(
+                                                                  request.getNameVectorBoost()
+                                                                          != null
+                                                                      ? request.getNameVectorBoost()
+                                                                      : 0.7f))
+                                                  .knn(
+                                                      k ->
+                                                          k.field(
+                                                                  VectorSearchConstants
+                                                                      .SPECS_VECTOR_FIELD)
+                                                              .queryVector(queryVectorList)
+                                                              .k(topK)
+                                                              .numCandidates(
+                                                                  Math.max(topK * 3, 100))
+                                                              .boost(
+                                                                  request.getSpecsVectorBoost()
+                                                                          != null
+                                                                      ? request
+                                                                          .getSpecsVectorBoost()
+                                                                      : 0.3f))
+                                                  .source(
+                                                      src ->
+                                                          src.filter(
+                                                              f ->
+                                                                  f.excludes(
+                                                                      VectorSearchConstants
+                                                                          .getVectorFieldsToExclude())));
+                                              // 필터 적용
+                                              if (filterQueries != null
+                                                  && !filterQueries.isEmpty()) {
+                                                b.query(
+                                                    q ->
+                                                        q.bool(bool -> bool.filter(filterQueries)));
+                                              }
+                                              return b;
+                                            })))));
 
     log.debug("Executing multi search with BM25 and Vector queries for index: {}", indexName);
     return elasticsearchClient.msearch(msearchRequest, JsonNode.class);

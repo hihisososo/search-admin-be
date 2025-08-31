@@ -1,6 +1,7 @@
 package com.yjlee.search.index.service;
 
-import com.yjlee.search.evaluation.service.OpenAIEmbeddingService;
+import com.yjlee.search.embedding.service.EmbeddingService;
+import com.yjlee.search.embedding.service.EmbeddingService.EmbeddingType;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -12,14 +13,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ProductEmbeddingGenerator {
 
-  private final OpenAIEmbeddingService embeddingService;
-  private static final int EMBEDDING_DIMENSION = 1536;
+  private final EmbeddingService embeddingService;
 
   public List<List<Float>> generateBulkEmbeddings(List<String> texts) {
     try {
       log.info("🔄 벌크 임베딩 생성 시작: {}개", texts.size());
 
-      List<float[]> embeddings = embeddingService.getBulkEmbeddings(texts);
+      List<float[]> embeddings = embeddingService.getBulkEmbeddings(texts, EmbeddingType.DOCUMENT);
       List<List<Float>> result = new ArrayList<>();
 
       for (float[] embedding : embeddings) {

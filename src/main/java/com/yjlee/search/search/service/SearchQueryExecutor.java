@@ -1,6 +1,8 @@
 package com.yjlee.search.search.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.GetRequest;
+import co.elastic.clients.elasticsearch.core.GetResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -23,6 +25,18 @@ public class SearchQueryExecutor {
     } catch (Exception e) {
       log.error("Search execution failed", e);
       throw new SearchException("Search execution failed: " + e.getMessage(), e);
+    }
+  }
+
+  public GetResponse<JsonNode> getDocument(String indexName, String documentId) {
+    try {
+      log.debug("Getting document from index: {}, documentId: {}", indexName, documentId);
+      GetRequest request = GetRequest.of(r -> r.index(indexName).id(documentId));
+      return esClient.get(request, JsonNode.class);
+    } catch (Exception e) {
+      log.error(
+          "Document retrieval failed for index: {}, documentId: {}", indexName, documentId, e);
+      throw new SearchException("Document retrieval failed: " + e.getMessage(), e);
     }
   }
 }

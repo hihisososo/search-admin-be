@@ -11,8 +11,8 @@ public class VectorSearchConstants {
   public static final List<String> VECTOR_FIELDS =
       Arrays.asList(NAME_VECTOR_FIELD, SPECS_VECTOR_FIELD);
 
-  public static final float DEFAULT_NAME_VECTOR_BOOST = 0.7f;
-  public static final float DEFAULT_SPECS_VECTOR_BOOST = 0.3f;
+  public static final float DEFAULT_NAME_VECTOR_BOOST = 0.5f;
+  public static final float DEFAULT_SPECS_VECTOR_BOOST = 0.5f;
   public static final int DEFAULT_NUM_CANDIDATES_MULTIPLIER = 3;
   public static final int DEFAULT_TOP_K = 300;
 

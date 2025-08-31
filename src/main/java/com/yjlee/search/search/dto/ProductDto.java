@@ -13,6 +13,9 @@ public class ProductDto {
   @Schema(description = "상품 ID", example = "1")
   private String id;
 
+  @Schema(description = "Elasticsearch 문서 ID", example = "product_1")
+  private String documentId;
+
   @Schema(description = "Elasticsearch 스코어", example = "15.234567")
   private Double score;
 

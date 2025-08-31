@@ -23,6 +23,7 @@ public class VectorSearchStrategy implements SearchStrategy {
 
   private final VectorSearchService vectorSearchService;
   private final ProductDtoConverter productDtoConverter;
+  private final com.yjlee.search.search.service.builder.query.FilterQueryBuilder filterQueryBuilder;
 
   @Override
   public SearchExecuteResponse search(
@@ -30,6 +31,10 @@ public class VectorSearchStrategy implements SearchStrategy {
     log.info("Executing multi-field vector search for query: {}", request.getQuery());
 
     long startTime = System.currentTimeMillis();
+
+    // 필터 쿼리 생성
+    java.util.List<co.elastic.clients.elasticsearch._types.query_dsl.Query> filterQueries =
+        filterQueryBuilder.buildFilterQueries(request.getFilters());
 
     // 벡터 검색 설정
     VectorSearchConfig config =
@@ -39,6 +44,11 @@ public class VectorSearchStrategy implements SearchStrategy {
                     ? request.getHybridTopK()
                     : SearchConstants.DEFAULT_HYBRID_TOP_K)
             .vectorMinScore(request.getVectorMinScore())
+            .nameVectorBoost(
+                request.getNameVectorBoost() != null ? request.getNameVectorBoost() : 0.7f)
+            .specsVectorBoost(
+                request.getSpecsVectorBoost() != null ? request.getSpecsVectorBoost() : 0.3f)
+            .filterQueries(filterQueries)
             .build();
 
     SearchResponse<JsonNode> response =

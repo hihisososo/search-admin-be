@@ -86,6 +86,8 @@ public class SearchRequestMapper {
     request.setHybridTopK(
         Optional.ofNullable(params.getHybridTopK()).orElse(SearchConstants.DEFAULT_HYBRID_TOP_K));
     request.setVectorMinScore(params.getVectorMinScore());
+    request.setNameVectorBoost(params.getNameVectorBoost());
+    request.setSpecsVectorBoost(params.getSpecsVectorBoost());
 
     // 정렬 설정
     setSort(request, params);

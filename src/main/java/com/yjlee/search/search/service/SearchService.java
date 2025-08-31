@@ -31,6 +31,7 @@ public class SearchService {
   private final SearchLogService searchLogService;
   private final HttpRequestUtils httpRequestUtils;
   private final SearchRequestMapper searchRequestMapper;
+  private final SearchQueryExecutor searchQueryExecutor;
 
   public AutocompleteResponse getAutocompleteSuggestions(String keyword) {
     String indexName = indexResolver.resolveAutocompleteIndex();
@@ -78,6 +79,23 @@ public class SearchService {
       SearchSimulationParams params, HttpServletRequest httpRequest) {
     SearchSimulationRequest request = searchRequestMapper.toSearchSimulationRequest(params);
     return searchProductsSimulation(request);
+  }
+
+  public com.fasterxml.jackson.databind.JsonNode getDocumentById(
+      String documentId, IndexEnvironment.EnvironmentType environmentType) {
+    String indexName =
+        environmentType != null
+            ? indexResolver.resolveProductIndexForSimulation(environmentType)
+            : indexResolver.resolveProductIndex();
+
+    co.elastic.clients.elasticsearch.core.GetResponse<com.fasterxml.jackson.databind.JsonNode>
+        response = searchQueryExecutor.getDocument(indexName, documentId);
+
+    if (!response.found()) {
+      throw new SearchException("Document not found: " + documentId);
+    }
+
+    return response.source();
   }
 
   private SearchExecuteResponse executeWithLogging(

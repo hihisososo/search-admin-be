@@ -1,5 +1,6 @@
 package com.yjlee.search.search.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.search.dto.AutocompleteResponse;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
@@ -54,5 +55,13 @@ public class SearchController {
       @RequestParam IndexEnvironment.EnvironmentType environmentType) {
     return ResponseEntity.ok(
         searchService.getAutocompleteSuggestionsSimulation(keyword, environmentType));
+  }
+
+  @Operation(summary = "Elasticsearch 문서 조회")
+  @GetMapping("/document/{documentId}")
+  public ResponseEntity<JsonNode> getDocument(
+      @PathVariable String documentId,
+      @RequestParam(required = false) IndexEnvironment.EnvironmentType environmentType) {
+    return ResponseEntity.ok(searchService.getDocumentById(documentId, environmentType));
   }
 }
