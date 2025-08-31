@@ -82,7 +82,7 @@ public class OpenAIEmbeddingService {
             .collect(Collectors.toList());
 
     Map<String, Object> requestBody = new HashMap<>();
-    requestBody.put("model", "text-embedding-3-small");
+    requestBody.put("model", "text-embedding-3-large");
     requestBody.put("input", validTexts);
 
     HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);

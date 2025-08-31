@@ -20,6 +20,6 @@ public class SearchExecuteResponse {
   @Schema(description = "메타 정보")
   private SearchMetaDto meta;
 
-  @Schema(description = "실행된 Elasticsearch 쿼리 DSL", hidden = true)
+  @Schema(description = "실행된 Elasticsearch 쿼리 DSL")
   private String queryDsl;
 }

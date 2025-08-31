@@ -1,5 +1,7 @@
 package com.yjlee.search.search.dto;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,6 +24,8 @@ public class VectorSearchConfig {
   @Builder.Default private Integer numCandidatesMultiplier = 3;
 
   @Builder.Default private Integer topK = 300;
+
+  private List<Query> filterQueries;
 
   public int getNumCandidates() {
     return topK * numCandidatesMultiplier;

@@ -97,7 +97,11 @@ public class QueryResponseBuilder {
               ProductDocument document = convertToProductDocument(hit.source());
               if (document != null) {
                 return convertToProductDto(
-                    document, hit.score(), withExplain ? hit.explanation() : null, withExplain);
+                    document,
+                    hit.id(),
+                    hit.score(),
+                    withExplain ? hit.explanation() : null,
+                    withExplain);
               }
               return null;
             })
@@ -115,10 +119,15 @@ public class QueryResponseBuilder {
   }
 
   private ProductDto convertToProductDto(
-      ProductDocument document, Double score, Explanation explanation, boolean withExplain) {
+      ProductDocument document,
+      String documentId,
+      Double score,
+      Explanation explanation,
+      boolean withExplain) {
 
     return ProductDto.builder()
         .id(document.getId())
+        .documentId(documentId)
         .score(score)
         .explain(withExplain ? convertExplain(explanation) : null)
         .name(document.getName())

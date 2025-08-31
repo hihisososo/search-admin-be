@@ -65,4 +65,20 @@ public class SearchParams {
       example = "0.65",
       required = false)
   private Double vectorMinScore;
+
+  @Schema(
+      description = "name 벡터 필드 가중치 (0.0~1.0, VECTOR_MULTI_FIELD 및 HYBRID_RRF 모드에서 적용)",
+      example = "0.7",
+      defaultValue = "0.7")
+  @Min(0)
+  @Max(1)
+  private Float nameVectorBoost;
+
+  @Schema(
+      description = "specs 벡터 필드 가중치 (0.0~1.0, VECTOR_MULTI_FIELD 및 HYBRID_RRF 모드에서 적용)",
+      example = "0.3",
+      defaultValue = "0.3")
+  @Min(0)
+  @Max(1)
+  private Float specsVectorBoost;
 }

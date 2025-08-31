@@ -4,7 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yjlee.search.evaluation.service.OpenAIEmbeddingService;
+import com.yjlee.search.embedding.service.EmbeddingService;
+import com.yjlee.search.embedding.service.EmbeddingService.EmbeddingType;
 import com.yjlee.search.search.constants.SearchConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.dto.VectorSearchConfig;
@@ -27,7 +28,7 @@ public class VectorSearchService {
   @Value("${app.evaluation.candidate.min-score:0.70}")
   private double defaultVectorMinScore;
 
-  private final OpenAIEmbeddingService embeddingService;
+  private final EmbeddingService embeddingService;
   private final ElasticsearchClient elasticsearchClient;
 
   // LRU 캐시 - 최대 항목 유지
@@ -51,7 +52,7 @@ public class VectorSearchService {
 
     // 캐시에 없으면 생성 (락 밖에서)
     log.debug("Generating embedding for query: {}", query);
-    float[] embedding = embeddingService.getEmbedding(query);
+    float[] embedding = embeddingService.getEmbedding(query, EmbeddingType.QUERY);
 
     // 캐시에 저장
     embeddingCache.put(query, embedding);
@@ -82,32 +83,36 @@ public class VectorSearchService {
           config.getVectorMinScore() != null ? config.getVectorMinScore() : defaultVectorMinScore;
 
       // sub_searches를 사용한 다중 벡터 필드 검색
-      SearchRequest searchRequest =
-          SearchRequest.of(
-              s ->
-                  s.index(index)
-                      .size(topK)
-                      .minScore(minScore)
-                      .knn(
-                          k ->
-                              k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
-                                  .queryVector(queryVectorList)
-                                  .k(topK)
-                                  .numCandidates(config.getNumCandidates())
-                                  .boost(config.getNameVectorBoost()))
-                      .knn(
-                          k ->
-                              k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
-                                  .queryVector(queryVectorList)
-                                  .k(topK)
-                                  .numCandidates(config.getNumCandidates())
-                                  .boost(config.getSpecsVectorBoost()))
-                      .source(
-                          src ->
-                              src.filter(
-                                  f ->
-                                      f.excludes(
-                                          VectorSearchConstants.getVectorFieldsToExclude()))));
+      SearchRequest.Builder searchBuilder =
+          new SearchRequest.Builder()
+              .index(index)
+              .size(topK)
+              .minScore(minScore)
+              .knn(
+                  k ->
+                      k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
+                          .queryVector(queryVectorList)
+                          .k(topK)
+                          .numCandidates(config.getNumCandidates())
+                          .boost(config.getNameVectorBoost()))
+              .knn(
+                  k ->
+                      k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
+                          .queryVector(queryVectorList)
+                          .k(topK)
+                          .numCandidates(config.getNumCandidates())
+                          .boost(config.getSpecsVectorBoost()))
+              .source(
+                  src ->
+                      src.filter(
+                          f -> f.excludes(VectorSearchConstants.getVectorFieldsToExclude())));
+
+      // 필터가 있으면 적용
+      if (config.getFilterQueries() != null && !config.getFilterQueries().isEmpty()) {
+        searchBuilder.query(q -> q.bool(b -> b.filter(config.getFilterQueries())));
+      }
+
+      SearchRequest searchRequest = searchBuilder.build();
 
       log.debug(
           "Executing multi-field vector search - query: {}, topK: {}, minScore: {}",

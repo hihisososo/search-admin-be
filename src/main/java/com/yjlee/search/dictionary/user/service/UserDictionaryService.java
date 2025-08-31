@@ -2,8 +2,6 @@ package com.yjlee.search.dictionary.user.service;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.common.service.AbstractDictionaryService;
-import com.yjlee.search.dictionary.user.dto.AnalyzeTextRequest;
-import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
@@ -37,7 +35,6 @@ public class UserDictionaryService
 
   private final UserDictionaryRepository userDictionaryRepository;
   private final UserDictionarySnapshotRepository snapshotRepository;
-  private final ElasticsearchAnalyzeService elasticsearchAnalyzeService;
 
   @Override
   protected JpaRepository<UserDictionary, Long> getRepository() {
@@ -166,20 +163,5 @@ public class UserDictionaryService
   @Override
   protected void deleteSnapshotsByEnvironment(DictionaryEnvironmentType environment) {
     snapshotRepository.deleteByEnvironmentType(environment);
-  }
-
-  public AnalyzeTextResponse analyzeText(
-      AnalyzeTextRequest request, DictionaryEnvironmentType environment) {
-    String text = request.getText();
-    log.info("형태소 분석 요청 - 텍스트: {}, 환경: {}", text, environment);
-
-    List<AnalyzeTextResponse.TokenInfo> tokens =
-        elasticsearchAnalyzeService.analyzeText(text, environment);
-
-    return AnalyzeTextResponse.builder()
-        .environment(environment.name())
-        .originalText(text)
-        .tokens(tokens)
-        .build();
   }
 }

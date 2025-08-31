@@ -51,6 +51,19 @@ openai:
     read-timeout-ms: 45000
     max-retries: 10
     initial-backoff-ms: 1000
+  embedding:
+    model: text-embedding-3-large
+    dimension: 1536
+
+upstage:
+  api:
+    key: ${UPSTAGE_API_KEY}
+    embedding:
+      url: https://api.upstage.ai/v1/solar/embeddings
+  embedding:
+    query-model: solar-embedding-1-large-query
+    document-model: solar-embedding-1-large-passage
+    dimension: 4096
   
 logging:
   level:
@@ -72,5 +85,10 @@ thread-pool:
     keep-alive-seconds: 60
 
 embedding:
+  provider: ${EMBEDDING_PROVIDER:upstage}  # openai or upstage
   cache:
-    max-size: 1000  # 임베딩 캐시 최대 크기
+    memory:
+      enabled: true
+      size: 1000
+    db:
+      enabled: true
