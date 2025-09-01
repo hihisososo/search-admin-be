@@ -8,6 +8,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.util.KoreanTextUtils;
+import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.dto.*;
 import java.util.Map;
@@ -78,7 +79,9 @@ public class SearchRequestBuilder {
                                                     m.field("name_jamo")
                                                         .query(keywordJamo)
                                                         .operator(Operator.And)
-                                                        .boost(3.0f)))
+                                                        .boost(
+                                                            SearchBoostConstants
+                                                                .AUTOCOMPLETE_JAMO_BOOST)))
                                     .should(
                                         should ->
                                             should.match(
@@ -86,7 +89,9 @@ public class SearchRequestBuilder {
                                                     m.field("name_jamo_no_space")
                                                         .query(keywordJamoNoSpace)
                                                         .operator(Operator.And)
-                                                        .boost(3.0f)))
+                                                        .boost(
+                                                            SearchBoostConstants
+                                                                .AUTOCOMPLETE_JAMO_BOOST)))
                                     .should(
                                         should ->
                                             should.match(
@@ -94,7 +99,9 @@ public class SearchRequestBuilder {
                                                     m.field("name_chosung")
                                                         .query(keywordChosung)
                                                         .operator(Operator.And)
-                                                        .boost(2.0f)))
+                                                        .boost(
+                                                            SearchBoostConstants
+                                                                .AUTOCOMPLETE_CHOSUNG_BOOST)))
                                     .should(
                                         should ->
                                             should.match(
@@ -102,7 +109,9 @@ public class SearchRequestBuilder {
                                                     m.field("name_nori")
                                                         .query(keywordLower)
                                                         .operator(Operator.And)
-                                                        .boost(1.0f)))
+                                                        .boost(
+                                                            SearchBoostConstants
+                                                                .AUTOCOMPLETE_NORI_BOOST)))
                                     .minimumShouldMatch("1")))
                 .size(10)
                 .sort(sort -> sort.score(sc -> sc.order(SortOrder.Desc)))

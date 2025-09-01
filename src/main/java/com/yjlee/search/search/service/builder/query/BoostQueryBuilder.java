@@ -3,6 +3,7 @@ package com.yjlee.search.search.service.builder.query;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.index.util.UnitExtractor;
+import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.service.category.CategoryRankingService;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -23,10 +24,14 @@ public class BoostQueryBuilder {
 
     List<Query> phraseQueries = new ArrayList<>();
 
-    phraseQueries.add(buildPhraseQuery(ESFields.NAME, query, 5.0f));
-    phraseQueries.add(buildPhraseQuery(ESFields.SPECS, query, 2.0f));
-    phraseQueries.add(buildPhraseQuery(ESFields.MODEL_EDGE_NGRAM, query, 3.0f));
-    phraseQueries.add(buildPhraseQuery("category", query, 1.0f));
+    phraseQueries.add(
+        buildPhraseQuery(ESFields.NAME, query, SearchBoostConstants.NAME_PHRASE_BOOST));
+    phraseQueries.add(
+        buildPhraseQuery(ESFields.SPECS, query, SearchBoostConstants.SPECS_PHRASE_BOOST));
+    phraseQueries.add(
+        buildPhraseQuery(ESFields.MODEL, query, SearchBoostConstants.MODEL_PHRASE_BOOST));
+    phraseQueries.add(
+        buildPhraseQuery("category", query, SearchBoostConstants.CATEGORY_PHRASE_BOOST));
 
     return phraseQueries;
   }
@@ -36,7 +41,10 @@ public class BoostQueryBuilder {
       return List.of();
     }
 
-    return models.stream().map(model -> buildMatchQuery(ESFields.MODEL, model, 8.0f)).toList();
+    return models.stream()
+        .map(
+            model -> buildMatchQuery(ESFields.MODEL, model, SearchBoostConstants.MODEL_MATCH_BOOST))
+        .toList();
   }
 
   public List<Query> buildUnitBoostQueries(List<String> units) {
@@ -54,7 +62,8 @@ public class BoostQueryBuilder {
         if (synonymQueries.size() == 1) {
           unitBoostQueries.add(synonymQueries.get(0));
         } else if (!synonymQueries.isEmpty()) {
-          unitBoostQueries.add(buildBoolShouldQuery(synonymQueries, 2.0f));
+          unitBoostQueries.add(
+              buildBoolShouldQuery(synonymQueries, SearchBoostConstants.UNIT_MATCH_BOOST));
         }
       }
     }
@@ -89,7 +98,8 @@ public class BoostQueryBuilder {
   private List<Query> buildUnitSynonymQueries(Set<String> expandedUnits) {
     List<Query> synonymQueries = new ArrayList<>();
     for (String expandedUnit : expandedUnits) {
-      synonymQueries.add(buildMatchQuery(ESFields.UNITS_WHITESPACE, expandedUnit, 2.0f));
+      synonymQueries.add(
+          buildMatchQuery(ESFields.UNITS, expandedUnit, SearchBoostConstants.UNIT_MATCH_BOOST));
     }
     return synonymQueries;
   }

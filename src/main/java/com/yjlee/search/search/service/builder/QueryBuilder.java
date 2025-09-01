@@ -32,20 +32,24 @@ public class QueryBuilder {
       return buildFilterOnlyQuery(request);
     }
 
-    // 특수 용어 추출 및 쿼리 처리
+    // 특수 용어 추출
     ExtractedTerms extractedTerms = queryProcessor.extractSpecialTerms(originalQuery);
-    String queryWithoutUnits =
-        queryProcessor.removeUnitsFromQuery(originalQuery, extractedTerms.getUnits());
+
+    // 쿼리 전처리 (정규화, 오타교정 등)
     String processedQuery =
         queryProcessor
-            .processQuery(queryWithoutUnits, request.getApplyTypoCorrection())
+            .processQuery(originalQuery, request.getApplyTypoCorrection())
             .getFinalQuery();
+
+    // 처리된 쿼리에서 단위 제거
+    String queryWithoutUnits =
+        queryProcessor.removeUnitsFromQuery(processedQuery, extractedTerms.getUnits());
 
     // QueryContext 생성
     QueryContext context =
         QueryContext.builder()
             .originalQuery(originalQuery)
-            .processedQuery(processedQuery)
+            .processedQuery(queryWithoutUnits) // 단위가 제거된 쿼리 사용
             .units(extractedTerms.getUnits())
             .models(extractedTerms.getModels())
             .applyTypoCorrection(request.getApplyTypoCorrection())

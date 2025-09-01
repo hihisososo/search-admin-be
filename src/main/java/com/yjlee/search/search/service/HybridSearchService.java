@@ -1,8 +1,10 @@
 package com.yjlee.search.search.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.MsearchRequest;
 import co.elastic.clients.elasticsearch.core.MsearchResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -13,9 +15,14 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.converter.ProductDtoConverter;
 import com.yjlee.search.search.dto.ProductDto;
+import com.yjlee.search.search.dto.ProductSortDto;
+import com.yjlee.search.search.dto.ProductSortOrder;
+import com.yjlee.search.search.dto.ProductSortType;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchHitsDto;
@@ -26,8 +33,11 @@ import com.yjlee.search.search.service.builder.SearchRequestBuilder;
 import com.yjlee.search.search.utils.AggregationUtils;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -143,80 +153,19 @@ public class HybridSearchService {
         vectorMinScore != null ? vectorMinScore : vectorSearchService.getDefaultVectorMinScore();
 
     // Multi Search 요청 생성
+    RequestItem bm25Request = buildBM25RequestItem(indexName, boolQuery, topK);
+    RequestItem vectorRequest =
+        buildVectorRequestItem(
+            indexName,
+            queryVectorList,
+            topK,
+            minScore,
+            request.getNameVectorBoost(),
+            request.getSpecsVectorBoost(),
+            filterQueries);
+
     MsearchRequest msearchRequest =
-        MsearchRequest.of(
-            m ->
-                m.index(indexName)
-                    .searches(
-                        List.of(
-                            // BM25 검색
-                            RequestItem.of(
-                                s ->
-                                    s.header(h -> h.index(indexName))
-                                        .body(
-                                            b ->
-                                                b.query(q -> q.bool(boolQuery))
-                                                    .size(topK)
-                                                    .source(
-                                                        src ->
-                                                            src.filter(
-                                                                f ->
-                                                                    f.excludes(
-                                                                        VectorSearchConstants
-                                                                            .getVectorFieldsToExclude()))))),
-                            // Vector 검색 (다중 KNN 필드)
-                            RequestItem.of(
-                                s ->
-                                    s.header(h -> h.index(indexName))
-                                        .body(
-                                            b -> {
-                                              b.size(topK)
-                                                  .minScore(minScore)
-                                                  .knn(
-                                                      k ->
-                                                          k.field(
-                                                                  VectorSearchConstants
-                                                                      .NAME_VECTOR_FIELD)
-                                                              .queryVector(queryVectorList)
-                                                              .k(topK)
-                                                              .numCandidates(
-                                                                  Math.max(topK * 3, 100))
-                                                              .boost(
-                                                                  request.getNameVectorBoost()
-                                                                          != null
-                                                                      ? request.getNameVectorBoost()
-                                                                      : 0.7f))
-                                                  .knn(
-                                                      k ->
-                                                          k.field(
-                                                                  VectorSearchConstants
-                                                                      .SPECS_VECTOR_FIELD)
-                                                              .queryVector(queryVectorList)
-                                                              .k(topK)
-                                                              .numCandidates(
-                                                                  Math.max(topK * 3, 100))
-                                                              .boost(
-                                                                  request.getSpecsVectorBoost()
-                                                                          != null
-                                                                      ? request
-                                                                          .getSpecsVectorBoost()
-                                                                      : 0.3f))
-                                                  .source(
-                                                      src ->
-                                                          src.filter(
-                                                              f ->
-                                                                  f.excludes(
-                                                                      VectorSearchConstants
-                                                                          .getVectorFieldsToExclude())));
-                                              // 필터 적용
-                                              if (filterQueries != null
-                                                  && !filterQueries.isEmpty()) {
-                                                b.query(
-                                                    q ->
-                                                        q.bool(bool -> bool.filter(filterQueries)));
-                                              }
-                                              return b;
-                                            })))));
+        MsearchRequest.of(m -> m.index(indexName).searches(List.of(bm25Request, vectorRequest)));
 
     log.debug("Executing multi search with BM25 and Vector queries for index: {}", indexName);
     return elasticsearchClient.msearch(msearchRequest, JsonNode.class);
@@ -238,6 +187,77 @@ public class HybridSearchService {
     return responseBuilder.buildSearchResponse(request, response, took, withExplain, searchRequest);
   }
 
+  /** BM25 검색 RequestItem 생성 */
+  private RequestItem buildBM25RequestItem(String indexName, BoolQuery boolQuery, int topK) {
+    return RequestItem.of(
+        s ->
+            s.header(h -> h.index(indexName))
+                .body(
+                    b ->
+                        b.query(q -> q.bool(boolQuery))
+                            .size(topK)
+                            .source(
+                                src ->
+                                    src.filter(
+                                        f ->
+                                            f.excludes(
+                                                VectorSearchConstants
+                                                    .getVectorFieldsToExclude())))));
+  }
+
+  /** Vector 검색 RequestItem 생성 */
+  private RequestItem buildVectorRequestItem(
+      String indexName,
+      List<Float> queryVector,
+      int topK,
+      double minScore,
+      Float nameBoost,
+      Float specsBoost,
+      List<Query> filterQueries) {
+
+    return RequestItem.of(
+        s ->
+            s.header(h -> h.index(indexName))
+                .body(
+                    b -> {
+                      b.size(topK)
+                          .minScore(minScore)
+                          .knn(
+                              k ->
+                                  k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
+                                      .queryVector(queryVector)
+                                      .k(topK)
+                                      .numCandidates(Math.max(topK * 3, 100))
+                                      .boost(
+                                          nameBoost != null
+                                              ? nameBoost
+                                              : SearchBoostConstants.DEFAULT_NAME_VECTOR_BOOST))
+                          .knn(
+                              k ->
+                                  k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
+                                      .queryVector(queryVector)
+                                      .k(topK)
+                                      .numCandidates(Math.max(topK * 3, 100))
+                                      .boost(
+                                          specsBoost != null
+                                              ? specsBoost
+                                              : SearchBoostConstants.DEFAULT_SPECS_VECTOR_BOOST))
+                          .source(
+                              src ->
+                                  src.filter(
+                                      f ->
+                                          f.excludes(
+                                              VectorSearchConstants.getVectorFieldsToExclude())));
+
+                      // 필터 적용
+                      if (filterQueries != null && !filterQueries.isEmpty()) {
+                        b.query(q -> q.bool(bool -> bool.filter(filterQueries)));
+                      }
+
+                      return b;
+                    }));
+  }
+
   /** 하이브리드 검색 응답 생성 */
   private SearchExecuteResponse buildHybridResponse(
       SearchExecuteRequest request,
@@ -247,18 +267,32 @@ public class HybridSearchService {
       long took,
       boolean withExplain) {
 
-    // 1. 전체 결과에서 Aggregation 계산 (300개 기준)
-    Map<String, List<com.yjlee.search.search.dto.AggregationBucketDto>> aggregations =
-        AggregationUtils.calculateFromRRFResults(mergedResults);
+    // 1. 정렬 처리
+    ProductSortType sortType =
+        Optional.ofNullable(request.getSort())
+            .map(ProductSortDto::getSortType)
+            .orElse(ProductSortType.SCORE);
 
-    // 2. 페이징 처리
+    SortOrder sortOrder =
+        Optional.ofNullable(request.getSort())
+            .map(ProductSortDto::getSortOrder)
+            .map(ProductSortOrder::getSortOrder)
+            .orElse(SortOrder.Desc);
+
+    List<RRFScorer.RRFResult> sortedResults = applySorting(mergedResults, sortType, sortOrder);
+
+    // 2. 전체 결과에서 Aggregation 계산 (300개 기준)
+    Map<String, List<com.yjlee.search.search.dto.AggregationBucketDto>> aggregations =
+        AggregationUtils.calculateFromRRFResults(sortedResults);
+
+    // 3. 페이징 처리
     int page = request.getPage();
     int size = request.getSize();
     int from = page * size;
-    int to = Math.min(from + size, mergedResults.size());
+    int to = Math.min(from + size, sortedResults.size());
 
     List<RRFScorer.RRFResult> pagedResults =
-        from < mergedResults.size() ? mergedResults.subList(from, to) : new ArrayList<>();
+        from < sortedResults.size() ? sortedResults.subList(from, to) : new ArrayList<>();
 
     // 3. ProductDto 리스트 생성 (페이징된 결과만)
     List<ProductDto> products = new ArrayList<>();
@@ -282,10 +316,10 @@ public class HybridSearchService {
 
     // SearchHitsDto 생성 - 전체 병합 결과 개수 표시
     SearchHitsDto hits =
-        SearchHitsDto.builder().total((long) mergedResults.size()).data(products).build();
+        SearchHitsDto.builder().total((long) sortedResults.size()).data(products).build();
 
     // SearchMetaDto 생성
-    int totalPages = (int) Math.ceil((double) mergedResults.size() / request.getSize());
+    int totalPages = (int) Math.ceil((double) sortedResults.size() / request.getSize());
     SearchMetaDto meta =
         SearchMetaDto.builder()
             .page(request.getPage())
@@ -304,7 +338,7 @@ public class HybridSearchService {
       debugInfo.put("hybridTopK", request.getHybridTopK());
       debugInfo.put("bm25Results", bm25Count);
       debugInfo.put("vectorResults", vectorCount);
-      debugInfo.put("mergedResults", mergedResults.size());
+      debugInfo.put("mergedResults", sortedResults.size());
       queryDsl = debugInfo.toString();
     }
 
@@ -314,5 +348,59 @@ public class HybridSearchService {
         .meta(meta)
         .queryDsl(queryDsl)
         .build();
+  }
+
+  private List<RRFScorer.RRFResult> applySorting(
+      List<RRFScorer.RRFResult> results, ProductSortType sortType, SortOrder sortOrder) {
+
+    // Score 정렬은 이미 RRF 점수 순으로 되어 있으므로 그대로 반환
+    if (sortType == ProductSortType.SCORE) {
+      return sortOrder == SortOrder.Asc
+          ? results.stream()
+              .sorted(Comparator.comparing(RRFScorer.RRFResult::getTotalRrfScore))
+              .collect(Collectors.toList())
+          : results;
+    }
+
+    // 필드명 결정
+    String fieldName = getFieldName(sortType);
+
+    // Comparator 생성
+    Comparator<RRFScorer.RRFResult> comparator = createComparator(fieldName, sortOrder);
+
+    // 2차 정렬: RRF score 내림차순
+    comparator =
+        comparator.thenComparing(RRFScorer.RRFResult::getTotalRrfScore, Comparator.reverseOrder());
+
+    return results.stream().sorted(comparator).collect(Collectors.toList());
+  }
+
+  private String getFieldName(ProductSortType sortType) {
+    switch (sortType) {
+      case PRICE:
+        return ESFields.PRICE;
+      case RATING:
+        return ESFields.RATING;
+      case REVIEW_COUNT:
+        return ESFields.REVIEW_COUNT;
+      case REGISTERED_MONTH:
+        return ESFields.REGISTERED_MONTH;
+      default:
+        throw new IllegalArgumentException("Unsupported sort type: " + sortType);
+    }
+  }
+
+  private Comparator<RRFScorer.RRFResult> createComparator(String fieldName, SortOrder sortOrder) {
+    Comparator<RRFScorer.RRFResult> comparator =
+        Comparator.comparing(
+            result -> {
+              JsonNode source = result.getDocument().source();
+              if (source == null || !source.has(fieldName) || source.get(fieldName).isNull()) {
+                return sortOrder == SortOrder.Asc ? Double.MAX_VALUE : Double.MIN_VALUE;
+              }
+              return source.get(fieldName).asDouble();
+            });
+
+    return sortOrder == SortOrder.Desc ? comparator.reversed() : comparator;
   }
 }

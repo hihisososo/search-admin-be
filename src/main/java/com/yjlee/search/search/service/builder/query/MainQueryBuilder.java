@@ -5,8 +5,8 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.service.builder.model.QueryContext;
-import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,7 +64,8 @@ public class MainQueryBuilder {
   }
 
   private Query buildUnitsAndModelsQuery(QueryContext context) {
-    Query modelQuery = buildModelOnlyQuery(context.getModels());
+    // 단위와 모델명만 있는 경우: 전체 검색 + 모델명 부스트 + 단위 부스트
+    List<Query> modelBoostQueries = boostQueryBuilder.buildModelBoostQueries(context.getModels());
     List<Query> unitBoostQueries = boostQueryBuilder.buildUnitBoostQueries(context.getUnits());
 
     return Query.of(
@@ -72,7 +73,9 @@ public class MainQueryBuilder {
             q.bool(
                 b -> {
                   b.must(Query.of(mq -> mq.matchAll(m -> m)));
-                  b.must(modelQuery);
+                  if (!modelBoostQueries.isEmpty()) {
+                    b.should(modelBoostQueries);
+                  }
                   if (!unitBoostQueries.isEmpty()) {
                     b.should(unitBoostQueries);
                   }
@@ -81,22 +84,10 @@ public class MainQueryBuilder {
   }
 
   private Query buildModelQuery(QueryContext context) {
-    String queryWithoutModels =
-        queryProcessor.removeModelsFromQuery(context.getProcessedQuery(), context.getModels());
+    // 모델명을 쿼리에서 빼지 않고 원본 쿼리 그대로 사용
+    Query mainFieldQuery = buildCrossFieldsQuery(context.getProcessedQuery());
 
-    List<Query> orQueries = new ArrayList<>();
-
-    orQueries.add(buildCrossFieldsQuery(context.getProcessedQuery()));
-
-    if (queryWithoutModels != null && !queryWithoutModels.trim().isEmpty()) {
-      Query fieldsQuery = buildCrossFieldsQuery(queryWithoutModels);
-      Query modelQueries = buildModelMatchQueries(context.getModels());
-
-      orQueries.add(Query.of(q -> q.bool(b -> b.must(fieldsQuery).must(modelQueries))));
-    }
-
-    Query mainFieldQuery = Query.of(q -> q.bool(b -> b.should(orQueries).minimumShouldMatch("1")));
-
+    // 모델명은 부스트 쿼리로만 추가
     return combineWithBoostQueries(mainFieldQuery, context);
   }
 
@@ -136,7 +127,7 @@ public class MainQueryBuilder {
                         .fields(ESFields.CROSS_FIELDS_MAIN)
                         .type(TextQueryType.CrossFields)
                         .operator(Operator.And)
-                        .boost(1.0f)));
+                        .boost(SearchBoostConstants.CROSS_FIELDS_BOOST)));
   }
 
   private Query buildModelOnlyQuery(List<String> models) {
@@ -144,31 +135,29 @@ public class MainQueryBuilder {
       return null;
     }
 
-    List<Query> modelQueries =
-        models.stream()
-            .map(
-                model ->
-                    Query.of(q -> q.match(m -> m.field(ESFields.MODEL).query(model).boost(3.0f))))
-            .toList();
-
-    return modelQueries.size() == 1
-        ? modelQueries.get(0)
-        : Query.of(q -> q.bool(b -> b.must(modelQueries)));
-  }
-
-  private Query buildModelMatchQueries(List<String> models) {
-    List<Query> modelQueries =
+    // 모델명만 있는 경우: 전체 검색 + 모델명 부스트
+    List<Query> modelBoostQueries =
         models.stream()
             .map(
                 model ->
                     Query.of(
                         q ->
                             q.match(
-                                m -> m.field(ESFields.MODEL_EDGE_NGRAM).query(model).boost(1.0f))))
+                                m ->
+                                    m.field(ESFields.MODEL)
+                                        .query(model)
+                                        .boost(SearchBoostConstants.MODEL_MATCH_BOOST))))
             .toList();
 
-    return modelQueries.size() == 1
-        ? modelQueries.get(0)
-        : Query.of(q -> q.bool(b -> b.must(modelQueries)));
+    return Query.of(
+        q ->
+            q.bool(
+                b -> {
+                  b.must(Query.of(mq -> mq.matchAll(m -> m)));
+                  if (!modelBoostQueries.isEmpty()) {
+                    b.should(modelBoostQueries);
+                  }
+                  return b;
+                }));
   }
 }

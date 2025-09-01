@@ -13,12 +13,12 @@ public class ProductSortDto {
 
   @NotBlank(message = "정렬 필드는 필수입니다")
   @Pattern(
-      regexp = "^(score|price|rating|reviewCount|name|registeredMonth)$",
-      message = "정렬 필드는 score, price, rating, reviewCount, name, registeredMonth 중 하나여야 합니다")
+      regexp = "^(score|price|rating|reviewCount|registeredMonth)$",
+      message = "정렬 필드는 score, price, rating, reviewCount, registeredMonth 중 하나여야 합니다")
   @Schema(
       description = "정렬 필드",
       example = "score",
-      allowableValues = {"score", "price", "rating", "reviewCount", "name", "registeredMonth"})
+      allowableValues = {"score", "price", "rating", "reviewCount", "registeredMonth"})
   private String field;
 
   @NotBlank(message = "정렬 순서는 필수입니다")

@@ -12,22 +12,10 @@
     "category": {
       "type": "text",
       "analyzer": "nori_index_analyzer",
-      "search_analyzer": "nori_search_analyzer",
-      "fields": {
-        "bigram": {
-          "type": "text",
-          "analyzer": "bigram_analyzer"
-        }
-      }
+      "search_analyzer": "nori_search_analyzer"
     },
     "specs": {
       "type": "text",
-      "fields": {
-        "bigram": {
-          "type": "text",
-          "analyzer": "bigram_analyzer"
-        }
-      },
       "analyzer": "nori_index_analyzer",
       "search_analyzer": "nori_search_analyzer"
     },
@@ -37,27 +25,10 @@
     },
     "model": {
       "type": "text",
-      "analyzer": "whitespace",
-      "fields": {
-        "bigram": {
-          "type": "text",
-          "analyzer": "bigram_analyzer"
-        },
-        "edge_ngram": {
-          "type": "text",
-          "analyzer": "edge_ngram_analyzer",
-          "search_analyzer": "whitespace"
-        }
-      }
+      "analyzer": "whitespace"
     },
     "name": {
       "type": "text",
-      "fields": {
-        "bigram": {
-          "type": "text",
-          "analyzer": "bigram_analyzer"
-        }
-      },
       "analyzer": "nori_index_analyzer",
       "search_analyzer": "nori_search_analyzer"
     },
@@ -96,18 +67,7 @@
     },
     "units": {
       "type": "text",
-      "analyzer": "nori_index_analyzer",
-      "search_analyzer": "nori_search_analyzer",
-      "fields": {
-        "whitespace": {
-          "type": "text",
-          "analyzer": "whitespace"
-        },
-        "bigram": {
-          "type": "text",
-          "analyzer": "bigram_analyzer"
-        }
-      }
+      "analyzer": "whitespace"
     },
     "name_candidate": {
       "type": "text",

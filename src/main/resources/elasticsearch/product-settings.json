@@ -32,11 +32,6 @@
           "type": "custom",
           "tokenizer": "bigram_tokenizer"
         },
-        "edge_ngram_analyzer": {
-          "type": "custom",
-          "tokenizer": "edge_ngram_tokenizer",
-          "filter": ["lowercase"]
-        },
         "nori_search_analyzer": {
           "filter": ["pos_filter", "search_synonym_filter", "stopword_filter"],
           "type": "custom",
@@ -48,12 +43,6 @@
           "type": "ngram",
           "min_gram": "2",
           "max_gram": "10",
-          "token_chars": ["letter", "digit", "punctuation"]
-        },
-        "edge_ngram_tokenizer": {
-          "type": "edge_ngram",
-          "min_gram": "2",
-          "max_gram": "15",
           "token_chars": ["letter", "digit", "punctuation"]
         },
         "userdic_nori_tokenizer": {

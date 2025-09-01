@@ -38,13 +38,6 @@ public enum ProductSortType {
       searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
     }
   },
-  NAME("name") {
-    @Override
-    public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
-      searchBuilder.sort(sort -> sort.field(f -> f.field(ESFields.NAME_KEYWORD).order(order)));
-      searchBuilder.sort(sort -> sort.score(s -> s.order(SortOrder.Desc))); // 2차 정렬: 정확도순
-    }
-  },
   REGISTERED_MONTH("registeredMonth") {
     @Override
     public void applySorting(SearchRequest.Builder searchBuilder, SortOrder order) {
