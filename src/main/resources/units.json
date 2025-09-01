@@ -423,6 +423,10 @@
     {
       "primary": "기가헤르츠",
       "synonyms": ["ghz"]
+    },
+    {
+      "primary": "단",
+      "synonyms": []
     }
   ]
 }

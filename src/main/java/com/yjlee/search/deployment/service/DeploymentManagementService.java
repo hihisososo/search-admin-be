@@ -201,8 +201,11 @@ public class DeploymentManagementService {
       // 배포 실행
       executeDeploymentInternal(devEnvironment, prodEnvironment, history.getId());
 
-      // 배포 후처리
+      // 배포 후처리 - 운영 환경
       prodStrategy.postDeployment(prodEnvironment);
+
+      // 배포 후처리 - 개발 환경 (사전 스냅샷 삭제)
+      devStrategy.postDeployment(devEnvironment);
 
       return DeploymentOperationResponse.success(
           "배포가 완료되었습니다.", devEnvironment.getVersion(), history.getId());
@@ -245,7 +248,10 @@ public class DeploymentManagementService {
       // 3. 운영 환경 정보 업데이트
       deploymentStepService.updateProdEnvironment(prodEnvironment, devEnvironment);
 
-      // 4. 배포 이력 완료 처리
+      // 4. 개발 환경 비활성화
+      deploymentStepService.cleanupDevEnvironment(devEnvironment);
+
+      // 5. 배포 이력 완료 처리
       deploymentStepService.completeDeploymentHistory(historyId, devEnvironment.getDocumentCount());
 
       log.info("배포 완료 - 운영 인덱스: {}", prodEnvironment.getIndexName());

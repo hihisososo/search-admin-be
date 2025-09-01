@@ -460,4 +460,12 @@ public class CategoryRankingDictionaryService {
         .updatedAt(snapshot.getUpdatedAt())
         .build();
   }
+
+  /** 개발 환경 스냅샷 삭제 */
+  @Transactional
+  public void deleteDevSnapshots() {
+    log.info("개발 환경 카테고리 랭킹 사전 스냅샷 삭제 시작");
+    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    log.info("개발 환경 카테고리 랭킹 사전 스냅샷 삭제 완료");
+  }
 }
