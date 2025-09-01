@@ -97,6 +97,15 @@ public class DeploymentStepService {
     log.error("배포 이력 실패 처리");
   }
 
+  public void cleanupDevEnvironment(IndexEnvironment devEnvironment) {
+    log.info("개발 환경 비활성화 시작");
+
+    devEnvironment.setIndexStatus(IndexEnvironment.IndexStatus.INACTIVE);
+    indexEnvironmentRepository.save(devEnvironment);
+
+    log.info("개발 환경 비활성화 완료");
+  }
+
   private void logCurrentAliasState(String phase) {
     try {
       var aliasIndices = elasticsearchIndexService.getCurrentAliasIndices();

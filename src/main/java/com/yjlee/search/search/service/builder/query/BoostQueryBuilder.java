@@ -1,6 +1,7 @@
 package com.yjlee.search.search.service.builder.query;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.index.util.UnitExtractor;
 import com.yjlee.search.search.constants.SearchBoostConstants;
@@ -22,18 +23,19 @@ public class BoostQueryBuilder {
       return List.of();
     }
 
-    List<Query> phraseQueries = new ArrayList<>();
+    // multiMatch 쿼리로 name과 specs 필드에 phrase 검색
+    Query multiMatchQuery =
+        Query.of(
+            q ->
+                q.multiMatch(
+                    m ->
+                        m.query(query)
+                            .fields(List.of(ESFields.NAME, ESFields.SPECS))
+                            .type(TextQueryType.Phrase)
+                            .minimumShouldMatch("2")
+                            .boost(SearchBoostConstants.NAME_PHRASE_BOOST)));
 
-    phraseQueries.add(
-        buildPhraseQuery(ESFields.NAME, query, SearchBoostConstants.NAME_PHRASE_BOOST));
-    phraseQueries.add(
-        buildPhraseQuery(ESFields.SPECS, query, SearchBoostConstants.SPECS_PHRASE_BOOST));
-    phraseQueries.add(
-        buildPhraseQuery(ESFields.MODEL, query, SearchBoostConstants.MODEL_PHRASE_BOOST));
-    phraseQueries.add(
-        buildPhraseQuery("category", query, SearchBoostConstants.CATEGORY_PHRASE_BOOST));
-
-    return phraseQueries;
+    return List.of(multiMatchQuery);
   }
 
   public List<Query> buildModelBoostQueries(List<String> models) {

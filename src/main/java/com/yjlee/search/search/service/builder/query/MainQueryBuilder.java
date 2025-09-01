@@ -127,7 +127,8 @@ public class MainQueryBuilder {
                         .fields(ESFields.CROSS_FIELDS_MAIN)
                         .type(TextQueryType.CrossFields)
                         .operator(Operator.And)
-                        .boost(SearchBoostConstants.CROSS_FIELDS_BOOST)));
+                        .boost(SearchBoostConstants.CROSS_FIELDS_BOOST)
+                        .autoGenerateSynonymsPhraseQuery(false)));
   }
 
   private Query buildModelOnlyQuery(List<String> models) {

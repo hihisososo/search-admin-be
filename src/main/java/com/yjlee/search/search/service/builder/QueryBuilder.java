@@ -41,15 +41,11 @@ public class QueryBuilder {
             .processQuery(originalQuery, request.getApplyTypoCorrection())
             .getFinalQuery();
 
-    // 처리된 쿼리에서 단위 제거
-    String queryWithoutUnits =
-        queryProcessor.removeUnitsFromQuery(processedQuery, extractedTerms.getUnits());
-
     // QueryContext 생성
     QueryContext context =
         QueryContext.builder()
             .originalQuery(originalQuery)
-            .processedQuery(queryWithoutUnits) // 단위가 제거된 쿼리 사용
+            .processedQuery(processedQuery) // 원본 처리된 쿼리 그대로 사용
             .units(extractedTerms.getUnits())
             .models(extractedTerms.getModels())
             .applyTypoCorrection(request.getApplyTypoCorrection())

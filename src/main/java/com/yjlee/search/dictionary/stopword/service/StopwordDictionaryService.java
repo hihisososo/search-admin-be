@@ -321,4 +321,12 @@ public class StopwordDictionaryService {
         .updatedAt(snapshot.getUpdatedAt())
         .build();
   }
+
+  /** 개발 환경 스냅샷 삭제 */
+  @Transactional
+  public void deleteDevSnapshots() {
+    log.info("개발 환경 불용어 사전 스냅샷 삭제 시작");
+    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    log.info("개발 환경 불용어 사전 스냅샷 삭제 완료");
+  }
 }

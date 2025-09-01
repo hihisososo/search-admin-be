@@ -164,4 +164,12 @@ public class UserDictionaryService
   protected void deleteSnapshotsByEnvironment(DictionaryEnvironmentType environment) {
     snapshotRepository.deleteByEnvironmentType(environment);
   }
+
+  /** 개발 환경 스냅샷 삭제 */
+  @Transactional
+  public void deleteDevSnapshots() {
+    log.info("개발 환경 사용자 사전 스냅샷 삭제 시작");
+    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    log.info("개발 환경 사용자 사전 스냅샷 삭제 완료");
+  }
 }

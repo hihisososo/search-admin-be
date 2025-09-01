@@ -1,9 +1,8 @@
 package com.yjlee.search.search.analysis.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.indices.AnalyzeRequest;
-import co.elastic.clients.elasticsearch.indices.AnalyzeResponse;
-import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -20,6 +19,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.util.EntityUtils;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -30,6 +33,57 @@ public class QueryAnalysisService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final TempIndexService tempIndexService;
+  private final RestClient restClient;
+  private final ObjectMapper objectMapper = new ObjectMapper();
+
+  // 동의어 경로 생성을 위한 내부 클래스
+  private static class SynonymTokenInfo {
+    String token;
+    String type;
+    int position;
+    int positionLength;
+
+    SynonymTokenInfo(String token, String type, int position, int positionLength) {
+      this.token = token;
+      this.type = type;
+      this.position = position;
+      this.positionLength = positionLength;
+    }
+  }
+
+  // 동의어 경로를 나타내는 클래스
+  private static class SynonymPath {
+    private final List<SynonymTokenInfo> tokens;
+
+    public SynonymPath() {
+      this.tokens = new ArrayList<>();
+    }
+
+    public SynonymPath(SynonymPath other) {
+      this.tokens = new ArrayList<>(other.tokens);
+    }
+
+    public void addToken(SynonymTokenInfo token) {
+      tokens.add(token);
+    }
+
+    public List<SynonymTokenInfo> getTokens() {
+      return new ArrayList<>(tokens);
+    }
+
+    public SynonymTokenInfo getLastToken() {
+      return tokens.get(tokens.size() - 1);
+    }
+
+    public String getFullText() {
+      return tokens.stream().map(t -> t.token).collect(Collectors.joining(" "));
+    }
+
+    public int getEndPosition() {
+      SynonymTokenInfo last = getLastToken();
+      return last.position + last.positionLength;
+    }
+  }
 
   public QueryAnalysisResponse analyzeQuery(QueryAnalysisRequest request) {
     String query = request.getQuery();
@@ -90,94 +144,119 @@ public class QueryAnalysisService {
   private QueryAnalysisResponse.NoriAnalysis analyzeWithNori(String text, String indexName)
       throws IOException {
 
-    // 원본 토큰 추출 (동의어 확장 없이)
-    List<QueryAnalysisResponse.TokenInfo> tokens =
-        analyzeTokens(text, indexName, "nori_index_analyzer");
+    // Low-level REST Client를 사용하여 원시 JSON 응답 가져오기
+    Request request = new Request("GET", "/" + indexName + "/_analyze");
+    String jsonBody =
+        String.format(
+            "{\"analyzer\":\"nori_search_analyzer\",\"text\":\"%s\",\"explain\":true}",
+            text.replace("\"", "\\\""));
+    request.setJsonEntity(jsonBody);
 
-    // 토큰별 동의어 매핑
-    Map<String, List<String>> synonymExpansions = getTokenSynonymMapping(text, indexName);
-
-    return QueryAnalysisResponse.NoriAnalysis.builder()
-        .tokens(tokens)
-        .synonymExpansions(synonymExpansions)
-        .build();
-  }
-
-  private List<QueryAnalysisResponse.TokenInfo> analyzeTokens(
-      String text, String indexName, String analyzer) throws IOException {
-
-    AnalyzeRequest analyzeRequest =
-        AnalyzeRequest.of(a -> a.index(indexName).analyzer(analyzer).text(text));
-
-    AnalyzeResponse response = elasticsearchClient.indices().analyze(analyzeRequest);
+    Response response = restClient.performRequest(request);
+    String responseBody = EntityUtils.toString(response.getEntity());
+    JsonNode root = objectMapper.readTree(responseBody);
 
     List<QueryAnalysisResponse.TokenInfo> tokens = new ArrayList<>();
-    for (AnalyzeToken token : response.tokens()) {
-      tokens.add(
-          QueryAnalysisResponse.TokenInfo.builder()
-              .token(token.token())
-              .type(token.type())
-              .position((int) token.position())
-              .startOffset((int) token.startOffset())
-              .endOffset((int) token.endOffset())
-              .build());
-    }
+    List<String> synonymPaths = new ArrayList<>();
 
-    return tokens;
-  }
-
-  private Map<String, List<String>> getTokenSynonymMapping(String text, String indexName)
-      throws IOException {
-
-    Map<String, List<String>> tokenSynonymMap = new HashMap<>();
-
-    // 원본 토큰 추출 (동의어 확장 없이)
-    AnalyzeRequest indexAnalyzeRequest =
-        AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_index_analyzer").text(text));
-    AnalyzeResponse indexResponse = elasticsearchClient.indices().analyze(indexAnalyzeRequest);
-
-    // 검색 시 동의어 확장된 토큰 추출
-    AnalyzeRequest searchAnalyzeRequest =
-        AnalyzeRequest.of(a -> a.index(indexName).analyzer("nori_search_analyzer").text(text));
-    AnalyzeResponse searchResponse = elasticsearchClient.indices().analyze(searchAnalyzeRequest);
-
-    // position별로 토큰 그룹화
-    Map<Integer, String> positionToOriginalToken = new HashMap<>();
-    Map<Integer, List<String>> positionToExpandedTokens = new HashMap<>();
-
-    // 원본 토큰 매핑
-    for (AnalyzeToken token : indexResponse.tokens()) {
-      int position = (int) token.position();
-      positionToOriginalToken.putIfAbsent(position, token.token());
-    }
-
-    // 확장된 토큰 매핑
-    for (AnalyzeToken token : searchResponse.tokens()) {
-      int position = (int) token.position();
-      positionToExpandedTokens.computeIfAbsent(position, k -> new ArrayList<>()).add(token.token());
-    }
-
-    // 각 position에서 원본과 다른 동의어들을 매핑
-    for (Map.Entry<Integer, String> entry : positionToOriginalToken.entrySet()) {
-      int position = entry.getKey();
-      String originalToken = entry.getValue();
-      List<String> expandedTokens = positionToExpandedTokens.get(position);
-
-      if (expandedTokens != null && expandedTokens.size() > 1) {
-        // 원본과 다른 토큰들만 동의어로 수집
-        List<String> synonyms = new ArrayList<>();
-        for (String expanded : expandedTokens) {
-          if (!expanded.equals(originalToken)) {
-            synonyms.add(expanded);
-          }
+    // detail 정보 처리
+    JsonNode detail = root.get("detail");
+    if (detail != null) {
+      // tokenizer 단계의 토큰 정보 추출
+      JsonNode tokenizer = detail.get("tokenizer");
+      if (tokenizer != null && tokenizer.has("tokens")) {
+        JsonNode tokenizerTokens = tokenizer.get("tokens");
+        for (JsonNode token : tokenizerTokens) {
+          tokens.add(
+              QueryAnalysisResponse.TokenInfo.builder()
+                  .token(token.get("token").asText())
+                  .type(token.has("type") ? token.get("type").asText() : "word")
+                  .position(token.get("position").asInt())
+                  .startOffset(token.get("start_offset").asInt())
+                  .endOffset(token.get("end_offset").asInt())
+                  .build());
         }
-        if (!synonyms.isEmpty()) {
-          tokenSynonymMap.put(originalToken, synonyms);
+      }
+
+      // search_synonym_filter에서 동의어 경로 추출
+      JsonNode tokenFilters = detail.get("tokenfilters");
+      if (tokenFilters != null) {
+        for (JsonNode filter : tokenFilters) {
+          if ("search_synonym_filter".equals(filter.get("name").asText())) {
+            JsonNode filterTokens = filter.get("tokens");
+            if (filterTokens != null) {
+              synonymPaths = extractSynonymPathsFromJson(filterTokens);
+            }
+            break;
+          }
         }
       }
     }
 
-    return tokenSynonymMap;
+    return QueryAnalysisResponse.NoriAnalysis.builder()
+        .tokens(tokens)
+        .synonymPaths(synonymPaths)
+        .build();
+  }
+
+  private List<String> extractSynonymPathsFromJson(JsonNode tokens) {
+    // Position별로 토큰 그룹화
+    Map<Integer, List<SynonymTokenInfo>> tokensByPosition = new HashMap<>();
+
+    for (JsonNode token : tokens) {
+      int position = token.get("position").asInt();
+      // positionLength 정보를 JSON에서 직접 추출
+      int positionLength = token.has("positionLength") ? token.get("positionLength").asInt() : 1;
+      String type = token.has("type") ? token.get("type").asText() : "word";
+
+      tokensByPosition
+          .computeIfAbsent(position, k -> new ArrayList<>())
+          .add(new SynonymTokenInfo(token.get("token").asText(), type, position, positionLength));
+    }
+
+    // 경로 생성 - SynonymFilterParserTest의 로직 사용
+    List<SynonymPath> completePaths = new ArrayList<>();
+    List<SynonymTokenInfo> startTokens = tokensByPosition.getOrDefault(0, new ArrayList<>());
+
+    for (SynonymTokenInfo startToken : startTokens) {
+      SynonymPath path = new SynonymPath();
+      path.addToken(startToken);
+      explorePath(path, tokensByPosition, completePaths);
+    }
+
+    // 경로를 문자열 리스트로 변환
+    return completePaths.stream()
+        .map(SynonymPath::getFullText)
+        .distinct()
+        .collect(Collectors.toList());
+  }
+
+  private void explorePath(
+      SynonymPath currentPath,
+      Map<Integer, List<SynonymTokenInfo>> tokensByPosition,
+      List<SynonymPath> completePaths) {
+
+    SynonymTokenInfo lastToken = currentPath.getLastToken();
+    int nextPosition = lastToken.position + lastToken.positionLength;
+
+    // 다음 포지션에 토큰이 없으면 경로 완성
+    if (!tokensByPosition.containsKey(nextPosition)) {
+      // SYNONYM 타입이 포함된 경로만 추가
+      boolean hasSynonym = currentPath.getTokens().stream().anyMatch(t -> "SYNONYM".equals(t.type));
+
+      if (hasSynonym) {
+        completePaths.add(new SynonymPath(currentPath));
+      }
+      return;
+    }
+
+    // 다음 포지션의 토큰들로 경로 확장
+    List<SynonymTokenInfo> nextTokens = tokensByPosition.get(nextPosition);
+    for (SynonymTokenInfo nextToken : nextTokens) {
+      SynonymPath newPath = new SynonymPath(currentPath);
+      newPath.addToken(nextToken);
+      explorePath(newPath, tokensByPosition, completePaths);
+    }
   }
 
   private List<QueryAnalysisResponse.UnitInfo> extractAndExpandUnits(String query) {

@@ -301,6 +301,14 @@ public class SynonymDictionaryService {
     log.info("운영 환경 동의어 사전 스냅샷 배포 완료: {}개", prodSnapshots.size());
   }
 
+  /** 개발 환경 스냅샷 삭제 */
+  @Transactional
+  public void deleteDevSnapshots() {
+    log.info("개발 환경 동의어 사전 스냅샷 삭제 시작");
+    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    log.info("개발 환경 동의어 사전 스냅샷 삭제 완료");
+  }
+
   /** 정렬 조건 생성 */
   private Sort createSort(String sortBy, String sortDir, boolean isSnapshot) {
     if (sortBy == null || sortBy.trim().isEmpty()) {
