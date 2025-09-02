@@ -90,26 +90,59 @@ public class ModelExtractor {
 
     String cleanedQuery = query.trim();
 
-    // 하이픈 패턴 매칭
+    // 매칭된 영역 추적 (최장일치를 위해)
+    List<int[]> matchedRanges = new ArrayList<>();
+
+    // 하이픈 패턴 매칭 (우선순위 높음 - 더 긴 패턴)
     Matcher hyphenMatcher = MODEL_PATTERN_HYPHEN.matcher(cleanedQuery);
     while (hyphenMatcher.find()) {
       String model = hyphenMatcher.group(1);
       if (isValidModel(model)) {
-        String trimmedModel = model.trim().toLowerCase();
-        if (!models.contains(trimmedModel)) {
-          models.add(trimmedModel);
+        int start = hyphenMatcher.start();
+        int end = hyphenMatcher.end();
+
+        // 이미 매칭된 영역과 겹치지 않는지 확인
+        boolean overlaps = false;
+        for (int[] range : matchedRanges) {
+          if ((start >= range[0] && start < range[1]) || (end > range[0] && end <= range[1])) {
+            overlaps = true;
+            break;
+          }
+        }
+
+        if (!overlaps) {
+          String trimmedModel = model.trim().toLowerCase();
+          if (!models.contains(trimmedModel)) {
+            models.add(trimmedModel);
+            matchedRanges.add(new int[] {start, end});
+          }
         }
       }
     }
 
-    // 혼합 패턴 매칭
+    // 혼합 패턴 매칭 (하이픈 패턴에 포함되지 않은 부분만)
     Matcher mixedMatcher = MODEL_PATTERN_MIXED.matcher(cleanedQuery);
     while (mixedMatcher.find()) {
       String model = mixedMatcher.group(1);
       if (isValidModel(model)) {
-        String trimmedModel = model.trim().toLowerCase();
-        if (!models.contains(trimmedModel)) {
-          models.add(trimmedModel);
+        int start = mixedMatcher.start();
+        int end = mixedMatcher.end();
+
+        // 이미 매칭된 영역과 겹치지 않는지 확인
+        boolean overlaps = false;
+        for (int[] range : matchedRanges) {
+          if ((start >= range[0] && start < range[1]) || (end > range[0] && end <= range[1])) {
+            overlaps = true;
+            break;
+          }
+        }
+
+        if (!overlaps) {
+          String trimmedModel = model.trim().toLowerCase();
+          if (!models.contains(trimmedModel)) {
+            models.add(trimmedModel);
+            matchedRanges.add(new int[] {start, end});
+          }
         }
       }
     }

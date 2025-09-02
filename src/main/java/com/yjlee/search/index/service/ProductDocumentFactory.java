@@ -45,11 +45,11 @@ public class ProductDocumentFactory {
     List<String> specsUnits =
         UnitExtractor.extractUnits(product.getSpecs() != null ? product.getSpecs() : "");
 
-    // 중복 제거하여 하나의 units 필드로 통합
+    // 중복 제거하여 하나의 unit 필드로 통합
     Set<String> unitsSet = new HashSet<>();
     unitsSet.addAll(nameUnits);
     unitsSet.addAll(specsUnits);
-    String combinedUnits = unitsSet.isEmpty() ? null : String.join(" ", unitsSet);
+    String combinedUnit = unitsSet.isEmpty() ? null : String.join(" ", unitsSet);
 
     // 후보군 검색용 필드: 전처리 적용 (normalizeUnits 포함)
     String nameCandidate = TextPreprocessor.preprocess(product.getName());
@@ -64,7 +64,7 @@ public class ProductDocumentFactory {
         .id(String.valueOf(product.getId()))
         .name(preprocessedName)
         .nameRaw(product.getName())
-        .units(combinedUnits)
+        .unit(combinedUnit)
         .nameCandidate(nameCandidate)
         .model(models.isEmpty() ? null : String.join(" ", models))
         .brandName(BrandExtractor.extractBrand(product.getName()))

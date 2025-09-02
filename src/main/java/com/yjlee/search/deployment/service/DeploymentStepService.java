@@ -98,12 +98,20 @@ public class DeploymentStepService {
   }
 
   public void cleanupDevEnvironment(IndexEnvironment devEnvironment) {
-    log.info("개발 환경 비활성화 시작");
+    log.info("개발 환경 초기화 시작");
 
     devEnvironment.setIndexStatus(IndexEnvironment.IndexStatus.INACTIVE);
+    devEnvironment.setVersion(null);
+    devEnvironment.setIndexName("");
+    devEnvironment.setAutocompleteIndexName("");
+    devEnvironment.setDocumentCount(0L);
+    devEnvironment.setIndexDate(null);
+    devEnvironment.setIndexedDocumentCount(0L);
+    devEnvironment.setTotalDocumentCount(0L);
+
     indexEnvironmentRepository.save(devEnvironment);
 
-    log.info("개발 환경 비활성화 완료");
+    log.info("개발 환경 초기화 완료");
   }
 
   private void logCurrentAliasState(String phase) {

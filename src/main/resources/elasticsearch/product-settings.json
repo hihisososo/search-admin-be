@@ -47,7 +47,7 @@
         },
         "userdic_nori_tokenizer": {
           "type": "nori_tokenizer",
-          "discard_punctuation": true,
+          "discard_punctuation": false,
           "user_dictionary": "{USER_DICT_PATH}",
           "decompound_mode": "discard"
         }

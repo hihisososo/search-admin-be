@@ -26,7 +26,7 @@ public class ProductDocumentConverter {
         .category(document.getCategory())
         .specs(document.getSpecs())
         .specsRaw(document.getSpecsRaw())
-        .units(document.getUnits())
+        .unit(document.getUnit())
         .nameCandidate(document.getNameCandidate())
         .specsCandidate(document.getSpecsCandidate())
         .categoryCandidate(document.getCategoryCandidate())

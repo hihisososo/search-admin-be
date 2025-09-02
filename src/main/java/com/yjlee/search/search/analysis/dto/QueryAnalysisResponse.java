@@ -2,6 +2,7 @@ package com.yjlee.search.search.analysis.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -44,8 +45,11 @@ public class QueryAnalysisResponse {
     @Schema(description = "형태소 분석 토큰")
     List<TokenInfo> tokens;
 
-    @Schema(description = "동의어 확장 경로 목록", example = "[\"pc\", \"데스크톱\", \"데스크 탑\"]")
-    List<String> synonymPaths;
+    @Schema(description = "토큰화된 형태와 동의어", example = "데스크 탑{desk top|pc|desktop}")
+    String formattedTokens;
+
+    @Schema(description = "원본 토큰별 동의어 확장 정보", example = "{\"제로\": [\"pc\", \"데스크톱\", \"데스크\"]}")
+    Map<String, List<String>> synonymExpansions;
   }
 
   @Getter

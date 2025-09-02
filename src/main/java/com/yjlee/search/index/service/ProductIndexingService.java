@@ -30,7 +30,7 @@ import org.springframework.stereotype.Service;
 public class ProductIndexingService {
 
   private static final int BATCH_SIZE = 500;
-  private static final int MAX_CONCURRENT_BATCHES = 4;
+  private static final int MAX_CONCURRENT_BATCHES = 3;
 
   private final ProductRepository productRepository;
   private final EmbeddingEnricher embeddingEnricher;

@@ -25,7 +25,7 @@
     },
     "model": {
       "type": "text",
-      "analyzer": "whitespace"
+      "analyzer": "bigram_analyzer"
     },
     "name": {
       "type": "text",
@@ -65,7 +65,7 @@
       "type": "keyword",
       "index": false
     },
-    "units": {
+    "unit": {
       "type": "text",
       "analyzer": "whitespace"
     },

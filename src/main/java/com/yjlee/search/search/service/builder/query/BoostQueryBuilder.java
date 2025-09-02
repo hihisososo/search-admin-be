@@ -49,7 +49,8 @@ public class BoostQueryBuilder {
         .toList();
   }
 
-  public List<Query> buildUnitBoostQueries(List<String> units) {
+  public List<Query> buildUnitBoostQueries(
+      List<String> units, Map<String, Set<String>> expandedUnitsMap) {
     if (units == null || units.isEmpty()) {
       return List.of();
     }
@@ -58,19 +59,31 @@ public class BoostQueryBuilder {
 
     for (String unit : units) {
       if (!unit.isEmpty()) {
-        Set<String> expandedUnits = UnitExtractor.expandUnitSynonyms(unit);
-        List<Query> synonymQueries = buildUnitSynonymQueries(expandedUnits);
+        // context에서 이미 확장된 단위를 사용
+        Set<String> expandedUnits =
+            expandedUnitsMap != null
+                ? expandedUnitsMap.get(unit)
+                : UnitExtractor.expandUnitSynonyms(unit);
 
-        if (synonymQueries.size() == 1) {
-          unitBoostQueries.add(synonymQueries.get(0));
-        } else if (!synonymQueries.isEmpty()) {
-          unitBoostQueries.add(
-              buildBoolShouldQuery(synonymQueries, SearchBoostConstants.UNIT_MATCH_BOOST));
+        if (expandedUnits != null && !expandedUnits.isEmpty()) {
+          List<Query> synonymQueries = buildUnitSynonymQueries(expandedUnits);
+
+          if (synonymQueries.size() == 1) {
+            unitBoostQueries.add(synonymQueries.get(0));
+          } else if (!synonymQueries.isEmpty()) {
+            unitBoostQueries.add(
+                buildBoolShouldQuery(synonymQueries, SearchBoostConstants.UNIT_MATCH_BOOST));
+          }
         }
       }
     }
 
     return unitBoostQueries;
+  }
+
+  // 기존 메서드를 유지하면서 새 메서드를 호출하도록 변경 (하위 호환성)
+  public List<Query> buildUnitBoostQueries(List<String> units) {
+    return buildUnitBoostQueries(units, null);
   }
 
   public List<Query> buildCategoryBoostQueries(String query) {
@@ -101,7 +114,7 @@ public class BoostQueryBuilder {
     List<Query> synonymQueries = new ArrayList<>();
     for (String expandedUnit : expandedUnits) {
       synonymQueries.add(
-          buildMatchQuery(ESFields.UNITS, expandedUnit, SearchBoostConstants.UNIT_MATCH_BOOST));
+          buildMatchQuery(ESFields.UNIT, expandedUnit, SearchBoostConstants.UNIT_MATCH_BOOST));
     }
     return synonymQueries;
   }

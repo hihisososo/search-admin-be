@@ -3,7 +3,6 @@ package com.yjlee.search.search.service.builder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
-import com.yjlee.search.search.service.builder.model.ExtractedTerms;
 import com.yjlee.search.search.service.builder.model.QueryContext;
 import com.yjlee.search.search.service.builder.query.BoostQueryBuilder;
 import com.yjlee.search.search.service.builder.query.FilterQueryBuilder;
@@ -32,24 +31,9 @@ public class QueryBuilder {
       return buildFilterOnlyQuery(request);
     }
 
-    // 특수 용어 추출
-    ExtractedTerms extractedTerms = queryProcessor.extractSpecialTerms(originalQuery);
-
-    // 쿼리 전처리 (정규화, 오타교정 등)
-    String processedQuery =
-        queryProcessor
-            .processQuery(originalQuery, request.getApplyTypoCorrection())
-            .getFinalQuery();
-
-    // QueryContext 생성
+    // 통합 쿼리 분석 - 모든 분석을 한 번에 수행
     QueryContext context =
-        QueryContext.builder()
-            .originalQuery(originalQuery)
-            .processedQuery(processedQuery) // 원본 처리된 쿼리 그대로 사용
-            .units(extractedTerms.getUnits())
-            .models(extractedTerms.getModels())
-            .applyTypoCorrection(request.getApplyTypoCorrection())
-            .build();
+        queryProcessor.analyzeQuery(originalQuery, request.getApplyTypoCorrection());
 
     // 쿼리 구성 요소 빌드
     Query mainQuery = mainQueryBuilder.buildMainQuery(context);

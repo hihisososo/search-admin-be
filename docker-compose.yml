@@ -22,6 +22,7 @@ services:
       - ELASTIC_APM_ENABLED=${ELASTIC_APM_ENABLED}
       - ELASTIC_APM_SERVER_URL=${ELASTIC_APM_SERVER_URL}
       - ELASTIC_APM_SECRET_TOKEN=${ELASTIC_APM_SECRET_TOKEN}
+      - UPSTAGE_API_KEY=${UPSTAGE_API_KEY}
       - JAVA_OPTS=-Xmx384m -Xms128m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:+UseStringDeduplication
     restart: unless-stopped
     deploy:

@@ -10,14 +10,15 @@ import co.elastic.clients.elasticsearch.core.MgetResponse;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.service.LLMQueueManager;
 import com.yjlee.search.common.util.PromptTemplateLoader;
+import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
+import com.yjlee.search.search.service.IndexResolver;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +40,7 @@ public class LLMQueryEvaluationWorker {
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final ObjectMapper objectMapper;
   private final PromptTemplateLoader promptTemplateLoader;
+  private final IndexResolver indexResolver;
 
   /** ES에서 여러 상품을 한 번에 조회 (벌크 조회) */
   public Map<String, ProductDocument> getProductsBulk(List<String> productIds) {
@@ -49,9 +51,12 @@ public class LLMQueryEvaluationWorker {
     try {
       log.debug("🔍 ES 벌크 조회 시작: {}개 상품", productIds.size());
 
+      // 개발 환경의 인덱스명 사용
+      String devIndexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+      log.debug("개발 환경 인덱스 사용: {}", devIndexName);
+
       // MultiGet 요청 생성
-      MgetRequest.Builder requestBuilder =
-          new MgetRequest.Builder().index(ESFields.PRODUCTS_SEARCH_ALIAS);
+      MgetRequest.Builder requestBuilder = new MgetRequest.Builder().index(devIndexName);
 
       // 각 상품 ID를 요청에 추가
       for (String productId : productIds) {
@@ -101,8 +106,10 @@ public class LLMQueryEvaluationWorker {
 
   private ProductDocument getProductFromES(String productId) {
     try {
-      GetRequest request =
-          GetRequest.of(g -> g.index(ESFields.PRODUCTS_SEARCH_ALIAS).id(productId));
+      // 개발 환경의 인덱스명 사용
+      String devIndexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
+
+      GetRequest request = GetRequest.of(g -> g.index(devIndexName).id(productId));
 
       GetResponse<ProductDocument> response =
           elasticsearchClient.get(request, ProductDocument.class);
@@ -145,7 +152,10 @@ public class LLMQueryEvaluationWorker {
           }
 
           int score = evaluation.path("score").asInt(0);
-          String reason = "자동 평가";
+          String reason = evaluation.path("reason").asText("");
+          if (reason.isEmpty()) {
+            reason = "자동 평가";
+          }
           double confidence = 1.0;
 
           String evaluationReason =

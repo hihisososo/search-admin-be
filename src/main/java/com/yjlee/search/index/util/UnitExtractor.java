@@ -142,18 +142,18 @@ public class UnitExtractor {
     if (EN_UNITS != null && !EN_UNITS.isEmpty()) {
       UNIT_PATTERN_EN =
           Pattern.compile(
-              "(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
+              "(?<![a-zA-Z0-9\\-])(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
               Pattern.CASE_INSENSITIVE);
 
       COMPLEX_UNIT_PATTERN =
           Pattern.compile(
-              "(?<![a-zA-Z])(\\d+\\.?\\d*)x(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
+              "(?<![a-zA-Z0-9\\-])(\\d+\\.?\\d*)x(\\d+\\.?\\d*)\\s*(" + EN_UNITS + ")(?![a-zA-Z])",
               Pattern.CASE_INSENSITIVE);
     }
 
     if (KO_UNITS != null && !KO_UNITS.isEmpty()) {
       UNIT_PATTERN_KO =
-          Pattern.compile("(?<![a-zA-Z])(\\d+\\.?\\d*)\\s*(" + KO_UNITS + ")(?![가-힣])");
+          Pattern.compile("(?<![a-zA-Z0-9\\-])(\\d+\\.?\\d*)\\s*(" + KO_UNITS + ")(?![가-힣])");
     }
   }
 

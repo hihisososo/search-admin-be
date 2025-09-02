@@ -8,6 +8,7 @@ import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.service.builder.model.QueryContext;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -25,11 +26,8 @@ public class MainQueryBuilder {
       return buildEmptyQueryCase(context);
     }
 
-    if (context.hasModels()) {
-      return buildModelQuery(context);
-    }
-
-    return buildStandardQuery(context);
+    // 3phase 검색 로직
+    return buildThreePhaseQuery(context);
   }
 
   private Query buildEmptyQueryCase(QueryContext context) {
@@ -49,73 +47,86 @@ public class MainQueryBuilder {
   }
 
   private Query buildUnitOnlyQuery(QueryContext context) {
-    List<Query> unitBoostQueries = boostQueryBuilder.buildUnitBoostQueries(context.getUnits());
-
-    return Query.of(
-        q ->
-            q.bool(
-                b -> {
-                  b.must(Query.of(mq -> mq.matchAll(m -> m)));
-                  if (!unitBoostQueries.isEmpty()) {
-                    b.should(unitBoostQueries);
-                  }
-                  return b;
-                }));
+    // 단위만 있는 경우: 전체 검색
+    return Query.of(q -> q.matchAll(m -> m));
   }
 
   private Query buildUnitsAndModelsQuery(QueryContext context) {
-    // 단위와 모델명만 있는 경우: 전체 검색 + 모델명 부스트 + 단위 부스트
-    List<Query> modelBoostQueries = boostQueryBuilder.buildModelBoostQueries(context.getModels());
-    List<Query> unitBoostQueries = boostQueryBuilder.buildUnitBoostQueries(context.getUnits());
-
-    return Query.of(
-        q ->
-            q.bool(
-                b -> {
-                  b.must(Query.of(mq -> mq.matchAll(m -> m)));
-                  if (!modelBoostQueries.isEmpty()) {
-                    b.should(modelBoostQueries);
-                  }
-                  if (!unitBoostQueries.isEmpty()) {
-                    b.should(unitBoostQueries);
-                  }
-                  return b;
-                }));
+    // 단위와 모델명만 있는 경우: 전체 검색
+    return Query.of(q -> q.matchAll(m -> m));
   }
 
-  private Query buildModelQuery(QueryContext context) {
-    // 모델명을 쿼리에서 빼지 않고 원본 쿼리 그대로 사용
-    Query mainFieldQuery = buildCrossFieldsQuery(context.getProcessedQuery());
+  private Query buildThreePhaseQuery(QueryContext context) {
+    // Phase 1: 원본 쿼리 그대로 CROSS_FIELDS
+    Query originalQuery = buildCrossFieldsQuery(context.getProcessedQuery());
 
-    // 모델명은 부스트 쿼리로만 추가
-    return combineWithBoostQueries(mainFieldQuery, context);
-  }
+    // Phase 2: 단위/모델명 제외한 쿼리 (context에서 이미 계산됨)
+    String queryWithoutTerms = context.getQueryWithoutTerms();
 
-  private Query buildStandardQuery(QueryContext context) {
-    Query mainFieldQuery = buildCrossFieldsQuery(context.getProcessedQuery());
-    return combineWithBoostQueries(mainFieldQuery, context);
-  }
+    Query phaseTwo = null;
+    if (context.hasQueryWithoutTerms() || context.hasUnits() || context.hasModels()) {
+      BoolQuery.Builder phaseTwoBuilder = new BoolQuery.Builder();
 
-  private Query combineWithBoostQueries(Query mainFieldQuery, QueryContext context) {
+      // 단위/모델 제외한 쿼리가 있으면 CROSS_FIELDS로 검색
+      if (context.hasQueryWithoutTerms()) {
+        phaseTwoBuilder.must(buildCrossFieldsQuery(queryWithoutTerms));
+      }
+
+      // 단위가 있으면 확장된 단위들로 검색
+      if (context.hasUnits() && context.hasExpandedUnits()) {
+        for (String unit : context.getUnits()) {
+          Set<String> expandedUnits = context.getExpandedUnits().get(unit);
+
+          if (expandedUnits != null && !expandedUnits.isEmpty()) {
+            if (expandedUnits.size() == 1) {
+              // 확장 결과가 하나면 그대로 must
+              phaseTwoBuilder.must(Query.of(q -> q.match(m -> m.field(ESFields.UNIT).query(unit))));
+            } else {
+              // 확장 결과가 여러개면 should로 묶어서 must (OR 조건)
+              List<Query> unitQueries =
+                  expandedUnits.stream()
+                      .map(
+                          expandedUnit ->
+                              Query.of(
+                                  q -> q.match(m -> m.field(ESFields.UNIT).query(expandedUnit))))
+                      .toList();
+              phaseTwoBuilder.must(
+                  Query.of(q -> q.bool(b -> b.should(unitQueries).minimumShouldMatch("1"))));
+            }
+          }
+        }
+      }
+
+      // 모델명이 있으면 bigram analyzer로 검색 (AND 조건)
+      if (context.hasModels()) {
+        for (String model : context.getModels()) {
+          phaseTwoBuilder.must(
+              Query.of(
+                  q -> q.match(m -> m.field(ESFields.MODEL).query(model).operator(Operator.And))));
+        }
+      }
+
+      phaseTwo = Query.of(q -> q.bool(phaseTwoBuilder.build()));
+    }
+
+    // Phase 1과 Phase 2를 OR로 연결
+    BoolQuery.Builder mainQueryBuilder = new BoolQuery.Builder();
+    if (phaseTwo != null) {
+      mainQueryBuilder.should(originalQuery);
+      mainQueryBuilder.should(phaseTwo);
+      mainQueryBuilder.minimumShouldMatch("1");
+    } else {
+      mainQueryBuilder.must(originalQuery);
+    }
+
+    // Phrase 부스팅만 추가
     List<Query> phraseBoostQueries =
         boostQueryBuilder.buildPhraseBoostQueries(context.getProcessedQuery());
-    List<Query> modelBoostQueries = boostQueryBuilder.buildModelBoostQueries(context.getModels());
-    List<Query> unitBoostQueries = boostQueryBuilder.buildUnitBoostQueries(context.getUnits());
-
-    BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
-    boolBuilder.must(mainFieldQuery);
-
     if (!phraseBoostQueries.isEmpty()) {
-      boolBuilder.should(phraseBoostQueries);
-    }
-    if (!modelBoostQueries.isEmpty()) {
-      boolBuilder.should(modelBoostQueries);
-    }
-    if (!unitBoostQueries.isEmpty()) {
-      boolBuilder.should(unitBoostQueries);
+      mainQueryBuilder.should(phraseBoostQueries);
     }
 
-    return Query.of(q -> q.bool(boolBuilder.build()));
+    return Query.of(q -> q.bool(mainQueryBuilder.build()));
   }
 
   private Query buildCrossFieldsQuery(String query) {
@@ -136,29 +147,7 @@ public class MainQueryBuilder {
       return null;
     }
 
-    // 모델명만 있는 경우: 전체 검색 + 모델명 부스트
-    List<Query> modelBoostQueries =
-        models.stream()
-            .map(
-                model ->
-                    Query.of(
-                        q ->
-                            q.match(
-                                m ->
-                                    m.field(ESFields.MODEL)
-                                        .query(model)
-                                        .boost(SearchBoostConstants.MODEL_MATCH_BOOST))))
-            .toList();
-
-    return Query.of(
-        q ->
-            q.bool(
-                b -> {
-                  b.must(Query.of(mq -> mq.matchAll(m -> m)));
-                  if (!modelBoostQueries.isEmpty()) {
-                    b.should(modelBoostQueries);
-                  }
-                  return b;
-                }));
+    // 모델명만 있는 경우: 전체 검색
+    return Query.of(q -> q.matchAll(m -> m));
   }
 }
