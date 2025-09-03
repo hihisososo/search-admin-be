@@ -68,10 +68,11 @@ public class TokenAnalysisService {
       return;
     }
 
+    // search_synonym_filter를 찾아서 처리
     for (JsonNode filter : tokenFilters) {
       String filterName = filter.get("name").asText();
 
-      if ("search_synonym_filter".equals(filterName) || "stopword_filter".equals(filterName)) {
+      if ("search_synonym_filter".equals(filterName)) {
         JsonNode tokens = filter.get("tokens");
         if (tokens != null) {
           processTokens(tokens, tokenGraph);
@@ -80,6 +81,7 @@ public class TokenAnalysisService {
       }
     }
 
+    // search_synonym_filter가 없거나 토큰이 없는 경우 tokenizer 사용
     if (tokenGraph.getEdges().isEmpty()) {
       JsonNode tokenizer = detail.get("tokenizer");
       if (tokenizer != null && tokenizer.has("tokens")) {
