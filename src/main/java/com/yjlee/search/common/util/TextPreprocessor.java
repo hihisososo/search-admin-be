@@ -33,7 +33,7 @@ public class TextPreprocessor {
       return "";
     }
 
-    return normalizeUnicode(toLowerCase(cleanSpecialChars(normalizeUnits(text))));
+    return normalizeUnicode(toLowerCase(cleanSpecialChars(text)));
   }
 
   public static String normalizeUnits(String text) {

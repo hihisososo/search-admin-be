@@ -17,18 +17,15 @@ public class ESFields {
   public static final String PRODUCT_NAME_RAW = "name_raw";
   public static final String PRODUCT_SPECS_RAW = "specs_raw";
 
-  // 단위 필드
-  public static final String UNIT = "unit";
 
   // 가중치 포함 필드 조합
   public static final String NAME_WEIGHTED = NAME + "^3.0";
   public static final String SPECS_WEIGHTED = SPECS + "^1.0";
   public static final String CATEGORY_WEIGHTED = "category^3.0";
-  public static final String UNIT_WEIGHTED = UNIT + "^0.0";
 
   // 검색용 필드 리스트
   public static final List<String> CROSS_FIELDS_MAIN =
-      List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED, UNIT_WEIGHTED);
+      List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED);
 
   // 부스팅 필드 리스트
   public static final List<String> BOOST_FIELDS = List.of(MODEL, BRAND_NAME, CATEGORY_NAME);
