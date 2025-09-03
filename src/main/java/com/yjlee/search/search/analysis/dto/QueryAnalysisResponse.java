@@ -68,5 +68,4 @@ public class QueryAnalysisResponse {
     @Schema(description = "종료 오프셋", example = "4")
     int endOffset;
   }
-
 }

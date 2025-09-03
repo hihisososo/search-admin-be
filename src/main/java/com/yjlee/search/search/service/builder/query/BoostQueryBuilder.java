@@ -49,7 +49,6 @@ public class BoostQueryBuilder {
         .toList();
   }
 
-
   public List<Query> buildCategoryBoostQueries(String query) {
     if (query == null || query.trim().isEmpty()) {
       return List.of();
@@ -73,7 +72,6 @@ public class BoostQueryBuilder {
   private Query buildMatchQuery(String field, String query, float boost) {
     return Query.of(q -> q.match(m -> m.field(field).query(query).boost(boost)));
   }
-
 
   private Query buildBoolShouldQuery(List<Query> queries, float boost) {
     return Query.of(q -> q.bool(b -> b.should(queries).minimumShouldMatch("1").boost(boost)));
