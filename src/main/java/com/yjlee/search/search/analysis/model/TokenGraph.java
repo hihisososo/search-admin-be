@@ -87,6 +87,14 @@ public class TokenGraph {
     StringBuilder mermaid = new StringBuilder();
     mermaid.append("graph LR\n");
 
+    // 스타일 정의
+    mermaid.append("    classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:3px\n");
+    mermaid.append("    classDef andNode fill:#fff3e0,stroke:#e65100,stroke-width:2px\n");
+    mermaid.append("    classDef original stroke:#2e7d32,stroke-width:3px,color:#1b5e20\n");
+    mermaid.append(
+        "    classDef synonym stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:#4a148c\n");
+    mermaid.append("\n");
+
     // 마지막 position 찾기
     Integer maxPosition = positionNodes.keySet().stream().max(Integer::compareTo).orElse(0);
 
@@ -94,36 +102,74 @@ public class TokenGraph {
     for (Map.Entry<Integer, PositionNode> entry : positionNodes.entrySet()) {
       int pos = entry.getKey();
       String nodeName;
+      String nodeClass;
+
       if (pos == 0) {
         nodeName = "START";
+        nodeClass = "startEnd";
       } else if (pos == maxPosition) {
         nodeName = "END";
+        nodeClass = "startEnd";
       } else {
         nodeName = "AND";
+        nodeClass = "andNode";
       }
-      mermaid.append(String.format("    %d[\"%s\"]\n", pos, nodeName));
+
+      mermaid.append(String.format("    %d((\"%s\"))\n", pos, nodeName));
+      mermaid.append(String.format("    class %d %s\n", pos, nodeClass));
     }
 
-    // 엣지들 그룹화하여 더 깔끔하게 표시
-    Map<String, List<TokenEdge>> edgeGroups =
+    mermaid.append("\n");
+
+    // 원본 토큰과 동의어를 분리
+    List<TokenEdge> originalEdges =
         edges.stream()
-            .collect(Collectors.groupingBy(e -> e.getFromPosition() + "-" + e.getToPosition()));
+            .filter(e -> !"SYNONYM".equals(e.getType()))
+            .sorted(
+                (a, b) -> {
+                  int posCompare = Integer.compare(a.getFromPosition(), b.getFromPosition());
+                  return posCompare != 0 ? posCompare : a.getToken().compareTo(b.getToken());
+                })
+            .collect(Collectors.toList());
 
-    for (Map.Entry<String, List<TokenEdge>> group : edgeGroups.entrySet()) {
-      List<TokenEdge> groupEdges = group.getValue();
-      int fromPos = groupEdges.get(0).getFromPosition();
-      int toPos = groupEdges.get(0).getToPosition();
+    List<TokenEdge> synonymEdges =
+        edges.stream()
+            .filter(e -> "SYNONYM".equals(e.getType()))
+            .sorted(
+                (a, b) -> {
+                  int posCompare = Integer.compare(a.getFromPosition(), b.getFromPosition());
+                  return posCompare != 0 ? posCompare : a.getToken().compareTo(b.getToken());
+                })
+            .collect(Collectors.toList());
 
-      for (TokenEdge edge : groupEdges) {
+    // 원본 토큰 먼저 표시
+    if (!originalEdges.isEmpty()) {
+      mermaid.append("    %% Original tokens\n");
+      for (TokenEdge edge : originalEdges) {
         String label = edge.getToken();
+        int fromPos = edge.getFromPosition();
+        int toPos = edge.getToPosition();
 
-        // positionLength가 1보다 큰 경우 표시
         if (edge.getPositionLength() > 1) {
-          // 멀티 포지션 엣지는 굵은 화살표로
-          mermaid.append(String.format("    %d ===%s===> %d\n", fromPos, label, toPos));
+          mermaid.append(String.format("    %d ==>|%s| %d\n", fromPos, label, toPos));
         } else {
-          // 일반 엣지
           mermaid.append(String.format("    %d -->|%s| %d\n", fromPos, label, toPos));
+        }
+      }
+    }
+
+    // 동의어 표시
+    if (!synonymEdges.isEmpty()) {
+      mermaid.append("\n    %% Synonym tokens\n");
+      for (TokenEdge edge : synonymEdges) {
+        String label = edge.getToken();
+        int fromPos = edge.getFromPosition();
+        int toPos = edge.getToPosition();
+
+        if (edge.getPositionLength() > 1) {
+          mermaid.append(String.format("    %d -.->|%s| %d\n", fromPos, label, toPos));
+        } else {
+          mermaid.append(String.format("    %d -.->|%s| %d\n", fromPos, label, toPos));
         }
       }
     }
@@ -162,62 +208,6 @@ public class TokenGraph {
     }
 
     return ascii.toString();
-  }
-
-  public Map<String, List<String>> extractSynonymExpansions() {
-    Map<String, List<String>> synonymExpansions = new LinkedHashMap<>();
-
-    // position과 offset으로 그룹화
-    Map<String, List<TokenEdge>> edgeGroups =
-        edges.stream()
-            .collect(
-                Collectors.groupingBy(
-                    e -> e.getFromPosition() + "-" + e.getStartOffset() + "-" + e.getEndOffset()));
-
-    for (List<TokenEdge> group : edgeGroups.values()) {
-      if (group.size() <= 1) {
-        continue; // 동의어가 없는 경우 스킵
-      }
-
-      // 원본 토큰과 동의어 분리
-      List<TokenEdge> originalTokens =
-          group.stream().filter(e -> !e.isSynonym()).collect(Collectors.toList());
-
-      List<TokenEdge> synonymTokens =
-          group.stream().filter(TokenEdge::isSynonym).collect(Collectors.toList());
-
-      if (originalTokens.isEmpty() || synonymTokens.isEmpty()) {
-        continue; // 원본이나 동의어가 없으면 스킵
-      }
-
-      // 원본 토큰 키 생성
-      String originalKey;
-      TokenEdge firstOriginal = originalTokens.get(0);
-
-      if (firstOriginal.isMultiPosition() && originalQuery != null) {
-        // multi-position인 경우 원본 쿼리에서 텍스트 추출
-        int startOffset = firstOriginal.getStartOffset();
-        int endOffset = firstOriginal.getEndOffset();
-        if (startOffset >= 0 && endOffset <= originalQuery.length()) {
-          originalKey = originalQuery.substring(startOffset, endOffset);
-        } else {
-          originalKey = firstOriginal.getToken();
-        }
-      } else {
-        // 단일 position인 경우 토큰 그대로 사용
-        originalKey = firstOriginal.getToken();
-      }
-
-      // 동의어 리스트 생성
-      List<String> synonymList =
-          synonymTokens.stream().map(TokenEdge::getToken).distinct().collect(Collectors.toList());
-
-      if (!synonymList.isEmpty()) {
-        synonymExpansions.put(originalKey, synonymList);
-      }
-    }
-
-    return synonymExpansions;
   }
 
   @Getter

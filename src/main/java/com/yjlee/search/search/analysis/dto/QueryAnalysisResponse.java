@@ -2,7 +2,6 @@ package com.yjlee.search.search.analysis.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
-import java.util.Map;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,11 +25,6 @@ public class QueryAnalysisResponse {
 
   @Schema(description = "분석된 토큰 리스트", example = "[\"삼성전자\", \"노트북\", \"1kg\"]")
   List<String> tokens;
-
-  @Schema(
-      description = "동의어 확장 결과",
-      example = "{\"pc\": [\"데스크탑\", \"데스크톱\"], \"사과상자\": [\"apple상자\", \"애플box\"]}")
-  Map<String, List<String>> synonymExpansions;
 
   @Schema(description = "Mermaid 그래프 다이어그램")
   String mermaidGraph;
