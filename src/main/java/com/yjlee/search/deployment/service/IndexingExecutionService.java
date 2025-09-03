@@ -226,7 +226,12 @@ public class IndexingExecutionService {
 
   private String getCurrentStopwordDictionaryContent() {
     try {
-      return stopwordDictionaryService.getDevSnapshots().stream()
+      // DEV 환경의 모든 불용어 사전 조회 (페이징 없이)
+      var response =
+          stopwordDictionaryService.getList(
+              0, 1000, "keyword", "asc", null, DictionaryEnvironmentType.DEV);
+
+      return response.getContent().stream()
           .map(
               stopword -> {
                 String keyword = stopword.getKeyword();

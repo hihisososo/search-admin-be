@@ -24,6 +24,9 @@ public class CategoryRankingDictionaryListResponse {
   @Schema(description = "설명", example = "아이폰 관련 카테고리 부스팅")
   private String description;
 
+  @Schema(description = "생성일시", example = "2024-01-01T09:00:00")
+  private LocalDateTime createdAt;
+
   @Schema(description = "수정일시", example = "2024-01-01T10:00:00")
   private LocalDateTime updatedAt;
 }

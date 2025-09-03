@@ -433,7 +433,7 @@ public class SynonymTermRecommendationService {
 
       // 중복 제거 전략: 동일 base로 시작하는 기존 엔트리를 제거하고 하나로 재생성
       synonymDictionaryRepository.deleteByKeywordStartingWithIgnoreCase(base + ",");
-      synonymDictionaryService.createSynonymDictionary(
+      synonymDictionaryService.create(
           SynonymDictionaryCreateRequest.builder().keyword(rule).build(), environment);
       log.info("[SynonymGen] 사전 병합 - {}", rule);
     }

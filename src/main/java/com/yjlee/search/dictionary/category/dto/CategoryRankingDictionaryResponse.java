@@ -1,6 +1,7 @@
 package com.yjlee.search.dictionary.category.dto;
 
 import com.yjlee.search.dictionary.category.model.CategoryMapping;
+import com.yjlee.search.dictionary.common.dto.BaseDictionaryResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,7 +14,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 @Schema(description = "카테고리 랭킹 사전 응답")
-public class CategoryRankingDictionaryResponse {
+public class CategoryRankingDictionaryResponse implements BaseDictionaryResponse {
 
   @Schema(description = "ID", example = "1")
   private Long id;

@@ -2,6 +2,7 @@ package com.yjlee.search.dictionary.category.model;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.category.converter.CategoryMappingListConverter;
+import com.yjlee.search.dictionary.common.model.DictionarySnapshotEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -27,7 +28,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CategoryRankingDictionarySnapshot {
+public class CategoryRankingDictionarySnapshot implements DictionarySnapshotEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;

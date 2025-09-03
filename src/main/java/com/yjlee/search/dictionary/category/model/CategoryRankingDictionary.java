@@ -1,6 +1,7 @@
 package com.yjlee.search.dictionary.category.model;
 
 import com.yjlee.search.dictionary.category.converter.CategoryMappingListConverter;
+import com.yjlee.search.dictionary.common.model.DictionaryEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -19,7 +20,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CategoryRankingDictionary {
+public class CategoryRankingDictionary implements DictionaryEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;

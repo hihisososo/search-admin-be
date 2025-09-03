@@ -1,6 +1,7 @@
 package com.yjlee.search.dictionary.synonym.model;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.dictionary.common.model.DictionarySnapshotEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -18,7 +19,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SynonymDictionarySnapshot {
+public class SynonymDictionarySnapshot implements DictionarySnapshotEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;

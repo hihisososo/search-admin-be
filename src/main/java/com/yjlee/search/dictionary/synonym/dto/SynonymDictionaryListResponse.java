@@ -12,5 +12,6 @@ public class SynonymDictionaryListResponse {
   long id;
   String keyword;
   String description;
+  LocalDateTime createdAt;
   LocalDateTime updatedAt;
 }

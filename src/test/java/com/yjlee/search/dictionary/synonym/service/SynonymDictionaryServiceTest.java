@@ -54,8 +54,7 @@ class SynonymDictionaryServiceTest {
     when(synonymDictionaryRepository.save(any(SynonymDictionary.class))).thenReturn(testDictionary);
 
     SynonymDictionaryResponse response =
-        synonymDictionaryService.createSynonymDictionary(
-            request, DictionaryEnvironmentType.CURRENT);
+        synonymDictionaryService.create(request, DictionaryEnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     assertThat(response.getKeyword()).isEqualTo("노트북,랩탑");
@@ -71,7 +70,7 @@ class SynonymDictionaryServiceTest {
     when(synonymDictionaryRepository.findAll(any(Pageable.class))).thenReturn(page);
 
     PageResponse<SynonymDictionaryListResponse> response =
-        synonymDictionaryService.getSynonymDictionaries(1, 10, null, null, null, null);
+        synonymDictionaryService.getList(1, 10, null, null, null, null);
 
     assertThat(response).isNotNull();
     assertThat(response.getContent()).hasSize(1);
@@ -91,8 +90,7 @@ class SynonymDictionaryServiceTest {
     when(synonymDictionaryRepository.save(any(SynonymDictionary.class))).thenReturn(testDictionary);
 
     SynonymDictionaryResponse response =
-        synonymDictionaryService.updateSynonymDictionary(
-            1L, request, DictionaryEnvironmentType.CURRENT);
+        synonymDictionaryService.update(1L, request, DictionaryEnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     verify(synonymDictionaryRepository, times(1)).save(any(SynonymDictionary.class));
@@ -101,9 +99,9 @@ class SynonymDictionaryServiceTest {
   @Test
   @DisplayName("유의어 사전 삭제 - 성공")
   void deleteSynonymDictionary_Success() {
-    when(synonymDictionaryRepository.existsById(1L)).thenReturn(true);
+    when(synonymDictionaryRepository.findById(1L)).thenReturn(Optional.of(testDictionary));
 
-    synonymDictionaryService.deleteSynonymDictionary(1L, DictionaryEnvironmentType.CURRENT);
+    synonymDictionaryService.delete(1L, DictionaryEnvironmentType.CURRENT);
 
     verify(synonymDictionaryRepository, times(1)).deleteById(1L);
   }

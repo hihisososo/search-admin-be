@@ -1,5 +1,6 @@
 package com.yjlee.search.dictionary.typo.model;
 
+import com.yjlee.search.dictionary.common.model.DictionaryEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -16,7 +17,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class TypoCorrectionDictionary {
+public class TypoCorrectionDictionary implements DictionaryEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;

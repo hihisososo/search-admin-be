@@ -1,5 +1,6 @@
 package com.yjlee.search.dictionary.typo.dto;
 
+import com.yjlee.search.dictionary.common.dto.BaseDictionaryResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -12,7 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Getter
 @Schema(description = "오타교정 사전 응답")
-public class TypoCorrectionDictionaryResponse {
+public class TypoCorrectionDictionaryResponse implements BaseDictionaryResponse {
 
   @Schema(description = "ID", example = "1")
   private Long id;

@@ -35,4 +35,12 @@ public interface TypoCorrectionDictionarySnapshotRepository
 
   // 특정 환경의 모든 스냅샷 삭제
   void deleteByEnvironmentType(DictionaryEnvironmentType environmentType);
+
+  // 특정 환경의 스냅샷 조회 (페이징)
+  Page<TypoCorrectionDictionarySnapshot> findByEnvironmentType(
+      DictionaryEnvironmentType environmentType, Pageable pageable);
+
+  // 특정 환경에서 키워드 검색 (페이징)
+  Page<TypoCorrectionDictionarySnapshot> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
+      DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
 }

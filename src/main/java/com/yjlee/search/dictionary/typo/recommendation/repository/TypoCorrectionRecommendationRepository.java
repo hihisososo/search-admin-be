@@ -14,4 +14,8 @@ public interface TypoCorrectionRecommendationRepository
   List<TypoCorrectionRecommendation> findAllByOrderByRecommendationCountDesc();
 
   void deleteAllByIdInBatch(Iterable<String> ids);
+
+  List<TypoCorrectionRecommendation> findByKeywordContainingIgnoreCase(String keyword);
+
+  Optional<TypoCorrectionRecommendation> findByKeyword(String keyword);
 }

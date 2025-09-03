@@ -63,8 +63,7 @@ public class SynonymDictionaryController {
         environment);
 
     PageResponse<SynonymDictionaryListResponse> response =
-        synonymDictionaryService.getSynonymDictionaries(
-            page, size, search, sortBy, sortDir, environment);
+        synonymDictionaryService.getList(page, size, sortBy, sortDir, search, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -79,7 +78,7 @@ public class SynonymDictionaryController {
 
     log.debug("동의어 사전 상세 조회: {}", dictionaryId);
     SynonymDictionaryResponse response =
-        synonymDictionaryService.getSynonymDictionaryDetail(dictionaryId);
+        synonymDictionaryService.get(dictionaryId, DictionaryEnvironmentType.CURRENT);
     return ResponseEntity.ok(response);
   }
 
@@ -96,8 +95,7 @@ public class SynonymDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.debug("동의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
-    SynonymDictionaryResponse response =
-        synonymDictionaryService.createSynonymDictionary(request, environment);
+    SynonymDictionaryResponse response = synonymDictionaryService.create(request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -116,7 +114,7 @@ public class SynonymDictionaryController {
 
     log.debug("동의어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     SynonymDictionaryResponse response =
-        synonymDictionaryService.updateSynonymDictionary(dictionaryId, request, environment);
+        synonymDictionaryService.update(dictionaryId, request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -133,7 +131,7 @@ public class SynonymDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.info("동의어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
-    synonymDictionaryService.deleteSynonymDictionary(dictionaryId, environment);
+    synonymDictionaryService.delete(dictionaryId, environment);
     return ResponseEntity.noContent().build();
   }
 

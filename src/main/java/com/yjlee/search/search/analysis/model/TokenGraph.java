@@ -95,19 +95,46 @@ public class TokenGraph {
         "    classDef synonym stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:#4a148c\n");
     mermaid.append("\n");
 
-    // 마지막 position 찾기
-    Integer maxPosition = positionNodes.keySet().stream().max(Integer::compareTo).orElse(0);
+    // 나가는 edge가 있는 position 찾기
+    Set<Integer> hasOutgoingEdge =
+        edges.stream().map(TokenEdge::getFromPosition).collect(Collectors.toSet());
 
-    // Position 노드들을 박스로 표시
-    for (Map.Entry<Integer, PositionNode> entry : positionNodes.entrySet()) {
-      int pos = entry.getKey();
+    // 실제 사용되는 모든 position
+    Set<Integer> allPositions = new HashSet<>();
+    for (TokenEdge edge : edges) {
+      allPositions.add(edge.getFromPosition());
+      allPositions.add(edge.getToPosition());
+    }
+
+    // position 재매핑 (끊긴 노드는 다음 노드와 merge)
+    Map<Integer, Integer> positionMapping = new HashMap<>();
+    TreeSet<Integer> sortedPositions = new TreeSet<>(allPositions);
+    int mappedPos = 0;
+
+    for (Integer pos : sortedPositions) {
+      positionMapping.put(pos, mappedPos);
+
+      // 나가는 edge가 있거나 마지막 노드면 다음 번호로
+      if (hasOutgoingEdge.contains(pos)) {
+        mappedPos++;
+      }
+      // 끊긴 노드는 다음 노드와 같은 번호 유지
+    }
+
+    // 재매핑된 마지막 position 찾기
+    Integer maxMappedPosition = positionMapping.values().stream().max(Integer::compareTo).orElse(0);
+
+    // 재매핑된 Position 노드들을 표시
+    for (Map.Entry<Integer, Integer> entry : positionMapping.entrySet()) {
+      int originalPos = entry.getKey();
+      int remappedPos = entry.getValue();
       String nodeName;
       String nodeClass;
 
-      if (pos == 0) {
+      if (remappedPos == 0) {
         nodeName = "START";
         nodeClass = "startEnd";
-      } else if (pos == maxPosition) {
+      } else if (remappedPos == maxMappedPosition) {
         nodeName = "END";
         nodeClass = "startEnd";
       } else {
@@ -115,8 +142,8 @@ public class TokenGraph {
         nodeClass = "andNode";
       }
 
-      mermaid.append(String.format("    %d((\"%s\"))\n", pos, nodeName));
-      mermaid.append(String.format("    class %d %s\n", pos, nodeClass));
+      mermaid.append(String.format("    %d((\"%s\"))\n", remappedPos, nodeName));
+      mermaid.append(String.format("    class %d %s\n", remappedPos, nodeClass));
     }
 
     mermaid.append("\n");
@@ -147,8 +174,8 @@ public class TokenGraph {
       mermaid.append("    %% Original tokens\n");
       for (TokenEdge edge : originalEdges) {
         String label = edge.getToken();
-        int fromPos = edge.getFromPosition();
-        int toPos = edge.getToPosition();
+        int fromPos = positionMapping.get(edge.getFromPosition());
+        int toPos = positionMapping.get(edge.getToPosition());
 
         if (edge.getPositionLength() > 1) {
           mermaid.append(String.format("    %d ==>|%s| %d\n", fromPos, label, toPos));
@@ -163,8 +190,8 @@ public class TokenGraph {
       mermaid.append("\n    %% Synonym tokens\n");
       for (TokenEdge edge : synonymEdges) {
         String label = edge.getToken();
-        int fromPos = edge.getFromPosition();
-        int toPos = edge.getToPosition();
+        int fromPos = positionMapping.get(edge.getFromPosition());
+        int toPos = positionMapping.get(edge.getToPosition());
 
         if (edge.getPositionLength() > 1) {
           mermaid.append(String.format("    %d -.->|%s| %d\n", fromPos, label, toPos));
@@ -208,6 +235,63 @@ public class TokenGraph {
     }
 
     return ascii.toString();
+  }
+
+  public String generateQueryExpression() {
+    if (edges.isEmpty()) {
+      return "";
+    }
+
+    // 나가는 edge가 있는 position 찾기 (merge 로직과 동일)
+    Set<Integer> hasOutgoingEdge =
+        edges.stream().map(TokenEdge::getFromPosition).collect(Collectors.toSet());
+
+    // 실제 사용되는 모든 position
+    Set<Integer> allPositions = new HashSet<>();
+    for (TokenEdge edge : edges) {
+      allPositions.add(edge.getFromPosition());
+      allPositions.add(edge.getToPosition());
+    }
+
+    // position 재매핑 (끊긴 노드는 다음 노드와 merge)
+    Map<Integer, Integer> positionMapping = new HashMap<>();
+    TreeSet<Integer> sortedPositions = new TreeSet<>(allPositions);
+    int mappedPos = 0;
+
+    for (Integer pos : sortedPositions) {
+      positionMapping.put(pos, mappedPos);
+      if (hasOutgoingEdge.contains(pos)) {
+        mappedPos++;
+      }
+    }
+
+    // 재매핑된 position별로 토큰 그룹화
+    Map<Integer, Set<String>> tokensByPosition = new TreeMap<>();
+    for (TokenEdge edge : edges) {
+      int fromMappedPos = positionMapping.get(edge.getFromPosition());
+      tokensByPosition
+          .computeIfAbsent(fromMappedPos, k -> new LinkedHashSet<>())
+          .add(edge.getToken());
+    }
+
+    // 검색식 생성
+    List<String> andGroups = new ArrayList<>();
+    for (Set<String> tokens : tokensByPosition.values()) {
+      if (tokens.isEmpty()) {
+        continue;
+      }
+
+      if (tokens.size() == 1) {
+        // 단일 토큰은 괄호 없이
+        andGroups.add(tokens.iterator().next());
+      } else {
+        // 여러 토큰은 OR로 묶어서 괄호
+        andGroups.add("(" + String.join(" OR ", tokens) + ")");
+      }
+    }
+
+    // AND로 연결
+    return String.join(" AND ", andGroups);
   }
 
   @Getter

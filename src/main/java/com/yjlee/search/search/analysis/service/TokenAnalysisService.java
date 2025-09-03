@@ -30,14 +30,19 @@ public class TokenAnalysisService {
 
   public TokenGraph analyzeWithTokenGraph(String text, DictionaryEnvironmentType environment)
       throws IOException {
+    return analyzeWithTokenGraph(text, environment, "nori_search_analyzer");
+  }
+
+  public TokenGraph analyzeWithTokenGraph(
+      String text, DictionaryEnvironmentType environment, String analyzer) throws IOException {
 
     String indexName = getIndexNameForAnalysis(environment);
 
     Request request = new Request("GET", "/" + indexName + "/_analyze");
     String jsonBody =
         String.format(
-            "{\"analyzer\":\"nori_search_analyzer\",\"text\":\"%s\",\"explain\":true}",
-            text.replace("\"", "\\\""));
+            "{\"analyzer\":\"%s\",\"text\":\"%s\",\"explain\":true}",
+            analyzer, text.replace("\"", "\\\""));
     request.setJsonEntity(jsonBody);
 
     Response response = restClient.performRequest(request);
@@ -68,24 +73,16 @@ public class TokenAnalysisService {
       return;
     }
 
-    // search_synonym_filter를 찾아서 처리
+    // search_synonym_filter 또는 index_synonym_filter를 찾아서 처리
     for (JsonNode filter : tokenFilters) {
       String filterName = filter.get("name").asText();
 
-      if ("search_synonym_filter".equals(filterName)) {
+      if ("search_synonym_filter".equals(filterName) || "index_synonym_filter".equals(filterName)) {
         JsonNode tokens = filter.get("tokens");
         if (tokens != null) {
           processTokens(tokens, tokenGraph);
         }
         break;
-      }
-    }
-
-    // search_synonym_filter가 없거나 토큰이 없는 경우 tokenizer 사용
-    if (tokenGraph.getEdges().isEmpty()) {
-      JsonNode tokenizer = detail.get("tokenizer");
-      if (tokenizer != null && tokenizer.has("tokens")) {
-        processTokens(tokenizer.get("tokens"), tokenGraph);
       }
     }
   }

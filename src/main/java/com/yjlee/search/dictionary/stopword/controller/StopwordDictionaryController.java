@@ -55,8 +55,7 @@ public class StopwordDictionaryController {
         environment);
 
     PageResponse<StopwordDictionaryListResponse> response =
-        stopwordDictionaryService.getStopwordDictionaries(
-            page, size, search, sortBy, sortDir, environment);
+        stopwordDictionaryService.getList(page, size, sortBy, sortDir, search, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -71,7 +70,7 @@ public class StopwordDictionaryController {
 
     log.debug("불용어 사전 상세 조회: {}", dictionaryId);
     StopwordDictionaryResponse response =
-        stopwordDictionaryService.getStopwordDictionaryDetail(dictionaryId);
+        stopwordDictionaryService.get(dictionaryId, DictionaryEnvironmentType.CURRENT);
     return ResponseEntity.ok(response);
   }
 
@@ -88,8 +87,7 @@ public class StopwordDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.debug("불용어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
-    StopwordDictionaryResponse response =
-        stopwordDictionaryService.createStopwordDictionary(request, environment);
+    StopwordDictionaryResponse response = stopwordDictionaryService.create(request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -108,7 +106,7 @@ public class StopwordDictionaryController {
 
     log.debug("불용어 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
     StopwordDictionaryResponse response =
-        stopwordDictionaryService.updateStopwordDictionary(dictionaryId, request, environment);
+        stopwordDictionaryService.update(dictionaryId, request, environment);
     return ResponseEntity.ok(response);
   }
 
@@ -125,7 +123,7 @@ public class StopwordDictionaryController {
           DictionaryEnvironmentType environment) {
 
     log.info("불용어 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
-    stopwordDictionaryService.deleteStopwordDictionary(dictionaryId, environment);
+    stopwordDictionaryService.delete(dictionaryId, environment);
     return ResponseEntity.noContent().build();
   }
 }

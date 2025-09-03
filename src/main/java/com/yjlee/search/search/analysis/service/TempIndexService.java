@@ -127,8 +127,8 @@ public class TempIndexService {
     try {
       // 큰 페이지 크기로 전체 불용어 가져오기
       var response =
-          stopwordDictionaryService.getStopwordDictionaries(
-              0, 10000, null, "keyword", "asc", DictionaryEnvironmentType.CURRENT);
+          stopwordDictionaryService.getList(
+              0, 10000, "keyword", "asc", null, DictionaryEnvironmentType.CURRENT);
 
       return response.getContent().stream()
           .map(

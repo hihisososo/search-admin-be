@@ -1,5 +1,6 @@
 package com.yjlee.search.dictionary.typo.dto;
 
+import com.yjlee.search.dictionary.common.dto.BaseDictionaryCreateRequest;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -9,7 +10,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Schema(description = "오타교정 사전 생성 요청")
-public class TypoCorrectionDictionaryCreateRequest {
+public class TypoCorrectionDictionaryCreateRequest implements BaseDictionaryCreateRequest {
 
   @NotBlank(message = "오타 단어는 필수입니다")
   @Size(max = 100, message = "오타 단어는 100자 이하여야 합니다")

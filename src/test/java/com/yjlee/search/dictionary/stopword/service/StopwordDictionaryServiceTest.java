@@ -58,8 +58,7 @@ class StopwordDictionaryServiceTest {
         .thenReturn(testDictionary);
 
     StopwordDictionaryResponse response =
-        stopwordDictionaryService.createStopwordDictionary(
-            request, DictionaryEnvironmentType.CURRENT);
+        stopwordDictionaryService.create(request, DictionaryEnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     assertThat(response.getKeyword()).isEqualTo("테스트");
@@ -75,7 +74,7 @@ class StopwordDictionaryServiceTest {
     when(stopwordDictionaryRepository.findAll(any(Pageable.class))).thenReturn(page);
 
     PageResponse<StopwordDictionaryListResponse> response =
-        stopwordDictionaryService.getStopwordDictionaries(1, 10, null, null, null, null);
+        stopwordDictionaryService.getList(1, 10, null, null, null, null);
 
     assertThat(response).isNotNull();
     assertThat(response.getContent()).hasSize(1);
@@ -93,7 +92,7 @@ class StopwordDictionaryServiceTest {
         .thenReturn(page);
 
     PageResponse<StopwordDictionaryListResponse> response =
-        stopwordDictionaryService.getStopwordDictionaries(1, 10, "테스트", null, null, null);
+        stopwordDictionaryService.getList(1, 10, null, null, "테스트", null);
 
     assertThat(response).isNotNull();
     assertThat(response.getContent()).hasSize(1);
@@ -106,7 +105,8 @@ class StopwordDictionaryServiceTest {
   void getStopwordDictionaryDetail_Success() {
     when(stopwordDictionaryRepository.findById(1L)).thenReturn(Optional.of(testDictionary));
 
-    StopwordDictionaryResponse response = stopwordDictionaryService.getStopwordDictionaryDetail(1L);
+    StopwordDictionaryResponse response =
+        stopwordDictionaryService.get(1L, DictionaryEnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     assertThat(response.getKeyword()).isEqualTo("테스트");
@@ -117,9 +117,9 @@ class StopwordDictionaryServiceTest {
   void getStopwordDictionaryDetail_NotFound() {
     when(stopwordDictionaryRepository.findById(999L)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> stopwordDictionaryService.getStopwordDictionaryDetail(999L))
+    assertThatThrownBy(() -> stopwordDictionaryService.get(999L, DictionaryEnvironmentType.CURRENT))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("존재하지 않는 불용어 사전입니다");
+        .hasMessageContaining("존재하지 않는");
   }
 
   @Test
@@ -133,8 +133,7 @@ class StopwordDictionaryServiceTest {
         .thenReturn(testDictionary);
 
     StopwordDictionaryResponse response =
-        stopwordDictionaryService.updateStopwordDictionary(
-            1L, request, DictionaryEnvironmentType.CURRENT);
+        stopwordDictionaryService.update(1L, request, DictionaryEnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     verify(stopwordDictionaryRepository, times(1)).save(any(StopwordDictionary.class));
@@ -145,7 +144,7 @@ class StopwordDictionaryServiceTest {
   void deleteStopwordDictionary_Success() {
     when(stopwordDictionaryRepository.findById(1L)).thenReturn(Optional.of(testDictionary));
 
-    stopwordDictionaryService.deleteStopwordDictionary(1L, DictionaryEnvironmentType.CURRENT);
+    stopwordDictionaryService.delete(1L, DictionaryEnvironmentType.CURRENT);
 
     verify(stopwordDictionaryRepository, times(1)).deleteById(1L);
   }

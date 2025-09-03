@@ -10,5 +10,6 @@ public class StopwordDictionaryListResponse {
   private Long id;
   private String keyword;
   private String description;
+  private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 }

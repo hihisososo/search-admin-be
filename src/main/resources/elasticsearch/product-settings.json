@@ -17,7 +17,7 @@
         "pos_filter": {
           "type": "nori_part_of_speech",
           "stoptags": [
-            "J", "E", "IC", "SP", "SC", "SE",
+            "J", "E", "SP", "SC", "SE",
             "XPN", "XSA", "XSN", "XSV", "SSO", "SSC", "UNA", "NA", "VSV"
           ]
         },
@@ -52,7 +52,7 @@
         "bigram_tokenizer": {
           "type": "ngram",
           "min_gram": "2",
-          "max_gram": "10",
+          "max_gram": "2",
           "token_chars": ["letter", "digit", "punctuation"]
         },
         "userdic_nori_tokenizer": {

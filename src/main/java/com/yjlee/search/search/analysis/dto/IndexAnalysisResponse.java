@@ -14,8 +14,8 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@Schema(description = "쿼리 분석 응답")
-public class QueryAnalysisResponse {
+@Schema(description = "색인 분석 응답")
+public class IndexAnalysisResponse {
 
   @Schema(description = "분석 환경", example = "CURRENT")
   String environment;
@@ -26,9 +26,6 @@ public class QueryAnalysisResponse {
   @Schema(description = "분석된 토큰 리스트", example = "[\"삼성전자\", \"노트북\", \"1kg\"]")
   List<String> tokens;
 
-  @Schema(description = "Mermaid 그래프 다이어그램")
-  String mermaidGraph;
-
-  @Schema(description = "검색식", example = "(삼성전자 OR samsung) AND 노트북 AND 1kg")
-  String queryExpression;
+  @Schema(description = "추가 색인어 리스트", example = "[\"samsung\", \"갤럭시북\"]")
+  List<String> additionalTokens;
 }
