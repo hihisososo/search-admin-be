@@ -61,7 +61,8 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --parameters '{
               "commands": [
-                "sudo -u ec2-user git -C /home/ec2-user/search-admin-be pull origin main",
+                "sudo -u ec2-user git -C /home/ec2-user/search-admin-be fetch origin main",
+                "sudo -u ec2-user git -C /home/ec2-user/search-admin-be reset --hard origin/main",
                 "sudo -u ec2-user bash /home/ec2-user/search-admin-be/scripts/deploy.sh"
               ]
             }' \
