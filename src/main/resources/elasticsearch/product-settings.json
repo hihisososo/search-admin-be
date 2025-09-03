@@ -21,14 +21,20 @@
             "XPN", "XSA", "XSN", "XSV", "SSO", "SSC", "UNA", "NA", "VSV"
           ]
         },
-        "decimal_unit_merge": {
+        "decimal_unit_merge_index": {
           "type": "decimal-unit-merge",
+          "mode": "index",
+          "units_path": "analysis/units.txt"
+        },
+        "decimal_unit_merge_search": {
+          "type": "decimal-unit-merge",
+          "mode": "search",
           "units_path": "analysis/units.txt"
         }
       },
       "analyzer": {
         "nori_index_analyzer": {
-          "filter": ["decimal_unit_merge", "pos_filter", "stopword_filter"],
+          "filter": ["decimal_unit_merge_index", "pos_filter", "stopword_filter"],
           "type": "custom",
           "tokenizer": "userdic_nori_tokenizer"
         },
@@ -37,7 +43,7 @@
           "tokenizer": "bigram_tokenizer"
         },
         "nori_search_analyzer": {
-          "filter": ["decimal_unit_merge", "pos_filter", "search_synonym_filter", "stopword_filter"],
+          "filter": ["decimal_unit_merge_search", "pos_filter", "stopword_filter", "search_synonym_filter"],
           "type": "custom",
           "tokenizer": "userdic_nori_tokenizer"
         }
