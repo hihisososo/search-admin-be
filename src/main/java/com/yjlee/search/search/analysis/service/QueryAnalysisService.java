@@ -327,5 +327,4 @@ public class QueryAnalysisService {
 
     return paths;
   }
-
 }

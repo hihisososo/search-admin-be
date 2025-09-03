@@ -66,7 +66,6 @@ public class QueryProcessor {
     return result.replaceAll("\\s+", " ").trim();
   }
 
-
   public String removeModelsFromQuery(String query, List<String> models) {
     if (query == null || query.trim().isEmpty()) {
       return "";

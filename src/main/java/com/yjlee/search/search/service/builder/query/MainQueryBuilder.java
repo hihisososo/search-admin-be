@@ -37,7 +37,6 @@ public class MainQueryBuilder {
     return Query.of(q -> q.matchAll(m -> m));
   }
 
-
   private Query buildThreePhaseQuery(QueryContext context) {
     // Phase 1: 원본 쿼리 그대로 CROSS_FIELDS
     Query originalQuery = buildCrossFieldsQuery(context.getProcessedQuery());

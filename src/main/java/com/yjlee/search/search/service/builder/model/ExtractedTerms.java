@@ -11,9 +11,7 @@ public class ExtractedTerms {
   private final List<String> models;
 
   public static ExtractedTerms empty() {
-    return ExtractedTerms.builder()
-        .models(Collections.emptyList())
-        .build();
+    return ExtractedTerms.builder().models(Collections.emptyList()).build();
   }
 
   public boolean hasModels() {
