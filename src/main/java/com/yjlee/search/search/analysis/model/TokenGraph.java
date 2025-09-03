@@ -227,24 +227,26 @@ public class TokenGraph {
           }
         }
       }
-      
+
       // position별 토큰들을 합쳐서 하나의 문자열로 만들기
       if (!positionTokens.isEmpty()) {
         List<String> combinedTokens = new ArrayList<>();
         for (Map.Entry<Integer, List<String>> entry : positionTokens.entrySet()) {
           combinedTokens.addAll(entry.getValue());
         }
-        
+
         // 동의어 매핑 생성
         if (!multiPosToken.isSynonym()) {
           // multi-position 토큰이 원본인 경우 (pc → 데스크팁)
           String combinedSynonym = String.join("", combinedTokens);
-          List<String> synonyms = synonymExpansions.computeIfAbsent(multiPosToken.getToken(), k -> new ArrayList<>());
+          List<String> synonyms =
+              synonymExpansions.computeIfAbsent(multiPosToken.getToken(), k -> new ArrayList<>());
           synonyms.add(combinedSynonym);
         } else {
           // multi-position 토큰이 동의어인 경우
           if (originalKey != null && !originalKey.isEmpty()) {
-            List<String> synonyms = synonymExpansions.computeIfAbsent(originalKey, k -> new ArrayList<>());
+            List<String> synonyms =
+                synonymExpansions.computeIfAbsent(originalKey, k -> new ArrayList<>());
             synonyms.add(multiPosToken.getToken());
             if (!combinedTokens.isEmpty()) {
               synonyms.add(String.join("", combinedTokens));
@@ -253,7 +255,8 @@ public class TokenGraph {
         }
       } else if (multiPosToken.isSynonym() && originalKey != null && !originalKey.isEmpty()) {
         // 관련 토큰이 없는 경우
-        List<String> synonyms = synonymExpansions.computeIfAbsent(originalKey, k -> new ArrayList<>());
+        List<String> synonyms =
+            synonymExpansions.computeIfAbsent(originalKey, k -> new ArrayList<>());
         synonyms.add(multiPosToken.getToken());
       }
     }
@@ -285,7 +288,14 @@ public class TokenGraph {
       }
     }
 
-    return synonymExpansions;
+    // 각 키의 동의어 리스트에서 중복 제거
+    Map<String, List<String>> cleanedExpansions = new LinkedHashMap<>();
+    for (Map.Entry<String, List<String>> entry : synonymExpansions.entrySet()) {
+      cleanedExpansions.put(
+          entry.getKey(), entry.getValue().stream().distinct().collect(Collectors.toList()));
+    }
+
+    return cleanedExpansions;
   }
 
   @Getter
