@@ -167,14 +167,21 @@ public class TokenGraph {
   public Map<String, List<String>> extractSynonymExpansions() {
     Map<String, List<String>> synonymExpansions = new LinkedHashMap<>();
 
-    // multi-position 토큰 찾기
-    List<TokenEdge> multiPositionTokens =
-        edges.stream().filter(TokenEdge::isMultiPosition).collect(Collectors.toList());
+    // multi-position 토큰들을 position 범위별로 그룹화
+    Map<String, List<TokenEdge>> multiPosGroups =
+        edges.stream()
+            .filter(TokenEdge::isMultiPosition)
+            .collect(Collectors.groupingBy(e -> e.getFromPosition() + "-" + e.getToPosition()));
 
-    // 각 multi-position 토큰에 대해 처리
-    for (TokenEdge multiPosToken : multiPositionTokens) {
-      int fromPos = multiPosToken.getFromPosition();
-      int toPos = multiPosToken.getToPosition();
+    // 각 position 범위 그룹별로 처리
+    for (Map.Entry<String, List<TokenEdge>> groupEntry : multiPosGroups.entrySet()) {
+      List<TokenEdge> multiPosTokens = groupEntry.getValue();
+      if (multiPosTokens.isEmpty()) continue;
+
+      // 그룹의 position 범위
+      TokenEdge firstToken = multiPosTokens.get(0);
+      int fromPos = firstToken.getFromPosition();
+      int toPos = firstToken.getToPosition();
 
       // 해당 position 범위에 속하는 모든 토큰 수집
       List<TokenEdge> relatedTokens =
@@ -191,12 +198,12 @@ public class TokenGraph {
           relatedTokens.stream()
               .mapToInt(TokenEdge::getStartOffset)
               .min()
-              .orElse(multiPosToken.getStartOffset());
+              .orElse(firstToken.getStartOffset());
       int maxOffset =
           relatedTokens.stream()
               .mapToInt(TokenEdge::getEndOffset)
               .max()
-              .orElse(multiPosToken.getEndOffset());
+              .orElse(firstToken.getEndOffset());
 
       // 원본 텍스트 키 생성
       String originalKey = null;
@@ -204,15 +211,16 @@ public class TokenGraph {
         originalKey = originalQuery.substring(minOffset, maxOffset);
       }
 
-      // 원본 토큰과 동의어 분리
-      List<String> originalTokenList = new ArrayList<>();
-      List<String> synonymList = new ArrayList<>();
+      // 그룹 내의 모든 multi-position 토큰들을 원본과 동의어로 분리
+      List<String> multiPosOriginals = new ArrayList<>();
+      List<String> multiPosSynonyms = new ArrayList<>();
 
-      // multi-position 토큰 처리
-      if (multiPosToken.isSynonym()) {
-        synonymList.add(multiPosToken.getToken());
-      } else {
-        originalTokenList.add(multiPosToken.getToken());
+      for (TokenEdge multiPosToken : multiPosTokens) {
+        if (multiPosToken.isSynonym()) {
+          multiPosSynonyms.add(multiPosToken.getToken());
+        } else {
+          multiPosOriginals.add(multiPosToken.getToken());
+        }
       }
 
       // 관련 토큰들을 position 순서대로 정렬하여 처리
@@ -229,40 +237,45 @@ public class TokenGraph {
       }
 
       // position별 토큰들을 합쳐서 하나의 문자열로 만들기
+      String combinedSingleTokens = "";
       if (!positionTokens.isEmpty()) {
-        List<String> combinedTokens = new ArrayList<>();
+        List<String> tokens = new ArrayList<>();
         for (Map.Entry<Integer, List<String>> entry : positionTokens.entrySet()) {
-          combinedTokens.addAll(entry.getValue());
-        }
-
-        // 동의어 매핑 생성
-        if (!multiPosToken.isSynonym()) {
-          // multi-position 토큰이 원본인 경우 (pc → 데스크팁)
-          String combinedSynonym = String.join("", combinedTokens);
-          List<String> synonyms =
-              synonymExpansions.computeIfAbsent(multiPosToken.getToken(), k -> new ArrayList<>());
-          synonyms.add(combinedSynonym);
-        } else {
-          // multi-position 토큰이 동의어인 경우
-          if (originalKey != null && !originalKey.isEmpty()) {
-            List<String> synonyms =
-                synonymExpansions.computeIfAbsent(originalKey, k -> new ArrayList<>());
-            synonyms.add(multiPosToken.getToken());
-            if (!combinedTokens.isEmpty()) {
-              synonyms.add(String.join("", combinedTokens));
-            }
+          // 각 position에서 원본 토큰만 사용 (동의어 제외)
+          for (String token : entry.getValue()) {
+            tokens.add(token);
+            break; // 첫 번째 토큰만 사용
           }
         }
-      } else if (multiPosToken.isSynonym() && originalKey != null && !originalKey.isEmpty()) {
-        // 관련 토큰이 없는 경우
-        List<String> synonyms =
-            synonymExpansions.computeIfAbsent(originalKey, k -> new ArrayList<>());
-        synonyms.add(multiPosToken.getToken());
+        combinedSingleTokens = String.join("", tokens);
+      }
+
+      // 동의어 매핑 생성
+      if (originalKey != null && !originalKey.isEmpty()) {
+        Set<String> synonymSet = new LinkedHashSet<>();
+
+        // multi-position 원본 토큰들 추가
+        synonymSet.addAll(multiPosOriginals);
+
+        // multi-position 동의어들 추가
+        synonymSet.addAll(multiPosSynonyms);
+
+        // 분해된 토큰 조합 추가
+        if (!combinedSingleTokens.isEmpty()) {
+          synonymSet.add(combinedSingleTokens);
+        }
+
+        // 원본 키 자신을 제외
+        synonymSet.remove(originalKey);
+
+        if (!synonymSet.isEmpty()) {
+          synonymExpansions.put(originalKey, new ArrayList<>(synonymSet));
+        }
       }
     }
 
     // 단일 position 토큰들의 동의어 처리 (multi-position이 없는 경우)
-    if (multiPositionTokens.isEmpty()) {
+    if (multiPosGroups.isEmpty()) {
       Map<String, List<TokenEdge>> offsetGroups =
           edges.stream()
               .collect(Collectors.groupingBy(e -> e.getStartOffset() + "-" + e.getEndOffset()));
@@ -288,14 +301,7 @@ public class TokenGraph {
       }
     }
 
-    // 각 키의 동의어 리스트에서 중복 제거
-    Map<String, List<String>> cleanedExpansions = new LinkedHashMap<>();
-    for (Map.Entry<String, List<String>> entry : synonymExpansions.entrySet()) {
-      cleanedExpansions.put(
-          entry.getKey(), entry.getValue().stream().distinct().collect(Collectors.toList()));
-    }
-
-    return cleanedExpansions;
+    return synonymExpansions;
   }
 
   @Getter
