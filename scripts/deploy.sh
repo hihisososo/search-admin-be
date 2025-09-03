@@ -37,9 +37,19 @@ docker compose up -d
 echo "⏳ 헬스체크 대기중..."
 sleep 30
 
-if curl -f http://localhost:8080/actuator/health; then
-    echo "✅ 배포 완료!"
-else
-    echo "❌ 헬스체크 실패!"
-    exit 1
-fi
+MAX_RETRY=3
+for i in $(seq 1 $MAX_RETRY); do
+    if curl -fs http://localhost:8080/actuator/health; then
+        echo "✅ 배포 완료!"
+        exit 0
+    else
+        echo "❌ 헬스체크 실패 ($i/${MAX_RETRY})"
+        if [ $i -lt $MAX_RETRY ]; then
+            echo "⏳ 재시도 중..."
+            sleep 10   # 재시도 간격 (원하면 조절 가능)
+        fi
+    fi
+done
+
+echo "❌ 3회 헬스체크 실패!"
+exit 1
