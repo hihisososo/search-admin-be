@@ -215,35 +215,46 @@ public class TokenGraph {
         originalTokenList.add(multiPosToken.getToken());
       }
 
-      // 관련 토큰들 처리
+      // 관련 토큰들을 position 순서대로 정렬하여 처리
+      Map<Integer, List<String>> positionTokens = new TreeMap<>();
       for (TokenEdge token : relatedTokens) {
-        if (token.isSynonym()) {
-          synonymList.add(token.getToken());
-        } else if (!token.isMultiPosition()) {
-          originalTokenList.add(token.getToken());
+        if (!token.isMultiPosition()) {
+          int pos = token.getFromPosition();
+          if (token.isSynonym()) {
+            positionTokens.computeIfAbsent(pos, k -> new ArrayList<>()).add(token.getToken());
+          } else {
+            positionTokens.computeIfAbsent(pos, k -> new ArrayList<>()).add(token.getToken());
+          }
         }
       }
-
-      // 동의어 매핑 결정
-      if (!synonymList.isEmpty()) {
-        if (originalKey != null && !originalKey.isEmpty()) {
-          // 원본 텍스트를 키로 사용
-          List<String> expandedSynonyms = new ArrayList<>();
-          if (!originalTokenList.isEmpty() && originalTokenList.size() > 1) {
-            // 분해된 토큰들도 동의어에 추가
-            expandedSynonyms.add(String.join(" ", originalTokenList));
-          }
-          expandedSynonyms.addAll(synonymList);
-          synonymExpansions.put(
-              originalKey, expandedSynonyms.stream().distinct().collect(Collectors.toList()));
-        } else if (!originalTokenList.isEmpty()) {
-          // 원본 토큰을 키로 사용
-          String key =
-              originalTokenList.size() == 1
-                  ? originalTokenList.get(0)
-                  : String.join(" ", originalTokenList);
-          synonymExpansions.put(key, synonymList.stream().distinct().collect(Collectors.toList()));
+      
+      // position별 토큰들을 합쳐서 하나의 문자열로 만들기
+      if (!positionTokens.isEmpty()) {
+        List<String> combinedTokens = new ArrayList<>();
+        for (Map.Entry<Integer, List<String>> entry : positionTokens.entrySet()) {
+          combinedTokens.addAll(entry.getValue());
         }
+        
+        // 동의어 매핑 생성
+        if (!multiPosToken.isSynonym()) {
+          // multi-position 토큰이 원본인 경우 (pc → 데스크팁)
+          String combinedSynonym = String.join("", combinedTokens);
+          List<String> synonyms = synonymExpansions.computeIfAbsent(multiPosToken.getToken(), k -> new ArrayList<>());
+          synonyms.add(combinedSynonym);
+        } else {
+          // multi-position 토큰이 동의어인 경우
+          if (originalKey != null && !originalKey.isEmpty()) {
+            List<String> synonyms = synonymExpansions.computeIfAbsent(originalKey, k -> new ArrayList<>());
+            synonyms.add(multiPosToken.getToken());
+            if (!combinedTokens.isEmpty()) {
+              synonyms.add(String.join("", combinedTokens));
+            }
+          }
+        }
+      } else if (multiPosToken.isSynonym() && originalKey != null && !originalKey.isEmpty()) {
+        // 관련 토큰이 없는 경우
+        List<String> synonyms = synonymExpansions.computeIfAbsent(originalKey, k -> new ArrayList<>());
+        synonyms.add(multiPosToken.getToken());
       }
     }
 
