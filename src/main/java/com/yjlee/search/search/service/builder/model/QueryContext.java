@@ -28,9 +28,7 @@ public class QueryContext {
     return isEmpty() && hasModels();
   }
 
-
   public boolean hasQueryWithoutTerms() {
     return queryWithoutTerms != null && !queryWithoutTerms.trim().isEmpty();
   }
-
 }

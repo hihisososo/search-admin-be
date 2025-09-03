@@ -17,7 +17,6 @@ public class ESFields {
   public static final String PRODUCT_NAME_RAW = "name_raw";
   public static final String PRODUCT_SPECS_RAW = "specs_raw";
 
-
   // 가중치 포함 필드 조합
   public static final String NAME_WEIGHTED = NAME + "^3.0";
   public static final String SPECS_WEIGHTED = SPECS + "^1.0";

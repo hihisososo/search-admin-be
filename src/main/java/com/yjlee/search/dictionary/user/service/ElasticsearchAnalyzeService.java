@@ -4,8 +4,6 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.indices.AnalyzeRequest;
 import co.elastic.clients.elasticsearch.indices.AnalyzeResponse;
 import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
-import co.elastic.clients.json.JsonData;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
@@ -38,14 +36,11 @@ public class ElasticsearchAnalyzeService {
 
       // explain: true를 추가하여 상세한 분석 정보 요청
       AnalyzeRequest analyzeRequest =
-          AnalyzeRequest.of(a -> a
-              .index(indexName)
-              .analyzer("nori_search_analyzer")
-              .text(text)
-              .explain(true));
+          AnalyzeRequest.of(
+              a -> a.index(indexName).analyzer("nori_search_analyzer").text(text).explain(true));
 
       AnalyzeResponse response = elasticsearchClient.indices().analyze(analyzeRequest);
-      
+
       // explain 응답에서 토큰 정보 추출
       return extractTokensFromExplainResponse(response);
     } catch (IOException e) {
@@ -53,10 +48,11 @@ public class ElasticsearchAnalyzeService {
       throw new RuntimeException("형태소 분석 실패", e);
     }
   }
-  
-  private List<AnalyzeTextResponse.TokenInfo> extractTokensFromExplainResponse(AnalyzeResponse response) {
+
+  private List<AnalyzeTextResponse.TokenInfo> extractTokensFromExplainResponse(
+      AnalyzeResponse response) {
     List<AnalyzeTextResponse.TokenInfo> tokens = new ArrayList<>();
-    
+
     // explain이 없는 경우 기본 처리
     if (response.detail() == null) {
       for (AnalyzeToken token : response.tokens()) {
@@ -72,7 +68,7 @@ public class ElasticsearchAnalyzeService {
       }
       return tokens;
     }
-    
+
     // detail에서 stopword_filter의 토큰 추출
     var detail = response.detail();
     if (detail.tokenfilters() != null) {
@@ -101,7 +97,7 @@ public class ElasticsearchAnalyzeService {
         }
       }
     }
-    
+
     // stopword_filter가 없으면 기본 토큰 사용
     if (tokens.isEmpty() && response.tokens() != null) {
       for (AnalyzeToken token : response.tokens()) {
@@ -116,11 +112,13 @@ public class ElasticsearchAnalyzeService {
                 .build());
       }
     }
-    
+
     return tokens;
   }
-  
-  private String extractAttributeString(co.elastic.clients.elasticsearch.indices.analyze.ExplainAnalyzeToken token, String attributeName) {
+
+  private String extractAttributeString(
+      co.elastic.clients.elasticsearch.indices.analyze.ExplainAnalyzeToken token,
+      String attributeName) {
     // ExplainAnalyzeToken의 attributes 맵에서 값 추출
     if (token.attributes() != null && token.attributes().containsKey(attributeName)) {
       var attr = token.attributes().get(attributeName);
@@ -131,8 +129,10 @@ public class ElasticsearchAnalyzeService {
     }
     return null;
   }
-  
-  private Integer extractAttributeInteger(co.elastic.clients.elasticsearch.indices.analyze.ExplainAnalyzeToken token, String attributeName) {
+
+  private Integer extractAttributeInteger(
+      co.elastic.clients.elasticsearch.indices.analyze.ExplainAnalyzeToken token,
+      String attributeName) {
     // ExplainAnalyzeToken의 attributes 맵에서 값 추출
     if (token.attributes() != null && token.attributes().containsKey(attributeName)) {
       var attr = token.attributes().get(attributeName);
@@ -155,28 +155,24 @@ public class ElasticsearchAnalyzeService {
 
       // explain: true를 추가하여 상세한 분석 정보 요청
       AnalyzeRequest analyzeRequest =
-          AnalyzeRequest.of(a -> a
-              .index(indexName)
-              .analyzer("nori_search_analyzer")
-              .text(text)
-              .explain(true));
+          AnalyzeRequest.of(
+              a -> a.index(indexName).analyzer("nori_search_analyzer").text(text).explain(true));
 
       AnalyzeResponse response = elasticsearchClient.indices().analyze(analyzeRequest);
-      
+
       // explain 응답에서 동의어 추출
       Set<String> expandedSynonyms = new LinkedHashSet<>();
       List<AnalyzeTextResponse.TokenInfo> tokens = extractTokensFromExplainResponse(response);
-      
+
       // position별로 토큰 그룹화
       Map<Integer, List<AnalyzeTextResponse.TokenInfo>> tokensByPosition = new HashMap<>();
       for (AnalyzeTextResponse.TokenInfo token : tokens) {
-        tokensByPosition
-            .computeIfAbsent(token.getPosition(), k -> new ArrayList<>())
-            .add(token);
+        tokensByPosition.computeIfAbsent(token.getPosition(), k -> new ArrayList<>()).add(token);
       }
-      
+
       // 같은 position에 여러 토큰이 있거나 type이 SYNONYM인 경우 동의어로 추출
-      for (Map.Entry<Integer, List<AnalyzeTextResponse.TokenInfo>> entry : tokensByPosition.entrySet()) {
+      for (Map.Entry<Integer, List<AnalyzeTextResponse.TokenInfo>> entry :
+          tokensByPosition.entrySet()) {
         List<AnalyzeTextResponse.TokenInfo> posTokens = entry.getValue();
         if (posTokens.size() > 1) {
           // 같은 position에 여러 토큰이 있는 경우
@@ -206,33 +202,29 @@ public class ElasticsearchAnalyzeService {
 
       // explain 모드로 상세 분석 정보 추출
       AnalyzeRequest searchAnalyzeRequest =
-          AnalyzeRequest.of(a -> a
-              .index(indexName)
-              .analyzer("nori_search_analyzer")
-              .text(text)
-              .explain(true));
+          AnalyzeRequest.of(
+              a -> a.index(indexName).analyzer("nori_search_analyzer").text(text).explain(true));
       AnalyzeResponse searchResponse = elasticsearchClient.indices().analyze(searchAnalyzeRequest);
-      
+
       List<AnalyzeTextResponse.TokenInfo> tokens = extractTokensFromExplainResponse(searchResponse);
-      
+
       // position별로 토큰 그룹화
       Map<Integer, List<AnalyzeTextResponse.TokenInfo>> tokensByPosition = new HashMap<>();
       for (AnalyzeTextResponse.TokenInfo token : tokens) {
-        tokensByPosition
-            .computeIfAbsent(token.getPosition(), k -> new ArrayList<>())
-            .add(token);
+        tokensByPosition.computeIfAbsent(token.getPosition(), k -> new ArrayList<>()).add(token);
       }
-      
+
       // 각 position에서 동의어 매핑 생성
-      for (Map.Entry<Integer, List<AnalyzeTextResponse.TokenInfo>> entry : tokensByPosition.entrySet()) {
+      for (Map.Entry<Integer, List<AnalyzeTextResponse.TokenInfo>> entry :
+          tokensByPosition.entrySet()) {
         List<AnalyzeTextResponse.TokenInfo> posTokens = entry.getValue();
-        
+
         if (posTokens.size() > 1) {
           // 같은 position에 여러 토큰이 있는 경우
           // SYNONYM이 아닌 토큰을 원본으로, SYNONYM인 토큰을 동의어로 처리
           AnalyzeTextResponse.TokenInfo originalToken = null;
           List<String> synonyms = new ArrayList<>();
-          
+
           for (AnalyzeTextResponse.TokenInfo token : posTokens) {
             if (!token.isSynonym() && originalToken == null) {
               originalToken = token;
@@ -240,7 +232,7 @@ public class ElasticsearchAnalyzeService {
               synonyms.add(token.getToken());
             }
           }
-          
+
           // 원본 토큰이 있고 동의어가 있는 경우 매핑 추가
           if (originalToken != null && !synonyms.isEmpty()) {
             tokenSynonymMap.put(originalToken.getToken(), synonyms);
