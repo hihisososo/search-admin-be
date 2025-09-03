@@ -8,7 +8,6 @@ import com.yjlee.search.search.analysis.dto.QueryAnalysisResponse;
 import com.yjlee.search.search.analysis.model.TokenGraph;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,12 +32,12 @@ public class QueryAnalysisService {
       // Token Graph 분석
       TokenGraph tokenGraph = tokenAnalysisService.analyzeWithTokenGraph(query, environment);
 
-      // 토큰 리스트 추출 (중복 제거 없이)
+      // 토큰 리스트 추출 (동의어 제외, 원본 토큰만)
       List<String> tokens =
-          tokenGraph.getEdges().stream().map(edge -> edge.getToken()).collect(Collectors.toList());
-
-      // 동의어 확장 정보 추출
-      Map<String, List<String>> synonymExpansions = tokenGraph.extractSynonymExpansions();
+          tokenGraph.getEdges().stream()
+              .filter(edge -> !edge.isSynonym())
+              .map(edge -> edge.getToken())
+              .collect(Collectors.toList());
 
       // Mermaid 다이어그램 생성
       String mermaidGraph = tokenGraph.generateMermaidDiagram();
@@ -47,7 +46,6 @@ public class QueryAnalysisService {
           .environment(environment.name())
           .originalQuery(query)
           .tokens(tokens)
-          .synonymExpansions(synonymExpansions)
           .mermaidGraph(mermaidGraph)
           .build();
 
