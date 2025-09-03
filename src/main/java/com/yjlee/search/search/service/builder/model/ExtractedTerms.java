@@ -8,18 +8,12 @@ import lombok.Getter;
 @Getter
 @Builder
 public class ExtractedTerms {
-  private final List<String> units;
   private final List<String> models;
 
   public static ExtractedTerms empty() {
     return ExtractedTerms.builder()
-        .units(Collections.emptyList())
         .models(Collections.emptyList())
         .build();
-  }
-
-  public boolean hasUnits() {
-    return units != null && !units.isEmpty();
   }
 
   public boolean hasModels() {
@@ -27,6 +21,6 @@ public class ExtractedTerms {
   }
 
   public boolean isEmpty() {
-    return !hasUnits() && !hasModels();
+    return !hasModels();
   }
 }

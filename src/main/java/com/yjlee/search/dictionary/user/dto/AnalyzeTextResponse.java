@@ -31,5 +31,10 @@ public class AnalyzeTextResponse {
     int startOffset;
     int endOffset;
     List<String> positionLengthTags;
+    Integer positionLength;
+    String leftPOS;
+    String rightPOS;
+    String posType;
+    boolean isSynonym;
   }
 }

@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.index.util.ModelExtractor;
-import com.yjlee.search.index.util.UnitExtractor;
 import com.yjlee.search.search.analysis.dto.QueryAnalysisRequest;
 import com.yjlee.search.search.analysis.dto.QueryAnalysisResponse;
 import java.io.IOException;
@@ -15,7 +13,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -85,18 +82,10 @@ public class QueryAnalysisService {
       // 2. Nori 형태소 분석
       QueryAnalysisResponse.NoriAnalysis noriAnalysis = analyzeWithNori(query, indexName);
 
-      // 3. 단위 추출 및 확장
-      List<QueryAnalysisResponse.UnitInfo> units = extractAndExpandUnits(query);
-
-      // 4. 모델명 추출 (단위 제외)
-      List<String> models = extractModels(query, units);
-
       return QueryAnalysisResponse.builder()
           .environment(environment.name())
           .originalQuery(query)
           .noriAnalysis(noriAnalysis)
-          .units(units)
-          .models(models)
           .build();
 
     } catch (Exception e) {
@@ -339,31 +328,4 @@ public class QueryAnalysisService {
     return paths;
   }
 
-  private List<QueryAnalysisResponse.UnitInfo> extractAndExpandUnits(String query) {
-    // 원본 단위 추출
-    List<String> extractedUnits = UnitExtractor.extractUnitsForSearch(query);
-
-    // 각 단위에 대해 동의어 확장
-    List<QueryAnalysisResponse.UnitInfo> unitInfos = new ArrayList<>();
-
-    for (String unit : extractedUnits) {
-      Set<String> expanded = UnitExtractor.expandUnitSynonyms(unit);
-
-      unitInfos.add(
-          QueryAnalysisResponse.UnitInfo.builder().original(unit).expanded(expanded).build());
-    }
-
-    return unitInfos;
-  }
-
-  private List<String> extractModels(String query, List<QueryAnalysisResponse.UnitInfo> unitInfos) {
-    // 단위 목록 준비 (원본 단위만)
-    List<String> units =
-        unitInfos.stream()
-            .map(QueryAnalysisResponse.UnitInfo::getOriginal)
-            .collect(Collectors.toList());
-
-    // 단위를 제외한 모델명 추출
-    return ModelExtractor.extractModelsExcludingUnits(query, units);
-  }
 }

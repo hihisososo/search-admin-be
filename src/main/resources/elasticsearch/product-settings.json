@@ -17,14 +17,18 @@
         "pos_filter": {
           "type": "nori_part_of_speech",
           "stoptags": [
-            "J", "E", "IC", "SF", "SP", "SC", "SE",
+            "J", "E", "IC", "SP", "SC", "SE",
             "XPN", "XSA", "XSN", "XSV", "SSO", "SSC", "UNA", "NA", "VSV"
           ]
+        },
+        "decimal_unit_merge": {
+          "type": "decimal-unit-merge",
+          "units_path": "analysis/units.txt"
         }
       },
       "analyzer": {
         "nori_index_analyzer": {
-          "filter": ["pos_filter", "stopword_filter"],
+          "filter": ["decimal_unit_merge", "pos_filter", "stopword_filter"],
           "type": "custom",
           "tokenizer": "userdic_nori_tokenizer"
         },
@@ -33,7 +37,7 @@
           "tokenizer": "bigram_tokenizer"
         },
         "nori_search_analyzer": {
-          "filter": ["pos_filter", "search_synonym_filter", "stopword_filter"],
+          "filter": ["decimal_unit_merge", "pos_filter", "search_synonym_filter", "stopword_filter"],
           "type": "custom",
           "tokenizer": "userdic_nori_tokenizer"
         }

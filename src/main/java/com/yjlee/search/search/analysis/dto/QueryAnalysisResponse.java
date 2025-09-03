@@ -3,7 +3,6 @@ package com.yjlee.search.search.analysis.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,12 +26,6 @@ public class QueryAnalysisResponse {
 
   @Schema(description = "Nori 형태소 분석 결과")
   NoriAnalysis noriAnalysis;
-
-  @Schema(description = "추출된 단위 정보")
-  List<UnitInfo> units;
-
-  @Schema(description = "추출된 모델명", example = "[\"ABC-123\", \"XYZ-789\"]")
-  List<String> models;
 
   @Getter
   @Builder
@@ -76,18 +69,4 @@ public class QueryAnalysisResponse {
     int endOffset;
   }
 
-  @Getter
-  @Builder
-  @NoArgsConstructor
-  @AllArgsConstructor
-  @FieldDefaults(level = AccessLevel.PRIVATE)
-  @Schema(description = "단위 정보")
-  public static class UnitInfo {
-
-    @Schema(description = "원본 단위", example = "1kg")
-    String original;
-
-    @Schema(description = "확장된 동의어", example = "[\"1kg\", \"1킬로그램\", \"1킬로\"]")
-    Set<String> expanded;
-  }
 }
