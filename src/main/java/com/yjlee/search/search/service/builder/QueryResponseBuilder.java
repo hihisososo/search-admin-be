@@ -132,7 +132,6 @@ public class QueryResponseBuilder {
         .explain(withExplain ? convertExplain(explanation) : null)
         .name(document.getName())
         .nameRaw(document.getNameRaw())
-        .model(document.getModel())
         .brandName(document.getBrandName())
         .categoryName(document.getCategoryName())
         .price(document.getPrice())

@@ -20,6 +20,7 @@ public class EvaluationReportDetailResponse {
   private Integer totalQueries;
   private Double averageRecall300; // Recall@300 평균
   private Double averagePrecision20; // Precision@20 평균
+  private Double averageF1ScoreAt20; // F1-Score@20 평균
   private LocalDateTime createdAt;
   private List<QueryDetail> queryDetails;
 
@@ -35,6 +36,7 @@ public class EvaluationReportDetailResponse {
     private Integer correctCount;
     private Double precisionAt20;
     private Double recallAt300;
+    private Double f1ScoreAt20;
     private List<DocumentInfo> missingDocuments;
     private List<DocumentInfo> wrongDocuments;
   }

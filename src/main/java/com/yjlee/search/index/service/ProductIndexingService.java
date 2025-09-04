@@ -30,7 +30,7 @@ import org.springframework.stereotype.Service;
 public class ProductIndexingService {
 
   private static final int BATCH_SIZE = 500;
-  private static final int MAX_CONCURRENT_BATCHES = 3;
+  private static final int MAX_CONCURRENT_BATCHES = 8;
 
   private final ProductRepository productRepository;
   private final EmbeddingEnricher embeddingEnricher;
@@ -56,6 +56,16 @@ public class ProductIndexingService {
   private int indexProducts(String targetIndex) throws IOException {
     String indexName = targetIndex != null ? targetIndex : ESFields.PRODUCTS_INDEX_PREFIX;
     log.info("상품 색인 시작: {}", indexName);
+
+    // 색인 시작 시 refresh_interval 비활성화
+    disableRefresh(indexName);
+    if (targetIndex != null && targetIndex.startsWith("products-v")) {
+      String version = targetIndex.substring("products-v".length());
+      String autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-v" + version;
+      disableRefresh(autocompleteIndex);
+    } else if (targetIndex == null) {
+      disableRefresh(ESFields.AUTOCOMPLETE_INDEX);
+    }
 
     long totalProducts = productRepository.count();
     int totalBatches = (int) Math.ceil((double) totalProducts / BATCH_SIZE);
@@ -220,20 +230,53 @@ public class ProductIndexingService {
   private void refreshIndexes(String targetIndex) {
     try {
       if (targetIndex != null) {
+        // refresh_interval 복원
+        enableRefresh(targetIndex);
         elasticsearchClient.indices().refresh(r -> r.index(targetIndex));
         log.info("인덱스 새로고침 완료: {}", targetIndex);
 
         String version = targetIndex.replace(ESFields.PRODUCTS_INDEX_PREFIX + "-", "");
         String autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-" + version;
+        enableRefresh(autocompleteIndex);
         elasticsearchClient.indices().refresh(r -> r.index(autocompleteIndex));
         log.info("자동완성 인덱스 새로고침 완료: {}", autocompleteIndex);
       } else {
+        enableRefresh(ESFields.PRODUCTS_INDEX_PREFIX);
+        enableRefresh(ESFields.AUTOCOMPLETE_INDEX);
         elasticsearchClient.indices().refresh(r -> r.index(ESFields.PRODUCTS_INDEX_PREFIX));
         elasticsearchClient.indices().refresh(r -> r.index(ESFields.AUTOCOMPLETE_INDEX));
         log.info("인덱스 새로고침 완료");
       }
     } catch (Exception e) {
       log.warn("인덱스 새로고침 실패, 백그라운드에서 처리됨", e);
+    }
+  }
+
+  private void disableRefresh(String indexName) {
+    try {
+      elasticsearchClient
+          .indices()
+          .putSettings(
+              s ->
+                  s.index(indexName)
+                      .settings(settings -> settings.refreshInterval(time -> time.time("-1"))));
+      log.info("인덱스 {} refresh 비활성화", indexName);
+    } catch (Exception e) {
+      log.warn("인덱스 {} refresh 비활성화 실패: {}", indexName, e.getMessage());
+    }
+  }
+
+  private void enableRefresh(String indexName) {
+    try {
+      elasticsearchClient
+          .indices()
+          .putSettings(
+              s ->
+                  s.index(indexName)
+                      .settings(settings -> settings.refreshInterval(time -> time.time("1s"))));
+      log.info("인덱스 {} refresh 활성화 (1s)", indexName);
+    } catch (Exception e) {
+      log.warn("인덱스 {} refresh 활성화 실패: {}", indexName, e.getMessage());
     }
   }
 

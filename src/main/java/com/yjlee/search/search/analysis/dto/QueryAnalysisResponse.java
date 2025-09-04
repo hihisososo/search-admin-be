@@ -28,7 +28,4 @@ public class QueryAnalysisResponse {
 
   @Schema(description = "Mermaid 그래프 다이어그램")
   String mermaidGraph;
-
-  @Schema(description = "검색식", example = "(삼성전자 OR samsung) AND 노트북 AND 1kg")
-  String queryExpression;
 }

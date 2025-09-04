@@ -12,25 +12,39 @@
     "category": {
       "type": "text",
       "analyzer": "nori_index_analyzer",
-      "search_analyzer": "nori_search_analyzer"
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
     },
     "specs": {
       "type": "text",
       "analyzer": "nori_index_analyzer",
-      "search_analyzer": "nori_search_analyzer"
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
     },
     "specs_raw": {
       "type": "keyword",
       "index": false
     },
-    "model": {
-      "type": "text",
-      "analyzer": "bigram_analyzer"
-    },
     "name": {
       "type": "text",
       "analyzer": "nori_index_analyzer",
-      "search_analyzer": "nori_search_analyzer"
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
     },
     "name_raw": {
       "type": "keyword",
@@ -64,43 +78,6 @@
     "thumbnail_url": {
       "type": "keyword",
       "index": false
-    },
-    "unit": {
-      "type": "text",
-      "analyzer": "whitespace"
-    },
-    "name_candidate": {
-      "type": "text",
-      "analyzer": "nori_index_analyzer",
-      "search_analyzer": "nori_search_analyzer",
-      "fields": {
-        "bigram": {
-          "type": "text",
-          "analyzer": "bigram_analyzer"
-        }
-      }
-    },
-    "specs_candidate": {
-      "type": "text",
-      "analyzer": "nori_index_analyzer",
-      "search_analyzer": "nori_search_analyzer",
-      "fields": {
-        "bigram": {
-          "type": "text",
-          "analyzer": "bigram_analyzer"
-        }
-      }
-    },
-    "category_candidate": {
-      "type": "text",
-      "analyzer": "nori_index_analyzer",
-      "search_analyzer": "nori_search_analyzer",
-      "fields": {
-        "bigram": {
-          "type": "text",
-          "analyzer": "bigram_analyzer"
-        }
-      }
     }
   }
 }

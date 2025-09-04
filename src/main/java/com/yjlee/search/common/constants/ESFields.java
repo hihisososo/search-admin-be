@@ -7,7 +7,6 @@ public class ESFields {
   // 기본 필드
   public static final String NAME = "name";
   public static final String SPECS = "specs";
-  public static final String MODEL = "model";
   public static final String BRAND_NAME = "brand_name";
   public static final String CATEGORY_NAME = "category_name";
   public static final String PRICE = "price";
@@ -27,7 +26,7 @@ public class ESFields {
       List.of(NAME_WEIGHTED, SPECS_WEIGHTED, CATEGORY_WEIGHTED);
 
   // 부스팅 필드 리스트
-  public static final List<String> BOOST_FIELDS = List.of(MODEL, BRAND_NAME, CATEGORY_NAME);
+  public static final List<String> BOOST_FIELDS = List.of(BRAND_NAME, CATEGORY_NAME);
 
   // 집계 필드 리스트
   public static final List<String> AGGREGATION_FIELDS = List.of(BRAND_NAME, CATEGORY_NAME);

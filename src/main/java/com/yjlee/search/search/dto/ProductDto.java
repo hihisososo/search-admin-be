@@ -28,9 +28,6 @@ public class ProductDto {
   @Schema(description = "상품명 원본", example = "아이폰 15 Pro")
   private String nameRaw;
 
-  @Schema(description = "모델명", example = "iPhone 15 Pro")
-  private String model;
-
   @Schema(description = "브랜드", example = "Apple")
   private String brandName;
 

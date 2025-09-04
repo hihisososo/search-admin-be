@@ -57,9 +57,7 @@ public class EvaluationReportService {
   private final IndexResolver indexResolver;
   private final EvaluationReportPersistenceService persistenceService;
 
-  // 평가 데이터 캐시 (DB 조회 제거용)
-  private Map<String, Set<String>> relevantDocumentsCache;
-  private Map<String, ProductDocument> productDocumentsCache;
+  // 캐시 제거 - 직접 조회 방식으로 변경
 
   @PreDestroy
   public void shutdown() {
@@ -91,54 +89,6 @@ public class EvaluationReportService {
 
   private static final int DEFAULT_RETRIEVAL_SIZE = 300;
 
-  /** 평가 데이터 사전 로드 (DB connection pool 문제 방지) */
-  private void preloadEvaluationData(List<EvaluationQuery> queries) {
-    log.info("📦 평가 데이터 사전 로드 시작: {} 개 쿼리", queries.size());
-
-    // 1. 모든 쿼리의 정답셋 한 번에 로드
-    relevantDocumentsCache = new HashMap<>();
-    Set<String> allProductIds = new HashSet<>();
-
-    for (EvaluationQuery query : queries) {
-      Set<String> relevantDocs = loadRelevantDocumentsFromDB(query.getQuery());
-      relevantDocumentsCache.put(query.getQuery(), relevantDocs);
-      allProductIds.addAll(relevantDocs);
-    }
-
-    log.info("✅ 정답셋 로드 완료: {} 개 쿼리, {} 개 고유 상품", queries.size(), allProductIds.size());
-
-    // 2. 모든 필요한 상품 정보 bulk 로드
-    productDocumentsCache = getProductsBulk(new ArrayList<>(allProductIds));
-    log.info("✅ 상품 정보 로드 완료: {} 개", productDocumentsCache.size());
-  }
-
-  /** DB에서 정답셋 조회 (프리로딩용) */
-  private Set<String> loadRelevantDocumentsFromDB(String query) {
-    Optional<EvaluationQuery> evaluationQueryOpt = evaluationQueryService.findByQuery(query);
-    if (evaluationQueryOpt.isEmpty()) {
-      log.warn("⚠️ 평가 쿼리를 찾을 수 없습니다: {}", query);
-      return Collections.emptySet();
-    }
-
-    List<QueryProductMapping> mappings =
-        queryProductMappingRepository.findByEvaluationQueryAndRelevanceScoreGreaterThanEqual(
-            evaluationQueryOpt.get(), 1);
-    return mappings.stream().map(QueryProductMapping::getProductId).collect(Collectors.toSet());
-  }
-
-  /** 캐시 클리어 */
-  private void clearEvaluationCache() {
-    if (relevantDocumentsCache != null) {
-      relevantDocumentsCache.clear();
-      relevantDocumentsCache = null;
-    }
-    if (productDocumentsCache != null) {
-      productDocumentsCache.clear();
-      productDocumentsCache = null;
-    }
-    log.info("🧹 평가 캐시 클리어 완료");
-  }
-
   public EvaluationExecuteResponse executeEvaluation(
       String reportName, ProgressCallback progressCallback) {
     return executeEvaluation(reportName, SearchMode.KEYWORD_ONLY, 60, 100, progressCallback);
@@ -155,13 +105,13 @@ public class EvaluationReportService {
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
 
-    // 평가 데이터 사전 로드 (DB connection pool 문제 방지)
-    preloadEvaluationData(queries);
+    // 캐시 제거 - 직접 조회 방식 사용
 
     List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails = new ArrayList<>();
 
     double totalRecall300 = 0.0; // Recall@300
     double totalPrecision20 = 0.0; // Precision@20
+    double totalF1ScoreAt20 = 0.0; // F1-Score@20
 
     // 동기화된 리스트 사용으로 스레드 안전성 확보
     List<EvaluationExecuteResponse.QueryEvaluationDetail> synchronizedQueryDetails =
@@ -218,8 +168,8 @@ public class EvaluationReportService {
     // 각 쿼리마다 메트릭 계산해서 합산 및 detail에 저장
     for (EvaluationExecuteResponse.QueryEvaluationDetail detail : queryDetails) {
       String query = detail.getQuery();
-      // 캐시에서 정답셋 가져오기
-      Set<String> relevantDocs = getRelevantDocumentsFromCache(query);
+      // 정답셋 직접 조회
+      Set<String> relevantDocs = getRelevantDocuments(query);
       List<String> retrievedDocs =
           getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK);
 
@@ -232,29 +182,35 @@ public class EvaluationReportService {
       double precision20 = computePrecisionAtK(retrievedDocs, relevantDocs, 20);
       totalPrecision20 += precision20;
       detail.setPrecisionAt20(precision20);
+
+      // F1-Score@20 계산
+      double f1ScoreAt20 = computeF1Score(precision20, recall300);
+      totalF1ScoreAt20 += f1ScoreAt20;
+      detail.setF1ScoreAt20(f1ScoreAt20);
     }
 
     double avgRecall300 = queries.isEmpty() ? 0.0 : totalRecall300 / queries.size();
     double avgPrecision20 = queries.isEmpty() ? 0.0 : totalPrecision20 / queries.size();
+    double avgF1ScoreAt20 = queries.isEmpty() ? 0.0 : totalF1ScoreAt20 / queries.size();
 
     // 트랜잭션 내에서 DB 저장 처리 (외부 서비스 호출)
     EvaluationReport report =
         persistenceService.saveEvaluationResults(
-            reportName, queries.size(), avgRecall300, avgPrecision20, queryDetails);
+            reportName, queries.size(), avgRecall300, avgPrecision20, avgF1ScoreAt20, queryDetails);
 
     log.info(
         "✅ 평가 실행 완료: Recall@300={}, Precision@20={}",
         String.format("%.3f", avgRecall300),
         String.format("%.3f", avgPrecision20));
 
-    // 캐시 클리어
-    clearEvaluationCache();
+    // 캐시 제거됨
 
     return EvaluationExecuteResponse.builder()
         .reportId(report.getId())
         .reportName(reportName)
         .recall300(avgRecall300)
         .precision20(avgPrecision20)
+        .f1ScoreAt20(avgF1ScoreAt20)
         .totalQueries(queries.size())
         .queryDetails(queryDetails)
         .createdAt(report.getCreatedAt())
@@ -267,8 +223,8 @@ public class EvaluationReportService {
 
   public EvaluationExecuteResponse.QueryEvaluationDetail evaluateQuery(
       String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
-    // 캐시에서 정답셋 가져오기 (DB 조회 없음)
-    Set<String> relevantDocs = getRelevantDocumentsFromCache(query);
+    // 정답셋 직접 조회
+    Set<String> relevantDocs = getRelevantDocuments(query);
     List<String> retrievedDocs =
         getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK); // 순서 유지
     Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
@@ -288,7 +244,7 @@ public class EvaluationReportService {
     Set<String> docIdsToFetch = new HashSet<>();
     docIdsToFetch.addAll(missingIds);
     docIdsToFetch.addAll(wrongIds);
-    Map<String, ProductDocument> productMap = getProductsFromCache(docIdsToFetch);
+    Map<String, ProductDocument> productMap = getProductsBulk(new ArrayList<>(docIdsToFetch));
 
     List<EvaluationExecuteResponse.DocumentInfo> missingDocs =
         missingIds.stream()
@@ -369,6 +325,11 @@ public class EvaluationReportService {
     return hits == 0 ? 0.0 : (sumPrecision / relevantSet.size());
   }
 
+  private double computeF1Score(double precision, double recall) {
+    if (precision + recall == 0) return 0.0;
+    return 2 * precision * recall / (precision + recall);
+  }
+
   private double computeNdcg(List<String> retrievedOrder, Set<String> relevantSet) {
     if (retrievedOrder == null || retrievedOrder.isEmpty()) return 0.0;
     if (relevantSet == null || relevantSet.isEmpty()) return 0.0;
@@ -409,33 +370,6 @@ public class EvaluationReportService {
 
     if (idcg == 0.0) return 0.0;
     return dcg / idcg;
-  }
-
-  /** 캐시에서 정답셋 가져오기 (평가 스레드용) */
-  private Set<String> getRelevantDocumentsFromCache(String query) {
-    if (relevantDocumentsCache != null && relevantDocumentsCache.containsKey(query)) {
-      return relevantDocumentsCache.get(query);
-    }
-    // 캐시 없으면 기존 방식으로 fallback
-    return getRelevantDocuments(query);
-  }
-
-  /** 캐시에서 상품 정보 가져오기 (평가 스레드용) */
-  private Map<String, ProductDocument> getProductsFromCache(Set<String> productIds) {
-    Map<String, ProductDocument> result = new HashMap<>();
-
-    if (productDocumentsCache != null) {
-      for (String id : productIds) {
-        ProductDocument doc = productDocumentsCache.get(id);
-        if (doc != null) {
-          result.put(id, doc);
-        }
-      }
-      return result;
-    }
-
-    // 캐시 없으면 기존 방식으로 fallback
-    return getProductsBulk(new ArrayList<>(productIds));
   }
 
   private Set<String> getRelevantDocuments(String query) {
@@ -589,6 +523,7 @@ public class EvaluationReportService {
               .correctCount(r.getCorrectCount())
               .precisionAt20(r.getPrecisionAt20())
               .recallAt300(r.getRecallAt300())
+              .f1ScoreAt20(r.getF1ScoreAt20())
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
               .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
               .build();
@@ -603,6 +538,7 @@ public class EvaluationReportService {
         .totalQueries(report.getTotalQueries())
         .averageRecall300(report.getAverageRecall300())
         .averagePrecision20(report.getAveragePrecision20())
+        .averageF1ScoreAt20(report.getAverageF1ScoreAt20())
         .createdAt(report.getCreatedAt())
         .queryDetails(details)
         .build();

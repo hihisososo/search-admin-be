@@ -1,7 +1,10 @@
 package com.yjlee.search.search.analysis.controller;
 
+import com.yjlee.search.search.analysis.dto.IndexAnalysisRequest;
+import com.yjlee.search.search.analysis.dto.IndexAnalysisResponse;
 import com.yjlee.search.search.analysis.dto.QueryAnalysisRequest;
 import com.yjlee.search.search.analysis.dto.QueryAnalysisResponse;
+import com.yjlee.search.search.analysis.service.IndexAnalysisService;
 import com.yjlee.search.search.analysis.service.QueryAnalysisService;
 import com.yjlee.search.search.analysis.service.TempIndexService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +31,7 @@ public class QueryAnalysisController {
 
   private final QueryAnalysisService queryAnalysisService;
   private final TempIndexService tempIndexService;
+  private final IndexAnalysisService indexAnalysisService;
 
   @Operation(
       summary = "쿼리 분석",
@@ -49,6 +53,27 @@ public class QueryAnalysisController {
     } catch (Exception e) {
       log.error("쿼리 분석 실패", e);
       throw new RuntimeException("쿼리 분석 중 오류가 발생했습니다: " + e.getMessage());
+    }
+  }
+
+  @Operation(summary = "색인 분석", description = "주어진 쿼리를 색인 분석기로 분석합니다")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "성공"),
+    @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+    @ApiResponse(responseCode = "500", description = "서버 오류")
+  })
+  @PostMapping("/index-analysis")
+  public ResponseEntity<IndexAnalysisResponse> analyzeForIndexing(
+      @RequestBody @Valid IndexAnalysisRequest request) {
+
+    log.info("색인 분석 요청 - 쿼리: {}, 환경: {}", request.getQuery(), request.getEnvironment());
+
+    try {
+      IndexAnalysisResponse response = indexAnalysisService.analyzeForIndexing(request);
+      return ResponseEntity.ok(response);
+    } catch (Exception e) {
+      log.error("색인 분석 실패", e);
+      throw new RuntimeException("색인 분석 중 오류가 발생했습니다: " + e.getMessage());
     }
   }
 

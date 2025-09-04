@@ -26,7 +26,6 @@ public final class SearchConstants {
   // 필드명
   public static final String FIELD_NAME = "name";
   public static final String FIELD_NAME_RAW = "name_raw";
-  public static final String FIELD_MODEL = "model";
   public static final String FIELD_BRAND_NAME = "brand_name";
   public static final String FIELD_CATEGORY_NAME = "category_name";
   public static final String FIELD_PRICE = "price";

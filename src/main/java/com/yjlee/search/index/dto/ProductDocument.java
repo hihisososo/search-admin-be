@@ -19,8 +19,6 @@ public class ProductDocument {
   @JsonProperty("name_raw")
   String nameRaw;
 
-  String model;
-
   @JsonProperty("brand_name")
   String brandName;
 
@@ -52,15 +50,4 @@ public class ProductDocument {
 
   @JsonProperty("specs_vector")
   List<Float> specsVector;
-
-  String unit;
-
-  @JsonProperty("name_candidate")
-  String nameCandidate;
-
-  @JsonProperty("specs_candidate")
-  String specsCandidate;
-
-  @JsonProperty("category_candidate")
-  String categoryCandidate;
 }

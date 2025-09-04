@@ -46,7 +46,8 @@ public class DeploymentHistory {
 
   public enum DeploymentType {
     INDEXING("색인"),
-    DEPLOYMENT("배포");
+    DEPLOYMENT("배포"),
+    CLEANUP("정리");
 
     private final String description;
 
@@ -62,7 +63,9 @@ public class DeploymentHistory {
   public enum DeploymentStatus {
     SUCCESS("성공"),
     FAILED("실패"),
-    IN_PROGRESS("진행중");
+    IN_PROGRESS("진행중"),
+    COMPLETED("완료"),
+    PARTIAL("부분완료");
 
     private final String description;
 

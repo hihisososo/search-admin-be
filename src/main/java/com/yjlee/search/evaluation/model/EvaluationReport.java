@@ -32,6 +32,9 @@ public class EvaluationReport {
   @Column(nullable = false, name = "average_recall300")
   private Double averageRecall300;
 
+  @Column(name = "average_f1_score_at20")
+  private Double averageF1ScoreAt20;
+
   @Column(columnDefinition = "TEXT")
   private String detailedResults;
 

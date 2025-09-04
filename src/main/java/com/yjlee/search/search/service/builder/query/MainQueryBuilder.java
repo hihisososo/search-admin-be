@@ -30,50 +30,15 @@ public class MainQueryBuilder {
   }
 
   private Query buildEmptyQueryCase(QueryContext context) {
-    if (context.hasOnlyModels()) {
-      return buildModelOnlyQuery(context.getModels());
-    }
-
     return Query.of(q -> q.matchAll(m -> m));
   }
 
   private Query buildThreePhaseQuery(QueryContext context) {
-    // Phase 1: 원본 쿼리 그대로 CROSS_FIELDS
+    // 원본 쿼리 그대로 CROSS_FIELDS
     Query originalQuery = buildCrossFieldsQuery(context.getProcessedQuery());
 
-    // Phase 2: 모델명 제외한 쿼리 (context에서 이미 계산됨)
-    String queryWithoutTerms = context.getQueryWithoutTerms();
-
-    Query phaseTwo = null;
-    if (context.hasQueryWithoutTerms() || context.hasModels()) {
-      BoolQuery.Builder phaseTwoBuilder = new BoolQuery.Builder();
-
-      // 모델 제외한 쿼리가 있으면 CROSS_FIELDS로 검색
-      if (context.hasQueryWithoutTerms()) {
-        phaseTwoBuilder.must(buildCrossFieldsQuery(queryWithoutTerms));
-      }
-
-      // 모델명이 있으면 bigram analyzer로 검색 (AND 조건)
-      if (context.hasModels()) {
-        for (String model : context.getModels()) {
-          phaseTwoBuilder.must(
-              Query.of(
-                  q -> q.match(m -> m.field(ESFields.MODEL).query(model).operator(Operator.And))));
-        }
-      }
-
-      phaseTwo = Query.of(q -> q.bool(phaseTwoBuilder.build()));
-    }
-
-    // Phase 1과 Phase 2를 OR로 연결
     BoolQuery.Builder mainQueryBuilder = new BoolQuery.Builder();
-    if (phaseTwo != null) {
-      mainQueryBuilder.should(originalQuery);
-      mainQueryBuilder.should(phaseTwo);
-      mainQueryBuilder.minimumShouldMatch("1");
-    } else {
-      mainQueryBuilder.must(originalQuery);
-    }
+    mainQueryBuilder.must(originalQuery);
 
     // Phrase 부스팅만 추가
     List<Query> phraseBoostQueries =
@@ -96,14 +61,5 @@ public class MainQueryBuilder {
                         .operator(Operator.And)
                         .boost(SearchBoostConstants.CROSS_FIELDS_BOOST)
                         .autoGenerateSynonymsPhraseQuery(false)));
-  }
-
-  private Query buildModelOnlyQuery(List<String> models) {
-    if (models == null || models.isEmpty()) {
-      return null;
-    }
-
-    // 모델명만 있는 경우: 전체 검색
-    return Query.of(q -> q.matchAll(m -> m));
   }
 }

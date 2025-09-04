@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.ArrayList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -97,5 +98,56 @@ public class DeploymentManagementController {
     DeploymentHistoryListResponse response =
         deploymentManagementService.getDeploymentHistory(pageable, status, deploymentType);
     return ResponseEntity.ok(response);
+  }
+
+  @Operation(summary = "사용하지 않는 인덱스 목록 조회", description = "현재 개발/운영 환경에 연결되지 않은 인덱스 목록을 조회합니다.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "조회 성공"),
+    @ApiResponse(responseCode = "500", description = "서버 에러")
+  })
+  @GetMapping("/indices/unused")
+  public ResponseEntity<UnusedIndicesResponse> getUnusedIndices() {
+    log.info("미사용 인덱스 목록 조회 요청");
+    UnusedIndicesResponse response = deploymentManagementService.getUnusedIndices();
+    log.info("미사용 인덱스 조회 완료 - {}개 발견", response.getDeletableCount());
+    return ResponseEntity.ok(response);
+  }
+
+  @Operation(
+      summary = "사용하지 않는 인덱스 삭제",
+      description = "현재 개발/운영 환경에 연결되지 않은 인덱스를 삭제합니다. 안전을 위해 confirmDelete=true 파라미터가 필요합니다.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "삭제 성공"),
+    @ApiResponse(responseCode = "400", description = "잘못된 요청 (confirmDelete 파라미터 누락)"),
+    @ApiResponse(responseCode = "500", description = "서버 에러")
+  })
+  @DeleteMapping("/indices/unused")
+  public ResponseEntity<DeleteUnusedIndicesResponse> deleteUnusedIndices(
+      @Parameter(
+              description = "삭제 확인 플래그 (안전을 위해 명시적으로 true 필요)",
+              required = true,
+              example = "true")
+          @RequestParam(required = false, defaultValue = "false")
+          boolean confirmDelete) {
+
+    if (!confirmDelete) {
+      log.warn("미사용 인덱스 삭제 요청 거부 - confirmDelete=false");
+      return ResponseEntity.badRequest()
+          .body(DeleteUnusedIndicesResponse.of(new ArrayList<>(), new ArrayList<>(), 0));
+    }
+
+    log.info("미사용 인덱스 삭제 요청 - confirmDelete=true");
+    DeleteUnusedIndicesResponse response = deploymentManagementService.deleteUnusedIndices();
+
+    if (response.isSuccess()) {
+      log.info("미사용 인덱스 삭제 완료 - {}개 삭제", response.getDeletedCount());
+      return ResponseEntity.ok(response);
+    } else {
+      log.warn(
+          "미사용 인덱스 삭제 부분 실패 - 성공: {}, 실패: {}",
+          response.getDeletedCount(),
+          response.getFailedCount());
+      return ResponseEntity.ok(response); // 부분 성공도 200으로 반환
+    }
   }
 }

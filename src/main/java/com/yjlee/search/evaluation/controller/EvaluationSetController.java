@@ -133,6 +133,7 @@ public class EvaluationSetController {
                         .evaluationReason(
                             m.getEvaluationReason() != null ? m.getEvaluationReason() : "")
                         .confidence(m.getConfidence())
+                        .searchSource(m.getSearchSource())
                         .build())
             .collect(Collectors.toList());
 
