@@ -15,7 +15,6 @@ public class ProductDocumentConverter {
         .id(document.getId())
         .name(document.getName())
         .nameRaw(document.getNameRaw())
-        .model(document.getModel())
         .brandName(document.getBrandName())
         .thumbnailUrl(document.getThumbnailUrl())
         .price(document.getPrice())
@@ -26,10 +25,6 @@ public class ProductDocumentConverter {
         .category(document.getCategory())
         .specs(document.getSpecs())
         .specsRaw(document.getSpecsRaw())
-        .unit(document.getUnit())
-        .nameCandidate(document.getNameCandidate())
-        .specsCandidate(document.getSpecsCandidate())
-        .categoryCandidate(document.getCategoryCandidate())
         .nameVector((nameVector == null || nameVector.isEmpty()) ? null : nameVector)
         .specsVector((specsVector == null || specsVector.isEmpty()) ? null : specsVector)
         .build();
@@ -76,14 +71,6 @@ public class ProductDocumentConverter {
         text.append(" ");
       }
       text.append(document.getBrandName().trim());
-    }
-
-    // 모델명 추가
-    if (document.getModel() != null && !document.getModel().trim().isEmpty()) {
-      if (text.length() > 0) {
-        text.append(" ");
-      }
-      text.append(document.getModel().trim());
     }
 
     return text.toString();

@@ -33,5 +33,6 @@ public class QueryDocumentMappingResponse {
     private Integer relevanceScore;
     private String evaluationReason;
     private Double confidence;
+    private String searchSource; // BM25, BIGRAM, VECTOR, MULTIPLE
   }
 }

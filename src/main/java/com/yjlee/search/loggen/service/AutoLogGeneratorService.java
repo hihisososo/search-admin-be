@@ -181,18 +181,8 @@ public class AutoLogGeneratorService {
   }
 
   private List<String> extractModels(JsonNode doc, String brand) {
-    List<String> models = new ArrayList<>();
-    if (doc.has(ESFields.MODEL) && doc.get(ESFields.MODEL).isArray()) {
-      for (JsonNode model : doc.get(ESFields.MODEL)) {
-        String modelText = model.asText();
-        if (!modelText.isEmpty() && !modelText.equals("null")) {
-          if ((brand == null || !modelText.equalsIgnoreCase(brand))) {
-            models.add(modelText);
-          }
-        }
-      }
-    }
-    return models;
+    // model 필드가 제거되어 빈 리스트 반환
+    return new ArrayList<>();
   }
 
   private String pickRandom(List<String> items) {

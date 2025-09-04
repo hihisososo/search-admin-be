@@ -19,5 +19,6 @@ public class EvaluationReportSummaryResponse {
   private Integer totalQueries;
   private Double averagePrecision20;
   private Double averageRecall300;
+  private Double averageF1ScoreAt20;
   private LocalDateTime createdAt;
 }

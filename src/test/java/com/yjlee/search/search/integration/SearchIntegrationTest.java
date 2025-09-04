@@ -19,7 +19,6 @@ import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.util.BrandExtractor;
-import com.yjlee.search.index.util.ModelExtractor;
 import com.yjlee.search.search.dto.*;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -408,10 +407,6 @@ class SearchControllerTest extends BaseIntegrationTest {
         .price(price.intValue())
         .rating(new java.math.BigDecimal(score.toString()))
         .reviewCount(100)
-        .model(
-            ModelExtractor.extractModels(name).isEmpty()
-                ? null
-                : String.join(" ", ModelExtractor.extractModels(name)))
         .registeredMonth("2024-01")
         .thumbnailUrl("https://example.com/" + id + ".jpg")
         .specs(TextPreprocessor.preprocess(specs))

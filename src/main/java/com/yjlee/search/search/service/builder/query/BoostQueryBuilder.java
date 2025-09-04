@@ -38,17 +38,6 @@ public class BoostQueryBuilder {
     return List.of(multiMatchQuery);
   }
 
-  public List<Query> buildModelBoostQueries(List<String> models) {
-    if (models == null || models.isEmpty()) {
-      return List.of();
-    }
-
-    return models.stream()
-        .map(
-            model -> buildMatchQuery(ESFields.MODEL, model, SearchBoostConstants.MODEL_MATCH_BOOST))
-        .toList();
-  }
-
   public List<Query> buildCategoryBoostQueries(String query) {
     if (query == null || query.trim().isEmpty()) {
       return List.of();

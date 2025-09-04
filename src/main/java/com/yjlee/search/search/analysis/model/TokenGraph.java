@@ -237,63 +237,6 @@ public class TokenGraph {
     return ascii.toString();
   }
 
-  public String generateQueryExpression() {
-    if (edges.isEmpty()) {
-      return "";
-    }
-
-    // 나가는 edge가 있는 position 찾기 (merge 로직과 동일)
-    Set<Integer> hasOutgoingEdge =
-        edges.stream().map(TokenEdge::getFromPosition).collect(Collectors.toSet());
-
-    // 실제 사용되는 모든 position
-    Set<Integer> allPositions = new HashSet<>();
-    for (TokenEdge edge : edges) {
-      allPositions.add(edge.getFromPosition());
-      allPositions.add(edge.getToPosition());
-    }
-
-    // position 재매핑 (끊긴 노드는 다음 노드와 merge)
-    Map<Integer, Integer> positionMapping = new HashMap<>();
-    TreeSet<Integer> sortedPositions = new TreeSet<>(allPositions);
-    int mappedPos = 0;
-
-    for (Integer pos : sortedPositions) {
-      positionMapping.put(pos, mappedPos);
-      if (hasOutgoingEdge.contains(pos)) {
-        mappedPos++;
-      }
-    }
-
-    // 재매핑된 position별로 토큰 그룹화
-    Map<Integer, Set<String>> tokensByPosition = new TreeMap<>();
-    for (TokenEdge edge : edges) {
-      int fromMappedPos = positionMapping.get(edge.getFromPosition());
-      tokensByPosition
-          .computeIfAbsent(fromMappedPos, k -> new LinkedHashSet<>())
-          .add(edge.getToken());
-    }
-
-    // 검색식 생성
-    List<String> andGroups = new ArrayList<>();
-    for (Set<String> tokens : tokensByPosition.values()) {
-      if (tokens.isEmpty()) {
-        continue;
-      }
-
-      if (tokens.size() == 1) {
-        // 단일 토큰은 괄호 없이
-        andGroups.add(tokens.iterator().next());
-      } else {
-        // 여러 토큰은 OR로 묶어서 괄호
-        andGroups.add("(" + String.join(" OR ", tokens) + ")");
-      }
-    }
-
-    // AND로 연결
-    return String.join(" AND ", andGroups);
-  }
-
   @Getter
   @Builder
   public static class TokenInfo {

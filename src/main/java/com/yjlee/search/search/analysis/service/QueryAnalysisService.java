@@ -42,15 +42,11 @@ public class QueryAnalysisService {
       // Mermaid 다이어그램 생성
       String mermaidGraph = tokenGraph.generateMermaidDiagram();
 
-      // 검색식 생성
-      String queryExpression = tokenGraph.generateQueryExpression();
-
       return QueryAnalysisResponse.builder()
           .environment(environment.name())
           .originalQuery(query)
           .tokens(tokens)
           .mermaidGraph(mermaidGraph)
-          .queryExpression(queryExpression)
           .build();
 
     } catch (Exception e) {

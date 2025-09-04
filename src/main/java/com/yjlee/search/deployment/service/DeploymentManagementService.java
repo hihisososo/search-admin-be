@@ -9,7 +9,10 @@ import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.deployment.strategy.EnvironmentStrategyFactory;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -289,5 +292,91 @@ public class DeploymentManagementService {
         .version(version)
         .description(description != null ? description : "배포 작업")
         .build();
+  }
+
+  /**
+   * 사용하지 않는 인덱스 목록 조회
+   *
+   * @return 사용하지 않는 인덱스 정보
+   */
+  public UnusedIndicesResponse getUnusedIndices() {
+    try {
+      // 현재 DEV, PROD 환경의 인덱스 가져오기
+      List<IndexEnvironment> environments = indexEnvironmentRepository.findAll();
+      Set<String> usedIndices = new HashSet<>();
+
+      for (IndexEnvironment env : environments) {
+        if (env.getIndexName() != null) {
+          usedIndices.add(env.getIndexName());
+        }
+        if (env.getAutocompleteIndexName() != null) {
+          usedIndices.add(env.getAutocompleteIndexName());
+        }
+      }
+
+      // Alias에 연결된 인덱스 가져오기
+      Set<String> aliasedIndices = new HashSet<>();
+      aliasedIndices.addAll(elasticsearchIndexService.getCurrentAliasIndices());
+      aliasedIndices.addAll(elasticsearchIndexService.getCurrentAutocompleteAliasIndices());
+
+      // 전체 인덱스에서 사용하지 않는 것들 필터링
+      List<String> unusedIndices = elasticsearchIndexService.getUnusedIndices(usedIndices);
+
+      return UnusedIndicesResponse.of(
+          unusedIndices, new ArrayList<>(usedIndices), new ArrayList<>(aliasedIndices));
+    } catch (Exception e) {
+      log.error("미사용 인덱스 조회 실패", e);
+      throw new RuntimeException("미사용 인덱스 조회 실패: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * 사용하지 않는 인덱스 삭제
+   *
+   * @return 삭제 결과
+   */
+  @Transactional(readOnly = false)
+  public DeleteUnusedIndicesResponse deleteUnusedIndices() {
+    try {
+      // 사용하지 않는 인덱스 목록 조회
+      UnusedIndicesResponse unusedIndicesResponse = getUnusedIndices();
+      List<String> unusedIndices = unusedIndicesResponse.getUnusedIndices();
+
+      if (unusedIndices.isEmpty()) {
+        return DeleteUnusedIndicesResponse.of(new ArrayList<>(), new ArrayList<>(), 0);
+      }
+
+      log.info("미사용 인덱스 삭제 시작: {}개", unusedIndices.size());
+
+      // 인덱스 삭제 수행
+      List<String> deletedIndices = elasticsearchIndexService.deleteUnusedIndices(unusedIndices);
+
+      // 삭제 실패한 인덱스 계산
+      List<String> failedIndices = new ArrayList<>(unusedIndices);
+      failedIndices.removeAll(deletedIndices);
+
+      // 삭제 이력 생성
+      DeploymentHistory history =
+          DeploymentHistory.builder()
+              .deploymentType(DeploymentHistory.DeploymentType.CLEANUP)
+              .status(
+                  failedIndices.isEmpty()
+                      ? DeploymentHistory.DeploymentStatus.COMPLETED
+                      : DeploymentHistory.DeploymentStatus.PARTIAL)
+              .version(generateVersion())
+              .description(String.format("미사용 인덱스 정리 - %d개 삭제", deletedIndices.size()))
+              .documentCount((long) deletedIndices.size())
+              .build();
+
+      deploymentHistoryRepository.save(history);
+
+      log.info("미사용 인덱스 삭제 완료 - 성공: {}, 실패: {}", deletedIndices.size(), failedIndices.size());
+
+      return DeleteUnusedIndicesResponse.of(deletedIndices, failedIndices, unusedIndices.size());
+
+    } catch (Exception e) {
+      log.error("미사용 인덱스 삭제 실패", e);
+      throw new RuntimeException("미사용 인덱스 삭제 실패: " + e.getMessage(), e);
+    }
   }
 }

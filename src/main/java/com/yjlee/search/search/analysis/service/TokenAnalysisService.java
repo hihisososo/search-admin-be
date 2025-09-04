@@ -53,7 +53,7 @@ public class TokenAnalysisService {
 
     JsonNode detail = root.get("detail");
     if (detail != null) {
-      processTokenStream(detail, tokenGraph);
+      processTokenStream(detail, tokenGraph, analyzer);
     }
 
     tokenGraph.generatePaths();
@@ -67,17 +67,26 @@ public class TokenAnalysisService {
     return tokenGraph;
   }
 
-  private void processTokenStream(JsonNode detail, TokenGraph tokenGraph) {
+  private void processTokenStream(JsonNode detail, TokenGraph tokenGraph, String analyzer) {
     JsonNode tokenFilters = detail.get("tokenfilters");
     if (tokenFilters == null) {
       return;
     }
 
-    // search_synonym_filter 또는 index_synonym_filter를 찾아서 처리
+    // analyzer 타입에 따라 적절한 필터 선택
+    String targetFilter;
+    if ("nori_index_analyzer".equals(analyzer)) {
+      // 색인용 분석기는 stopword_filter에서 토큰 가져오기
+      targetFilter = "stopword_filter";
+    } else {
+      // 검색용 분석기는 search_synonym_filter에서 토큰 가져오기
+      targetFilter = "search_synonym_filter";
+    }
+
     for (JsonNode filter : tokenFilters) {
       String filterName = filter.get("name").asText();
 
-      if ("search_synonym_filter".equals(filterName) || "index_synonym_filter".equals(filterName)) {
+      if (targetFilter.equals(filterName)) {
         JsonNode tokens = filter.get("tokens");
         if (tokens != null) {
           processTokens(tokens, tokenGraph);

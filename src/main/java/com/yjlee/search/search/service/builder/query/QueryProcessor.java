@@ -1,14 +1,11 @@
 package com.yjlee.search.search.service.builder.query;
 
 import com.yjlee.search.common.util.TextPreprocessor;
-import com.yjlee.search.index.util.ModelExtractor;
 import com.yjlee.search.search.service.builder.model.ExtractedTerms;
 import com.yjlee.search.search.service.builder.model.ProcessedQuery;
 import com.yjlee.search.search.service.builder.model.QueryContext;
 import com.yjlee.search.search.service.typo.TypoCorrectionService;
-import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -47,9 +44,7 @@ public class QueryProcessor {
       return ExtractedTerms.empty();
     }
 
-    List<String> models = ModelExtractor.extractModelsExcludingUnits(query, List.of());
-
-    return ExtractedTerms.builder().models(models).build();
+    return ExtractedTerms.builder().build();
   }
 
   public String removeTermsFromQuery(String query, ExtractedTerms terms) {
@@ -57,36 +52,7 @@ public class QueryProcessor {
       return "";
     }
 
-    String result = query;
-
-    if (terms.hasModels()) {
-      result = removeTerms(result, terms.getModels());
-    }
-
-    return result.replaceAll("\\s+", " ").trim();
-  }
-
-  public String removeModelsFromQuery(String query, List<String> models) {
-    if (query == null || query.trim().isEmpty()) {
-      return "";
-    }
-    if (models == null || models.isEmpty()) {
-      return query;
-    }
-
-    return removeTerms(query, models).replaceAll("\\s+", " ").trim();
-  }
-
-  private String removeTerms(String query, List<String> terms) {
-    String result = query;
-
-    for (String term : terms) {
-      if (!term.isEmpty()) {
-        result = result.replaceAll("(?i)\\b" + Pattern.quote(term) + "\\b", "");
-      }
-    }
-
-    return result;
+    return query.replaceAll("\\s+", " ").trim();
   }
 
   private boolean shouldApplyTypoCorrection(Boolean applyTypoCorrection) {
@@ -110,21 +76,12 @@ public class QueryProcessor {
     ProcessedQuery processed = processQuery(originalQuery, applyTypoCorrection);
     String processedQuery = processed.getFinalQuery();
 
-    // 2. 특수 용어 추출 (모델명)
-    ExtractedTerms extractedTerms = extractSpecialTerms(processedQuery);
-    List<String> models = extractedTerms.getModels();
-
-    // 3. 모델명 제거한 쿼리 생성
-    String queryWithoutTerms = removeTermsFromQuery(processedQuery, extractedTerms);
-    boolean isQueryEmptyAfterRemoval = queryWithoutTerms.isEmpty();
-
-    // 4. QueryContext 생성 및 반환
+    // 2. QueryContext 생성 및 반환
     return QueryContext.builder()
         .originalQuery(originalQuery)
         .processedQuery(processedQuery)
-        .models(models)
-        .queryWithoutTerms(queryWithoutTerms)
-        .isQueryEmptyAfterRemoval(isQueryEmptyAfterRemoval)
+        .queryWithoutTerms(processedQuery)
+        .isQueryEmptyAfterRemoval(false)
         .applyTypoCorrection(applyTypoCorrection)
         .build();
   }

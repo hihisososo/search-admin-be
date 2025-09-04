@@ -30,7 +30,6 @@ public class ProductDtoConverter {
         .score(score != null ? score : 0.0)
         .name(getTextValue(source, "name"))
         .nameRaw(getTextValue(source, "name_raw", getTextValue(source, "name")))
-        .model(getTextValue(source, "model"))
         .brandName(getTextValue(source, "brand_name"))
         .categoryName(getTextValue(source, "category_name"))
         .price(getIntValue(source, "price"))

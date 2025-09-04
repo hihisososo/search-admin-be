@@ -2,7 +2,10 @@ package com.yjlee.search.deployment.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.ExpandWildcard;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
+import co.elastic.clients.elasticsearch.cat.IndicesRequest;
+import co.elastic.clients.elasticsearch.cat.indices.IndicesRecord;
 import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
 import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
@@ -16,7 +19,9 @@ import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ResourceLoader;
@@ -324,5 +329,91 @@ public class ElasticsearchIndexService {
   public String getAutocompleteIndexNameFromProductIndex(String productIndexName) {
     String version = productIndexName.replace(ESFields.PRODUCTS_INDEX_PREFIX + "-", "");
     return generateAutocompleteIndexName(version);
+  }
+
+  /**
+   * 모든 인덱스 목록 조회
+   *
+   * @return 인덱스 이름 목록
+   */
+  public List<String> getAllIndices() throws IOException {
+    try {
+      IndicesRequest request = IndicesRequest.of(i -> i.expandWildcards(ExpandWildcard.Open));
+      List<IndicesRecord> response = elasticsearchClient.cat().indices(request).valueBody();
+
+      return response.stream()
+          .map(IndicesRecord::index)
+          .filter(
+              index ->
+                  index != null
+                      && (index.startsWith(ESFields.PRODUCTS_INDEX_PREFIX + "-")
+                          || index.startsWith(ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-")))
+          .sorted()
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      log.error("인덱스 목록 조회 실패", e);
+      return new ArrayList<>();
+    }
+  }
+
+  /**
+   * 사용하지 않는 인덱스 목록 조회
+   *
+   * @param usedIndices 현재 사용 중인 인덱스 목록
+   * @return 삭제 가능한 인덱스 목록
+   */
+  public List<String> getUnusedIndices(Set<String> usedIndices) throws IOException {
+    List<String> allIndices = getAllIndices();
+
+    // products-search, autocomplete-search alias에 연결된 인덱스 추가
+    Set<String> aliasedIndices = getCurrentAliasIndices();
+    Set<String> autocompleteAliasedIndices = getCurrentAutocompleteAliasIndices();
+
+    return allIndices.stream()
+        .filter(index -> !usedIndices.contains(index))
+        .filter(index -> !aliasedIndices.contains(index))
+        .filter(index -> !autocompleteAliasedIndices.contains(index))
+        .filter(index -> !index.endsWith("-temp")) // 임시 인덱스 제외
+        .collect(Collectors.toList());
+  }
+
+  /** autocomplete-search alias에 연결된 인덱스 목록 조회 */
+  public Set<String> getCurrentAutocompleteAliasIndices() throws IOException {
+    try {
+      var getAliasRequest = GetAliasRequest.of(a -> a.name(ESFields.AUTOCOMPLETE_SEARCH_ALIAS));
+      var aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
+      Set<String> indices = aliasResponse.result().keySet();
+      log.info("현재 {} alias가 연결된 인덱스들: {}", ESFields.AUTOCOMPLETE_SEARCH_ALIAS, indices);
+      return indices;
+    } catch (ElasticsearchException e) {
+      if (e.response().status() == 404) {
+        log.info("{} alias가 존재하지 않음", ESFields.AUTOCOMPLETE_SEARCH_ALIAS);
+        return Set.of();
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  /**
+   * 사용하지 않는 인덱스 삭제
+   *
+   * @param unusedIndices 삭제할 인덱스 목록
+   * @return 실제로 삭제된 인덱스 목록
+   */
+  public List<String> deleteUnusedIndices(List<String> unusedIndices) throws IOException {
+    List<String> deletedIndices = new ArrayList<>();
+
+    for (String indexName : unusedIndices) {
+      try {
+        deleteIndex(indexName);
+        deletedIndices.add(indexName);
+        log.info("미사용 인덱스 삭제 성공: {}", indexName);
+      } catch (Exception e) {
+        log.error("미사용 인덱스 삭제 실패: {}", indexName, e);
+      }
+    }
+
+    return deletedIndices;
   }
 }

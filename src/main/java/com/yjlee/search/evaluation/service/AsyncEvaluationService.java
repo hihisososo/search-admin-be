@@ -52,6 +52,7 @@ public class AsyncEvaluationService {
   }
 
   private static final int FIXED_MIN_CANDIDATES = 30;
+  private static final int FIXED_MIN_BM25_CANDIDATES = 20;
 
   public Long startLLMQueryGeneration(LLMQueryGenerateRequest request) {
     AsyncTask task =
@@ -80,8 +81,11 @@ public class AsyncEvaluationService {
           if (q == null || q.isBlank() || tried.contains(q)) continue;
           tried.add(q);
           Set<String> ids = groundTruthService.getCandidateIdsForQuery(q);
-          // 50개 이상 300개 이하인 경우만 수용
-          if (ids.size() >= FIXED_MIN_CANDIDATES && ids.size() <= 300) {
+          int bm25Count = groundTruthService.getBM25CandidateCount(q);
+          // 전체 30~300개, BM25 20개 이상인 경우만 수용
+          if (ids.size() >= FIXED_MIN_CANDIDATES
+              && ids.size() <= 300
+              && bm25Count >= FIXED_MIN_BM25_CANDIDATES) {
             EvaluationQuery eq = evaluationQueryService.createQuerySafely(q);
             generateCandidatesForOne(eq);
             accepted.add(q);
@@ -92,6 +96,8 @@ public class AsyncEvaluationService {
                 String.format("생성/저장: %d/%d (round %d)", accepted.size(), target, round));
           } else if (ids.size() > 300) {
             log.debug("쿼리 '{}' 건너뜀 - 후보군 {}개로 300개 초과", q, ids.size());
+          } else if (bm25Count < FIXED_MIN_BM25_CANDIDATES) {
+            log.debug("쿼리 '{}' 건너뜀 - BM25 결과 {}개로 20개 미만", q, bm25Count);
           }
         }
 

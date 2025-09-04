@@ -9,15 +9,16 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
+import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.VectorSearchService;
+import com.yjlee.search.search.service.builder.QueryBuilder;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -37,6 +38,7 @@ public class SearchBasedGroundTruthService {
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final VectorSearchService vectorSearchService;
+  private final QueryBuilder queryBuilder;
 
   private static final int FIXED_PER_STRATEGY = 301;
   private static final int FIXED_MAX_TOTAL_PER_QUERY = 300;
@@ -197,29 +199,24 @@ public class SearchBasedGroundTruthService {
     }
   }
 
+  public int getBM25CandidateCount(String query) {
+    try {
+      return searchByBM25(query, 100).size(); // 최대 100개까지만 카운트
+    } catch (Exception e) {
+      log.warn("BM25 후보 개수 확인 실패: {}", query, e);
+      return 0;
+    }
+  }
+
   private Map<String, String> collectCandidatesWithSourceTracking(
       String query, float[] queryEmbedding) {
     Map<String, String> productSourceMap = new LinkedHashMap<>();
 
-    // 벡터 검색 - query 문자열 사용 (VectorSearchService가 임베딩 생성 및 캐싱 처리)
-    searchByVector(query).forEach(id -> productSourceMap.put(id, "VECTOR"));
+    // BM25 검색 - 실제 검색과 동일한 쿼리 사용
+    searchByBM25(query).forEach(id -> productSourceMap.put(id, "BM25"));
 
-    // 형태소 검색
-    String[] morphemeFields = {"name_candidate", "specs_candidate", "category_candidate"};
-    searchByCrossField(query, morphemeFields)
-        .forEach(
-            id -> {
-              if (!productSourceMap.containsKey(id)) {
-                productSourceMap.put(id, "MORPHEME");
-              } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
-                productSourceMap.put(id, "MULTIPLE");
-              }
-            });
-
-    // 바이그램 검색
-    String[] bigramFields = {
-      "name_candidate.bigram", "specs_candidate.bigram", "category_candidate.bigram"
-    };
+    // 바이그램 검색 - 쿼리 그대로 사용 (색인 시에만 공백 제거됨)
+    String[] bigramFields = {"name.bigram", "specs.bigram", "category.bigram"};
     searchByCrossField(query, bigramFields)
         .forEach(
             id -> {
@@ -230,7 +227,46 @@ public class SearchBasedGroundTruthService {
               }
             });
 
+    // 벡터 검색 - query 문자열 사용 (VectorSearchService가 임베딩 생성 및 캐싱 처리)
+    searchByVector(query)
+        .forEach(
+            id -> {
+              if (!productSourceMap.containsKey(id)) {
+                productSourceMap.put(id, "VECTOR");
+              } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
+                productSourceMap.put(id, "MULTIPLE");
+              }
+            });
+
     return productSourceMap;
+  }
+
+  private List<String> searchByBM25(String query) {
+    return searchByBM25(query, FIXED_PER_STRATEGY);
+  }
+
+  private List<String> searchByBM25(String query, int size) {
+    try {
+      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
+
+      // SearchExecuteRequest 생성 (실제 검색과 동일한 쿼리 생성을 위해)
+      SearchExecuteRequest searchRequest = new SearchExecuteRequest();
+      searchRequest.setQuery(query);
+
+      // 실제 검색과 동일한 BoolQuery 생성
+      co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery boolQuery =
+          queryBuilder.buildBoolQuery(searchRequest);
+
+      SearchRequest request =
+          SearchRequest.of(s -> s.index(indexName).size(size).query(q -> q.bool(boolQuery)));
+
+      SearchResponse<ProductDocument> response =
+          elasticsearchClient.search(request, ProductDocument.class);
+      return extractProductIds(response);
+    } catch (Exception e) {
+      log.warn("BM25 검색 실패: {}", query, e);
+      return new ArrayList<>();
+    }
   }
 
   private List<String> searchByVector(String query) {
@@ -273,9 +309,10 @@ public class SearchBasedGroundTruthService {
                           q ->
                               q.multiMatch(
                                   mm ->
-                                      mm.query(TextPreprocessor.preprocess(query))
+                                      mm.query(query) // Bigram 검색을 위해 쿼리 그대로 사용
                                           .fields(List.of(fields))
-                                          .operator(Operator.And)
+                                          .operator(Operator.Or)
+                                          .minimumShouldMatch("70%")
                                           .type(TextQueryType.CrossFields))));
 
       SearchResponse<ProductDocument> response =
