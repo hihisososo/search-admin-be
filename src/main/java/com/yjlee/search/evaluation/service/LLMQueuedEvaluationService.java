@@ -83,7 +83,7 @@ public class LLMQueuedEvaluationService {
   }
 
   public void evaluateCandidatesForQueries(List<Long> queryIds, ProgressCallback progressCallback) {
-    log.info("큐 기반 LLM 평가 시작: {}개 쿼리", queryIds.size());
+    log.info("큐 기반 LLM 평가 시작 (평가 안 된 항목만): {}개 쿼리", queryIds.size());
 
     // 카운터 초기화
     totalBatchesAdded.set(0);
@@ -101,11 +101,15 @@ public class LLMQueuedEvaluationService {
 
       int totalBatches = 0;
       for (EvaluationQuery query : queries) {
+        // 평가 안 된 매핑만 조회
         List<QueryProductMapping> mappings =
-            queryProductMappingRepository.findByEvaluationQuery(query);
+            queryProductMappingRepository.findByEvaluationQueryAndRelevanceScoreIsNull(query);
         if (mappings.isEmpty()) {
+          log.info("쿼리 '{}' - 평가할 항목이 없습니다 (모두 평가 완료)", query.getQuery());
           continue;
         }
+
+        log.info("쿼리 '{}' - {}개 항목 평가 예정", query.getQuery(), mappings.size());
 
         // 배치로 나누어 큐에 추가
         Map<String, ProductDocument> productMap =
@@ -138,7 +142,7 @@ public class LLMQueuedEvaluationService {
         }
       }
 
-      log.info("총 {}개 배치를 큐에 추가 완료", totalBatches);
+      log.info("총 {}개 배치를 큐에 추가 완료 (평가 안 된 항목만 처리)", totalBatches);
 
       // 모든 작업이 완료될 때까지 대기
       waitForCompletion(totalBatches, progressCallback);

@@ -45,9 +45,15 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   @Override
   public List<KeywordStats> getPopularKeywords(LocalDateTime from, LocalDateTime to, int limit) {
     try {
-      SearchRequest searchRequest = buildPopularKeywordsSearchRequest(from, to, limit);
+      // 이전 주기 계산
+      long periodDays = java.time.Duration.between(from, to).toDays();
+      LocalDateTime previousFrom = from.minusDays(periodDays);
+      LocalDateTime previousTo = from;
+
+      SearchRequest searchRequest =
+          buildPopularKeywordsSearchRequest(from, to, previousFrom, previousTo);
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
-      return parseKeywordStatsResponse(response, from, to);
+      return parsePopularKeywordsResponse(response, limit);
 
     } catch (Exception e) {
       log.error("인기검색어 조회 실패: {}", e.getMessage(), e);
@@ -442,33 +448,72 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   }
 
   private SearchRequest buildPopularKeywordsSearchRequest(
-      LocalDateTime from, LocalDateTime to, int limit) {
-    BoolQuery boolQuery =
-        BoolQuery.of(
-            b ->
-                b.must(
-                        Query.of(
-                            q ->
-                                q.range(
-                                    r ->
-                                        r.date(
-                                            d ->
-                                                d.field("timestamp")
-                                                    .gte(from.toString())
-                                                    .lte(to.toString())))))
-                    .must(Query.of(q -> q.term(t -> t.field("is_error").value(false)))));
+      LocalDateTime from, LocalDateTime to, LocalDateTime previousFrom, LocalDateTime previousTo) {
 
-    Map<String, Aggregation> aggregations =
-        Map.of(
-            "keywords",
-            Aggregation.of(a -> a.terms(t -> t.field("search_keyword.keyword").size(limit))));
+    Map<String, Aggregation> aggregations = new HashMap<>();
 
-    return SearchRequest.of(
-        s ->
-            s.index("search-logs-*")
-                .size(0)
-                .query(Query.of(q -> q.bool(boolQuery)))
-                .aggregations(aggregations));
+    // 현재 주기 집계
+    aggregations.put(
+        "current_period",
+        Aggregation.of(
+            a ->
+                a.filter(
+                        f ->
+                            f.bool(
+                                b ->
+                                    b.must(
+                                            Query.of(
+                                                q ->
+                                                    q.range(
+                                                        r ->
+                                                            r.date(
+                                                                d ->
+                                                                    d.field("timestamp")
+                                                                        .gte(from.toString())
+                                                                        .lte(to.toString())))))
+                                        .must(
+                                            Query.of(
+                                                q ->
+                                                    q.term(
+                                                        t -> t.field("is_error").value(false))))))
+                    .aggregations(
+                        "keywords",
+                        Aggregation.of(
+                            ag -> ag.terms(t -> t.field("search_keyword.keyword").size(10000))))));
+
+    // 이전 주기 집계
+    aggregations.put(
+        "previous_period",
+        Aggregation.of(
+            a ->
+                a.filter(
+                        f ->
+                            f.bool(
+                                b ->
+                                    b.must(
+                                            Query.of(
+                                                q ->
+                                                    q.range(
+                                                        r ->
+                                                            r.date(
+                                                                d ->
+                                                                    d.field("timestamp")
+                                                                        .gte(
+                                                                            previousFrom.toString())
+                                                                        .lte(
+                                                                            previousTo
+                                                                                .toString())))))
+                                        .must(
+                                            Query.of(
+                                                q ->
+                                                    q.term(
+                                                        t -> t.field("is_error").value(false))))))
+                    .aggregations(
+                        "keywords",
+                        Aggregation.of(
+                            ag -> ag.terms(t -> t.field("search_keyword.keyword").size(10000))))));
+
+    return SearchRequest.of(s -> s.index("search-logs-*").size(0).aggregations(aggregations));
   }
 
   private SearchRequest buildTrendsSearchRequest(
@@ -535,63 +580,92 @@ public class ElasticsearchStatsRepository implements StatsRepository {
         .build();
   }
 
-  private List<KeywordStats> parseKeywordStatsResponse(
-      SearchResponse<Void> response, LocalDateTime from, LocalDateTime to) {
+  private List<KeywordStats> parsePopularKeywordsResponse(
+      SearchResponse<Void> response, int limit) {
     var aggs = response.aggregations();
-    var keywordsAgg = aggs.get("keywords");
 
-    List<KeywordStats> keywords = new ArrayList<>();
+    // 현재 주기 데이터 추출
+    var currentPeriodAgg = aggs.get("current_period");
+    Map<String, Long> currentPeriodData = new HashMap<>();
 
-    if (keywordsAgg != null && keywordsAgg._kind().jsonValue().equals("sterms")) {
-      try {
-        var termsAgg = keywordsAgg.sterms();
+    if (currentPeriodAgg != null && currentPeriodAgg.isFilter()) {
+      var currentKeywordsAgg = currentPeriodAgg.filter().aggregations().get("keywords");
+      if (currentKeywordsAgg != null && currentKeywordsAgg._kind().jsonValue().equals("sterms")) {
+        var termsAgg = currentKeywordsAgg.sterms();
         var buckets = termsAgg.buckets().array();
-        long totalCount = buckets.stream().mapToLong(bucket -> bucket.docCount()).sum();
 
-        // 키워드 목록 추출
-        List<String> keywordList = new ArrayList<>();
-        Map<String, Long> searchCounts = new HashMap<>();
         for (var bucket : buckets) {
-          String keyword = bucket.key().stringValue();
-          keywordList.add(keyword);
-          searchCounts.put(keyword, bucket.docCount());
+          currentPeriodData.put(bucket.key().stringValue(), bucket.docCount());
         }
-
-        // 클릭수 일괄 조회
-        Map<String, Long> clickCounts = getClickCountsForKeywords(keywordList, from, to);
-
-        // 클릭 세션수 일괄 조회
-        Map<String, Long> searchesWithClicksMap =
-            getSearchesWithClicksForKeywords(keywordList, from, to);
-
-        // 결과 생성
-        int rank = 1;
-        for (var bucket : buckets) {
-          String keyword = bucket.key().stringValue();
-          long searchCount = bucket.docCount();
-          long clickCount = clickCounts.getOrDefault(keyword, 0L);
-          long searchesWithClicksForKeyword = searchesWithClicksMap.getOrDefault(keyword, 0L);
-          double percentage = totalCount > 0 ? (double) searchCount / totalCount * 100 : 0.0;
-          // CTR: 해당 키워드로 검색 후 클릭한 비율 (최대 100%)
-          double ctr =
-              searchCount > 0 ? (double) searchesWithClicksForKeyword / searchCount * 100 : 0.0;
-
-          keywords.add(
-              KeywordStats.builder()
-                  .keyword(keyword)
-                  .searchCount(searchCount)
-                  .clickCount(clickCount)
-                  .clickThroughRate(Math.round(ctr * 100.0) / 100.0)
-                  .percentage(Math.round(percentage * 100.0) / 100.0)
-                  .rank(rank++)
-                  .build());
-        }
-      } catch (Exception e) {
-        log.warn("키워드 통계 파싱 실패: {}", e.getMessage());
       }
     }
 
-    return keywords;
+    // 이전 주기 순위 맵 생성
+    Map<String, Integer> previousRanks = new HashMap<>();
+    var previousPeriodAgg = aggs.get("previous_period");
+    if (previousPeriodAgg != null && previousPeriodAgg.isFilter()) {
+      var previousKeywordsAgg = previousPeriodAgg.filter().aggregations().get("keywords");
+      if (previousKeywordsAgg != null && previousKeywordsAgg._kind().jsonValue().equals("sterms")) {
+        var termsAgg = previousKeywordsAgg.sterms();
+        var buckets = termsAgg.buckets().array();
+
+        int prevRank = 1;
+        for (var bucket : buckets) {
+          previousRanks.put(bucket.key().stringValue(), prevRank++);
+        }
+      }
+    }
+
+    // 결과 생성 (순위 변동 정보 포함)
+    List<KeywordStats> result = new ArrayList<>();
+    long totalCount = currentPeriodData.values().stream().mapToLong(Long::longValue).sum();
+    int rank = 1;
+
+    // 현재 주기 키워드를 count 기준 정렬
+    List<Map.Entry<String, Long>> sortedEntries = new ArrayList<>(currentPeriodData.entrySet());
+    sortedEntries.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
+
+    for (Map.Entry<String, Long> entry : sortedEntries) {
+      if (rank > limit) break; // limit 적용
+
+      String keyword = entry.getKey();
+      long searchCount = entry.getValue();
+      double percentage = totalCount > 0 ? (double) searchCount / totalCount * 100 : 0.0;
+
+      Integer previousRank = previousRanks.get(keyword);
+      Integer rankChange = null;
+      KeywordStats.RankChangeStatus changeStatus = null;
+
+      if (previousRank == null) {
+        changeStatus = KeywordStats.RankChangeStatus.NEW;
+      } else {
+        rankChange = previousRank - rank;
+        if (rankChange > 0) {
+          changeStatus = KeywordStats.RankChangeStatus.UP;
+        } else if (rankChange < 0) {
+          changeStatus = KeywordStats.RankChangeStatus.DOWN;
+        } else {
+          changeStatus = KeywordStats.RankChangeStatus.SAME;
+        }
+      }
+
+      result.add(
+          KeywordStats.builder()
+              .keyword(keyword)
+              .searchCount(searchCount)
+              .clickCount(0L) // 클릭수는 일단 0으로 (필요시 추가 개선)
+              .clickThroughRate(0.0)
+              .percentage(Math.round(percentage * 100.0) / 100.0)
+              .rank(rank)
+              .previousRank(previousRank)
+              .rankChange(rankChange)
+              .changeStatus(changeStatus)
+              .build());
+
+      rank++;
+    }
+
+    return result;
   }
 
   private List<TrendData> parseTrendsResponse(SearchResponse<Void> response, String interval) {

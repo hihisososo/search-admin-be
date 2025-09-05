@@ -23,14 +23,14 @@ public class BoostQueryBuilder {
       return List.of();
     }
 
-    // multiMatch 쿼리로 name과 specs 필드에 phrase 검색
+    // multiMatch 쿼리로 name, specs, category 필드에 phrase 검색
     Query multiMatchQuery =
         Query.of(
             q ->
                 q.multiMatch(
                     m ->
                         m.query(query)
-                            .fields(List.of(ESFields.NAME, ESFields.SPECS))
+                            .fields(List.of(ESFields.NAME, ESFields.SPECS, ESFields.CATEGORY))
                             .type(TextQueryType.Phrase)
                             .minimumShouldMatch("2")
                             .boost(SearchBoostConstants.NAME_PHRASE_BOOST)));

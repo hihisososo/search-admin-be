@@ -108,155 +108,155 @@
 ### 상품검색
 
 - 기능 정의
-  - 상품명+카테고리+스펙(상세설명) 에서 검색 되어야 합니다
-  - 상품명 에서 일치했을 경우, 우선순위가 높아야 합니다
+  - 상품명/카테고리/스펙(상세설명) 에서 검색 되어야 합니다
+  - 상품명/카테고리 에서 일치했을 경우 스펙에서 일치했을때보다, 우선순위가 높아야 합니다
   - 모델명은 일부만 검색해도 검색되어야 합니다
+  - 여러 사전을 통해 검색결과 조정이 가능해야 합니다
+  - 형태소 분석 검색 결과가 없을 경우, 유사문서(벡터)검색으로 폴백되어야 합니다
+- 이슈 사항
+  - 노리 형태소분석기는, 1.5kg 와 같은 단위명을 1,.,5,kg 와 같이 나누므로 5kg 만 검색해도 검색되게 되어, 커스텀 token filter 를구현하여 소수점 단위는 붙이고 숫자 + 단위명으로 판별되는 단어는 한개의 term 으로 분석되도록 했습니다
+  - 단위명으로 판별되는 단어는 색인시, 단위명동치(ex 10l, 10리터) 와 숫자 term 을 추가로 색인하여 동치단위명, 숫자로도 검색되게 했습니다
+  - 그 외, 검색 정밀도를 위해 상품명 전처리를 수행했습니다 
+  ex) 10 kg -> 10kg, 10kg20kg30kg -> 10kg 20kg 30kg, 100x200x300cm -> 100 x 200 x 300cm
+  - 벡터 임베딩 생성시, OPEN AI 임베딩 결과가 좋지않아, [MTEB](https://huggingface.co/spaces/mteb/leaderboard) SOTA 모델 고려했으나, 비용 이슈로 [Kor-IR](https://github.com/Atipico1/Kor-IR) 참고하여 업스테이지 임베딩을 선택했습니다)
+
 - 구현
-  - 상품명, 스펙 각각 형태소분석, 바이그램 필드 추가하였습니다
-  - 모델명은 추가 추출하여 바이그램 필드로 추가하였습니다
-- 검색 조건 및 우선순위(부스팅)
-  - 1순위 : 상품명(형태소분석), 스펙(형태소분석), 모델명(바이그램) 을 cross_field 로 검색되게 하였습니다
-  - 2순위 : 상품명(바이그램) + 스펙(바이그램) 을 cross_field 검색되게 하였습니다
-  - 검색어에서 카테고리, 브랜드 일치할 경우 추가 부스팅하였습니다
-- Elasticsearch 필드 설정
+  - 상품명/카테고리/스펙 형태소분석필드 추가하였습니다
+  - 상품명/스펙 벡터 필드 추가하였습니다.
+  - 동의어는 synonym_graph 를 통해 검색시 확장하도록 하였습니다
+- 검색 조건 및 부스팅
+  - 키워드 검색(BM25)
+    - 1순위 : 상품명/스펙/모델명을 cross_field 로 검색되게 하였습니다
+    - 부스팅 : phrase 쿼리로 인접한 term 에 가중치를 부여했습니다
+  - 벡터 검색
+    - 스코어 0.7 이상, 상품명 가중치 0.7, 스펙 가중치 0.3 을 할당하였습니다
+- mapping 일부
     
     ```json
-    {
-      "index": {
-        "analysis": {
-          "filter": {
-            "search_synonym_filter": {
-              "type": "synonym_graph",
-              "updateable": "true",
-              "synonyms_set": "{SYNONYM_SET_NAME}"
-            },
-            "stopword_filter": {
-              "type": "stop",
-              "stopwords_path": "{STOPWORD_DICT_PATH}"
-            },
-            "pos_filter": {
-              "type": "nori_part_of_speech",
-              "stoptags": [
-                "J", "E", "IC", "SF", "SP", "SC", "SE",
-                "XPN", "XSA", "XSN", "XSV", "SSO", "SSC", "UNA", "NA", "VSV"
-              ]
-            }
-          },
-          "analyzer": {
-            "nori_index_analyzer": {
-              "filter": ["pos_filter", "stopword_filter"],
-              "type": "custom",
-              "tokenizer": "userdic_nori_tokenizer"
-            },
-            "bigram_analyzer": {
-              "type": "custom",
-              "tokenizer": "bigram_tokenizer"
-            },
-            "nori_search_analyzer": {
-              "filter": ["pos_filter", "search_synonym_filter", "stopword_filter"],
-              "type": "custom",
-              "tokenizer": "userdic_nori_tokenizer"
-            }
-          },
-          "tokenizer": {
-            "bigram_tokenizer": {
-              "type": "ngram",
-              "min_gram": "2",
-              "max_gram": "2"
-            },
-            "userdic_nori_tokenizer": {
-              "type": "nori_tokenizer",
-              "user_dictionary": "{USER_DICT_PATH}",
-              "decompound_mode": "mixed"
-            }
-          }
+    "name": {
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
         }
       }
-    } 
+    },
+    "specs": {
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
+    },
+    "category": {
+      "type": "text",
+      "analyzer": "nori_index_analyzer",
+      "search_analyzer": "nori_search_analyzer",
+      "fields": {
+        "bigram": {
+          "type": "text",
+          "analyzer": "bigram_analyzer"
+        }
+      }
+    },
+    "name_vector": {
+      "type": "dense_vector",
+      "dims": 4096,
+      "index": true,
+      "similarity": "cosine"
+    },
+    "specs_vector": {
+      "type": "dense_vector",
+      "dims": 4096,
+      "index": true,
+      "similarity": "cosine"
+    },
     ```
-    
+- setting
     ```json
-    {
-      "properties": {
-        "id": {
-          "type": "long"
+    "analysis": {
+      "char_filter": {
+        "remove_spaces": {
+          "type": "pattern_replace",
+          "pattern": "\\s+",
+          "replacement": ""
+        }
+      },
+      "filter": {
+        "search_synonym_filter": {
+          "type": "synonym_graph",
+          "updateable": "true",
+          "synonyms_set": "{SYNONYM_SET_NAME}"
         },
-        "brand_name": {
-          "type": "keyword"
+        "stopword_filter": {
+          "type": "stop",
+          "stopwords_path": "{STOPWORD_DICT_PATH}"
         },
-        "category_id": {
-          "type": "long",
-          "index": false
+        "pos_filter": {
+          "type": "nori_part_of_speech",
+          "stoptags": [
+            "J", "E", "SP", "SC", "SE",
+            "XPN", "XSA", "XSN", "XSV", "SSO", "SSC", "UNA", "NA", "VSV"
+          ]
         },
-        "category_name": {
-          "type": "keyword"
+        "decimal_unit_merge_index": { // 단위 및 숫자 조합 커스텀 token filter
+          "type": "decimal-unit-merge",
+          "mode": "index",
+          "units_path": "analysis/units.txt"
         },
-        "specs": {
-          "type": "text",
-          "fields": {
-            "bigram": {
-              "type": "text",
-              "analyzer": "bigram_analyzer"
-            }
-          },
-          "analyzer": "nori_index_analyzer",
-          "search_analyzer": "nori_search_analyzer"
+        "decimal_unit_merge_search": { // 단위 및 숫자 조합 커스텀 token filter
+          "type": "decimal-unit-merge",
+          "mode": "search",
+          "units_path": "analysis/units.txt"
+        }
+      },
+      "analyzer": {
+        "nori_index_analyzer": {
+          "filter": ["decimal_unit_merge_index", "pos_filter", "stopword_filter"],
+          "type": "custom",
+          "tokenizer": "userdic_nori_tokenizer"
         },
-        "specs_raw": {
-          "type": "keyword",
-          "index": false
+        "nori_search_analyzer": {
+          "filter": ["decimal_unit_merge_search", "pos_filter", "stopword_filter", "search_synonym_filter"],
+          "type": "custom",
+          "tokenizer": "userdic_nori_tokenizer"
         },
-        "model": {
-          "type": "keyword",
-          "fields": {
-            "bigram": {
-              "type": "text",
-              "analyzer": "bigram_analyzer"
-            }
-          }
+        "bigram_analyzer": {
+          "type": "custom",
+          "char_filter": ["remove_spaces"],
+          "tokenizer": "bigram_tokenizer"
+        }
+      },
+      "tokenizer": {
+        "bigram_tokenizer": {
+          "type": "ngram",
+          "min_gram": "2",
+          "max_gram": "2",
+          "token_chars": ["letter", "digit", "punctuation"]
         },
-        "name": {
-          "type": "text",
-          "fields": {
-            "bigram": {
-              "type": "text",
-              "analyzer": "bigram_analyzer"
-            }
-          },
-          "analyzer": "nori_index_analyzer",
-          "search_analyzer": "nori_search_analyzer"
-        },
-        "name_raw": {
-          "type": "keyword",
-          "index": false
-        },
-        "content_vector": {
-          "type": "dense_vector",
-          "dims": 1536,
-          "index": true,
-          "similarity": "cosine"
-        },
-        "price": {
-          "type": "long"
-        },
-        "reg_month": {
-          "type": "date",
-          "format": "yyyy-MM"
-        },
-        "review_count": {
-          "type": "integer"
-        },
-        "rating": {
-          "type": "float"
-        },
-        "thumbnail_url": {
-          "type": "keyword",
-          "index": false
+        "userdic_nori_tokenizer": {
+          "type": "nori_tokenizer",
+          "discard_punctuation": false,
+          "user_dictionary": "{USER_DICT_PATH}",
+          "decompound_mode": "discard"
         }
       }
     }
+  }
     ```
+- 검색 쿼리 DSL (키워드)
+
+- 검색 쿼리 DSL (벡터)
+
+- 실제 검색 내용(키워드)
     
-- 실제 검색 내용
-    
+    <img src="./images/product-search-example.png" alt="상품 검색 예시" width="800">
+- 폴백 검색 내용(벡터)
     <img src="./images/product-search-example.png" alt="상품 검색 예시" width="800">

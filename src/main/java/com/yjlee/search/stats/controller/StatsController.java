@@ -102,9 +102,7 @@ public class StatsController {
       @Parameter(description = "종료일시 (기본값: 현재)")
           @RequestParam(required = false)
           @DateTimeFormat(iso = ISO.DATE_TIME)
-          LocalDateTime to,
-      @Parameter(description = "집계 간격 (hour/day, 기본값: hour)") @RequestParam(defaultValue = "hour")
-          String interval) {
+          LocalDateTime to) {
 
     if (from == null) {
       from = LocalDateTime.now(ZoneOffset.UTC).minusDays(7);
@@ -113,9 +111,9 @@ public class StatsController {
       to = LocalDateTime.now(ZoneOffset.UTC);
     }
 
-    log.info("시계열 추이 조회 - 기간: {} ~ {}, 간격: {}", from, to, interval);
+    log.info("시계열 추이 조회 - 기간: {} ~ {}", from, to);
 
-    TrendResponse trends = statsService.getTrends(from, to, interval);
+    TrendResponse trends = statsService.getTrends(from, to);
     return ResponseEntity.ok(trends);
   }
 

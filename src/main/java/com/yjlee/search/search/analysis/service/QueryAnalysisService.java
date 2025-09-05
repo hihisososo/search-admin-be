@@ -1,6 +1,7 @@
 package com.yjlee.search.search.analysis.service;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.search.analysis.dto.QueryAnalysisRequest;
@@ -29,6 +30,9 @@ public class QueryAnalysisService {
     log.debug("쿼리 분석 시작 - 쿼리: {}, 환경: {}", query, environment);
 
     try {
+      // 전처리 수행
+      String preprocessedQuery = TextPreprocessor.preprocess(query);
+
       // Token Graph 분석
       TokenGraph tokenGraph = tokenAnalysisService.analyzeWithTokenGraph(query, environment);
 
@@ -45,6 +49,7 @@ public class QueryAnalysisService {
       return QueryAnalysisResponse.builder()
           .environment(environment.name())
           .originalQuery(query)
+          .preprocessedQuery(preprocessedQuery)
           .tokens(tokens)
           .mermaidGraph(mermaidGraph)
           .build();

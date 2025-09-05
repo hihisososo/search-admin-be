@@ -21,19 +21,17 @@ public class TrendQueryService {
 
   private final StatsRepository statsRepository;
 
-  public TrendResponse getTrends(LocalDateTime from, LocalDateTime to, String interval) {
-    // interval은 day만 지원 (고정)
-    interval = "day";
-    log.info("시계열 추이 조회 - 기간: {} ~ {}, 간격: {}(고정)", from, to, interval);
+  public TrendResponse getTrends(LocalDateTime from, LocalDateTime to) {
+    log.info("시계열 추이 조회 - 기간: {} ~ {} (일별 집계)", from, to);
 
-    List<TrendData> trends = statsRepository.getTrends(from, to, interval);
+    List<TrendData> trends = statsRepository.getTrends(from, to, "day");
     String period = from.toLocalDate() + " ~ " + to.toLocalDate();
 
-    List<LocalDateTime> allTimestamps = generateAllTimestamps(from, to, interval);
+    List<LocalDateTime> allTimestamps = generateAllTimestamps(from, to, "day");
 
     Map<String, TrendResponse.TrendData> trendDataMap = new LinkedHashMap<>();
     for (LocalDateTime timestamp : allTimestamps) {
-      String label = formatLabel(timestamp, interval);
+      String label = formatLabel(timestamp, "day");
       trendDataMap.put(
           label,
           TrendResponse.TrendData.builder()
@@ -93,7 +91,7 @@ public class TrendQueryService {
                             .build())
                 .toList())
         .period(period)
-        .interval("day")
+        .interval("day") // 고정값
         .build();
   }
 

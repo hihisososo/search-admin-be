@@ -29,8 +29,8 @@ public class StatsService {
     return popularKeywordQueryService.getPopularKeywords(from, to, limit);
   }
 
-  public TrendResponse getTrends(LocalDateTime from, LocalDateTime to, String interval) {
-    return trendQueryService.getTrends(from, to, interval);
+  public TrendResponse getTrends(LocalDateTime from, LocalDateTime to) {
+    return trendQueryService.getTrends(from, to);
   }
 
   public PopularKeywordResponse getTrendingKeywords(

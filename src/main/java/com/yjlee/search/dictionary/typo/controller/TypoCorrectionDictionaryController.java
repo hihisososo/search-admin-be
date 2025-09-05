@@ -152,20 +152,4 @@ public class TypoCorrectionDictionaryController {
 
     return ResponseEntity.ok(response);
   }
-
-  @Operation(summary = "오타교정 사전 동기화 상태 조회", description = "오타교정 사전의 동기화 상태 조회")
-  @GetMapping("/sync-status")
-  public ResponseEntity<Map<String, Object>> getTypoCorrectionSyncStatus() {
-
-    log.info("오타교정 사전 동기화 상태 조회 요청");
-    String typoCorrectionStatus = searchService.getTypoCorrectionCacheStatus();
-
-    Map<String, Object> response = new HashMap<>();
-    response.put("success", true);
-    response.put("typoCorrectionStatus", typoCorrectionStatus);
-    response.put("lastSyncTime", System.currentTimeMillis());
-    response.put("timestamp", System.currentTimeMillis());
-
-    return ResponseEntity.ok(response);
-  }
 }

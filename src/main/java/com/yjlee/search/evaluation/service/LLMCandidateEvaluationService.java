@@ -20,7 +20,7 @@ public class LLMCandidateEvaluationService {
   }
 
   public void evaluateAllCandidates(ProgressCallback progressCallback) {
-    log.info("전체 모든 쿼리의 후보군 LLM 평가 시작");
+    log.info("전체 모든 쿼리의 후보군 LLM 평가 시작 (평가 안 된 항목만)");
 
     List<EvaluationQuery> queries = evaluationQueryRepository.findAll();
     if (queries.isEmpty()) {
@@ -32,7 +32,7 @@ public class LLMCandidateEvaluationService {
     evaluateCandidatesForQueries(
         queries.stream().map(EvaluationQuery::getId).toList(), progressCallback);
 
-    log.info("전체 모든 쿼리의 후보군 LLM 평가 완료");
+    log.info("전체 모든 쿼리의 후보군 LLM 평가 완료 (평가 안 된 항목만)");
   }
 
   public void evaluateCandidatesForQueries(List<Long> queryIds) {
@@ -40,11 +40,11 @@ public class LLMCandidateEvaluationService {
   }
 
   public void evaluateCandidatesForQueries(List<Long> queryIds, ProgressCallback progressCallback) {
-    log.info("선택된 쿼리들의 후보군 LLM 평가 시작 (큐 기반): {}개 쿼리", queryIds.size());
+    log.info("선택된 쿼리들의 후보군 LLM 평가 시작 (평가 안 된 항목만, 큐 기반): {}개 쿼리", queryIds.size());
 
     // 큐 기반 평가 서비스 호출
     queuedEvaluationService.evaluateCandidatesForQueries(queryIds, progressCallback);
 
-    log.info("선택된 쿼리들의 후보군 LLM 평가 완료 (큐 기반)");
+    log.info("선택된 쿼리들의 후보군 LLM 평가 완료 (평가 안 된 항목만, 큐 기반)");
   }
 }

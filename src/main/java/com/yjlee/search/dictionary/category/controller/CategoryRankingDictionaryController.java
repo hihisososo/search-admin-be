@@ -74,22 +74,6 @@ public class CategoryRankingDictionaryController {
     return ResponseEntity.ok(response);
   }
 
-  @Operation(summary = "키워드로 카테고리 랭킹 사전 조회", description = "특정 키워드의 카테고리 매핑 정보를 조회합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "404", description = "키워드를 찾을 수 없음")
-  })
-  @GetMapping("/by-keyword/{keyword}")
-  public ResponseEntity<CategoryRankingDictionaryResponse> getByKeyword(
-      @Parameter(description = "키워드") @PathVariable String keyword,
-      @Parameter(description = "환경 타입") @RequestParam(required = false)
-          DictionaryEnvironmentType environment) {
-
-    log.debug("키워드로 카테고리 랭킹 사전 조회: {} - 환경: {}", keyword, environment);
-    CategoryRankingDictionaryResponse response = service.getByKeyword(keyword, environment);
-    return ResponseEntity.ok(response);
-  }
-
   @Operation(summary = "카테고리 랭킹 사전 생성", description = "새로운 카테고리 랭킹 사전을 생성합니다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "성공"),
@@ -165,22 +149,6 @@ public class CategoryRankingDictionaryController {
     response.put("success", true);
     response.put("message", "카테고리 랭킹 사전 실시간 반영 완료");
     response.put("environment", environment.getDescription());
-    response.put("timestamp", System.currentTimeMillis());
-
-    return ResponseEntity.ok(response);
-  }
-
-  @Operation(summary = "카테고리 랭킹 사전 동기화 상태 조회", description = "카테고리 랭킹 사전의 동기화 상태 조회")
-  @GetMapping("/sync-status")
-  public ResponseEntity<Map<String, Object>> getCategoryRankingSyncStatus() {
-
-    log.info("카테고리 랭킹 사전 동기화 상태 조회 요청");
-    String cacheStatus = categoryRankingService.getCacheStatus();
-
-    Map<String, Object> response = new HashMap<>();
-    response.put("success", true);
-    response.put("cacheStatus", cacheStatus);
-    response.put("lastSyncTime", System.currentTimeMillis());
     response.put("timestamp", System.currentTimeMillis());
 
     return ResponseEntity.ok(response);

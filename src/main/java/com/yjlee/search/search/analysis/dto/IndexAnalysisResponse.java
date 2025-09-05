@@ -23,6 +23,9 @@ public class IndexAnalysisResponse {
   @Schema(description = "원본 쿼리", example = "삼성전자 노트북 1kg")
   String originalQuery;
 
+  @Schema(description = "전처리된 쿼리", example = "삼성전자 노트북 1kg")
+  String preprocessedQuery;
+
   @Schema(description = "분석된 토큰 리스트", example = "[\"삼성전자\", \"노트북\", \"1kg\"]")
   List<String> tokens;
 

@@ -5,10 +5,8 @@ import static com.yjlee.search.stats.dto.PopularKeywordResponse.RankChangeStatus
 import com.yjlee.search.stats.domain.KeywordStats;
 import com.yjlee.search.stats.dto.PopularKeywordResponse;
 import com.yjlee.search.stats.repository.StatsRepository;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,117 +23,76 @@ public class PopularKeywordQueryService {
       LocalDateTime from, LocalDateTime to, int limit) {
     log.info("인기검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
 
-    // 현재 기간의 인기 검색어 조회
-    List<KeywordStats> currentKeywords = statsRepository.getPopularKeywords(from, to, limit);
+    // 단일 ES 쿼리로 현재/이전 주기 동시 조회 (순위 변동 계산 포함)
+    List<KeywordStats> keywordStats = statsRepository.getPopularKeywords(from, to, limit);
 
-    // 이전 기간 계산 (동일한 기간만큼 이전)
-    long periodDays = Duration.between(from, to).toDays();
-    LocalDateTime previousFrom = from.minusDays(periodDays);
-    LocalDateTime previousTo = from;
-
-    // 이전 기간의 인기 검색어 조회
-    List<KeywordStats> previousKeywords =
-        statsRepository.getPopularKeywords(previousFrom, previousTo, limit * 2);
-
-    // 순위 변동 계산
-    List<PopularKeywordResponse.KeywordStats> keywordsWithRankChange =
-        calculateRankChanges(currentKeywords, previousKeywords);
+    // KeywordStats를 PopularKeywordResponse.KeywordStats로 변환
+    List<PopularKeywordResponse.KeywordStats> keywords =
+        keywordStats.stream().map(this::convertToResponse).collect(Collectors.toList());
 
     String period = from.toLocalDate() + " ~ " + to.toLocalDate();
 
-    return PopularKeywordResponse.builder().keywords(keywordsWithRankChange).period(period).build();
+    return PopularKeywordResponse.builder().keywords(keywords).period(period).build();
   }
 
   public PopularKeywordResponse getTrendingKeywords(
       LocalDateTime from, LocalDateTime to, int limit) {
     log.info("급등검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
 
-    long periodDays = Duration.between(from, to).toDays();
-    LocalDateTime previousFrom = from.minusDays(periodDays);
-    LocalDateTime previousTo = from;
-
-    List<KeywordStats> currentKeywords = statsRepository.getPopularKeywords(from, to, limit * 2);
-    List<KeywordStats> previousKeywords =
-        statsRepository.getPopularKeywords(previousFrom, previousTo, limit * 2);
-
-    // 이전 기간의 순위를 Map으로 저장
-    Map<String, Integer> previousRanks =
-        previousKeywords.stream()
-            .collect(Collectors.toMap(KeywordStats::getKeyword, KeywordStats::getRank));
+    // 모든 키워드 조회 (limit 없이)
+    List<KeywordStats> allKeywords =
+        statsRepository.getPopularKeywords(from, to, Integer.MAX_VALUE);
 
     // 이전 기간 마지막 순위 계산 (새로운 키워드의 기준 순위)
-    int lastPreviousRank = previousKeywords.isEmpty() ? limit * 2 + 1 : previousKeywords.size() + 1;
+    int lastPreviousRank =
+        allKeywords.isEmpty()
+            ? 10001
+            : allKeywords.stream()
+                    .mapToInt(k -> k.getPreviousRank() != null ? k.getPreviousRank() : 0)
+                    .max()
+                    .orElse(100)
+                + 1;
 
     List<PopularKeywordResponse.KeywordStats> trendingKeywords =
-        currentKeywords.stream()
+        allKeywords.stream()
             .map(
-                current -> {
+                keyword -> {
+                  // 순위 변동 계산
                   int previousRank =
-                      previousRanks.getOrDefault(current.getKeyword(), lastPreviousRank);
-                  int rankChange = previousRank - current.getRank();
-                  PopularKeywordResponse.RankChangeStatus changeStatus =
-                      previousRanks.containsKey(current.getKeyword()) ? null : NEW;
-                  return new RankChangeKeyword(current, rankChange, changeStatus);
+                      keyword.getPreviousRank() != null
+                          ? keyword.getPreviousRank()
+                          : lastPreviousRank;
+                  int rankChange = previousRank - keyword.getRank();
+
+                  // rankChange 정보를 포함한 객체로 변환
+                  return PopularKeywordResponse.KeywordStats.builder()
+                      .keyword(keyword.getKeyword())
+                      .count(keyword.getSearchCount())
+                      .clickCount(keyword.getClickCount())
+                      .clickThroughRate(keyword.getClickThroughRate())
+                      .percentage(keyword.getPercentage())
+                      .rank(keyword.getRank())
+                      .previousRank(keyword.getPreviousRank())
+                      .rankChange(rankChange)
+                      .changeStatus(
+                          keyword.getChangeStatus() != null
+                              ? convertChangeStatus(keyword.getChangeStatus())
+                              : PopularKeywordResponse.RankChangeStatus.NEW)
+                      .build();
                 })
-            .filter(item -> item.rankChange > 0) // 순위가 상승한 키워드만
-            .sorted((a, b) -> Integer.compare(b.rankChange, a.rankChange)) // 순위 변동량 큰 순
+            .filter(
+                item -> item.getRankChange() != null && item.getRankChange() > 0) // 순위가 상승한 키워드만
+            .sorted(
+                (a, b) ->
+                    Integer.compare(
+                        b.getRankChange() != null ? b.getRankChange() : 0,
+                        a.getRankChange() != null ? a.getRankChange() : 0)) // 순위 변동량 큰 순
             .limit(limit)
-            .map(item -> convertToResponseWithStatus(item.keywordStats, item.changeStatus))
             .collect(Collectors.toList());
 
     String period = from.toLocalDate() + " ~ " + to.toLocalDate();
 
     return PopularKeywordResponse.builder().keywords(trendingKeywords).period(period).build();
-  }
-
-  private List<PopularKeywordResponse.KeywordStats> calculateRankChanges(
-      List<KeywordStats> currentKeywords, List<KeywordStats> previousKeywords) {
-
-    // 이전 기간 키워드 순위 맵 생성
-    Map<String, Integer> previousRankMap =
-        previousKeywords.stream()
-            .collect(
-                Collectors.toMap(
-                    KeywordStats::getKeyword,
-                    KeywordStats::getRank,
-                    (existing, replacement) -> existing));
-
-    return currentKeywords.stream()
-        .map(
-            current -> {
-              Integer previousRank = previousRankMap.get(current.getKeyword());
-              Integer rankChange = null;
-              PopularKeywordResponse.RankChangeStatus changeStatus = null;
-
-              if (previousRank == null) {
-                // 신규 진입
-                changeStatus = NEW;
-              } else {
-                // 순위 변동 계산 (이전 순위 - 현재 순위, 양수면 상승)
-                rankChange = previousRank - current.getRank();
-
-                if (rankChange > 0) {
-                  changeStatus = UP;
-                } else if (rankChange < 0) {
-                  changeStatus = DOWN;
-                } else {
-                  changeStatus = SAME;
-                }
-              }
-
-              return PopularKeywordResponse.KeywordStats.builder()
-                  .keyword(current.getKeyword())
-                  .count(current.getSearchCount())
-                  .clickCount(current.getClickCount())
-                  .clickThroughRate(current.getClickThroughRate())
-                  .percentage(current.getPercentage())
-                  .rank(current.getRank())
-                  .previousRank(previousRank)
-                  .rankChange(rankChange)
-                  .changeStatus(changeStatus)
-                  .build();
-            })
-        .collect(Collectors.toList());
   }
 
   private PopularKeywordResponse.KeywordStats convertToResponse(KeywordStats stats) {
@@ -146,34 +103,26 @@ public class PopularKeywordQueryService {
         .clickThroughRate(stats.getClickThroughRate())
         .percentage(stats.getPercentage())
         .rank(stats.getRank())
+        .previousRank(stats.getPreviousRank())
+        .rankChange(stats.getRankChange())
+        .changeStatus(convertChangeStatus(stats.getChangeStatus()))
         .build();
   }
 
-  private PopularKeywordResponse.KeywordStats convertToResponseWithStatus(
-      KeywordStats stats, PopularKeywordResponse.RankChangeStatus changeStatus) {
-    return PopularKeywordResponse.KeywordStats.builder()
-        .keyword(stats.getKeyword())
-        .count(stats.getSearchCount())
-        .clickCount(stats.getClickCount())
-        .clickThroughRate(stats.getClickThroughRate())
-        .percentage(stats.getPercentage())
-        .rank(stats.getRank())
-        .changeStatus(changeStatus)
-        .build();
-  }
-
-  private static class RankChangeKeyword {
-    private final KeywordStats keywordStats;
-    private final int rankChange;
-    private final PopularKeywordResponse.RankChangeStatus changeStatus;
-
-    public RankChangeKeyword(
-        KeywordStats keywordStats,
-        int rankChange,
-        PopularKeywordResponse.RankChangeStatus changeStatus) {
-      this.keywordStats = keywordStats;
-      this.rankChange = rankChange;
-      this.changeStatus = changeStatus;
+  private PopularKeywordResponse.RankChangeStatus convertChangeStatus(
+      KeywordStats.RankChangeStatus status) {
+    if (status == null) return null;
+    switch (status) {
+      case UP:
+        return PopularKeywordResponse.RankChangeStatus.UP;
+      case DOWN:
+        return PopularKeywordResponse.RankChangeStatus.DOWN;
+      case SAME:
+        return PopularKeywordResponse.RankChangeStatus.SAME;
+      case NEW:
+        return PopularKeywordResponse.RankChangeStatus.NEW;
+      default:
+        return null;
     }
   }
 }

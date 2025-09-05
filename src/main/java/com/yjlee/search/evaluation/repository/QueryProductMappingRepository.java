@@ -26,6 +26,9 @@ public interface QueryProductMappingRepository extends JpaRepository<QueryProduc
   List<QueryProductMapping> findByEvaluationQueryAndRelevanceScoreGreaterThanEqual(
       EvaluationQuery evaluationQuery, int minScore);
 
+  List<QueryProductMapping> findByEvaluationQueryAndRelevanceScoreIsNull(
+      EvaluationQuery evaluationQuery);
+
   @Query(
       """
       SELECT

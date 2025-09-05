@@ -22,6 +22,7 @@ import com.yjlee.search.search.service.builder.QueryBuilder;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +51,6 @@ public class SearchBasedGroundTruthService {
 
   @Transactional
   public void generateCandidatesFromSearch(TaskProgressListener progressListener) {
-    queryProductMappingRepository.deleteAll();
     List<EvaluationQuery> queries = evaluationQueryRepository.findAll();
     processQueries(queries, progressListener, true);
   }
@@ -98,7 +98,9 @@ public class SearchBasedGroundTruthService {
     log.info("벡터 검색 캐시 워밍 완료: {}개", warmupCount);
 
     // Thread-safe collections
-    List<QueryProductMapping> mappings = new CopyOnWriteArrayList<>();
+    List<QueryProductMapping> mappingsToAdd = new CopyOnWriteArrayList<>();
+    List<QueryProductMapping> mappingsToUpdate = new CopyOnWriteArrayList<>();
+    List<QueryProductMapping> mappingsToDelete = new CopyOnWriteArrayList<>();
     List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
 
     // 진행률 추적을 위한 AtomicInteger
@@ -110,7 +112,18 @@ public class SearchBasedGroundTruthService {
         .forEach(
             query -> {
               try {
-                // 후보 수집 - 임베딩은 VectorSearchService에서 내부적으로 처리
+                // 기존 매핑 조회
+                List<QueryProductMapping> existingMappings =
+                    queryProductMappingRepository.findByEvaluationQuery(query);
+                Map<String, QueryProductMapping> existingMap =
+                    existingMappings.stream()
+                        .collect(
+                            Collectors.toMap(
+                                QueryProductMapping::getProductId,
+                                Function.identity(),
+                                (v1, v2) -> v1));
+
+                // 새로운 후보군 생성
                 Map<String, String> candidatesWithSource =
                     collectCandidatesWithSourceTracking(query.getQuery(), null);
 
@@ -134,13 +147,24 @@ public class SearchBasedGroundTruthService {
                         .build();
                 updatedQueries.add(updatedQuery);
 
-                // 상품 정보 일괄 조회 및 매핑 생성
-                Map<String, ProductDocument> productMap =
-                    fetchProductsBulk(limitedCandidates.keySet());
+                // 차분 처리: 추가, 업데이트, 삭제 항목 분류
+                Set<String> toAdd = new HashSet<>(limitedCandidates.keySet());
+                toAdd.removeAll(existingMap.keySet());
 
-                limitedCandidates.forEach(
-                    (productId, searchSource) -> {
+                Set<String> toRemove = new HashSet<>(existingMap.keySet());
+                toRemove.removeAll(limitedCandidates.keySet());
+
+                Set<String> toUpdate = new HashSet<>(existingMap.keySet());
+                toUpdate.retainAll(limitedCandidates.keySet());
+
+                // 상품 정보 일괄 조회 (추가할 항목만)
+                Map<String, ProductDocument> productMap = fetchProductsBulk(toAdd);
+
+                // 추가할 매핑 생성
+                toAdd.forEach(
+                    productId -> {
                       ProductDocument product = productMap.get(productId);
+                      String searchSource = limitedCandidates.get(productId);
                       QueryProductMapping mapping =
                           QueryProductMapping.builder()
                               .evaluationQuery(updatedQuery)
@@ -151,14 +175,49 @@ public class SearchBasedGroundTruthService {
                               .searchSource(searchSource)
                               .evaluationSource(EVALUATION_SOURCE_SEARCH)
                               .build();
-                      mappings.add(mapping);
+                      mappingsToAdd.add(mapping);
+                    });
+
+                // 업데이트할 매핑 처리 (searchSource 변경된 경우만)
+                toUpdate.forEach(
+                    productId -> {
+                      QueryProductMapping existing = existingMap.get(productId);
+                      String newSearchSource = limitedCandidates.get(productId);
+
+                      // searchSource가 변경되고, 아직 평가되지 않은 경우만 업데이트
+                      if (!newSearchSource.equals(existing.getSearchSource())
+                          && existing.getRelevanceScore() == null) {
+                        QueryProductMapping updated =
+                            QueryProductMapping.builder()
+                                .id(existing.getId())
+                                .evaluationQuery(existing.getEvaluationQuery())
+                                .productId(existing.getProductId())
+                                .productName(existing.getProductName())
+                                .productSpecs(existing.getProductSpecs())
+                                .productCategory(existing.getProductCategory())
+                                .searchSource(newSearchSource)
+                                .evaluationSource(EVALUATION_SOURCE_SEARCH)
+                                .build();
+                        mappingsToUpdate.add(updated);
+                      }
+                    });
+
+                // 삭제할 매핑 처리 (평가되지 않은 경우만)
+                toRemove.forEach(
+                    productId -> {
+                      QueryProductMapping existing = existingMap.get(productId);
+                      // 평가되지 않은 항목만 삭제
+                      if (existing.getRelevanceScore() == null) {
+                        mappingsToDelete.add(existing);
+                      }
                     });
 
                 log.debug(
-                    "쿼리 '{}' 처리 완료: 총 {}개 후보 중 {}개 저장",
+                    "쿼리 '{}' 처리 완료: 추가 {}개, 업데이트 {}개, 삭제 {}개",
                     query.getQuery(),
-                    candidatesWithSource.size(),
-                    limitedCandidates.size());
+                    toAdd.size(),
+                    mappingsToUpdate.size(),
+                    toRemove.size());
 
                 // 진행률 업데이트 - AtomicInteger 사용
                 int completed = completedCount.incrementAndGet();
@@ -182,11 +241,34 @@ public class SearchBasedGroundTruthService {
               }
             });
 
-    // 일괄 저장
+    // 일괄 처리
     evaluationQueryRepository.saveAll(updatedQueries);
-    queryProductMappingRepository.saveAll(new ArrayList<>(mappings));
 
-    log.info("{} 쿼리 정답 후보군 생성 완료: {}개 쿼리, {}개 매핑", processType, queries.size(), mappings.size());
+    // 삭제
+    if (!mappingsToDelete.isEmpty()) {
+      queryProductMappingRepository.deleteAll(mappingsToDelete);
+      log.info("🗑️ 후보군 삭제: {}개", mappingsToDelete.size());
+    }
+
+    // 업데이트
+    if (!mappingsToUpdate.isEmpty()) {
+      queryProductMappingRepository.saveAll(new ArrayList<>(mappingsToUpdate));
+      log.info("✅ 후보군 업데이트: {}개", mappingsToUpdate.size());
+    }
+
+    // 추가
+    if (!mappingsToAdd.isEmpty()) {
+      queryProductMappingRepository.saveAll(new ArrayList<>(mappingsToAdd));
+      log.info("➕ 후보군 추가: {}개", mappingsToAdd.size());
+    }
+
+    log.info(
+        "{} 쿼리 정답 후보군 처리 완료: {}개 쿼리, 추가 {}개, 업데이트 {}개, 삭제 {}개",
+        processType,
+        queries.size(),
+        mappingsToAdd.size(),
+        mappingsToUpdate.size(),
+        mappingsToDelete.size());
   }
 
   public Set<String> getCandidateIdsForQuery(String query) {
