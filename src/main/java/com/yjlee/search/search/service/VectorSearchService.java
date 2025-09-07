@@ -9,6 +9,7 @@ import com.yjlee.search.embedding.service.EmbeddingService.EmbeddingType;
 import com.yjlee.search.search.constants.SearchConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.dto.VectorSearchConfig;
+import com.yjlee.search.search.dto.VectorSearchResult;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,6 +65,70 @@ public class VectorSearchService {
     VectorSearchConfig config =
         VectorSearchConfig.builder().topK(topK).vectorMinScore(defaultVectorMinScore).build();
     return multiFieldVectorSearch(index, query, config);
+  }
+
+  /** 다중 필드 KNN 벡터 검색 실행 (설정 객체 사용) - SearchRequest 포함 반환 */
+  public VectorSearchResult multiFieldVectorSearchWithRequest(
+      String index, String query, VectorSearchConfig config) {
+    try {
+      float[] queryVector = getQueryEmbedding(query);
+      int topK = config.getTopK();
+
+      List<Float> queryVectorList = new ArrayList<>();
+      for (float f : queryVector) {
+        queryVectorList.add(f);
+      }
+
+      // 벡터 검색 설정
+      double minScore =
+          config.getVectorMinScore() != null ? config.getVectorMinScore() : defaultVectorMinScore;
+
+      // sub_searches를 사용한 다중 벡터 필드 검색
+      SearchRequest.Builder searchBuilder =
+          new SearchRequest.Builder()
+              .index(index)
+              .size(topK)
+              .minScore(minScore)
+              .knn(
+                  k ->
+                      k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
+                          .queryVector(queryVectorList)
+                          .k(topK)
+                          .numCandidates(config.getNumCandidates())
+                          .boost(config.getNameVectorBoost()))
+              .knn(
+                  k ->
+                      k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
+                          .queryVector(queryVectorList)
+                          .k(topK)
+                          .numCandidates(config.getNumCandidates())
+                          .boost(config.getSpecsVectorBoost()))
+              .source(
+                  src ->
+                      src.filter(
+                          f -> f.excludes(VectorSearchConstants.getVectorFieldsToExclude())));
+
+      // 필터가 있으면 적용
+      if (config.getFilterQueries() != null && !config.getFilterQueries().isEmpty()) {
+        searchBuilder.query(q -> q.bool(b -> b.filter(config.getFilterQueries())));
+      }
+
+      SearchRequest searchRequest = searchBuilder.build();
+
+      log.debug(
+          "Executing multi-field vector search - query: {}, topK: {}, minScore: {}",
+          query,
+          topK,
+          minScore);
+
+      SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
+
+      return VectorSearchResult.builder().response(response).request(searchRequest).build();
+
+    } catch (IOException e) {
+      log.error("Multi-field vector search failed", e);
+      throw new RuntimeException("Vector search failed", e);
+    }
   }
 
   /** 다중 필드 KNN 벡터 검색 실행 (설정 객체 사용) */
