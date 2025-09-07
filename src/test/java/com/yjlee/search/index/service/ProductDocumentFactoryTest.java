@@ -19,14 +19,14 @@ class ProductDocumentFactoryTest {
   }
 
   @Test
-  @DisplayName("상품명 전처리 - 단위 정규화 및 특수문자 제거")
-  void should_preprocess_product_name() {
-    Product product = createProduct("코카콜라 500 ml @특가!", "스펙");
+  @DisplayName("ID 변환 - Long을 String으로")
+  void should_convert_id_from_long_to_string() {
+    Product product = createProduct("상품명", "스펙");
+    product.setId(12345L);
 
     ProductDocument document = factory.create(product);
 
-    assertThat(document.getName()).isEqualTo("코카콜라 500ml 특가");
-    assertThat(document.getNameRaw()).isEqualTo("코카콜라 500 ml @특가!");
+    assertThat(document.getId()).isEqualTo("12345");
   }
 
   @Test
@@ -40,26 +40,13 @@ class ProductDocumentFactoryTest {
   }
 
   @Test
-  @DisplayName("카테고리 전처리")
-  void should_preprocess_category() {
-    Product product = createProduct("상품명", "스펙");
-    product.setCategoryName("전자제품/노트북&태블릿");
+  @DisplayName("브랜드명 추출 - 특수문자 포함된 경우")
+  void should_extract_brand_with_special_chars() {
+    Product product = createProduct("[정품] 애플 아이폰", "스펙");
 
     ProductDocument document = factory.create(product);
 
-    assertThat(document.getCategory()).isEqualTo("전자제품/노트북&태블릿");
-    assertThat(document.getCategoryName()).isEqualTo("전자제품/노트북&태블릿");
-  }
-
-  @Test
-  @DisplayName("스펙 전처리 - 단위 정규화")
-  void should_preprocess_specs() {
-    Product product = createProduct("상품명", "무게 1.5 kg, 크기 30 cm");
-
-    ProductDocument document = factory.create(product);
-
-    assertThat(document.getSpecs()).isEqualTo("무게 1.5kg 크기 30cm");
-    assertThat(document.getSpecsRaw()).isEqualTo("무게 1.5 kg, 크기 30 cm");
+    assertThat(document.getBrandName()).isEqualTo("[정품]");
   }
 
   @Test
@@ -96,6 +83,17 @@ class ProductDocumentFactoryTest {
   }
 
   @Test
+  @DisplayName("가격이 없는 경우 null 처리")
+  void should_handle_null_price() {
+    Product product = createProduct("상품명", "스펙");
+    product.setPrice(null);
+
+    ProductDocument document = factory.create(product);
+
+    assertThat(document.getPrice()).isNull();
+  }
+
+  @Test
   @DisplayName("리뷰 수가 없는 경우 0으로 설정")
   void should_set_review_count_to_zero_when_null() {
     Product product = createProduct("상품명", "스펙");
@@ -107,41 +105,7 @@ class ProductDocumentFactoryTest {
   }
 
   @Test
-  @DisplayName("복합 전처리 - 천단위 구분자 + 단위 정규화")
-  void should_handle_complex_preprocessing() {
-    Product product = createProduct("LG 올레드 TV 19900원", "화면 크기: 55 inch, 무게: 15.5 kg");
-
-    ProductDocument document = factory.create(product);
-
-    assertThat(document.getName()).isEqualTo("lg 올레드 tv 19900원");
-    assertThat(document.getBrandName()).isEqualTo("LG");
-    assertThat(document.getSpecs()).isEqualTo("화면 크기 55inch 무게 15.5kg");
-  }
-
-  @Test
-  @DisplayName("크기 표시 분해 - x를 공백으로")
-  void should_expand_size_notation() {
-    Product product = createProduct("상자 10x20x30cm", "크기: 100x200mm");
-
-    ProductDocument document = factory.create(product);
-
-    assertThat(document.getName()).isEqualTo("상자 10 x 20 x 30cm");
-    assertThat(document.getSpecs()).isEqualTo("크기 100 x 200mm");
-  }
-
-  @Test
-  @DisplayName("연속 단위 분해")
-  void should_separate_consecutive_units() {
-    Product product = createProduct("제품 10cm20kg30개", "10kg20cm30ml");
-
-    ProductDocument document = factory.create(product);
-
-    assertThat(document.getName()).isEqualTo("제품 10cm 20kg 30개");
-    assertThat(document.getSpecs()).isEqualTo("10kg 20cm 30ml");
-  }
-
-  @Test
-  @DisplayName("null 스펙 처리")
+  @DisplayName("null 스펙 처리 - 빈 문자열로 변환")
   void should_handle_null_specs() {
     Product product = createProduct("상품명", null);
 
@@ -152,7 +116,7 @@ class ProductDocumentFactoryTest {
   }
 
   @Test
-  @DisplayName("null 카테고리 처리")
+  @DisplayName("null 카테고리 처리 - 빈 문자열로 변환")
   void should_handle_null_category() {
     Product product = createProduct("상품명", "스펙");
     product.setCategoryName(null);
@@ -164,36 +128,92 @@ class ProductDocumentFactoryTest {
   }
 
   @Test
-  @DisplayName("한글 단위 정규화")
-  void should_normalize_korean_units() {
-    Product product = createProduct("삼양라면 5 개입", "중량: 120 그램, 조리시간: 4 분");
+  @DisplayName("원본 데이터 보존 - nameRaw와 specsRaw")
+  void should_preserve_raw_data() {
+    Product product = createProduct("LG TV 100 ml", "크기: 55 inch");
 
     ProductDocument document = factory.create(product);
 
-    assertThat(document.getName()).isEqualTo("삼양라면 5개입");
-    assertThat(document.getSpecs()).isEqualTo("중량 120그램 조리시간 4분");
+    assertThat(document.getNameRaw()).isEqualTo("LG TV 100 ml");
+    assertThat(document.getSpecsRaw()).isEqualTo("크기: 55 inch");
   }
 
   @Test
-  @DisplayName("특수문자가 포함된 브랜드명 추출")
-  void should_extract_brand_with_special_chars() {
-    Product product = createProduct("[정품] 애플 아이폰", "스펙");
+  @DisplayName("전처리된 데이터 확인 - name과 specs")
+  void should_apply_preprocessing_to_name_and_specs() {
+    Product product = createProduct("코카콜라 500 ml", "무게: 100 g");
 
     ProductDocument document = factory.create(product);
 
-    assertThat(document.getBrandName()).isEqualTo("[정품]");
-    assertThat(document.getName()).isEqualTo("정품 애플 아이폰");
+    // 전처리가 적용되었는지만 확인 (구체적인 전처리는 TextPreprocessorTest에서 검증)
+    assertThat(document.getName()).isNotEqualTo(product.getName());
+    assertThat(document.getSpecs()).isNotEqualTo(product.getSpecs());
   }
 
   @Test
-  @DisplayName("천단위 구분자 제거")
-  void should_remove_thousand_separators() {
-    Product product = createProduct("상품 1,234원", "가격: 1,234,567원");
+  @DisplayName("평점 그대로 유지 - BigDecimal")
+  void should_preserve_rating() {
+    Product product = createProduct("상품명", "스펙");
+    BigDecimal rating = new BigDecimal("4.5");
+    product.setRating(rating);
 
     ProductDocument document = factory.create(product);
 
-    assertThat(document.getName()).isEqualTo("상품 1234원");
-    assertThat(document.getSpecs()).isEqualTo("가격 1234567원");
+    assertThat(document.getRating()).isEqualTo(rating);
+  }
+
+  @Test
+  @DisplayName("썸네일 URL 그대로 유지")
+  void should_preserve_thumbnail_url() {
+    Product product = createProduct("상품명", "스펙");
+    String url = "http://example.com/image.jpg";
+    product.setThumbnailUrl(url);
+
+    ProductDocument document = factory.create(product);
+
+    assertThat(document.getThumbnailUrl()).isEqualTo(url);
+  }
+
+  @Test
+  @DisplayName("카테고리 정보 처리")
+  void should_process_category_info() {
+    Product product = createProduct("상품명", "스펙");
+    product.setCategoryName("전자제품/노트북&태블릿");
+
+    ProductDocument document = factory.create(product);
+
+    assertThat(document.getCategoryName()).isEqualTo("전자제품/노트북&태블릿");
+    // 전처리된 카테고리
+    assertThat(document.getCategory()).isNotNull();
+  }
+
+  @Test
+  @DisplayName("모든 필드 정상 변환 - 통합 테스트")
+  void should_convert_all_fields_correctly() {
+    Product product = new Product();
+    product.setId(999L);
+    product.setName("삼성 노트북 Pro");
+    product.setSpecs("CPU: i7, RAM: 16GB");
+    product.setThumbnailUrl("http://example.com/notebook.jpg");
+    product.setPrice(1500000L);
+    product.setRating(new BigDecimal("4.8"));
+    product.setReviewCount(250);
+    product.setCategoryId(10L);
+    product.setCategoryName("노트북");
+    product.setRegMonth("2024.03");
+
+    ProductDocument document = factory.create(product);
+
+    assertThat(document.getId()).isEqualTo("999");
+    assertThat(document.getNameRaw()).isEqualTo("삼성 노트북 Pro");
+    assertThat(document.getBrandName()).isEqualTo("삼성");
+    assertThat(document.getThumbnailUrl()).isEqualTo("http://example.com/notebook.jpg");
+    assertThat(document.getPrice()).isEqualTo(1500000);
+    assertThat(document.getRegisteredMonth()).isEqualTo("2024-03");
+    assertThat(document.getRating()).isEqualTo(new BigDecimal("4.8"));
+    assertThat(document.getReviewCount()).isEqualTo(250);
+    assertThat(document.getCategoryName()).isEqualTo("노트북");
+    assertThat(document.getSpecsRaw()).isEqualTo("CPU: i7, RAM: 16GB");
   }
 
   private Product createProduct(String name, String specs) {

@@ -46,16 +46,28 @@ public class ProductIndexingService {
       Executors.newFixedThreadPool(MAX_CONCURRENT_BATCHES);
 
   public int indexAllProducts() throws IOException {
-    return indexProducts(null);
+    return indexAllProducts(null);
+  }
+
+  public int indexAllProducts(Integer maxDocuments) throws IOException {
+    return indexProducts(null, maxDocuments);
   }
 
   public int indexProductsToIndex(String targetIndex) throws IOException {
-    return indexProducts(targetIndex);
+    return indexProducts(targetIndex, null);
   }
 
-  private int indexProducts(String targetIndex) throws IOException {
+  public int indexProductsToIndex(String targetIndex, Integer maxDocuments) throws IOException {
+    return indexProducts(targetIndex, maxDocuments);
+  }
+
+  private int indexProducts(String targetIndex, Integer maxDocuments) throws IOException {
     String indexName = targetIndex != null ? targetIndex : ESFields.PRODUCTS_INDEX_PREFIX;
-    log.info("상품 색인 시작: {}", indexName);
+    if (maxDocuments != null && maxDocuments > 0) {
+      log.info("상품 색인 시작: {} (최대 {}개)", indexName, maxDocuments);
+    } else {
+      log.info("상품 색인 시작: {} (전체)", indexName);
+    }
 
     // 색인 시작 시 refresh_interval 비활성화
     disableRefresh(indexName);
@@ -68,23 +80,41 @@ public class ProductIndexingService {
     }
 
     long totalProducts = productRepository.count();
-    int totalBatches = (int) Math.ceil((double) totalProducts / BATCH_SIZE);
+    long effectiveTotal =
+        (maxDocuments != null && maxDocuments > 0)
+            ? Math.min(maxDocuments, totalProducts)
+            : totalProducts;
+    int totalBatches = (int) Math.ceil((double) effectiveTotal / BATCH_SIZE);
 
-    progressMonitor.start(totalProducts);
+    progressMonitor.start(effectiveTotal);
     setupProgressCallback();
 
     if (targetIndex == null) {
       clearExistingIndexes();
     }
 
-    log.info("총 {}개 상품을 {}개 배치로 처리", totalProducts, totalBatches);
+    if (maxDocuments != null && maxDocuments > 0) {
+      log.info("총 {}개 상품 중 {}개를 {}개 배치로 처리", totalProducts, effectiveTotal, totalBatches);
+    } else {
+      log.info("총 {}개 상품을 {}개 배치로 처리", totalProducts, totalBatches);
+    }
 
     List<CompletableFuture<Integer>> futures = new ArrayList<>();
 
+    int processedCount = 0;
     for (int batchNumber = 0; batchNumber < totalBatches; batchNumber++) {
       final int currentBatch = batchNumber;
-      CompletableFuture<Integer> future = processBatchAsync(currentBatch, targetIndex);
+      final int remainingDocs =
+          (maxDocuments != null && maxDocuments > 0)
+              ? maxDocuments - processedCount
+              : Integer.MAX_VALUE;
+
+      if (remainingDocs <= 0) break;
+
+      final int batchLimit = Math.min(BATCH_SIZE, remainingDocs);
+      CompletableFuture<Integer> future = processBatchAsync(currentBatch, targetIndex, batchLimit);
       futures.add(future);
+      processedCount += batchLimit;
     }
 
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
@@ -102,20 +132,32 @@ public class ProductIndexingService {
   }
 
   private CompletableFuture<Integer> processBatchAsync(int batchNumber, String targetIndex) {
+    return processBatchAsync(batchNumber, targetIndex, BATCH_SIZE);
+  }
+
+  private CompletableFuture<Integer> processBatchAsync(
+      int batchNumber, String targetIndex, int batchLimit) {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
             batchSemaphore.acquire();
-            log.debug("배치 {} 처리 시작", batchNumber);
+            log.debug("배치 {} 처리 시작 (최대 {}개)", batchNumber, batchLimit);
 
             Page<Product> productPage =
-                productRepository.findAll(PageRequest.of(batchNumber, BATCH_SIZE));
+                productRepository.findAll(
+                    PageRequest.of(batchNumber, Math.min(batchLimit, BATCH_SIZE)));
 
             if (productPage.isEmpty()) {
               return 0;
             }
 
             List<Product> products = productPage.getContent();
+
+            // batchLimit이 더 작은 경우 제한
+            if (products.size() > batchLimit) {
+              products = products.subList(0, batchLimit);
+            }
+
             List<ProductDocument> documents = enrichAndConvertProducts(products);
 
             int indexedCount = indexDocuments(documents, targetIndex);

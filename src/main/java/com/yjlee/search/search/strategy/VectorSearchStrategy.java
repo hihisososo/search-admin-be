@@ -1,15 +1,20 @@
 package com.yjlee.search.search.strategy;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.json.JsonpMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.search.constants.SearchConstants;
 import com.yjlee.search.search.converter.ProductDtoConverter;
 import com.yjlee.search.search.dto.*;
+import com.yjlee.search.search.dto.VectorSearchResult;
 import com.yjlee.search.search.service.VectorSearchService;
 import com.yjlee.search.search.utils.AggregationUtils;
+import jakarta.json.stream.JsonGenerator;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -28,6 +33,7 @@ public class VectorSearchStrategy implements SearchStrategy {
   private final VectorSearchService vectorSearchService;
   private final ProductDtoConverter productDtoConverter;
   private final com.yjlee.search.search.service.builder.query.FilterQueryBuilder filterQueryBuilder;
+  private final ElasticsearchClient elasticsearchClient;
 
   @Override
   public SearchExecuteResponse search(
@@ -55,9 +61,11 @@ public class VectorSearchStrategy implements SearchStrategy {
             .filterQueries(filterQueries)
             .build();
 
-    SearchResponse<JsonNode> response =
-        vectorSearchService.multiFieldVectorSearch(indexName, request.getQuery(), config);
+    VectorSearchResult searchResult =
+        vectorSearchService.multiFieldVectorSearchWithRequest(
+            indexName, request.getQuery(), config);
 
+    SearchResponse<JsonNode> response = searchResult.getResponse();
     List<Hit<JsonNode>> allHits = response.hits().hits();
 
     // 정렬 처리
@@ -105,11 +113,17 @@ public class VectorSearchStrategy implements SearchStrategy {
     Map<String, List<AggregationBucketDto>> aggregations =
         AggregationUtils.calculateFromHits(sortedHits);
 
+    // SearchRequest를 JSON으로 변환
+    String queryDsl = null;
+    if (withExplain) {
+      queryDsl = convertSearchRequestToJson(searchResult.getRequest());
+    }
+
     return SearchExecuteResponse.builder()
         .hits(hits)
         .aggregations(aggregations)
         .meta(meta)
-        .queryDsl(withExplain ? "Vector search executed" : null)
+        .queryDsl(queryDsl)
         .build();
   }
 
@@ -167,5 +181,24 @@ public class VectorSearchStrategy implements SearchStrategy {
             });
 
     return sortOrder == SortOrder.Desc ? comparator.reversed() : comparator;
+  }
+
+  private String convertSearchRequestToJson(
+      co.elastic.clients.elasticsearch.core.SearchRequest searchRequest) {
+    if (searchRequest == null) {
+      return null;
+    }
+
+    try {
+      StringWriter writer = new StringWriter();
+      JsonpMapper jsonpMapper = elasticsearchClient._jsonpMapper();
+      JsonGenerator generator = jsonpMapper.jsonProvider().createGenerator(writer);
+      searchRequest.serialize(generator, jsonpMapper);
+      generator.close();
+      return writer.toString();
+    } catch (Exception e) {
+      log.warn("SearchRequest JSON 변환 실패: {}", e.getMessage());
+      return null;
+    }
   }
 }
