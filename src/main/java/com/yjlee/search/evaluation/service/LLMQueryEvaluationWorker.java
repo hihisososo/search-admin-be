@@ -156,7 +156,12 @@ public class LLMQueryEvaluationWorker {
           if (reason.isEmpty()) {
             reason = "자동 평가";
           }
-          double confidence = 1.0;
+
+          // LLM 응답에서 confidence 값 파싱 (기본값: 1.0)
+          double confidence = evaluation.path("confidence").asDouble(1.0);
+          // 범위 검증: 0.0 ~ 1.0
+          if (confidence < 0.0) confidence = 0.0;
+          if (confidence > 1.0) confidence = 1.0;
 
           String evaluationReason =
               String.format("%s (score: %d, confidence: %.2f)", reason, score, confidence);
