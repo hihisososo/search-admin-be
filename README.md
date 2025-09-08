@@ -50,6 +50,7 @@
 ```mermaid
 flowchart LR
   client["사용자 브라우저"]
+  github["GitHub Actions\n(CI/CD)"]
 
   subgraph FE_EC2["FE EC2"]
     fe["Nginx + React(빌드)"]
@@ -72,6 +73,7 @@ flowchart LR
   ssm[("AWS SSM Parameter Store")]
   openai[("OpenAI API")]
 
+  github -->|Docker Deploy| be
   client -->|HTTPS| fe
   fe -->|HTTPS| be
 
