@@ -60,8 +60,13 @@ public class ElasticsearchIndexService {
     String autocompleteIndexName = generateAutocompleteIndexName(version);
     String versionedSynonymSet = "synonyms-nori-" + version;
 
+    // 기존 인덱스 삭제 - 임시로 주석처리 (인덱스 보존)
+    // if (indexExists(productIndexName)) {
+    //   deleteIndex(productIndexName);
+    // }
     if (indexExists(productIndexName)) {
-      deleteIndex(productIndexName);
+      log.warn("기존 인덱스 {} 가 이미 존재하지만 삭제하지 않음 (삭제 로직 비활성화)", productIndexName);
+      throw new IOException("인덱스가 이미 존재합니다: " + productIndexName);
     }
 
     elasticsearchSynonymService.createOrUpdateSynonymSet(
@@ -92,8 +97,13 @@ public class ElasticsearchIndexService {
         environmentType.getDescription(),
         versionedSynonymSet);
 
+    // 기존 자동완성 인덱스 삭제 - 임시로 주석처리 (인덱스 보존)
+    // if (indexExists(autocompleteIndexName)) {
+    //   deleteIndex(autocompleteIndexName);
+    // }
     if (indexExists(autocompleteIndexName)) {
-      deleteIndex(autocompleteIndexName);
+      log.warn("기존 자동완성 인덱스 {} 가 이미 존재하지만 삭제하지 않음 (삭제 로직 비활성화)", autocompleteIndexName);
+      throw new IOException("자동완성 인덱스가 이미 존재합니다: " + autocompleteIndexName);
     }
 
     String autocompleteMappingJson = createAutocompleteIndexMapping();

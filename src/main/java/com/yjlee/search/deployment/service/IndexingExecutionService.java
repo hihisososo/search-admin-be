@@ -104,19 +104,25 @@ public class IndexingExecutionService {
     String oldIndexName = devEnvironment.getIndexName();
     String oldAutocompleteIndexName = devEnvironment.getAutocompleteIndexName();
 
-    // 상품 인덱스 삭제
-    if (oldIndexName != null && !isIndexUsedInProduction(oldIndexName)) {
-      deleteOldDevIndexSafely(oldIndexName);
-    } else if (oldIndexName != null) {
-      log.info("기존 개발 인덱스가 운영에서 사용 중이므로 삭제하지 않음: {}", oldIndexName);
+    // 상품 인덱스 삭제 - 임시로 주석처리 (인덱스 보존)
+    // if (oldIndexName != null && !isIndexUsedInProduction(oldIndexName)) {
+    //   deleteOldDevIndexSafely(oldIndexName);
+    // } else if (oldIndexName != null) {
+    //   log.info("기존 개발 인덱스가 운영에서 사용 중이므로 삭제하지 않음: {}", oldIndexName);
+    // }
+    if (oldIndexName != null) {
+      log.info("기존 개발 인덱스 보존 (삭제 로직 비활성화): {}", oldIndexName);
     }
 
-    // 자동완성 인덱스 삭제
-    if (oldAutocompleteIndexName != null
-        && !isAutocompleteIndexUsedInProduction(oldAutocompleteIndexName)) {
-      deleteOldDevAutocompleteIndexSafely(oldAutocompleteIndexName);
-    } else if (oldAutocompleteIndexName != null) {
-      log.info("기존 개발 자동완성 인덱스가 운영에서 사용 중이므로 삭제하지 않음: {}", oldAutocompleteIndexName);
+    // 자동완성 인덱스 삭제 - 임시로 주석처리 (인덱스 보존)
+    // if (oldAutocompleteIndexName != null
+    //     && !isAutocompleteIndexUsedInProduction(oldAutocompleteIndexName)) {
+    //   deleteOldDevAutocompleteIndexSafely(oldAutocompleteIndexName);
+    // } else if (oldAutocompleteIndexName != null) {
+    //   log.info("기존 개발 자동완성 인덱스가 운영에서 사용 중이므로 삭제하지 않음: {}", oldAutocompleteIndexName);
+    // }
+    if (oldAutocompleteIndexName != null) {
+      log.info("기존 개발 자동완성 인덱스 보존 (삭제 로직 비활성화): {}", oldAutocompleteIndexName);
     }
 
     // 환경 업데이트
