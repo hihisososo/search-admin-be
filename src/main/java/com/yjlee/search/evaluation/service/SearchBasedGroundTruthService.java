@@ -19,14 +19,19 @@ import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.VectorSearchService;
 import com.yjlee.search.search.service.builder.QueryBuilder;
+import jakarta.annotation.PreDestroy;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -43,38 +48,27 @@ public class SearchBasedGroundTruthService {
 
   private static final int FIXED_PER_STRATEGY = 301;
   private static final int FIXED_MAX_TOTAL_PER_QUERY = 300;
+  private static final int MAX_PARALLEL_QUERIES = 5;
 
-  @Transactional
+  // 제한된 스레드 풀로 동시 실행 제어
+  private final ExecutorService queryExecutor = Executors.newFixedThreadPool(MAX_PARALLEL_QUERIES);
+
   public void generateCandidatesFromSearch() {
     generateCandidatesFromSearch(null);
   }
 
-  @Transactional
   public void generateCandidatesFromSearch(TaskProgressListener progressListener) {
     List<EvaluationQuery> queries = evaluationQueryRepository.findAll();
     processQueries(queries, progressListener, true);
   }
 
-  @Transactional
   public void generateCandidatesForSelectedQueries(List<Long> queryIds) {
     generateCandidatesForSelectedQueries(queryIds, null);
   }
 
-  @Transactional
   public void generateCandidatesForSelectedQueries(
       List<Long> queryIds, TaskProgressListener progressListener) {
     List<EvaluationQuery> queries = evaluationQueryRepository.findAllById(queryIds);
-
-    // 선택된 쿼리들의 기존 매핑만 삭제
-    queries.forEach(
-        query -> {
-          List<QueryProductMapping> existingMappings =
-              queryProductMappingRepository.findByEvaluationQuery(query);
-          if (!existingMappings.isEmpty()) {
-            queryProductMappingRepository.deleteAll(existingMappings);
-            log.debug("쿼리 '{}'의 기존 매핑 {}개 삭제", query.getQuery(), existingMappings.size());
-          }
-        });
 
     processQueries(queries, progressListener, false);
   }
@@ -97,176 +91,164 @@ public class SearchBasedGroundTruthService {
     }
     log.info("벡터 검색 캐시 워밍 완료: {}개", warmupCount);
 
-    // Thread-safe collections
-    List<QueryProductMapping> mappingsToAdd = new CopyOnWriteArrayList<>();
-    List<QueryProductMapping> mappingsToUpdate = new CopyOnWriteArrayList<>();
-    List<QueryProductMapping> mappingsToDelete = new CopyOnWriteArrayList<>();
-    List<EvaluationQuery> updatedQueries = new CopyOnWriteArrayList<>();
-
     // 진행률 추적을 위한 AtomicInteger
     AtomicInteger completedCount = new AtomicInteger(0);
     int totalQueries = queries.size();
 
-    // 병렬 처리
-    queries.parallelStream()
-        .forEach(
-            query -> {
-              try {
-                // 기존 매핑 조회
-                List<QueryProductMapping> existingMappings =
-                    queryProductMappingRepository.findByEvaluationQuery(query);
-                Map<String, QueryProductMapping> existingMap =
-                    existingMappings.stream()
-                        .collect(
-                            Collectors.toMap(
-                                QueryProductMapping::getProductId,
-                                Function.identity(),
-                                (v1, v2) -> v1));
+    // 제한된 스레드 풀로 병렬 처리 - 각 쿼리를 독립적인 트랜잭션에서 처리
+    List<CompletableFuture<Void>> futures =
+        queries.stream()
+            .map(
+                query ->
+                    CompletableFuture.runAsync(
+                        () -> {
+                          try {
+                            // 독립적인 트랜잭션에서 각 쿼리 처리
+                            processSingleQuery(query.getId());
 
-                // 새로운 후보군 생성
-                Map<String, String> candidatesWithSource =
-                    collectCandidatesWithSourceTracking(query.getQuery(), null);
+                            // 진행률 업데이트
+                            int completed = completedCount.incrementAndGet();
+                            if (progressListener != null) {
+                              try {
+                                progressListener.onProgress(completed, totalQueries);
+                              } catch (Exception ignored) {
+                              }
+                            }
 
-                // 300개 제한
-                Map<String, String> limitedCandidates =
-                    candidatesWithSource.entrySet().stream()
-                        .limit(FIXED_MAX_TOTAL_PER_QUERY)
-                        .collect(
-                            LinkedHashMap::new,
-                            (m, e) -> m.put(e.getKey(), e.getValue()),
-                            LinkedHashMap::putAll);
+                            log.debug("쿼리 '{}' 처리 완료", query.getQuery());
 
-                // EvaluationQuery 업데이트
-                EvaluationQuery updatedQuery =
-                    EvaluationQuery.builder()
-                        .id(query.getId())
-                        .query(query.getQuery())
-                        .queryProductMappings(query.getQueryProductMappings())
-                        .createdAt(query.getCreatedAt())
-                        .updatedAt(query.getUpdatedAt())
-                        .build();
-                updatedQueries.add(updatedQuery);
+                          } catch (Exception e) {
+                            log.warn("쿼리 ID {} 처리 실패", query.getId(), e);
+                            // 실패해도 진행률은 업데이트
+                            int completed = completedCount.incrementAndGet();
+                            if (progressListener != null) {
+                              try {
+                                progressListener.onProgress(completed, totalQueries);
+                              } catch (Exception ignored) {
+                              }
+                            }
+                          }
+                        },
+                        queryExecutor))
+            .collect(Collectors.toList());
 
-                // 차분 처리: 추가, 업데이트, 삭제 항목 분류
-                Set<String> toAdd = new HashSet<>(limitedCandidates.keySet());
-                toAdd.removeAll(existingMap.keySet());
+    // 모든 작업 완료 대기
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-                Set<String> toRemove = new HashSet<>(existingMap.keySet());
-                toRemove.removeAll(limitedCandidates.keySet());
+    log.info("✅ {} 쿼리의 정답 후보군 생성 완료", processType);
+  }
 
-                Set<String> toUpdate = new HashSet<>(existingMap.keySet());
-                toUpdate.retainAll(limitedCandidates.keySet());
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void processSingleQuery(Long queryId) {
+    EvaluationQuery query =
+        evaluationQueryRepository
+            .findById(queryId)
+            .orElseThrow(() -> new RuntimeException("쿼리를 찾을 수 없습니다: " + queryId));
 
-                // 상품 정보 일괄 조회 (추가할 항목만)
-                Map<String, ProductDocument> productMap = fetchProductsBulk(toAdd);
+    // 기존 매핑 조회
+    List<QueryProductMapping> existingMappings =
+        queryProductMappingRepository.findByEvaluationQuery(query);
+    Map<String, QueryProductMapping> existingMap =
+        existingMappings.stream()
+            .collect(
+                Collectors.toMap(
+                    QueryProductMapping::getProductId, Function.identity(), (v1, v2) -> v1));
 
-                // 추가할 매핑 생성
-                toAdd.forEach(
-                    productId -> {
-                      ProductDocument product = productMap.get(productId);
-                      String searchSource = limitedCandidates.get(productId);
-                      QueryProductMapping mapping =
-                          QueryProductMapping.builder()
-                              .evaluationQuery(updatedQuery)
-                              .productId(productId)
-                              .productName(product != null ? product.getNameRaw() : null)
-                              .productSpecs(product != null ? product.getSpecsRaw() : null)
-                              .productCategory(product != null ? product.getCategoryName() : null)
-                              .searchSource(searchSource)
-                              .evaluationSource(EVALUATION_SOURCE_SEARCH)
-                              .build();
-                      mappingsToAdd.add(mapping);
-                    });
+    // 새로운 후보군 생성
+    Map<String, String> candidatesWithSource =
+        collectCandidatesWithSourceTracking(query.getQuery(), null);
 
-                // 업데이트할 매핑 처리 (searchSource 변경된 경우만)
-                toUpdate.forEach(
-                    productId -> {
-                      QueryProductMapping existing = existingMap.get(productId);
-                      String newSearchSource = limitedCandidates.get(productId);
+    // 300개 제한
+    Map<String, String> limitedCandidates =
+        candidatesWithSource.entrySet().stream()
+            .limit(FIXED_MAX_TOTAL_PER_QUERY)
+            .collect(
+                LinkedHashMap::new,
+                (m, e) -> m.put(e.getKey(), e.getValue()),
+                LinkedHashMap::putAll);
 
-                      // searchSource가 변경되고, 아직 평가되지 않은 경우만 업데이트
-                      if (!newSearchSource.equals(existing.getSearchSource())
-                          && existing.getRelevanceScore() == null) {
-                        QueryProductMapping updated =
-                            QueryProductMapping.builder()
-                                .id(existing.getId())
-                                .evaluationQuery(existing.getEvaluationQuery())
-                                .productId(existing.getProductId())
-                                .productName(existing.getProductName())
-                                .productSpecs(existing.getProductSpecs())
-                                .productCategory(existing.getProductCategory())
-                                .searchSource(newSearchSource)
-                                .evaluationSource(EVALUATION_SOURCE_SEARCH)
-                                .build();
-                        mappingsToUpdate.add(updated);
-                      }
-                    });
+    // 차분 처리: 추가, 업데이트, 삭제 항목 분류
+    Set<String> toAdd = new HashSet<>(limitedCandidates.keySet());
+    toAdd.removeAll(existingMap.keySet());
 
-                // 삭제할 매핑 처리 (평가되지 않은 경우만)
-                toRemove.forEach(
-                    productId -> {
-                      QueryProductMapping existing = existingMap.get(productId);
-                      // 평가되지 않은 항목만 삭제
-                      if (existing.getRelevanceScore() == null) {
-                        mappingsToDelete.add(existing);
-                      }
-                    });
+    Set<String> toRemove = new HashSet<>(existingMap.keySet());
+    toRemove.removeAll(limitedCandidates.keySet());
 
-                log.debug(
-                    "쿼리 '{}' 처리 완료: 추가 {}개, 업데이트 {}개, 삭제 {}개",
-                    query.getQuery(),
-                    toAdd.size(),
-                    mappingsToUpdate.size(),
-                    toRemove.size());
+    Set<String> toUpdate = new HashSet<>(existingMap.keySet());
+    toUpdate.retainAll(limitedCandidates.keySet());
 
-                // 진행률 업데이트 - AtomicInteger 사용
-                int completed = completedCount.incrementAndGet();
-                if (progressListener != null) {
-                  try {
-                    progressListener.onProgress(completed, totalQueries);
-                  } catch (Exception ignored) {
-                  }
-                }
+    // 상품 정보 일괄 조회 (추가할 항목만)
+    Map<String, ProductDocument> productMap = fetchProductsBulk(toAdd);
 
-              } catch (Exception e) {
-                log.warn("쿼리 '{}' 처리 실패", query.getQuery(), e);
-                // 실패해도 진행률은 업데이트
-                int completed = completedCount.incrementAndGet();
-                if (progressListener != null) {
-                  try {
-                    progressListener.onProgress(completed, totalQueries);
-                  } catch (Exception ignored) {
-                  }
-                }
-              }
-            });
-
-    // 일괄 처리
-    evaluationQueryRepository.saveAll(updatedQueries);
-
-    // 삭제
+    // 삭제할 매핑 (평가되지 않은 경우만)
+    List<QueryProductMapping> mappingsToDelete = new ArrayList<>();
+    toRemove.forEach(
+        productId -> {
+          QueryProductMapping existing = existingMap.get(productId);
+          if (existing.getRelevanceScore() == null) {
+            mappingsToDelete.add(existing);
+          }
+        });
     if (!mappingsToDelete.isEmpty()) {
       queryProductMappingRepository.deleteAll(mappingsToDelete);
-      log.info("🗑️ 후보군 삭제: {}개", mappingsToDelete.size());
+      log.debug("쿼리 '{}'의 매핑 {}개 삭제", query.getQuery(), mappingsToDelete.size());
     }
 
-    // 업데이트
+    // 업데이트할 매핑 (searchSource 변경된 경우만)
+    List<QueryProductMapping> mappingsToUpdate = new ArrayList<>();
+    toUpdate.forEach(
+        productId -> {
+          QueryProductMapping existing = existingMap.get(productId);
+          String newSearchSource = limitedCandidates.get(productId);
+
+          if (!newSearchSource.equals(existing.getSearchSource())
+              && existing.getRelevanceScore() == null) {
+            QueryProductMapping updated =
+                QueryProductMapping.builder()
+                    .id(existing.getId())
+                    .evaluationQuery(existing.getEvaluationQuery())
+                    .productId(existing.getProductId())
+                    .productName(existing.getProductName())
+                    .productSpecs(existing.getProductSpecs())
+                    .productCategory(existing.getProductCategory())
+                    .searchSource(newSearchSource)
+                    .evaluationSource(EVALUATION_SOURCE_SEARCH)
+                    .build();
+            mappingsToUpdate.add(updated);
+          }
+        });
     if (!mappingsToUpdate.isEmpty()) {
-      queryProductMappingRepository.saveAll(new ArrayList<>(mappingsToUpdate));
-      log.info("✅ 후보군 업데이트: {}개", mappingsToUpdate.size());
+      queryProductMappingRepository.saveAll(mappingsToUpdate);
+      log.debug("쿼리 '{}'의 매핑 {}개 업데이트", query.getQuery(), mappingsToUpdate.size());
     }
 
-    // 추가
+    // 추가할 매핑 생성
+    List<QueryProductMapping> mappingsToAdd = new ArrayList<>();
+    toAdd.forEach(
+        productId -> {
+          ProductDocument product = productMap.get(productId);
+          String searchSource = limitedCandidates.get(productId);
+          QueryProductMapping mapping =
+              QueryProductMapping.builder()
+                  .evaluationQuery(query)
+                  .productId(productId)
+                  .productName(product != null ? product.getNameRaw() : null)
+                  .productSpecs(product != null ? product.getSpecsRaw() : null)
+                  .productCategory(product != null ? product.getCategoryName() : null)
+                  .searchSource(searchSource)
+                  .evaluationSource(EVALUATION_SOURCE_SEARCH)
+                  .build();
+          mappingsToAdd.add(mapping);
+        });
     if (!mappingsToAdd.isEmpty()) {
-      queryProductMappingRepository.saveAll(new ArrayList<>(mappingsToAdd));
-      log.info("➕ 후보군 추가: {}개", mappingsToAdd.size());
+      queryProductMappingRepository.saveAll(mappingsToAdd);
+      log.debug("쿼리 '{}'에 대한 새 매핑 {}개 저장", query.getQuery(), mappingsToAdd.size());
     }
 
-    log.info(
-        "{} 쿼리 정답 후보군 처리 완료: {}개 쿼리, 추가 {}개, 업데이트 {}개, 삭제 {}개",
-        processType,
-        queries.size(),
-        mappingsToAdd.size(),
+    log.debug(
+        "쿼리 '{}' 처리 완료: 추가 {}개, 업데이트 {}개, 삭제 {}개",
+        query.getQuery(),
+        toAdd.size(),
         mappingsToUpdate.size(),
         mappingsToDelete.size());
   }
@@ -442,5 +424,19 @@ public class SearchBasedGroundTruthService {
     }
 
     return productMap;
+  }
+
+  @PreDestroy
+  public void shutdown() {
+    log.info("SearchBasedGroundTruthService 스레드 풀 종료 중...");
+    queryExecutor.shutdown();
+    try {
+      if (!queryExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
+        queryExecutor.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      queryExecutor.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
   }
 }

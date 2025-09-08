@@ -7,10 +7,10 @@ spring:
     password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 30
+      maximum-pool-size: 50
       minimum-idle: 10
       idle-timeout: 300000
-      connection-timeout: 20000
+      connection-timeout: 30000
       max-lifetime: 600000
       pool-name: SearchAdminPool
       leak-detection-threshold: 60000
@@ -40,7 +40,7 @@ app:
     git-branch: ${GIT_BRANCH:main}
   log-generator:
     enabled: ${LOG_GENERATOR_ENABLED:false}
-    events-per-second: ${LOG_GENERATOR_EPS:10}
+    parallel-llm-count: ${LOG_GENERATOR_PARALLEL_LLM:3}
 
 openai:
   api:
@@ -77,13 +77,6 @@ generation:
   query:
     batch-size: 20
 
-thread-pool:
-  central:
-    core-size: 40
-    max-size: 50
-    queue-capacity: 1000
-    keep-alive-seconds: 60
-
 embedding:
   provider: ${EMBEDDING_PROVIDER:upstage}  # openai or upstage
   cache:
@@ -92,3 +85,6 @@ embedding:
       size: 1000
     db:
       enabled: true
+
+indexing:
+  max-documents: ${INDEXING_MAX_DOCUMENTS:100000}

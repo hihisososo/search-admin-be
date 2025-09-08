@@ -19,41 +19,69 @@ import org.springframework.stereotype.Service;
 public class TypoCorrectionService {
 
   private final TypoCorrectionDictionaryService dictionaryService;
-  private final Map<String, String> cache = new ConcurrentHashMap<>();
-  private volatile DictionaryEnvironmentType activeEnvironmentType =
-      DictionaryEnvironmentType.CURRENT;
-  private final ReadWriteLock cacheLock = new ReentrantReadWriteLock();
-  private volatile boolean cacheInitialized = false;
+
+  // 환경별 캐시 맵
+  private final Map<DictionaryEnvironmentType, Map<String, String>> environmentCaches =
+      new ConcurrentHashMap<>();
+  private final Map<DictionaryEnvironmentType, ReadWriteLock> cacheLocks =
+      new ConcurrentHashMap<>();
+  private final Map<DictionaryEnvironmentType, Boolean> cacheInitialized =
+      new ConcurrentHashMap<>();
 
   @PostConstruct
   public void initCache() {
     log.info("Initializing typo correction cache...");
-    loadCacheAsync();
+    // 모든 환경의 캐시 초기화
+    for (DictionaryEnvironmentType envType : DictionaryEnvironmentType.values()) {
+      environmentCaches.put(envType, new ConcurrentHashMap<>());
+      cacheLocks.put(envType, new ReentrantReadWriteLock());
+      cacheInitialized.put(envType, false);
+    }
+    // CURRENT 환경만 초기 로드
+    loadCacheAsync(DictionaryEnvironmentType.CURRENT);
   }
 
   @Async("generalTaskExecutor")
-  public void loadCacheAsync() {
-    cacheLock.writeLock().lock();
+  public void loadCacheAsync(DictionaryEnvironmentType environmentType) {
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    lock.writeLock().lock();
     try {
-      loadCache(activeEnvironmentType);
-      cacheInitialized = true;
-      log.info("Typo correction cache initialized with {} entries", cache.size());
+      loadCache(environmentType);
+      cacheInitialized.put(environmentType, true);
+      Map<String, String> cache = environmentCaches.get(environmentType);
+      log.info(
+          "Typo correction cache initialized for {} with {} entries",
+          environmentType,
+          cache.size());
     } finally {
-      cacheLock.writeLock().unlock();
+      lock.writeLock().unlock();
     }
   }
 
+  // 기본 환경(CURRENT)로 오타 교정
   public String applyTypoCorrection(String query) {
+    return applyTypoCorrection(query, DictionaryEnvironmentType.CURRENT);
+  }
+
+  // 환경별 오타 교정
+  public String applyTypoCorrection(String query, DictionaryEnvironmentType environmentType) {
     if (query == null || query.trim().isEmpty()) {
       return query;
     }
 
-    if (!cacheInitialized) {
-      log.debug("Cache not initialized, returning original query: {}", query);
-      return query;
+    // 캐시가 초기화되지 않았으면 동기적으로 로드
+    if (!Boolean.TRUE.equals(cacheInitialized.get(environmentType))) {
+      log.debug(
+          "Cache not initialized for {}, loading synchronously for query: {}",
+          environmentType,
+          query);
+      loadCacheSync(environmentType);
     }
 
-    cacheLock.readLock().lock();
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    Map<String, String> cache = environmentCaches.get(environmentType);
+
+    lock.readLock().lock();
     try {
       String[] words = query.split("\\s+");
       StringBuilder result = new StringBuilder();
@@ -68,7 +96,27 @@ public class TypoCorrectionService {
 
       return result.toString();
     } finally {
-      cacheLock.readLock().unlock();
+      lock.readLock().unlock();
+    }
+  }
+
+  // 동기적 캐시 로드
+  private void loadCacheSync(DictionaryEnvironmentType environmentType) {
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    lock.writeLock().lock();
+    try {
+      // 다시 확인 (double-check locking)
+      if (!Boolean.TRUE.equals(cacheInitialized.get(environmentType))) {
+        loadCache(environmentType);
+        cacheInitialized.put(environmentType, true);
+        Map<String, String> cache = environmentCaches.get(environmentType);
+        log.info(
+            "Typo correction cache loaded synchronously for {} with {} entries",
+            environmentType,
+            cache.size());
+      }
+    } finally {
+      lock.writeLock().unlock();
     }
   }
 
@@ -83,6 +131,9 @@ public class TypoCorrectionService {
               "asc",
               environmentType);
 
+      Map<String, String> cache = environmentCaches.get(environmentType);
+      cache.clear();
+
       response
           .getContent()
           .forEach(
@@ -95,33 +146,46 @@ public class TypoCorrectionService {
               });
 
     } catch (Exception e) {
-      log.error("Failed to load typo correction dictionary", e);
+      log.error(
+          "Failed to load typo correction dictionary for environment: {}", environmentType, e);
     }
   }
 
   public void updateCacheRealtime(DictionaryEnvironmentType environmentType) {
-    cacheLock.writeLock().lock();
+    if (environmentType == null) {
+      environmentType = DictionaryEnvironmentType.CURRENT;
+    }
+
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    lock.writeLock().lock();
     try {
+      Map<String, String> cache = environmentCaches.get(environmentType);
       cache.clear();
-      if (environmentType != null) {
-        activeEnvironmentType = environmentType;
-      } else {
-        activeEnvironmentType = DictionaryEnvironmentType.CURRENT;
-      }
-      loadCache(activeEnvironmentType);
+      loadCache(environmentType);
+      cacheInitialized.put(environmentType, true);
     } finally {
-      cacheLock.writeLock().unlock();
+      lock.writeLock().unlock();
     }
   }
 
   public String getCacheStatus() {
-    cacheLock.readLock().lock();
+    StringBuilder status = new StringBuilder();
+    for (DictionaryEnvironmentType envType : DictionaryEnvironmentType.values()) {
+      status.append(getCacheStatus(envType)).append("\n");
+    }
+    return status.toString();
+  }
+
+  public String getCacheStatus(DictionaryEnvironmentType environmentType) {
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    lock.readLock().lock();
     try {
+      Map<String, String> cache = environmentCaches.get(environmentType);
       return String.format(
           "Env: %s, Cache size: %d, Initialized: %b",
-          activeEnvironmentType.name(), cache.size(), cacheInitialized);
+          environmentType.name(), cache.size(), cacheInitialized.get(environmentType));
     } finally {
-      cacheLock.readLock().unlock();
+      lock.readLock().unlock();
     }
   }
 }

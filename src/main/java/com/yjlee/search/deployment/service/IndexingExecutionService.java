@@ -9,6 +9,8 @@ import com.yjlee.search.dictionary.category.service.CategoryRankingDictionarySer
 import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
+import com.yjlee.search.dictionary.unit.repository.UnitDictionaryRepository;
+import com.yjlee.search.dictionary.unit.service.UnitDictionaryService;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import com.yjlee.search.index.service.ProductIndexingService;
@@ -19,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,17 +31,22 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class IndexingExecutionService {
 
+  @Value("${indexing.max-documents:}")
+  private Integer maxDocumentsConfig;
+
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final DeploymentHistoryRepository deploymentHistoryRepository;
   private final ProductIndexingService productIndexingService;
   private final SynonymDictionaryService synonymDictionaryService;
   private final UserDictionaryService userDictionaryService;
   private final StopwordDictionaryService stopwordDictionaryService;
+  private final UnitDictionaryService unitDictionaryService;
   private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
   private final CategoryRankingDictionaryService categoryRankingDictionaryService;
   private final TypoCorrectionService typoCorrectionService;
   private final CategoryRankingService categoryRankingService;
   private final UserDictionaryRepository userDictionaryRepository;
+  private final UnitDictionaryRepository unitDictionaryRepository;
   private final EC2DeploymentService ec2DeploymentService;
   private final ElasticsearchIndexService elasticsearchIndexService;
   private final ElasticsearchSynonymService elasticsearchSynonymService;
@@ -56,6 +64,9 @@ public class IndexingExecutionService {
 
       // 3. 불용어사전 EC2 업로드
       uploadStopwordDictionaryToEC2(version);
+
+      // 4. 단위사전 EC2 업로드
+      uploadUnitDictionaryToEC2(version);
 
       // 5. 새 인덱스 생성 및 데이터 색인
       String newIndexName =
@@ -162,6 +173,7 @@ public class IndexingExecutionService {
       synonymDictionaryService.deployToDev();
       userDictionaryService.deployToDev();
       stopwordDictionaryService.deployToDev();
+      unitDictionaryService.deployToDev();
       typoCorrectionDictionaryService.deployToDev();
       categoryRankingDictionaryService.deployToDev();
 
@@ -212,6 +224,24 @@ public class IndexingExecutionService {
     }
   }
 
+  private void uploadUnitDictionaryToEC2(String version) {
+    try {
+      String unitDictContent = getCurrentUnitDictionaryContent();
+
+      EC2DeploymentService.EC2DeploymentResult result =
+          ec2DeploymentService.deployUnitDictionary(unitDictContent, version);
+
+      if (!result.isSuccess()) {
+        throw new RuntimeException("단위사전 EC2 업로드 실패: " + result.getMessage());
+      }
+
+      log.info("단위사전 EC2 업로드 완료 - 버전: {}, 내용 길이: {}", version, unitDictContent.length());
+    } catch (Exception e) {
+      log.error("단위사전 EC2 업로드 실패 - 버전: {}", version, e);
+      throw new RuntimeException("단위사전 EC2 업로드 실패", e);
+    }
+  }
+
   private String getCurrentUserDictionaryContent() {
     try {
       return userDictionaryRepository.findAll().stream()
@@ -249,8 +279,26 @@ public class IndexingExecutionService {
     }
   }
 
+  private String getCurrentUnitDictionaryContent() {
+    try {
+      return unitDictionaryRepository.findAll().stream()
+          .map(dict -> dict.getKeyword())
+          .reduce("", (acc, keyword) -> acc + keyword + "\n")
+          .trim();
+    } catch (Exception e) {
+      log.error("단위사전 내용 조회 실패", e);
+      return "";
+    }
+  }
+
   private int indexProductsToNewIndex(String indexName) throws IOException {
-    return productIndexingService.indexProductsToIndex(indexName);
+    if (maxDocumentsConfig != null && maxDocumentsConfig > 0) {
+      log.info("새 인덱스에 상품 색인 시작 - 인덱스: {}, 최대 문서 수: {}", indexName, maxDocumentsConfig);
+      return productIndexingService.indexProductsToIndex(indexName, maxDocumentsConfig);
+    } else {
+      log.info("새 인덱스에 상품 색인 시작 - 인덱스: {} (전체)", indexName);
+      return productIndexingService.indexProductsToIndex(indexName);
+    }
   }
 
   private void deleteOldDevIndexSafely(String indexName) {

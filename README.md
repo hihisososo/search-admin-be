@@ -23,14 +23,18 @@
     </tr>
   </table>
   <table>
-      <td align="center" width="33%">
-        <sub><b>카테고리랭킹 적용</b></sub><br/><br/>
-        <img src="docs/images/synonym.gif" width="100%" />
-      </td>
     <tr>
       <td align="center" width="33%">
         <sub><b>검색 모니터링</b></sub><br/><br/>
         <img src="docs/images/monitoring.gif" width="100%" />
+      </td>
+      <td align="center" width="33%">
+        <sub><b>색인 및 배포</b></sub><br/><br/>
+        <img src="docs/images/index_and_deploy.gif" width="100%" />
+      </td>
+      <td align="center" width="33%">
+        <sub><b>검색 평가</b></sub><br/><br/>
+        <img src="docs/images/search_evaluation.gif" width="100%" />
       </td>
     </tr>
   </table>

@@ -104,11 +104,21 @@ public class EmbeddingEnricher {
       }
 
       if (!toSave.isEmpty()) {
-        try {
-          embeddingRepository.saveAll(toSave);
-          log.info("{}개 텍스트 임베딩 저장 완료", toSave.size());
-        } catch (Exception e) {
-          log.error("임베딩 저장 실패", e);
+        int savedCount = 0;
+        for (TextEmbedding embedding : toSave) {
+          try {
+            // 먼저 존재하는지 확인
+            if (!embeddingRepository.existsByHash(embedding.getHash())) {
+              embeddingRepository.save(embedding);
+              savedCount++;
+            }
+          } catch (Exception e) {
+            // 중복 키 에러 등은 무시 (이미 다른 스레드가 저장했을 수 있음)
+            log.debug("임베딩 저장 스킵 (이미 존재): {}", embedding.getHash());
+          }
+        }
+        if (savedCount > 0) {
+          log.info("{}개 텍스트 임베딩 저장 완료", savedCount);
         }
       }
     }

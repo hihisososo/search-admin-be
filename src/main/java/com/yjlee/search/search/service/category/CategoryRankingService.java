@@ -21,41 +21,70 @@ public class CategoryRankingService {
 
   private final CategoryRankingDictionaryService dictionaryService;
   private final ElasticsearchAnalyzeService analyzeService;
-  private final Map<String, List<CategoryWeight>> cache = new ConcurrentHashMap<>();
-  private volatile DictionaryEnvironmentType activeEnvironmentType =
-      DictionaryEnvironmentType.CURRENT;
-  private final ReadWriteLock cacheLock = new ReentrantReadWriteLock();
-  private volatile boolean cacheInitialized = false;
+
+  // 환경별 캐시 맵
+  private final Map<DictionaryEnvironmentType, Map<String, List<CategoryWeight>>>
+      environmentCaches = new ConcurrentHashMap<>();
+  private final Map<DictionaryEnvironmentType, ReadWriteLock> cacheLocks =
+      new ConcurrentHashMap<>();
+  private final Map<DictionaryEnvironmentType, Boolean> cacheInitialized =
+      new ConcurrentHashMap<>();
 
   @PostConstruct
   public void init() {
     log.info("Initializing category ranking cache...");
-    loadCacheAsync();
+    // 모든 환경의 캐시 초기화
+    for (DictionaryEnvironmentType envType : DictionaryEnvironmentType.values()) {
+      environmentCaches.put(envType, new ConcurrentHashMap<>());
+      cacheLocks.put(envType, new ReentrantReadWriteLock());
+      cacheInitialized.put(envType, false);
+    }
+    // CURRENT 환경만 초기 로드
+    loadCacheAsync(DictionaryEnvironmentType.CURRENT);
   }
 
   @Async("generalTaskExecutor")
-  public void loadCacheAsync() {
-    cacheLock.writeLock().lock();
+  public void loadCacheAsync(DictionaryEnvironmentType environmentType) {
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    lock.writeLock().lock();
     try {
-      loadCache(activeEnvironmentType);
-      cacheInitialized = true;
-      log.info("Category ranking cache initialized with {} keywords", cache.size());
+      loadCache(environmentType);
+      cacheInitialized.put(environmentType, true);
+      Map<String, List<CategoryWeight>> cache = environmentCaches.get(environmentType);
+      log.info(
+          "Category ranking cache initialized for {} with {} keywords",
+          environmentType,
+          cache.size());
     } finally {
-      cacheLock.writeLock().unlock();
+      lock.writeLock().unlock();
     }
   }
 
+  // 기본 환경(CURRENT)로 가중치 조회
   public Map<String, Integer> getCategoryWeights(String query) {
+    return getCategoryWeights(query, DictionaryEnvironmentType.CURRENT);
+  }
+
+  // 환경별 가중치 조회
+  public Map<String, Integer> getCategoryWeights(
+      String query, DictionaryEnvironmentType environmentType) {
     if (query == null || query.trim().isEmpty()) {
       return Collections.emptyMap();
     }
 
-    if (!cacheInitialized) {
-      log.debug("Cache not initialized, returning empty weights for query: {}", query);
-      return Collections.emptyMap();
+    // 캐시가 초기화되지 않았으면 동기적으로 로드
+    if (!Boolean.TRUE.equals(cacheInitialized.get(environmentType))) {
+      log.debug(
+          "Cache not initialized for {}, loading synchronously for query: {}",
+          environmentType,
+          query);
+      loadCacheSync(environmentType);
     }
 
-    cacheLock.readLock().lock();
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    Map<String, List<CategoryWeight>> cache = environmentCaches.get(environmentType);
+
+    lock.readLock().lock();
     try {
       Map<String, Integer> categoryWeights = new HashMap<>();
       Set<String> appliedKeywords = new HashSet<>(); // 이미 적용된 키워드 추적
@@ -80,7 +109,7 @@ public class CategoryRankingService {
       // 2. nori 형태소 분석 결과로도 매칭
       try {
         List<AnalyzeTextResponse.TokenInfo> tokens =
-            analyzeService.analyzeText(query, activeEnvironmentType);
+            analyzeService.analyzeText(query, environmentType);
         for (AnalyzeTextResponse.TokenInfo tokenInfo : tokens) {
           String token = tokenInfo.getToken().toLowerCase();
 
@@ -103,12 +132,36 @@ public class CategoryRankingService {
 
       if (!categoryWeights.isEmpty()) {
         log.info(
-            "쿼리 '{}' - 적용된 카테고리 가중치: {}, 적용된 키워드: {}", query, categoryWeights, appliedKeywords);
+            "쿼리 '{}' - 환경: {} - 적용된 카테고리 가중치: {}, 적용된 키워드: {}",
+            query,
+            environmentType,
+            categoryWeights,
+            appliedKeywords);
       }
 
       return categoryWeights;
     } finally {
-      cacheLock.readLock().unlock();
+      lock.readLock().unlock();
+    }
+  }
+
+  // 동기적 캐시 로드
+  private void loadCacheSync(DictionaryEnvironmentType environmentType) {
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    lock.writeLock().lock();
+    try {
+      // 다시 확인 (double-check locking)
+      if (!Boolean.TRUE.equals(cacheInitialized.get(environmentType))) {
+        loadCache(environmentType);
+        cacheInitialized.put(environmentType, true);
+        Map<String, List<CategoryWeight>> cache = environmentCaches.get(environmentType);
+        log.info(
+            "Category ranking cache loaded synchronously for {} with {} keywords",
+            environmentType,
+            cache.size());
+      }
+    } finally {
+      lock.writeLock().unlock();
     }
   }
 
@@ -119,6 +172,7 @@ public class CategoryRankingService {
       // 전체 리스트를 한 번에 가져와서 처리 (상세 API 호출 제거)
       var response = dictionaryService.getAllWithMappings(environmentType);
 
+      Map<String, List<CategoryWeight>> cache = environmentCaches.get(environmentType);
       cache.clear();
       int totalMappings = 0;
 
@@ -144,34 +198,49 @@ public class CategoryRankingService {
           totalMappings);
 
     } catch (Exception e) {
-      log.error("카테고리 랭킹 사전 캐시 로딩 실패", e);
+      log.error("카테고리 랭킹 사전 캐시 로딩 실패 - 환경: {}", environmentType, e);
     }
   }
 
   public void updateCacheRealtime(DictionaryEnvironmentType environmentType) {
-    cacheLock.writeLock().lock();
+    if (environmentType == null) {
+      environmentType = DictionaryEnvironmentType.CURRENT;
+    }
+
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    lock.writeLock().lock();
     try {
+      Map<String, List<CategoryWeight>> cache = environmentCaches.get(environmentType);
       cache.clear();
-      if (environmentType != null) {
-        activeEnvironmentType = environmentType;
-      } else {
-        activeEnvironmentType = DictionaryEnvironmentType.CURRENT;
-      }
-      loadCache(activeEnvironmentType);
+      loadCache(environmentType);
+      cacheInitialized.put(environmentType, true);
     } finally {
-      cacheLock.writeLock().unlock();
+      lock.writeLock().unlock();
     }
   }
 
   public String getCacheStatus() {
-    cacheLock.readLock().lock();
+    StringBuilder status = new StringBuilder();
+    for (DictionaryEnvironmentType envType : DictionaryEnvironmentType.values()) {
+      status.append(getCacheStatus(envType)).append("\n");
+    }
+    return status.toString();
+  }
+
+  public String getCacheStatus(DictionaryEnvironmentType environmentType) {
+    ReadWriteLock lock = cacheLocks.get(environmentType);
+    lock.readLock().lock();
     try {
+      Map<String, List<CategoryWeight>> cache = environmentCaches.get(environmentType);
       int totalMappings = cache.values().stream().mapToInt(List::size).sum();
       return String.format(
           "Env: %s, Keywords: %d, Total mappings: %d, Initialized: %b",
-          activeEnvironmentType.name(), cache.size(), totalMappings, cacheInitialized);
+          environmentType.name(),
+          cache.size(),
+          totalMappings,
+          cacheInitialized.get(environmentType));
     } finally {
-      cacheLock.readLock().unlock();
+      lock.readLock().unlock();
     }
   }
 

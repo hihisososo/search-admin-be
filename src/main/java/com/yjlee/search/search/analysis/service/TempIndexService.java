@@ -10,6 +10,8 @@ import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.service.EC2DeploymentService;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
+import com.yjlee.search.dictionary.unit.model.UnitDictionary;
+import com.yjlee.search.dictionary.unit.repository.UnitDictionaryRepository;
 import com.yjlee.search.dictionary.user.model.UserDictionary;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
 import java.io.ByteArrayInputStream;
@@ -34,10 +36,13 @@ public class TempIndexService {
       "/usr/share/elasticsearch/config/analysis/user/temp-current.txt";
   private static final String TEMP_STOPWORD_DICT_PATH =
       "/usr/share/elasticsearch/config/analysis/stopword/temp-current.txt";
+  private static final String TEMP_UNIT_DICT_PATH =
+      "/usr/share/elasticsearch/config/analysis/unit/temp-current.txt";
 
   private final ElasticsearchClient elasticsearchClient;
   private final ElasticsearchSynonymService elasticsearchSynonymService;
   private final UserDictionaryRepository userDictionaryRepository;
+  private final UnitDictionaryRepository unitDictionaryRepository;
   private final StopwordDictionaryService stopwordDictionaryService;
   private final EC2DeploymentService ec2DeploymentService;
   private final ResourceLoader resourceLoader;
@@ -53,22 +58,26 @@ public class TempIndexService {
     uploadTempStopwordDictionary();
     log.info("임시 불용어 사전 업로드 완료");
 
-    // 3. 기존 인덱스 삭제 (있으면)
+    // 3. 단위 사전 EC2 업로드
+    uploadTempUnitDictionary();
+    log.info("임시 단위 사전 업로드 완료");
+
+    // 4. 기존 인덱스 삭제 (있으면)
     if (indexExists(TEMP_INDEX_NAME)) {
       deleteIndex(TEMP_INDEX_NAME);
       log.info("기존 임시 인덱스 삭제 완료: {}", TEMP_INDEX_NAME);
     }
 
-    // 4. CURRENT 환경의 동의어 사전 생성/업데이트
+    // 5. CURRENT 환경의 동의어 사전 생성/업데이트
     elasticsearchSynonymService.createOrUpdateSynonymSet(
         TEMP_SYNONYM_SET, DictionaryEnvironmentType.CURRENT);
     log.info("임시 동의어 세트 생성/업데이트 완료: {}", TEMP_SYNONYM_SET);
 
-    // 5. 인덱스 설정 및 매핑 준비
+    // 6. 인덱스 설정 및 매핑 준비
     String mappingJson = loadResourceFile("elasticsearch/product-mapping.json");
     String settingsJson = createTempIndexSettings();
 
-    // 6. 새 인덱스 생성
+    // 7. 새 인덱스 생성
     CreateIndexRequest request =
         CreateIndexRequest.of(
             i ->
@@ -114,6 +123,16 @@ public class TempIndexService {
     }
   }
 
+  private void uploadTempUnitDictionary() {
+    String content = buildUnitDictionaryContent();
+    EC2DeploymentService.EC2DeploymentResult result =
+        ec2DeploymentService.deployUnitDictionary(content, "temp-current");
+
+    if (!result.isSuccess()) {
+      throw new RuntimeException("임시 단위 사전 EC2 업로드 실패: " + result.getMessage());
+    }
+  }
+
   private String buildUserDictionaryContent() {
     List<UserDictionary> dictionaries = userDictionaryRepository.findAll();
 
@@ -148,6 +167,13 @@ public class TempIndexService {
     }
   }
 
+  private String buildUnitDictionaryContent() {
+    List<UnitDictionary> dictionaries = unitDictionaryRepository.findAll();
+
+    // 단위 사전 형식: kg,킬로그램
+    return dictionaries.stream().map(UnitDictionary::getKeyword).collect(Collectors.joining("\n"));
+  }
+
   private String createTempIndexSettings() throws IOException {
     String templateJson = loadResourceFile("elasticsearch/product-settings.json");
 
@@ -156,6 +182,7 @@ public class TempIndexService {
         templateJson
             .replace("{USER_DICT_PATH}", TEMP_USER_DICT_PATH)
             .replace("{STOPWORD_DICT_PATH}", TEMP_STOPWORD_DICT_PATH)
+            .replace("{UNIT_DICT_PATH}", TEMP_UNIT_DICT_PATH)
             .replace("{SYNONYM_SET_NAME}", TEMP_SYNONYM_SET);
 
     return modifiedJson;

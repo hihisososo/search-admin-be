@@ -48,3 +48,6 @@ test:
       products-search: test-products-search
       autocomplete: test-autocomplete
       search-logs: test-search-logs
+
+indexing:
+  max-documents:

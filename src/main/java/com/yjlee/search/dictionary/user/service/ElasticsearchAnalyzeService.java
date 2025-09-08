@@ -7,8 +7,8 @@ import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
+import com.yjlee.search.search.service.IndexResolver;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 public class ElasticsearchAnalyzeService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexResolver indexResolver;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   public List<AnalyzeTextResponse.TokenInfo> analyzeText(
@@ -260,15 +260,17 @@ public class ElasticsearchAnalyzeService {
   }
 
   private String getIndexName(DictionaryEnvironmentType environment) {
+    // CURRENT 환경일 때는 현재 운영 중인 alias 사용
+    if (environment == DictionaryEnvironmentType.CURRENT) {
+      return indexResolver.resolveProductIndex();
+    }
+
+    // DEV/PROD 환경일 때는 해당 환경의 인덱스 사용
     IndexEnvironment.EnvironmentType envType =
         environment == DictionaryEnvironmentType.PROD
             ? IndexEnvironment.EnvironmentType.PROD
             : IndexEnvironment.EnvironmentType.DEV;
 
-    return indexEnvironmentRepository
-        .findByEnvironmentType(envType)
-        .map(IndexEnvironment::getIndexName)
-        .orElseThrow(
-            () -> new RuntimeException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."));
+    return indexResolver.resolveProductIndex(envType);
   }
 }

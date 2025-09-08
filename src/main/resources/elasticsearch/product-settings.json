@@ -30,12 +30,12 @@
         "decimal_unit_merge_index": {
           "type": "decimal-unit-merge",
           "mode": "index",
-          "units_path": "analysis/units.txt"
+          "units_path": "{UNIT_DICT_PATH}"
         },
         "decimal_unit_merge_search": {
           "type": "decimal-unit-merge",
           "mode": "search",
-          "units_path": "analysis/units.txt"
+          "units_path": "{UNIT_DICT_PATH}"
         }
       },
       "analyzer": {
