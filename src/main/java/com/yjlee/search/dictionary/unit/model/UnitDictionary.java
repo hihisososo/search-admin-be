@@ -1,5 +1,6 @@
 package com.yjlee.search.dictionary.unit.model;
 
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.common.model.DictionaryEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -24,6 +25,11 @@ public class UnitDictionary implements DictionaryEntity {
 
   @Column(nullable = false, length = 1000)
   String keyword;
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 20)
+  @Builder.Default
+  DictionaryEnvironmentType environmentType = DictionaryEnvironmentType.CURRENT;
 
   @CreatedDate @Column LocalDateTime createdAt;
 

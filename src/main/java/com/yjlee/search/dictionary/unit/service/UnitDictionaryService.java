@@ -7,11 +7,8 @@ import com.yjlee.search.dictionary.unit.dto.UnitDictionaryListResponse;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryResponse;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.unit.model.UnitDictionary;
-import com.yjlee.search.dictionary.unit.model.UnitDictionarySnapshot;
 import com.yjlee.search.dictionary.unit.repository.UnitDictionaryRepository;
-import com.yjlee.search.dictionary.unit.repository.UnitDictionarySnapshotRepository;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,23 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class UnitDictionaryService
     extends AbstractDictionaryService<
         UnitDictionary,
-        UnitDictionarySnapshot,
         UnitDictionaryCreateRequest,
         UnitDictionaryUpdateRequest,
         UnitDictionaryResponse,
         UnitDictionaryListResponse> {
 
   private final UnitDictionaryRepository unitDictionaryRepository;
-  private final UnitDictionarySnapshotRepository snapshotRepository;
 
   @Override
   protected JpaRepository<UnitDictionary, Long> getRepository() {
     return unitDictionaryRepository;
-  }
-
-  @Override
-  protected JpaRepository<UnitDictionarySnapshot, Long> getSnapshotRepository() {
-    return snapshotRepository;
   }
 
   @Override
@@ -52,14 +42,41 @@ public class UnitDictionaryService
   }
 
   @Override
-  protected UnitDictionary buildEntity(UnitDictionaryCreateRequest request) {
-    return UnitDictionary.builder().keyword(request.getKeyword()).build();
+  public String getDictionaryTypeEnum() {
+    return "UNIT";
   }
 
   @Override
-  protected UnitDictionarySnapshot createSnapshot(
-      DictionaryEnvironmentType env, UnitDictionary entity) {
-    return UnitDictionarySnapshot.createSnapshot(env, entity);
+  protected List<UnitDictionary> findByEnvironmentType(DictionaryEnvironmentType environment) {
+    return unitDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
+  }
+
+  @Override
+  protected Page<UnitDictionary> findByEnvironmentType(
+      DictionaryEnvironmentType environment, Pageable pageable) {
+    return unitDictionaryRepository.findByEnvironmentType(environment, pageable);
+  }
+
+  @Override
+  protected void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+    unitDictionaryRepository.deleteByEnvironmentType(environment);
+  }
+
+  @Override
+  public String getDictionaryContent(DictionaryEnvironmentType environment) {
+    List<UnitDictionary> dictionaries = findByEnvironmentType(environment);
+    StringBuilder content = new StringBuilder();
+
+    for (UnitDictionary dict : dictionaries) {
+      content.append(dict.getKeyword()).append("\n");
+    }
+
+    return content.toString();
+  }
+
+  @Override
+  protected UnitDictionary buildEntity(UnitDictionaryCreateRequest request) {
+    return UnitDictionary.builder().keyword(request.getKeyword()).build();
   }
 
   @Override
@@ -73,32 +90,12 @@ public class UnitDictionaryService
   }
 
   @Override
-  protected UnitDictionaryResponse convertToResponse(UnitDictionarySnapshot snapshot) {
-    return UnitDictionaryResponse.builder()
-        .id(snapshot.getId())
-        .keyword(snapshot.getKeyword())
-        .createdAt(snapshot.getCreatedAt())
-        .updatedAt(snapshot.getUpdatedAt())
-        .build();
-  }
-
-  @Override
   protected UnitDictionaryListResponse convertToListResponse(UnitDictionary entity) {
     return UnitDictionaryListResponse.builder()
         .id(entity.getId())
         .keyword(entity.getKeyword())
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
-        .build();
-  }
-
-  @Override
-  protected UnitDictionaryListResponse convertToListResponse(UnitDictionarySnapshot snapshot) {
-    return UnitDictionaryListResponse.builder()
-        .id(snapshot.getId())
-        .keyword(snapshot.getKeyword())
-        .createdAt(snapshot.getCreatedAt())
-        .updatedAt(snapshot.getUpdatedAt())
         .build();
   }
 
@@ -115,48 +112,11 @@ public class UnitDictionaryService
   }
 
   @Override
-  protected Page<UnitDictionarySnapshot> searchInSnapshotRepository(
-      String keyword, DictionaryEnvironmentType environment, Pageable pageable) {
-    return snapshotRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
-        environment, keyword, pageable);
-  }
-
-  @Override
-  protected UnitDictionarySnapshot createSnapshotFromSnapshot(
-      DictionaryEnvironmentType env, UnitDictionarySnapshot snapshot) {
-    return UnitDictionarySnapshot.builder()
-        .environmentType(env)
-        .keyword(snapshot.getKeyword())
+  protected UnitDictionary copyEntityWithEnvironment(
+      UnitDictionary entity, DictionaryEnvironmentType environment) {
+    return UnitDictionary.builder()
+        .keyword(entity.getKeyword())
+        .environmentType(environment)
         .build();
-  }
-
-  @Override
-  protected Page<UnitDictionarySnapshot> findSnapshotsByEnvironment(
-      DictionaryEnvironmentType environment, Pageable pageable) {
-    return snapshotRepository.findByEnvironmentType(environment, pageable);
-  }
-
-  @Override
-  protected Optional<UnitDictionarySnapshot> findSnapshotByOriginalIdAndEnvironment(
-      Long originalId, DictionaryEnvironmentType environment) {
-    return Optional.empty();
-  }
-
-  @Override
-  protected List<UnitDictionarySnapshot> findAllSnapshotsByEnvironment(
-      DictionaryEnvironmentType environment) {
-    return snapshotRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
-  }
-
-  @Override
-  protected void deleteSnapshotsByEnvironment(DictionaryEnvironmentType environment) {
-    snapshotRepository.deleteByEnvironmentType(environment);
-  }
-
-  @Transactional
-  public void deleteDevSnapshots() {
-    log.info("개발 환경 단위 사전 스냅샷 삭제 시작");
-    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
-    log.info("개발 환경 단위 사전 스냅샷 삭제 완료");
   }
 }

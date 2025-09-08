@@ -5,7 +5,6 @@ import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.common.dto.BaseDictionaryCreateRequest;
 import com.yjlee.search.dictionary.common.dto.BaseDictionaryResponse;
 import com.yjlee.search.dictionary.common.model.DictionaryEntity;
-import com.yjlee.search.dictionary.common.model.DictionarySnapshotEntity;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.Arrays;
 import java.util.List;
@@ -20,37 +19,33 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Transactional
 public abstract class AbstractDictionaryService<
-    T extends DictionaryEntity,
-    S extends DictionarySnapshotEntity,
-    CreateReq extends BaseDictionaryCreateRequest,
-    UpdateReq,
-    Response extends BaseDictionaryResponse,
-    ListResponse> {
+        T extends DictionaryEntity,
+        CreateReq extends BaseDictionaryCreateRequest,
+        UpdateReq,
+        Response extends BaseDictionaryResponse,
+        ListResponse>
+    implements DictionaryService {
 
   protected abstract JpaRepository<T, Long> getRepository();
 
-  protected abstract JpaRepository<S, Long> getSnapshotRepository();
-
   protected abstract String getDictionaryType();
+
+  protected abstract List<T> findByEnvironmentType(DictionaryEnvironmentType environment);
+
+  protected abstract Page<T> findByEnvironmentType(
+      DictionaryEnvironmentType environment, Pageable pageable);
+
+  protected abstract void deleteByEnvironmentType(DictionaryEnvironmentType environment);
 
   protected abstract T buildEntity(CreateReq request);
 
-  protected abstract S createSnapshot(DictionaryEnvironmentType env, T entity);
-
   protected abstract Response convertToResponse(T entity);
 
-  protected abstract Response convertToResponse(S snapshot);
-
   protected abstract ListResponse convertToListResponse(T entity);
-
-  protected abstract ListResponse convertToListResponse(S snapshot);
 
   protected abstract void updateEntity(T entity, UpdateReq request);
 
   protected abstract Page<T> searchInRepository(String keyword, Pageable pageable);
-
-  protected abstract Page<S> searchInSnapshotRepository(
-      String keyword, DictionaryEnvironmentType environment, Pageable pageable);
 
   public Response create(CreateReq request, DictionaryEnvironmentType environment) {
     log.info("{} 사전 생성 요청: {} - 환경: {}", getDictionaryType(), request.getKeyword(), environment);
@@ -85,24 +80,14 @@ public abstract class AbstractDictionaryService<
         sortDir,
         keyword);
 
-    Sort sort = createSort(sortBy, sortDir, environment != DictionaryEnvironmentType.CURRENT);
+    Sort sort = createSort(sortBy, sortDir, false);
     Pageable pageable = PageRequest.of(page, size, sort);
 
-    Page<ListResponse> resultPage;
-
-    if (environment == DictionaryEnvironmentType.CURRENT) {
-      Page<T> entities =
-          (keyword != null && !keyword.trim().isEmpty())
-              ? searchInRepository(keyword.trim(), pageable)
-              : getRepository().findAll(pageable);
-      resultPage = entities.map(this::convertToListResponse);
-    } else {
-      Page<S> snapshots =
-          (keyword != null && !keyword.trim().isEmpty())
-              ? searchInSnapshotRepository(keyword.trim(), environment, pageable)
-              : findSnapshotsByEnvironment(environment, pageable);
-      resultPage = snapshots.map(this::convertToListResponse);
-    }
+    Page<T> entities =
+        (keyword != null && !keyword.trim().isEmpty())
+            ? searchInRepository(keyword.trim(), pageable)
+            : findByEnvironmentType(environment, pageable);
+    Page<ListResponse> resultPage = entities.map(this::convertToListResponse);
 
     log.info(
         "{} 사전 목록 조회 완료 - 환경: {}, 전체: {}개",
@@ -116,24 +101,12 @@ public abstract class AbstractDictionaryService<
   public Response get(Long id, DictionaryEnvironmentType environment) {
     log.info("{} 사전 조회 - ID: {}, 환경: {}", getDictionaryType(), id, environment);
 
-    if (environment == DictionaryEnvironmentType.CURRENT) {
-      T entity =
-          getRepository()
-              .findById(id)
-              .orElseThrow(
-                  () -> new EntityNotFoundException(getDictionaryType() + " 사전을 찾을 수 없습니다: " + id));
-      return convertToResponse(entity);
-    } else {
-      // DEV/PROD 환경에서는 스냅샷 테이블의 ID로 직접 조회
-      S snapshot =
-          getSnapshotRepository()
-              .findById(id)
-              .orElseThrow(
-                  () ->
-                      new EntityNotFoundException(
-                          getDictionaryType() + " 사전 스냅샷을 찾을 수 없습니다: " + id));
-      return convertToResponse(snapshot);
-    }
+    T entity =
+        getRepository()
+            .findById(id)
+            .orElseThrow(
+                () -> new EntityNotFoundException(getDictionaryType() + " 사전을 찾을 수 없습니다: " + id));
+    return convertToResponse(entity);
   }
 
   public Response update(Long id, UpdateReq request, DictionaryEnvironmentType environment) {
@@ -164,60 +137,45 @@ public abstract class AbstractDictionaryService<
     log.info("{} 사전 삭제 완료 - ID: {}, 환경: {}", getDictionaryType(), id, environment);
   }
 
-  public void createDevSnapshot() {
-    log.info("개발 환경 {} 사전 스냅샷 생성 시작", getDictionaryType());
-
-    List<T> currentDictionaries = getRepository().findAll(Sort.by(Sort.Direction.ASC, "keyword"));
-    deleteSnapshotsByEnvironment(DictionaryEnvironmentType.DEV);
-
-    List<S> devSnapshots =
-        currentDictionaries.stream()
-            .map(dict -> createSnapshot(DictionaryEnvironmentType.DEV, dict))
-            .toList();
-
-    getSnapshotRepository().saveAll(devSnapshots);
-    log.info("개발 환경 {} 사전 스냅샷 생성 완료: {}개", getDictionaryType(), devSnapshots.size());
-  }
-
+  @Override
   public void deployToDev() {
     log.info("개발 환경 {} 사전 배포 시작", getDictionaryType());
 
-    List<T> currentDictionaries = getRepository().findAll(Sort.by(Sort.Direction.ASC, "keyword"));
-    deleteSnapshotsByEnvironment(DictionaryEnvironmentType.DEV);
+    List<T> currentDictionaries = findByEnvironmentType(DictionaryEnvironmentType.CURRENT);
+    deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
 
-    List<S> devSnapshots =
+    List<T> devDictionaries =
         currentDictionaries.stream()
-            .map(dict -> createSnapshot(DictionaryEnvironmentType.DEV, dict))
+            .map(dict -> copyEntityWithEnvironment(dict, DictionaryEnvironmentType.DEV))
             .toList();
 
-    getSnapshotRepository().saveAll(devSnapshots);
-    log.info("개발 환경 {} 사전 배포 완료: {}개", getDictionaryType(), devSnapshots.size());
+    getRepository().saveAll(devDictionaries);
+    log.info("개발 환경 {} 사전 배포 완료: {}개", getDictionaryType(), devDictionaries.size());
   }
 
+  @Override
   public void deployToProd() {
     log.info("운영 환경 {} 사전 배포 시작", getDictionaryType());
 
-    List<S> devSnapshots = findAllSnapshotsByEnvironment(DictionaryEnvironmentType.DEV);
-    if (devSnapshots.isEmpty()) {
+    List<T> devDictionaries = findByEnvironmentType(DictionaryEnvironmentType.DEV);
+    if (devDictionaries.isEmpty()) {
       throw new IllegalStateException("개발 환경에 배포된 " + getDictionaryType() + " 사전이 없습니다.");
     }
 
-    deleteSnapshotsByEnvironment(DictionaryEnvironmentType.PROD);
+    deleteByEnvironmentType(DictionaryEnvironmentType.PROD);
 
-    List<S> prodSnapshots =
-        devSnapshots.stream()
-            .map(
-                devSnapshot ->
-                    createSnapshotFromSnapshot(DictionaryEnvironmentType.PROD, devSnapshot))
+    List<T> prodDictionaries =
+        devDictionaries.stream()
+            .map(dict -> copyEntityWithEnvironment(dict, DictionaryEnvironmentType.PROD))
             .toList();
 
-    getSnapshotRepository().saveAll(prodSnapshots);
-    log.info("운영 환경 {} 사전 배포 완료: {}개", getDictionaryType(), prodSnapshots.size());
+    getRepository().saveAll(prodDictionaries);
+    log.info("운영 환경 {} 사전 배포 완료: {}개", getDictionaryType(), prodDictionaries.size());
   }
 
-  protected Sort createSort(String sortBy, String sortDir, boolean isSnapshot) {
+  protected Sort createSort(String sortBy, String sortDir, boolean unused) {
     if (sortBy == null || sortBy.trim().isEmpty()) {
-      sortBy = isSnapshot ? "createdAt" : "updatedAt";
+      sortBy = "updatedAt";
     }
     if (sortDir == null || sortDir.trim().isEmpty()) {
       sortDir = "desc";
@@ -226,8 +184,8 @@ public abstract class AbstractDictionaryService<
     String[] allowedFields = {"keyword", "createdAt", "updatedAt"};
 
     if (!Arrays.asList(allowedFields).contains(sortBy)) {
-      log.warn("허용되지 않은 정렬 필드: {}. 기본값 {} 사용", sortBy, isSnapshot ? "createdAt" : "updatedAt");
-      sortBy = isSnapshot ? "createdAt" : "updatedAt";
+      log.warn("허용되지 않은 정렬 필드: {}. 기본값 updatedAt 사용", sortBy);
+      sortBy = "updatedAt";
     }
 
     Sort.Direction direction =
@@ -236,15 +194,5 @@ public abstract class AbstractDictionaryService<
     return Sort.by(direction, sortBy);
   }
 
-  protected abstract S createSnapshotFromSnapshot(DictionaryEnvironmentType env, S snapshot);
-
-  protected abstract Page<S> findSnapshotsByEnvironment(
-      DictionaryEnvironmentType environment, Pageable pageable);
-
-  protected abstract java.util.Optional<S> findSnapshotByOriginalIdAndEnvironment(
-      Long originalId, DictionaryEnvironmentType environment);
-
-  protected abstract List<S> findAllSnapshotsByEnvironment(DictionaryEnvironmentType environment);
-
-  protected abstract void deleteSnapshotsByEnvironment(DictionaryEnvironmentType environment);
+  protected abstract T copyEntityWithEnvironment(T entity, DictionaryEnvironmentType environment);
 }

@@ -40,7 +40,8 @@ class PopularKeywordQueryServiceTest {
   @DisplayName("인기 검색어 조회 - 순위 변동 계산")
   void getPopularKeywords_WithRankChanges() {
     // given
-    List<KeywordStats> currentKeywords =
+    // ElasticsearchStatsRepository는 한 번의 호출로 순위 변동 정보가 포함된 데이터를 반환
+    List<KeywordStats> keywordsWithRankChanges =
         Arrays.asList(
             KeywordStats.builder()
                 .keyword("노트북")
@@ -49,6 +50,9 @@ class PopularKeywordQueryServiceTest {
                 .clickThroughRate(30.0)
                 .percentage(50.0)
                 .rank(1)
+                .previousRank(2) // 이전 순위
+                .rankChange(1) // 순위 변동 (2->1, 상승)
+                .changeStatus(KeywordStats.RankChangeStatus.UP)
                 .build(),
             KeywordStats.builder()
                 .keyword("키보드")
@@ -57,6 +61,9 @@ class PopularKeywordQueryServiceTest {
                 .clickThroughRate(25.0)
                 .percentage(40.0)
                 .rank(2)
+                .previousRank(1) // 이전 순위
+                .rankChange(-1) // 순위 변동 (1->2, 하락)
+                .changeStatus(KeywordStats.RankChangeStatus.DOWN)
                 .build(),
             KeywordStats.builder()
                 .keyword("마우스")
@@ -65,31 +72,14 @@ class PopularKeywordQueryServiceTest {
                 .clickThroughRate(25.0)
                 .percentage(10.0)
                 .rank(3)
-                .build());
-
-    List<KeywordStats> previousKeywords =
-        Arrays.asList(
-            KeywordStats.builder()
-                .keyword("키보드")
-                .searchCount(90L)
-                .clickCount(25L)
-                .clickThroughRate(27.8)
-                .percentage(45.0)
-                .rank(1)
-                .build(),
-            KeywordStats.builder()
-                .keyword("노트북")
-                .searchCount(70L)
-                .clickCount(20L)
-                .clickThroughRate(28.6)
-                .percentage(35.0)
-                .rank(2)
+                .previousRank(null) // 신규 진입
+                .rankChange(null)
+                .changeStatus(KeywordStats.RankChangeStatus.NEW)
                 .build());
 
     when(statsRepository.getPopularKeywords(
             any(LocalDateTime.class), any(LocalDateTime.class), anyInt()))
-        .thenReturn(currentKeywords)
-        .thenReturn(previousKeywords);
+        .thenReturn(keywordsWithRankChanges);
 
     // when
     PopularKeywordResponse response = popularKeywordQueryService.getPopularKeywords(from, to, 10);

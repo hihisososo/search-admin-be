@@ -33,7 +33,7 @@ public class ProductDtoConverter {
         .brandName(getTextValue(source, "brand_name"))
         .categoryName(getTextValue(source, "category_name"))
         .price(getIntValue(source, "price"))
-        .registeredMonth(getTextValue(source, "registered_month"))
+        .registeredMonth(getTextValue(source, "reg_month"))
         .rating(getDecimalValue(source, "rating"))
         .reviewCount(getIntValue(source, "review_count"))
         .thumbnailUrl(getTextValue(source, "thumbnail_url"))

@@ -452,6 +452,22 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
     Map<String, Aggregation> aggregations = new HashMap<>();
 
+    // 전체 기간에 대한 날짜 범위 쿼리 (이전 주기부터 현재 주기까지)
+    BoolQuery dateRangeQuery =
+        BoolQuery.of(
+            b ->
+                b.must(
+                        Query.of(
+                            q ->
+                                q.range(
+                                    r ->
+                                        r.date(
+                                            d ->
+                                                d.field("timestamp")
+                                                    .gte(previousFrom.toString())
+                                                    .lte(to.toString())))))
+                    .must(Query.of(q -> q.term(t -> t.field("is_error").value(false)))));
+
     // 현재 주기 집계
     aggregations.put(
         "current_period",
@@ -479,7 +495,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
                     .aggregations(
                         "keywords",
                         Aggregation.of(
-                            ag -> ag.terms(t -> t.field("search_keyword.keyword").size(10000))))));
+                            ag -> ag.terms(t -> t.field("search_keyword.keyword").size(50))))));
 
     // 이전 주기 집계
     aggregations.put(
@@ -511,9 +527,14 @@ public class ElasticsearchStatsRepository implements StatsRepository {
                     .aggregations(
                         "keywords",
                         Aggregation.of(
-                            ag -> ag.terms(t -> t.field("search_keyword.keyword").size(10000))))));
+                            ag -> ag.terms(t -> t.field("search_keyword.keyword").size(50))))));
 
-    return SearchRequest.of(s -> s.index("search-logs-*").size(0).aggregations(aggregations));
+    return SearchRequest.of(
+        s ->
+            s.index("search-logs-*")
+                .size(0)
+                .query(Query.of(q -> q.bool(dateRangeQuery)))
+                .aggregations(aggregations));
   }
 
   private SearchRequest buildTrendsSearchRequest(
