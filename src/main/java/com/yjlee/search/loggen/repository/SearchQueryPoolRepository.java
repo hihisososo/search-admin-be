@@ -11,6 +11,6 @@ public interface SearchQueryPoolRepository extends JpaRepository<SearchQueryPool
 
   boolean existsByQuery(String query);
 
-  @Query(value = "SELECT * FROM search_query_pool ORDER BY RAND() LIMIT 1", nativeQuery = true)
+  @Query(value = "SELECT * FROM search_query_pool ORDER BY RANDOM() LIMIT 1", nativeQuery = true)
   Optional<SearchQueryPool> findRandomQuery();
 }
