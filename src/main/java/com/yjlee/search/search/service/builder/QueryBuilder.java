@@ -2,6 +2,7 @@ package com.yjlee.search.search.service.builder;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.service.builder.model.QueryContext;
 import com.yjlee.search.search.service.builder.query.BoostQueryBuilder;
@@ -23,7 +24,14 @@ public class QueryBuilder {
   private final FilterQueryBuilder filterQueryBuilder;
   private final BoostQueryBuilder boostQueryBuilder;
 
+  // 일반 검색용 - PROD 환경 사용
   public BoolQuery buildBoolQuery(SearchExecuteRequest request) {
+    return buildBoolQuery(request, DictionaryEnvironmentType.PROD);
+  }
+
+  // 시뮬레이션 검색용 - 환경 지정 가능
+  public BoolQuery buildBoolQuery(
+      SearchExecuteRequest request, DictionaryEnvironmentType environment) {
     String originalQuery = request.getQuery();
 
     // 쿼리가 없는 경우 필터만 적용
@@ -38,7 +46,8 @@ public class QueryBuilder {
     // 쿼리 구성 요소 빌드
     Query mainQuery = mainQueryBuilder.buildMainQuery(context);
     List<Query> filterQueries = filterQueryBuilder.buildFilterQueries(request.getFilters());
-    List<Query> categoryBoostQueries = boostQueryBuilder.buildCategoryBoostQueries(originalQuery);
+    List<Query> categoryBoostQueries =
+        boostQueryBuilder.buildCategoryBoostQueries(originalQuery, environment);
 
     // 최종 BoolQuery 조합
     return BoolQuery.of(

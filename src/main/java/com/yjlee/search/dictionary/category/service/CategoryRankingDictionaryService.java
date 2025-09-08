@@ -1,13 +1,24 @@
 package com.yjlee.search.dictionary.category.service;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.PageResponse;
+import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.util.EnvironmentTypeConverter;
 import com.yjlee.search.dictionary.category.dto.*;
 import com.yjlee.search.dictionary.category.model.CategoryMapping;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
 import com.yjlee.search.dictionary.common.service.DictionaryService;
+import com.yjlee.search.index.repository.ProductRepository;
+import com.yjlee.search.search.service.IndexResolver;
 import jakarta.persistence.EntityNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class CategoryRankingDictionaryService implements DictionaryService {
 
   private final CategoryRankingDictionaryRepository repository;
+  private final ProductRepository productRepository;
+  private final ElasticsearchClient elasticsearchClient;
+  private final IndexResolver indexResolver;
 
   @Override
   public String getDictionaryTypeEnum() {
@@ -165,12 +179,75 @@ public class CategoryRankingDictionaryService implements DictionaryService {
   public CategoryListResponse getCategories(DictionaryEnvironmentType environment) {
     log.debug("전체 카테고리 목록 조회 - 환경: {}", environment);
 
-    List<String> categories = repository.findDistinctCategories();
+    List<String> categories;
+
+    // CURRENT 환경이면 products 테이블에서 카테고리 조회
+    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
+      log.debug("CURRENT 환경 - products 테이블에서 카테고리 조회");
+      categories = productRepository.findDistinctCategoryNames();
+    } else {
+      // DEV, PROD 환경이면 Elasticsearch에서 aggregation으로 조회
+      log.debug("{} 환경 - Elasticsearch에서 카테고리 조회", environment);
+      categories = getCategoriesFromElasticsearch(environment);
+    }
 
     return CategoryListResponse.builder()
         .totalCount(categories.size())
         .categories(categories)
         .build();
+  }
+
+  private List<String> getCategoriesFromElasticsearch(DictionaryEnvironmentType environment) {
+    try {
+      // 환경에 맞는 인덱스 이름 가져오기
+      String indexName =
+          indexResolver.resolveProductIndex(
+              EnvironmentTypeConverter.toIndexEnvironmentType(environment));
+
+      log.debug("Elasticsearch 카테고리 조회 - 인덱스: {}", indexName);
+
+      // Aggregation 쿼리 생성
+      SearchRequest searchRequest =
+          SearchRequest.of(
+              s ->
+                  s.index(indexName)
+                      .size(0) // 문서는 가져오지 않고 aggregation만
+                      .aggregations(
+                          "categories",
+                          Aggregation.of(
+                              a ->
+                                  a.terms(
+                                      t ->
+                                          t.field(ESFields.CATEGORY_NAME)
+                                              .size(10000) // 최대 10000개 카테고리
+                                      ))));
+
+      // 쿼리 실행
+      SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
+
+      // 결과 파싱
+      List<String> categories = new ArrayList<>();
+      var categoriesAgg = response.aggregations().get("categories");
+      if (categoriesAgg != null && categoriesAgg.sterms() != null) {
+        var buckets = categoriesAgg.sterms().buckets();
+        for (var bucket : buckets.array()) {
+          String categoryName = bucket.key().stringValue();
+          if (categoryName != null && !categoryName.isEmpty()) {
+            categories.add(categoryName);
+          }
+        }
+      }
+
+      // 알파벳 순 정렬
+      categories.sort(String::compareTo);
+
+      log.info("Elasticsearch에서 {}개 카테고리 조회 완료", categories.size());
+      return categories;
+
+    } catch (IOException e) {
+      log.error("Elasticsearch 카테고리 조회 실패", e);
+      throw new RuntimeException("카테고리 조회 중 오류 발생", e);
+    }
   }
 
   @Transactional(readOnly = true)

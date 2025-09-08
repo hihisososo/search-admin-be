@@ -3,6 +3,7 @@ package com.yjlee.search.search.service.builder.query;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.service.category.CategoryRankingService;
 import java.util.List;
@@ -39,12 +40,20 @@ public class BoostQueryBuilder {
     return List.of(multiMatchQuery);
   }
 
+  // 일반 검색용 - PROD 환경 고정
   public List<Query> buildCategoryBoostQueries(String query) {
+    return buildCategoryBoostQueries(query, DictionaryEnvironmentType.PROD);
+  }
+
+  // 시뮬레이션 검색용 - 환경 지정 가능
+  public List<Query> buildCategoryBoostQueries(
+      String query, DictionaryEnvironmentType environment) {
     if (query == null || query.trim().isEmpty()) {
       return List.of();
     }
 
-    Map<String, Integer> categoryWeights = categoryRankingService.getCategoryWeights(query);
+    Map<String, Integer> categoryWeights =
+        categoryRankingService.getCategoryWeights(query, environment);
 
     if (categoryWeights.isEmpty()) {
       return List.of();
