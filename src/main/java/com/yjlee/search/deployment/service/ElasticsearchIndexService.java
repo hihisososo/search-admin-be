@@ -250,10 +250,12 @@ public class ElasticsearchIndexService {
       String userDictPath = "/usr/share/elasticsearch/config/analysis/user/" + version + ".txt";
       String stopwordDictPath =
           "/usr/share/elasticsearch/config/analysis/stopword/" + version + ".txt";
+      String unitDictPath = "/usr/share/elasticsearch/config/analysis/unit/" + version + ".txt";
 
       return settingsTemplate
           .replace("{USER_DICT_PATH}", userDictPath)
           .replace("{STOPWORD_DICT_PATH}", stopwordDictPath)
+          .replace("{UNIT_DICT_PATH}", unitDictPath)
           .replace("{SYNONYM_SET_NAME}", synonymSetName);
     } catch (Exception e) {
       log.error("상품 설정 파일 읽기 실패", e);

@@ -40,7 +40,16 @@ public class SearchService {
 
   public SearchExecuteResponse searchProducts(SearchExecuteRequest request) {
     String indexName = indexResolver.resolveProductIndex();
-    return productSearchService.search(indexName, request, false);
+
+    // 검색 실행
+    long startTime = System.currentTimeMillis();
+    SearchExecuteResponse response = productSearchService.search(indexName, request, false);
+    long responseTime = System.currentTimeMillis() - startTime;
+
+    // 로깅
+    logSearch(request, response, responseTime);
+
+    return response;
   }
 
   public SearchExecuteResponse searchProductsSimulation(SearchSimulationRequest request) {
@@ -50,6 +59,7 @@ public class SearchService {
         request.getQuery());
 
     String indexName = indexResolver.resolveProductIndexForSimulation(request.getEnvironmentType());
+    // 시뮬레이션은 검색만 하고 로깅 없음
     return productSearchService.search(
         indexName, (SearchExecuteRequest) request, request.isExplain());
   }
@@ -72,7 +82,18 @@ public class SearchService {
 
   public SearchExecuteResponse executeSearch(SearchParams params, HttpServletRequest httpRequest) {
     SearchExecuteRequest request = searchRequestMapper.toSearchExecuteRequest(params);
-    return executeWithLogging(request, httpRequest, () -> searchProducts(request));
+
+    // HTTP 요청 정보와 함께 검색 실행
+    String indexName = indexResolver.resolveProductIndex();
+
+    long startTime = System.currentTimeMillis();
+    SearchExecuteResponse response = productSearchService.search(indexName, request, false);
+    long responseTime = System.currentTimeMillis() - startTime;
+
+    // HTTP 컨텍스트 정보로 로깅
+    logSearchWithHttpContext(request, response, responseTime, httpRequest);
+
+    return response;
   }
 
   public SearchExecuteResponse executeSearchSimulation(
@@ -98,90 +119,70 @@ public class SearchService {
     return response.source();
   }
 
-  private SearchExecuteResponse executeWithLogging(
-      SearchExecuteRequest request, HttpServletRequest httpRequest, SearchExecutor executor) {
+  // 일반 검색 로깅 (프로그램 내부용)
+  private void logSearch(
+      SearchExecuteRequest request, SearchExecuteResponse response, long responseTime) {
+    if (request.getQuery() == null || request.getQuery().trim().isEmpty()) {
+      return;
+    }
 
-    LocalDateTime requestTime = LocalDateTime.now(ZoneOffset.UTC);
-    String clientIp = httpRequestUtils.getClientIp(httpRequest);
-    String userAgent = httpRequestUtils.getUserAgent(httpRequest);
     String sessionId =
         request.getSearchSessionId() != null
             ? request.getSearchSessionId()
             : UUID.randomUUID().toString();
-    long startTime = System.currentTimeMillis();
 
-    Transaction txn = ElasticApm.currentTransaction();
-    if (txn != null) {
-      txn.setLabel("search.query", Optional.ofNullable(request.getQuery()).orElse(""));
-    }
-
-    // query가 있는 경우에만 로그 수집
-    boolean shouldCollectLog = request.getQuery() != null && !request.getQuery().trim().isEmpty();
-
-    try {
-      SearchExecuteResponse response = executor.execute();
-      long responseTime = System.currentTimeMillis() - startTime;
-
-      if (shouldCollectLog) {
-        collectSearchLog(
-            request,
-            requestTime,
-            clientIp,
-            userAgent,
-            responseTime,
-            response,
-            false,
-            null,
-            sessionId);
-      }
-      return response;
-
-    } catch (Exception e) {
-      long responseTime = System.currentTimeMillis() - startTime;
-      if (shouldCollectLog) {
-        collectSearchLog(
-            request,
-            requestTime,
-            clientIp,
-            userAgent,
-            responseTime,
-            null,
-            true,
-            e.getMessage(),
-            sessionId);
-      }
-      throw new SearchException("상품 검색 실패", e);
-    }
-  }
-
-  private void collectSearchLog(
-      SearchExecuteRequest request,
-      LocalDateTime requestTime,
-      String clientIp,
-      String userAgent,
-      long responseTime,
-      SearchExecuteResponse response,
-      boolean isError,
-      String errorMessage,
-      String sessionId) {
     try {
       searchLogService.collectSearchLog(
           request,
-          requestTime,
-          clientIp,
-          userAgent,
+          LocalDateTime.now(ZoneOffset.UTC),
+          "SYSTEM",
+          "System/1.0",
           responseTime,
           response,
-          isError,
-          errorMessage,
+          false,
+          null,
           sessionId);
     } catch (Exception e) {
       log.warn("Failed to collect search log: {}", e.getMessage());
     }
   }
 
-  @FunctionalInterface
-  private interface SearchExecutor {
-    SearchExecuteResponse execute() throws Exception;
+  // HTTP 컨텍스트와 함께 로깅
+  private void logSearchWithHttpContext(
+      SearchExecuteRequest request,
+      SearchExecuteResponse response,
+      long responseTime,
+      HttpServletRequest httpRequest) {
+
+    if (request.getQuery() == null || request.getQuery().trim().isEmpty()) {
+      return;
+    }
+
+    String sessionId =
+        request.getSearchSessionId() != null
+            ? request.getSearchSessionId()
+            : UUID.randomUUID().toString();
+    String clientIp = httpRequestUtils.getClientIp(httpRequest);
+    String userAgent = httpRequestUtils.getUserAgent(httpRequest);
+
+    Transaction txn = ElasticApm.currentTransaction();
+    if (txn != null) {
+      txn.setLabel("search.query", Optional.ofNullable(request.getQuery()).orElse(""));
+    }
+
+    try {
+      searchLogService.collectSearchLog(
+          request,
+          LocalDateTime.now(ZoneOffset.UTC),
+          clientIp,
+          userAgent,
+          responseTime,
+          response,
+          false,
+          null,
+          sessionId);
+    } catch (Exception e) {
+      log.warn("Failed to collect search log: {}", e.getMessage());
+    }
   }
 }

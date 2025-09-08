@@ -112,7 +112,7 @@
   - 상품명/카테고리 에서 일치했을 경우 스펙에서 일치했을때보다, 우선순위가 높아야 합니다
   - 모델명은 일부만 검색해도 검색되어야 합니다
   - 단위명 1kg 은 동치 단위로도 검색 되어야 합니다 ex) 1l -> 1리터 등으로도 검색 되어야 함
-  - 여러 사전을 통해 검색결과 조정이 가능해야 합니다
+  - 사전을 통해 검색결과 조정이 가능해야 합니다
   - 형태소 분석 검색 결과가 없을 경우, 유사문서(벡터)검색으로 폴백되어야 합니다
 - 구현 특이사항
   - 소수점 : 노리 형태소분석기는, 1.5 와 같은 소수점을 1,.,5 와 같이 개별 토큰으로 나누므로 5 만 검색해도 검색되게 되어. 커스텀 token filter 를구현하여 소수점 단위로 추청되는 것은 붙이도록 했습니다
@@ -125,7 +125,7 @@
   - 상품명/스펙 벡터 필드 추가하였습니다.
   - 동의어는 synonym_graph 를 통해 검색시 확장하도록 하였습니다
 - 검색 조건 및 부스팅
-  - 키워드 검색(BM25)
+  - 키워드 검색
     - 상품명/스펙/모델명을 cross_field 로 검색되게 하였습니다
     - 부스팅 : phrase 쿼리로 인접한 term 에 가중치를 부여했습니다
   - 벡터 검색
@@ -206,12 +206,12 @@
             "XPN", "XSA", "XSN", "XSV", "SSO", "SSC", "UNA", "NA", "VSV"
           ]
         },
-        "decimal_unit_merge_index": { // 단위 및 숫자 조합 커스텀 token filter
+        "decimal_unit_merge_index": { // 소수점병합 + 단위판단 커스텀 token filter
           "type": "decimal-unit-merge",
           "mode": "index",
           "units_path": "analysis/units.txt"
         },
-        "decimal_unit_merge_search": { // 단위 및 숫자 조합 커스텀 token filter
+        "decimal_unit_merge_search": { // 소수점병합 + 단위판단 조합 커스텀 token filter
           "type": "decimal-unit-merge",
           "mode": "search",
           "units_path": "analysis/units.txt"

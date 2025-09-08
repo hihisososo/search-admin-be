@@ -27,47 +27,64 @@ public class CategoryService {
   private final IndexResolver indexResolver;
 
   public CategoryListResponse listCategories(int size) {
+    // 기본값으로 현재 운영 중인 alias 사용
     try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
-
-      SearchRequest request =
-          SearchRequest.of(
-              s ->
-                  s.index(indexName)
-                      .size(0)
-                      .aggregations(
-                          "categories",
-                          Aggregation.of(
-                              a ->
-                                  a.terms(
-                                      t ->
-                                          t.field(ESFields.CATEGORY_NAME)
-                                              .size(size <= 0 ? 100 : size)))));
-
-      SearchResponse<ProductDocument> response =
-          elasticsearchClient.search(request, ProductDocument.class);
-
-      var terms = response.aggregations().get("categories").sterms();
-      List<CategoryListResponse.CategoryItem> items = new ArrayList<>();
-      if (terms != null) {
-        for (var b : terms.buckets().array()) {
-          Long count = b.docCount();
-          items.add(
-              CategoryListResponse.CategoryItem.builder()
-                  .name(b.key().stringValue())
-                  .docCount(count == null ? 0L : count)
-                  .build());
-        }
-      }
-
-      // 가나다순 정렬 (한국어 Collator 사용)
-      Collator koreanCollator = Collator.getInstance(Locale.KOREAN);
-      items.sort(Comparator.comparing(CategoryListResponse.CategoryItem::getName, koreanCollator));
-
-      return CategoryListResponse.builder().categories(items).build();
+      String indexName = indexResolver.resolveProductIndex();
+      return listCategoriesFromIndex(indexName, size);
     } catch (Exception e) {
       log.error("카테고리 리스트 조회 실패", e);
       return CategoryListResponse.builder().categories(List.of()).build();
     }
+  }
+
+  public CategoryListResponse listCategoriesForEnvironment(
+      IndexEnvironment.EnvironmentType environmentType, int size) {
+    // 특정 환경의 카테고리 조회
+    try {
+      String indexName = indexResolver.resolveProductIndex(environmentType);
+      return listCategoriesFromIndex(indexName, size);
+    } catch (Exception e) {
+      log.error("카테고리 리스트 조회 실패 - 환경: {}", environmentType, e);
+      return CategoryListResponse.builder().categories(List.of()).build();
+    }
+  }
+
+  private CategoryListResponse listCategoriesFromIndex(String indexName, int size)
+      throws Exception {
+    SearchRequest request =
+        SearchRequest.of(
+            s ->
+                s.index(indexName)
+                    .size(0)
+                    .aggregations(
+                        "categories",
+                        Aggregation.of(
+                            a ->
+                                a.terms(
+                                    t ->
+                                        t.field(ESFields.CATEGORY_NAME)
+                                            .size(size <= 0 ? 10000 : size)))));
+
+    SearchResponse<ProductDocument> response =
+        elasticsearchClient.search(request, ProductDocument.class);
+
+    var terms = response.aggregations().get("categories").sterms();
+    List<CategoryListResponse.CategoryItem> items = new ArrayList<>();
+    if (terms != null) {
+      for (var b : terms.buckets().array()) {
+        Long count = b.docCount();
+        items.add(
+            CategoryListResponse.CategoryItem.builder()
+                .name(b.key().stringValue())
+                .docCount(count == null ? 0L : count)
+                .build());
+      }
+    }
+
+    // 가나다순 정렬 (한국어 Collator 사용)
+    Collator koreanCollator = Collator.getInstance(Locale.KOREAN);
+    items.sort(Comparator.comparing(CategoryListResponse.CategoryItem::getName, koreanCollator));
+
+    return CategoryListResponse.builder().categories(items).build();
   }
 }

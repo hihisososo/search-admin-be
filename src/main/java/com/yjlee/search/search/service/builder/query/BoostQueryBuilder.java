@@ -32,6 +32,7 @@ public class BoostQueryBuilder {
                         m.query(query)
                             .fields(List.of(ESFields.NAME, ESFields.SPECS, ESFields.CATEGORY))
                             .type(TextQueryType.Phrase)
+                            .slop(10)
                             .minimumShouldMatch("2")
                             .boost(SearchBoostConstants.NAME_PHRASE_BOOST)));
 
@@ -55,7 +56,7 @@ public class BoostQueryBuilder {
   }
 
   private Query buildPhraseQuery(String field, String query, float boost) {
-    return Query.of(q -> q.matchPhrase(mp -> mp.field(field).query(query).boost(boost)));
+    return Query.of(q -> q.matchPhrase(mp -> mp.field(field).query(query).slop(10).boost(boost)));
   }
 
   private Query buildMatchQuery(String field, String query, float boost) {
