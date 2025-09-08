@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.util.EnvironmentTypeConverter;
 import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.converter.ProductDtoConverter;
@@ -27,6 +29,7 @@ import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchHitsDto;
 import com.yjlee.search.search.dto.SearchMetaDto;
+import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.service.builder.QueryBuilder;
 import com.yjlee.search.search.service.builder.QueryResponseBuilder;
 import com.yjlee.search.search.service.builder.SearchRequestBuilder;
@@ -70,13 +73,26 @@ public class HybridSearchService {
         request.getHybridTopK(),
         request.getVectorMinScore());
 
+    // 환경 타입 결정 - 시뮬레이션이면 해당 환경, 아니면 PROD
+    DictionaryEnvironmentType environment = DictionaryEnvironmentType.PROD;
+    if (request instanceof SearchSimulationRequest simulationRequest) {
+      environment =
+          EnvironmentTypeConverter.toDictionaryEnvironmentType(
+              simulationRequest.getEnvironmentType());
+      log.debug("Hybrid simulation search - using environment: {}", environment);
+    }
+
     long startTime = System.currentTimeMillis();
 
     try {
       // 1. Multi Search API로 BM25와 Vector 검색을 한번에 실행
       MsearchResponse<JsonNode> msearchResponse =
           executeMultiSearch(
-              indexName, request, request.getHybridTopK(), request.getVectorMinScore());
+              indexName,
+              request,
+              environment,
+              request.getHybridTopK(),
+              request.getVectorMinScore());
 
       // 검색 결과 추출
       List<Hit<JsonNode>> bm25Results = new ArrayList<>();
@@ -132,11 +148,15 @@ public class HybridSearchService {
 
   /** Multi Search API로 BM25와 Vector 검색 동시 실행 */
   private MsearchResponse<JsonNode> executeMultiSearch(
-      String indexName, SearchExecuteRequest request, int topK, Double vectorMinScore)
+      String indexName,
+      SearchExecuteRequest request,
+      DictionaryEnvironmentType environment,
+      int topK,
+      Double vectorMinScore)
       throws IOException {
 
     // BM25 쿼리 생성
-    BoolQuery boolQuery = queryBuilder.buildBoolQuery(request);
+    BoolQuery boolQuery = queryBuilder.buildBoolQuery(request, environment);
 
     // 필터 쿼리 생성 (벡터 검색용)
     java.util.List<co.elastic.clients.elasticsearch._types.query_dsl.Query> filterQueries =
@@ -173,9 +193,12 @@ public class HybridSearchService {
 
   /** 키워드 검색만 실행 (폴백용) */
   private SearchExecuteResponse executeKeywordSearch(
-      String indexName, SearchExecuteRequest request, boolean withExplain) {
+      String indexName,
+      SearchExecuteRequest request,
+      DictionaryEnvironmentType environment,
+      boolean withExplain) {
 
-    BoolQuery boolQuery = queryBuilder.buildBoolQuery(request);
+    BoolQuery boolQuery = queryBuilder.buildBoolQuery(request, environment);
     Map<String, Aggregation> aggregations = searchRequestBuilder.buildAggregations();
     SearchRequest searchRequest =
         searchRequestBuilder.buildProductSearchRequest(
