@@ -1,13 +1,10 @@
 package com.yjlee.search.loggen.service;
 
 import com.yjlee.search.clicklog.dto.ClickLogRequest;
-import com.yjlee.search.clicklog.service.ClickLogService;
 import com.yjlee.search.loggen.model.SearchQueryPool;
 import com.yjlee.search.loggen.repository.SearchQueryPoolRepository;
 import com.yjlee.search.search.dto.ProductDto;
-import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
-import com.yjlee.search.search.service.SearchService;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
 import java.util.Optional;
@@ -19,8 +16,14 @@ import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Slf4j
 @Service
@@ -28,14 +31,16 @@ import org.springframework.stereotype.Service;
 public class AutoLogGeneratorService {
 
   private final SearchQueryPoolRepository queryPoolRepository;
-  private final SearchService searchService;
-  private final ClickLogService clickLogService;
+  private final RestTemplate restTemplate = new RestTemplate();
 
   @Value("${app.log-generator.enabled:false}")
   private boolean enabledByConfig;
 
   @Value("${app.log-generator.parallel-llm-count:3}")
   private int parallelLlmCount = 3;
+  
+  @Value("${server.port:8080}")
+  private int serverPort;
 
   private final Random random = new Random();
   private final ExecutorService executorService = Executors.newFixedThreadPool(3);
@@ -105,14 +110,21 @@ public class AutoLogGeneratorService {
       String searchQuery = poolQuery.get().getQuery();
       log.debug("검색어 풀에서 선택: {}", searchQuery);
 
-      // 2. 실제 검색 수행
+      // 2. 실제 검색 수행 (HTTP 요청으로)
       String sessionId = UUID.randomUUID().toString();
-      SearchExecuteRequest request = new SearchExecuteRequest();
-      request.setQuery(searchQuery);
-      request.setSize(20);
-      request.setSearchSessionId(sessionId);
-
-      SearchExecuteResponse searchResponse = searchService.searchProducts(request);
+      String baseUrl = "http://localhost:" + serverPort;
+      
+      // URL 인코딩을 위해 UriComponentsBuilder 사용
+      String searchUrl = UriComponentsBuilder.fromHttpUrl(baseUrl + "/api/v1/search")
+          .queryParam("query", searchQuery)
+          .queryParam("size", 20)
+          .queryParam("searchSessionId", sessionId)
+          .build()
+          .toUriString();
+      
+      ResponseEntity<SearchExecuteResponse> responseEntity = 
+          restTemplate.getForEntity(searchUrl, SearchExecuteResponse.class);
+      SearchExecuteResponse searchResponse = responseEntity.getBody();
 
       if (searchResponse == null
           || searchResponse.getHits() == null
@@ -169,7 +181,15 @@ public class AutoLogGeneratorService {
               .sessionId(sessionId)
               .build();
 
-      clickLogService.logClick(clickRequest);
+      // HTTP 요청으로 클릭 로그 전송
+      String baseUrl = "http://localhost:" + serverPort;
+      String clickUrl = baseUrl + "/api/v1/click-logs";
+      
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_JSON);
+      HttpEntity<ClickLogRequest> entity = new HttpEntity<>(clickRequest, headers);
+      
+      restTemplate.postForEntity(clickUrl, entity, Object.class);
 
     } catch (Exception e) {
       log.error("클릭 로그 생성 실패: {}", searchKeyword, e);
