@@ -1,11 +1,19 @@
 package com.yjlee.search.dictionary.user.service;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.dictionary.common.service.AbstractDictionaryService;
+import com.yjlee.search.deployment.constant.DeploymentConstants;
+import com.yjlee.search.deployment.service.EC2DeploymentService;
+import com.yjlee.search.common.PageResponse;
+import com.yjlee.search.dictionary.common.enums.DictionarySortField;
+import com.yjlee.search.dictionary.common.service.DictionaryService;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryUpdateRequest;
+import com.yjlee.search.dictionary.user.mapper.UserDictionaryMapper;
 import com.yjlee.search.dictionary.user.model.UserDictionary;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
 import java.util.List;
@@ -21,49 +29,128 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class UserDictionaryService
-    extends AbstractDictionaryService<
-        UserDictionary,
-        UserDictionaryCreateRequest,
-        UserDictionaryUpdateRequest,
-        UserDictionaryResponse,
-        UserDictionaryListResponse> {
+public class UserDictionaryService implements DictionaryService {
 
   private final UserDictionaryRepository userDictionaryRepository;
+  private final EC2DeploymentService ec2DeploymentService;
+  private final UserDictionaryMapper mapper;
 
-  @Override
-  protected JpaRepository<UserDictionary, Long> getRepository() {
-    return userDictionaryRepository;
+  public UserDictionaryResponse create(UserDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+    UserDictionary entity = UserDictionary.of(request.getKeyword(), request.getDescription(), environment);
+    UserDictionary saved = userDictionaryRepository.save(entity);
+    return mapper.toResponse(saved);
   }
 
-  @Override
-  protected String getDictionaryType() {
-    return "사용자";
+  public PageResponse<UserDictionaryListResponse> getList(
+      int page, int size, String sortBy, String sortDir, String keyword, DictionaryEnvironmentType environment) {
+    
+    Sort sort = createSort(sortBy, sortDir);
+    Pageable pageable = PageRequest.of(page, size, sort);
+    
+    Page<UserDictionary> entities = (keyword != null && !keyword.trim().isEmpty())
+        ? searchInRepository(environment, keyword.trim(), pageable)
+        : findByEnvironmentType(environment, pageable);
+    Page<UserDictionaryListResponse> resultPage = entities.map(mapper::toListResponse);
+    
+    return PageResponse.from(resultPage);
   }
 
-  @Override
-  public String getDictionaryTypeEnum() {
-    return "USER";
+  public UserDictionaryResponse get(Long id, DictionaryEnvironmentType environment) {
+    
+    UserDictionary entity = userDictionaryRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException("사용자 사전을 찾을 수 없습니다: " + id));
+    return mapper.toResponse(entity);
   }
 
-  @Override
-  protected List<UserDictionary> findByEnvironmentType(DictionaryEnvironmentType environment) {
+  public UserDictionaryResponse update(Long id, UserDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
+    
+    UserDictionary entity = userDictionaryRepository.findById(id)
+        .orElseThrow(() -> new EntityNotFoundException("사용자 사전을 찾을 수 없습니다: " + id));
+    
+    updateEntity(entity, request);
+    UserDictionary updated = userDictionaryRepository.save(entity);
+    
+    return mapper.toResponse(updated);
+  }
+
+  public void delete(Long id, DictionaryEnvironmentType environment) {
+    
+    if (!userDictionaryRepository.existsById(id)) {
+      throw new EntityNotFoundException("사용자 사전을 찾을 수 없습니다: " + id);
+    }
+    
+    userDictionaryRepository.deleteById(id);
+  }
+
+  private List<UserDictionary> findByEnvironmentType(DictionaryEnvironmentType environment) {
     return userDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
   }
 
-  @Override
-  protected Page<UserDictionary> findByEnvironmentType(
+  private Page<UserDictionary> findByEnvironmentType(
       DictionaryEnvironmentType environment, Pageable pageable) {
     return userDictionaryRepository.findByEnvironmentType(environment, pageable);
   }
 
   @Override
-  protected void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
-    userDictionaryRepository.deleteByEnvironmentType(environment);
+  public void deployToDev(String version) {
+    deployToEnvironment(DictionaryEnvironmentType.CURRENT, DictionaryEnvironmentType.DEV);
+    deployToEC2(version);
   }
 
   @Override
-  public String getDictionaryContent(DictionaryEnvironmentType environment) {
+  public void deployToProd() {
+    deployToEnvironment(DictionaryEnvironmentType.DEV, DictionaryEnvironmentType.PROD);
+  }
+  
+  private void deployToEnvironment(DictionaryEnvironmentType from, DictionaryEnvironmentType to) {
+    List<UserDictionary> sourceDictionaries = findByEnvironmentType(from);
+    
+    if (sourceDictionaries.isEmpty() && to == DictionaryEnvironmentType.PROD) {
+      throw new IllegalStateException("개발 환경에 배포된 사용자 사전이 없습니다.");
+    }
+    
+    deleteByEnvironmentType(to);
+    
+    List<UserDictionary> targetDictionaries = sourceDictionaries.stream()
+        .map(dict -> mapper.copyWithEnvironment(dict, to))
+        .toList();
+    
+    userDictionaryRepository.saveAll(targetDictionaries);
+    log.info("{} 환경 사용자 사전 배포 완료: {}개", to, targetDictionaries.size());
+  }
+
+  @Override
+  public void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+    userDictionaryRepository.deleteByEnvironmentType(environment);
+  }
+
+  public void deployToEC2(String version) {
+    log.info("사용자사전 EC2 배포 시작 - 버전: {}", version);
+    
+    try {
+      String content = getDictionaryContent(DictionaryEnvironmentType.DEV);
+      
+      if (content == null || content.trim().isEmpty()) {
+        log.warn("사용자사전 내용이 비어있음 - 버전: {}", version);
+        return;
+      }
+      
+      EC2DeploymentService.EC2DeploymentResult result = 
+          ec2DeploymentService.deployFile(version + ".txt", DeploymentConstants.EC2Paths.USER_DICT, content, version);
+      
+      if (!result.isSuccess()) {
+        throw new RuntimeException("사용자사전 EC2 업로드 실패: " + result.getMessage());
+      }
+      
+      log.info("사용자사전 EC2 업로드 완료 - 버전: {}, 내용 길이: {}", version, content.length());
+      
+    } catch (Exception e) {
+      log.error("사용자사전 EC2 업로드 실패 - 버전: {}", version, e);
+      throw new RuntimeException("사용자사전 EC2 업로드 실패", e);
+    }
+  }
+
+  private String getDictionaryContent(DictionaryEnvironmentType environment) {
     List<UserDictionary> dictionaries = findByEnvironmentType(environment);
     StringBuilder content = new StringBuilder();
 
@@ -78,38 +165,8 @@ public class UserDictionaryService
     return content.toString();
   }
 
-  @Override
-  protected UserDictionary buildEntity(UserDictionaryCreateRequest request) {
-    return UserDictionary.builder()
-        .keyword(request.getKeyword())
-        .description(request.getDescription())
-        .build();
-  }
 
-  @Override
-  protected UserDictionaryResponse convertToResponse(UserDictionary entity) {
-    return UserDictionaryResponse.builder()
-        .id(entity.getId())
-        .keyword(entity.getKeyword())
-        .description(entity.getDescription())
-        .createdAt(entity.getCreatedAt())
-        .updatedAt(entity.getUpdatedAt())
-        .build();
-  }
-
-  @Override
-  protected UserDictionaryListResponse convertToListResponse(UserDictionary entity) {
-    return UserDictionaryListResponse.builder()
-        .id(entity.getId())
-        .keyword(entity.getKeyword())
-        .description(entity.getDescription())
-        .createdAt(entity.getCreatedAt())
-        .updatedAt(entity.getUpdatedAt())
-        .build();
-  }
-
-  @Override
-  protected void updateEntity(UserDictionary entity, UserDictionaryUpdateRequest request) {
+  private void updateEntity(UserDictionary entity, UserDictionaryUpdateRequest request) {
     if (request.getKeyword() != null) {
       entity.updateKeyword(request.getKeyword());
     }
@@ -118,18 +175,14 @@ public class UserDictionaryService
     }
   }
 
-  @Override
-  protected Page<UserDictionary> searchInRepository(String keyword, Pageable pageable) {
-    return userDictionaryRepository.findByKeywordContainingIgnoreCase(keyword, pageable);
+  private Page<UserDictionary> searchInRepository(DictionaryEnvironmentType environmentType, String keyword, Pageable pageable) {
+    return userDictionaryRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(environmentType, keyword, pageable);
   }
 
-  @Override
-  protected UserDictionary copyEntityWithEnvironment(
-      UserDictionary entity, DictionaryEnvironmentType environment) {
-    return UserDictionary.builder()
-        .keyword(entity.getKeyword())
-        .description(entity.getDescription())
-        .environmentType(environment)
-        .build();
+
+  private Sort createSort(String sortBy, String sortDir) {
+    String field = DictionarySortField.getValidFieldOrDefault(sortBy);
+    Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+    return Sort.by(direction, field);
   }
 }

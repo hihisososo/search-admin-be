@@ -9,6 +9,7 @@ import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryResponse;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.typo.model.TypoCorrectionDictionary;
 import com.yjlee.search.dictionary.typo.repository.TypoCorrectionDictionaryRepository;
+import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,8 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class TypoCorrectionDictionaryService implements DictionaryService {
 
   private final TypoCorrectionDictionaryRepository repository;
+  private final TypoCorrectionService typoCorrectionService;
 
-  @Override
   public String getDictionaryTypeEnum() {
     return "TYPO";
   }
@@ -151,8 +152,8 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
 
   @Override
   @Transactional
-  public void deployToDev() {
-    log.info("개발 환경 오타교정 사전 배포 시작");
+  public void deployToDev(String version) {
+    log.info("개발 환경 오타교정 사전 배포 시작 - 버전: {}", version);
 
     List<TypoCorrectionDictionary> currentDictionaries =
         repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT);
@@ -186,18 +187,18 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
   public void deployToProd() {
     log.info("운영 환경 오타교정 사전 배포 시작");
 
-    List<TypoCorrectionDictionary> currentDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT);
-    if (currentDictionaries.isEmpty()) {
-      throw new IllegalStateException("배포할 오타교정 사전이 없습니다.");
+    List<TypoCorrectionDictionary> devDictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.DEV);
+    if (devDictionaries.isEmpty()) {
+      throw new IllegalStateException("개발 환경에 배포된 오타교정 사전이 없습니다.");
     }
 
     // 기존 운영 환경 데이터 삭제
     repository.deleteByEnvironmentType(DictionaryEnvironmentType.PROD);
 
-    // CURRENT 데이터를 PROD로 복사
+    // DEV 데이터를 PROD로 복사
     List<TypoCorrectionDictionary> prodDictionaries =
-        currentDictionaries.stream()
+        devDictionaries.stream()
             .map(
                 dict ->
                     TypoCorrectionDictionary.builder()
@@ -266,7 +267,6 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
         .build();
   }
 
-  @Override
   public String getDictionaryContent(DictionaryEnvironmentType environment) {
     List<TypoCorrectionDictionary> dictionaries =
         repository.findByEnvironmentTypeOrderByKeywordAsc(environment);
@@ -286,7 +286,8 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
   @Override
   public void realtimeSync(DictionaryEnvironmentType environment) {
     log.info("오타교정 사전 실시간 동기화 - 환경: {}", environment);
-    // TODO: 캐시 업데이트 로직 구현
+    typoCorrectionService.updateCacheRealtime(environment);
+    log.info("오타교정 캐시 업데이트 완료 - 환경: {}", environment);
   }
 
   public String getDictionaryType() {

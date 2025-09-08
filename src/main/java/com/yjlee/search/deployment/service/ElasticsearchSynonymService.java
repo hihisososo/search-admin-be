@@ -4,7 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.synonyms.PutSynonymRequest;
 import co.elastic.clients.elasticsearch.synonyms.SynonymRule;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
+import com.yjlee.search.dictionary.synonym.model.SynonymDictionary;
+import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Service;
 public class ElasticsearchSynonymService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final SynonymDictionaryService synonymDictionaryService;
+  private final SynonymDictionaryRepository synonymDictionaryRepository;
 
   public void createOrUpdateSynonymSet(String setName, DictionaryEnvironmentType environmentType) {
     try {
@@ -45,23 +46,13 @@ public class ElasticsearchSynonymService {
   /** 환경별 동의어 규칙 조회 */
   private List<String> getSynonymRules(DictionaryEnvironmentType environmentType) {
     try {
-      if (environmentType == DictionaryEnvironmentType.CURRENT) {
-        // 현재 편집 중인 사전
-        return synonymDictionaryService
-            .getList(0, 10000, "keyword", "asc", null, environmentType)
-            .getContent()
-            .stream()
-            .map(dict -> dict.getKeyword())
-            .collect(Collectors.toList());
-      } else {
-        // DEV/PROD 스냅샷
-        return synonymDictionaryService
-            .getList(0, 10000, "keyword", "asc", null, environmentType)
-            .getContent()
-            .stream()
-            .map(dict -> dict.getKeyword())
-            .collect(Collectors.toList());
-      }
+      // Repository에서 직접 데이터 조회
+      List<SynonymDictionary> dictionaries = 
+          synonymDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environmentType);
+      
+      return dictionaries.stream()
+          .map(dict -> dict.getKeyword())
+          .collect(Collectors.toList());
     } catch (Exception e) {
       log.error("동의어 규칙 조회 실패 - 환경: {}", environmentType.getDescription(), e);
       return List.of();

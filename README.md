@@ -18,7 +18,7 @@
       </td>
       <td align="center" width="33%">
         <sub><b>카테고리랭킹 적용</b></sub><br/><br/>
-        <img src="docs/images/synonym.gif" width="100%" />
+        <img src="docs/images/category_ranking.gif" width="100%" />
       </td>
     </tr>
   </table>

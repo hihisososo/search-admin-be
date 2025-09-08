@@ -2,6 +2,7 @@ package com.yjlee.search.dictionary.synonym.service;
 
 import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.util.EnvironmentTypeConverter;
 import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryListResponse;
@@ -9,6 +10,8 @@ import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryResponse;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.synonym.model.SynonymDictionary;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
+import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
+import com.yjlee.search.search.service.IndexResolver;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class SynonymDictionaryService implements DictionaryService {
 
   private final SynonymDictionaryRepository repository;
+  private final ElasticsearchSynonymService elasticsearchSynonymService;
+  private final IndexResolver indexResolver;
 
-  @Override
   public String getDictionaryTypeEnum() {
     return "SYNONYM";
   }
@@ -135,8 +139,8 @@ public class SynonymDictionaryService implements DictionaryService {
 
   @Override
   @Transactional
-  public void deployToDev() {
-    log.info("개발 환경 동의어 사전 배포 시작");
+  public void deployToDev(String version) {
+    log.info("개발 환경 동의어 사전 배포 시작 - 버전: {}", version);
 
     List<SynonymDictionary> currentDictionaries =
         repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT);
@@ -176,18 +180,18 @@ public class SynonymDictionaryService implements DictionaryService {
   public void deployToProd() {
     log.info("운영 환경 동의어 사전 배포 시작");
 
-    List<SynonymDictionary> currentDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT);
-    if (currentDictionaries.isEmpty()) {
-      throw new IllegalStateException("배포할 동의어 사전이 없습니다.");
+    List<SynonymDictionary> devDictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.DEV);
+    if (devDictionaries.isEmpty()) {
+      throw new IllegalStateException("개발 환경에 배포된 동의어 사전이 없습니다.");
     }
 
     // 기존 운영 환경 데이터 삭제
     repository.deleteByEnvironmentType(DictionaryEnvironmentType.PROD);
 
-    // CURRENT 데이터를 PROD로 복사
+    // DEV 데이터를 PROD로 복사
     List<SynonymDictionary> prodDictionaries =
-        currentDictionaries.stream()
+        devDictionaries.stream()
             .map(
                 dict ->
                     SynonymDictionary.builder()
@@ -211,7 +215,6 @@ public class SynonymDictionaryService implements DictionaryService {
         .build();
   }
 
-  @Override
   public String getDictionaryContent(DictionaryEnvironmentType environment) {
     List<SynonymDictionary> dictionaries =
         repository.findByEnvironmentTypeOrderByKeywordAsc(environment);
@@ -231,7 +234,37 @@ public class SynonymDictionaryService implements DictionaryService {
   @Override
   public void realtimeSync(DictionaryEnvironmentType environment) {
     log.info("동의어 사전 실시간 동기화 - 환경: {}", environment);
-    // TODO: 캐시 업데이트 로직 구현
+    
+    try {
+      String synonymSetName;
+      
+      if (environment == DictionaryEnvironmentType.CURRENT) {
+        // CURRENT 환경은 synonyms-nori-current 사용
+        synonymSetName = "synonyms-nori-current";
+      } else {
+        // DEV/PROD 환경은 현재 인덱스 버전에 맞는 synonym set 사용
+        try {
+          String indexName = indexResolver.resolveProductIndex(
+              EnvironmentTypeConverter.toIndexEnvironmentType(environment));
+          
+          // 인덱스 이름에서 버전 추출 (예: products_v15 -> v15)
+          String version = indexName.substring(indexName.lastIndexOf("_v") + 1);
+          synonymSetName = "synonyms-nori-" + version;
+        } catch (Exception e) {
+          // 인덱스가 아직 활성화되지 않은 경우 (예: 색인 중)
+          log.warn("동의어 사전 실시간 동기화 건너뛰기 - 환경: {} (인덱스 미활성화)", environment);
+          return;
+        }
+      }
+      
+      // Elasticsearch synonym set 업데이트
+      elasticsearchSynonymService.createOrUpdateSynonymSet(synonymSetName, environment);
+      log.info("동의어 사전 Elasticsearch 동기화 완료 - 환경: {}, synonymSet: {}", environment, synonymSetName);
+      
+    } catch (Exception e) {
+      log.error("동의어 사전 실시간 동기화 실패 - 환경: {}", environment, e);
+      throw new RuntimeException("동의어 사전 실시간 동기화 실패", e);
+    }
   }
 
   public String getDictionaryType() {

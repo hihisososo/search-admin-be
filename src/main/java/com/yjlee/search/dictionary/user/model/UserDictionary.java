@@ -11,7 +11,13 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "user_dictionaries")
+@Table(
+    name = "user_dictionaries",
+    indexes = {
+        @Index(name = "idx_user_keyword_env", columnList = "keyword, environmentType"),
+        @Index(name = "idx_user_env", columnList = "environmentType"),
+        @Index(name = "idx_user_updated", columnList = "updatedAt DESC")
+    })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Builder
@@ -45,5 +51,13 @@ public class UserDictionary implements DictionaryEntity {
 
   public void updateDescription(String description) {
     this.description = description;
+  }
+  
+  public static UserDictionary of(String keyword, String description, DictionaryEnvironmentType environment) {
+    return UserDictionary.builder()
+        .keyword(keyword)
+        .description(description)
+        .environmentType(environment)
+        .build();
   }
 }

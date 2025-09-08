@@ -2,7 +2,7 @@ package com.yjlee.search.deployment.controller;
 
 import com.yjlee.search.deployment.dto.*;
 import com.yjlee.search.deployment.model.DeploymentHistory;
-import com.yjlee.search.deployment.service.DeploymentManagementService;
+import com.yjlee.search.deployment.service.SimpleDeploymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Deployment Management", description = "배포 관리 API")
 public class DeploymentManagementController {
 
-  private final DeploymentManagementService deploymentManagementService;
+  private final SimpleDeploymentService deploymentService;
 
   @Operation(summary = "환경 정보 조회", description = "개발/운영 환경의 색인 정보를 조회합니다.")
   @ApiResponses({
@@ -34,7 +34,7 @@ public class DeploymentManagementController {
   })
   @GetMapping("/environments")
   public ResponseEntity<EnvironmentListResponse> getEnvironments() {
-    EnvironmentListResponse response = deploymentManagementService.getEnvironments();
+    EnvironmentListResponse response = deploymentService.getEnvironments();
     return ResponseEntity.ok(response);
   }
 
@@ -48,7 +48,7 @@ public class DeploymentManagementController {
   public ResponseEntity<DeploymentOperationResponse> executeIndexing(
       @RequestBody IndexingRequest request) {
 
-    DeploymentOperationResponse response = deploymentManagementService.executeIndexing(request);
+    DeploymentOperationResponse response = deploymentService.executeIndexing(request);
 
     if (response.isSuccess()) {
       return ResponseEntity.ok(response);
@@ -66,7 +66,7 @@ public class DeploymentManagementController {
   @PostMapping("/deploy")
   public ResponseEntity<DeploymentOperationResponse> executeDeployment(
       @RequestBody DeploymentRequest request) {
-    DeploymentOperationResponse response = deploymentManagementService.executeDeployment(request);
+    DeploymentOperationResponse response = deploymentService.executeDeployment(request);
 
     if (response.isSuccess()) {
       return ResponseEntity.ok(response);
@@ -96,7 +96,7 @@ public class DeploymentManagementController {
         deploymentType,
         pageable);
     DeploymentHistoryListResponse response =
-        deploymentManagementService.getDeploymentHistory(pageable, status, deploymentType);
+        deploymentService.getDeploymentHistory(pageable, status, deploymentType);
     return ResponseEntity.ok(response);
   }
 
@@ -108,7 +108,7 @@ public class DeploymentManagementController {
   @GetMapping("/indices/unused")
   public ResponseEntity<UnusedIndicesResponse> getUnusedIndices() {
     log.info("미사용 인덱스 목록 조회 요청");
-    UnusedIndicesResponse response = deploymentManagementService.getUnusedIndices();
+    UnusedIndicesResponse response = deploymentService.getUnusedIndices();
     log.info("미사용 인덱스 조회 완료 - {}개 발견", response.getDeletableCount());
     return ResponseEntity.ok(response);
   }
@@ -137,7 +137,7 @@ public class DeploymentManagementController {
     }
 
     log.info("미사용 인덱스 삭제 요청 - confirmDelete=true");
-    DeleteUnusedIndicesResponse response = deploymentManagementService.deleteUnusedIndices();
+    DeleteUnusedIndicesResponse response = deploymentService.deleteUnusedIndices();
 
     if (response.isSuccess()) {
       log.info("미사용 인덱스 삭제 완료 - {}개 삭제", response.getDeletedCount());

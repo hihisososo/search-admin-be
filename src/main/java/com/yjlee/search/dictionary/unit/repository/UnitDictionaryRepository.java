@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UnitDictionaryRepository extends JpaRepository<UnitDictionary, Long> {
-  Page<UnitDictionary> findByKeywordContainingIgnoreCase(String keyword, Pageable pageable);
 
   // environment_type 기반 조회
   Page<UnitDictionary> findByEnvironmentType(
@@ -22,9 +21,6 @@ public interface UnitDictionaryRepository extends JpaRepository<UnitDictionary, 
 
   Page<UnitDictionary> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
       DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
-
-  Optional<UnitDictionary> findByIdAndEnvironmentType(
-      Long id, DictionaryEnvironmentType environmentType);
 
   boolean existsByKeywordAndEnvironmentType(
       String keyword, DictionaryEnvironmentType environmentType);

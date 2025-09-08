@@ -11,7 +11,13 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "stopword_dictionaries")
+@Table(
+    name = "stopword_dictionaries",
+    indexes = {
+        @Index(name = "idx_stopword_keyword_env", columnList = "keyword, environmentType"),
+        @Index(name = "idx_stopword_env", columnList = "environmentType"),
+        @Index(name = "idx_stopword_updated", columnList = "updatedAt DESC")
+    })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Builder
@@ -44,5 +50,13 @@ public class StopwordDictionary implements DictionaryEntity {
 
   public void updateDescription(String description) {
     this.description = description;
+  }
+  
+  public static StopwordDictionary of(String keyword, String description, DictionaryEnvironmentType environment) {
+    return StopwordDictionary.builder()
+        .keyword(keyword)
+        .description(description)
+        .environmentType(environment)
+        .build();
   }
 }

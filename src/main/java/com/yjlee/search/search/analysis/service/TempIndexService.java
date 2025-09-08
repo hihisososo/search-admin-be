@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.deployment.constant.DeploymentConstants;
 import com.yjlee.search.deployment.service.EC2DeploymentService;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
@@ -106,7 +107,7 @@ public class TempIndexService {
   private void uploadTempUserDictionary() {
     String content = buildUserDictionaryContent();
     EC2DeploymentService.EC2DeploymentResult result =
-        ec2DeploymentService.deployUserDictionary(content, "temp-current");
+        ec2DeploymentService.deployFile("temp-current.txt", DeploymentConstants.EC2Paths.USER_DICT, content, "temp-current");
 
     if (!result.isSuccess()) {
       throw new RuntimeException("임시 사용자 사전 EC2 업로드 실패: " + result.getMessage());
@@ -116,7 +117,7 @@ public class TempIndexService {
   private void uploadTempStopwordDictionary() {
     String content = buildStopwordDictionaryContent();
     EC2DeploymentService.EC2DeploymentResult result =
-        ec2DeploymentService.deployStopwordDictionary(content, "temp-current");
+        ec2DeploymentService.deployFile("temp-current.txt", DeploymentConstants.EC2Paths.STOPWORD_DICT, content, "temp-current");
 
     if (!result.isSuccess()) {
       throw new RuntimeException("임시 불용어 사전 EC2 업로드 실패: " + result.getMessage());
@@ -126,7 +127,7 @@ public class TempIndexService {
   private void uploadTempUnitDictionary() {
     String content = buildUnitDictionaryContent();
     EC2DeploymentService.EC2DeploymentResult result =
-        ec2DeploymentService.deployUnitDictionary(content, "temp-current");
+        ec2DeploymentService.deployFile("temp-current.txt", DeploymentConstants.EC2Paths.UNIT_DICT, content, "temp-current");
 
     if (!result.isSuccess()) {
       throw new RuntimeException("임시 단위 사전 EC2 업로드 실패: " + result.getMessage());

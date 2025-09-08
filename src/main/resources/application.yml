@@ -87,4 +87,4 @@ embedding:
       enabled: true
 
 indexing:
-  max-documents: ${INDEXING_MAX_DOCUMENTS:100000}
+  max-documents: ${INDEXING_MAX_DOCUMENTS:1000}

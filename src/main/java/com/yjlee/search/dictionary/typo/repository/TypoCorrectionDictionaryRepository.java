@@ -11,15 +11,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface TypoCorrectionDictionaryRepository
     extends JpaRepository<TypoCorrectionDictionary, Long> {
 
-  // 키워드로 검색 (페이징)
-  Page<TypoCorrectionDictionary> findByKeywordContainingIgnoreCase(
-      String keyword, Pageable pageable);
-
-  // 키워드 존재 여부 확인
-  boolean existsByKeyword(String keyword);
-
-  // 전체 조회 (키워드 오름차순 정렬)
-  List<TypoCorrectionDictionary> findAllByOrderByKeywordAsc();
 
   // environment_type 기반 조회
   Page<TypoCorrectionDictionary> findByEnvironmentType(
@@ -30,9 +21,6 @@ public interface TypoCorrectionDictionaryRepository
 
   Page<TypoCorrectionDictionary> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
       DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
-
-  Optional<TypoCorrectionDictionary> findByIdAndEnvironmentType(
-      Long id, DictionaryEnvironmentType environmentType);
 
   boolean existsByKeywordAndEnvironmentType(
       String keyword, DictionaryEnvironmentType environmentType);

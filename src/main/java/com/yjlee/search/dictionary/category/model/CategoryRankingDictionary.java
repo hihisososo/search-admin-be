@@ -14,7 +14,13 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "category_ranking_dictionaries")
+@Table(
+    name = "category_ranking_dictionaries",
+    indexes = {
+        @Index(name = "idx_category_ranking_keyword_env", columnList = "keyword, environmentType"),
+        @Index(name = "idx_category_ranking_env", columnList = "environmentType"),
+        @Index(name = "idx_category_ranking_updated", columnList = "updatedAt DESC")
+    })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Builder
@@ -69,5 +75,14 @@ public class CategoryRankingDictionary implements DictionaryEntity {
     if (categoryMappings != null) {
       categoryMappings.removeIf(m -> m.getCategory().equals(category));
     }
+  }
+  
+  public static CategoryRankingDictionary of(String keyword, List<CategoryMapping> mappings, String description, DictionaryEnvironmentType environment) {
+    return CategoryRankingDictionary.builder()
+        .keyword(keyword)
+        .categoryMappings(mappings)
+        .description(description)
+        .environmentType(environment)
+        .build();
   }
 }

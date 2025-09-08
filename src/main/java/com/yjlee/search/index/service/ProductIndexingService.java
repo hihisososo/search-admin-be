@@ -6,7 +6,6 @@ import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
-import com.yjlee.search.index.service.embedding.EmbeddingEnricher;
 import com.yjlee.search.index.service.monitor.IndexProgressMonitor;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
@@ -33,7 +32,7 @@ public class ProductIndexingService {
   private static final int MAX_CONCURRENT_BATCHES = 8;
 
   private final ProductRepository productRepository;
-  private final EmbeddingEnricher embeddingEnricher;
+  private final ProductEmbeddingService productEmbeddingService;
   private final ProductDocumentFactory documentFactory;
   private final AutocompleteDocumentFactory autocompleteFactory;
   private final ElasticsearchBulkIndexer bulkIndexer;
@@ -124,9 +123,6 @@ public class ProductIndexingService {
     progressMonitor.complete();
     refreshIndexes(targetIndex);
 
-    // 색인 완료 후 임베딩 캐시 정리
-    embeddingEnricher.clearCache();
-
     log.info("상품 색인 완료: {}개 색인됨", totalIndexed);
     return totalIndexed;
   }
@@ -179,12 +175,7 @@ public class ProductIndexingService {
 
   private List<ProductDocument> enrichAndConvertProducts(List<Product> products) {
     try {
-      List<Long> productIds = products.stream().map(Product::getId).toList();
-
-      Map<Long, Map<String, List<Float>>> embeddings =
-          embeddingEnricher.preloadEmbeddings(productIds);
-
-      return embeddingEnricher.enrichProducts(products, embeddings);
+      return productEmbeddingService.enrichWithEmbeddings(products);
     } catch (Exception e) {
       log.error("상품 변환 중 오류 발생", e);
       return products.stream().map(documentFactory::create).toList();

@@ -11,7 +11,13 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "unit_dictionaries")
+@Table(
+    name = "unit_dictionaries",
+    indexes = {
+        @Index(name = "idx_unit_keyword_env", columnList = "keyword, environmentType"),
+        @Index(name = "idx_unit_env", columnList = "environmentType"),
+        @Index(name = "idx_unit_updated", columnList = "updatedAt DESC")
+    })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Builder
@@ -45,5 +51,12 @@ public class UnitDictionary implements DictionaryEntity {
 
   public void updateDescription(String description) {
     // 단위 사전은 description을 사용하지 않음
+  }
+  
+  public static UnitDictionary of(String keyword, DictionaryEnvironmentType environment) {
+    return UnitDictionary.builder()
+        .keyword(keyword)
+        .environmentType(environment)
+        .build();
   }
 }

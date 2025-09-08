@@ -15,22 +15,23 @@ public class DictionaryDataDeploymentService {
   private final List<DictionaryService> dictionaryServices;
 
   @Transactional
-  public void deployAllToDev() {
-    log.info("모든 사전을 개발 환경으로 배포 시작");
+  public void deployAllToDev(String version) {
+    log.info("모든 사전을 개발 환경으로 배포 시작 - 버전: {}", version);
 
     for (DictionaryService dictionaryService : dictionaryServices) {
       try {
-        log.info("{} 사전을 개발 환경으로 배포 중", dictionaryService.getDictionaryTypeEnum());
-        dictionaryService.deployToDev();
-        log.info("{} 사전 개발 환경 배포 완료", dictionaryService.getDictionaryTypeEnum());
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.info("{} 사전을 개발 환경으로 배포 중 - 버전: {}", serviceName, version);
+        dictionaryService.deployToDev(version);
+        log.info("{} 사전 개발 환경 배포 완료", serviceName);
       } catch (Exception e) {
-        log.error("{} 사전 개발 환경 배포 실패", dictionaryService.getDictionaryTypeEnum(), e);
-        throw new RuntimeException(
-            dictionaryService.getDictionaryTypeEnum() + " 사전 개발 환경 배포 실패", e);
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.error("{} 사전 개발 환경 배포 실패", serviceName, e);
+        throw new RuntimeException(serviceName + " 사전 개발 환경 배포 실패", e);
       }
     }
 
-    log.info("모든 사전 개발 환경 배포 완료");
+    log.info("모든 사전 개발 환경 배포 완료 - 버전: {}", version);
   }
 
   @Transactional
@@ -39,13 +40,14 @@ public class DictionaryDataDeploymentService {
 
     for (DictionaryService dictionaryService : dictionaryServices) {
       try {
-        log.info("{} 사전을 운영 환경으로 배포 중", dictionaryService.getDictionaryTypeEnum());
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.info("{} 사전을 운영 환경으로 배포 중", serviceName);
         dictionaryService.deployToProd();
-        log.info("{} 사전 운영 환경 배포 완료", dictionaryService.getDictionaryTypeEnum());
+        log.info("{} 사전 운영 환경 배포 완료", serviceName);
       } catch (Exception e) {
-        log.error("{} 사전 운영 환경 배포 실패", dictionaryService.getDictionaryTypeEnum(), e);
-        throw new RuntimeException(
-            dictionaryService.getDictionaryTypeEnum() + " 사전 운영 환경 배포 실패", e);
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.error("{} 사전 운영 환경 배포 실패", serviceName, e);
+        throw new RuntimeException(serviceName + " 사전 운영 환경 배포 실패", e);
       }
     }
 
@@ -58,35 +60,16 @@ public class DictionaryDataDeploymentService {
 
     for (DictionaryService dictionaryService : dictionaryServices) {
       try {
-        log.debug("{} 사전 실시간 동기화 중", dictionaryService.getDictionaryTypeEnum());
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.debug("{} 사전 실시간 동기화 중", serviceName);
         dictionaryService.realtimeSync(environment);
       } catch (Exception e) {
-        log.warn("{} 사전 실시간 동기화 실패 (무시하고 계속)", dictionaryService.getDictionaryTypeEnum(), e);
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.warn("{} 사전 실시간 동기화 실패 (무시하고 계속)", serviceName, e);
       }
     }
 
     log.info("모든 사전 {} 환경 실시간 동기화 완료", environment);
-  }
-
-  public String getAllDictionaryContent(DictionaryEnvironmentType environment) {
-    StringBuilder content = new StringBuilder();
-
-    for (DictionaryService dictionaryService : dictionaryServices) {
-      try {
-        String dictContent = dictionaryService.getDictionaryContent(environment);
-        if (dictContent != null && !dictContent.isEmpty()) {
-          content
-              .append("# ")
-              .append(dictionaryService.getDictionaryTypeEnum())
-              .append(" Dictionary\n");
-          content.append(dictContent).append("\n\n");
-        }
-      } catch (Exception e) {
-        log.warn("{} 사전 콘텐츠 조회 실패", dictionaryService.getDictionaryTypeEnum(), e);
-      }
-    }
-
-    return content.toString();
   }
 
   @Transactional
@@ -99,14 +82,16 @@ public class DictionaryDataDeploymentService {
 
     for (DictionaryService dictionaryService : dictionaryServices) {
       try {
-        if (dictionaryService instanceof AbstractDictionaryService) {
-          ((AbstractDictionaryService) dictionaryService).deleteByEnvironmentType(environment);
-        } else {
-          log.debug("{} 사전은 환경별 삭제를 지원하지 않습니다", dictionaryService.getDictionaryTypeEnum());
-        }
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        dictionaryService.deleteByEnvironmentType(environment);
+        log.info("{} 사전 {} 환경 삭제 완료", serviceName, environment);
+      } catch (UnsupportedOperationException e) {
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.debug("{} 사전은 환경별 삭제를 지원하지 않습니다", serviceName);
       } catch (Exception e) {
-        log.error("{} 사전 {} 환경 삭제 실패", dictionaryService.getDictionaryTypeEnum(), environment, e);
-        throw new RuntimeException(dictionaryService.getDictionaryTypeEnum() + " 사전 삭제 실패", e);
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.error("{} 사전 {} 환경 삭제 실패", serviceName, environment, e);
+        throw new RuntimeException(serviceName + " 사전 삭제 실패", e);
       }
     }
 

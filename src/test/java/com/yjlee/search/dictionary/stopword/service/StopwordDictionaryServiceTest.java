@@ -154,7 +154,7 @@ class StopwordDictionaryServiceTest {
             DictionaryEnvironmentType.CURRENT))
         .thenReturn(dictionaries);
 
-    stopwordDictionaryService.deployToDev();
+    stopwordDictionaryService.deployToDev("test-version");
 
     verify(stopwordDictionaryRepository, times(1))
         .deleteByEnvironmentType(DictionaryEnvironmentType.DEV);

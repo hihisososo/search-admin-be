@@ -37,18 +37,6 @@ public class ElasticsearchIndexService {
   private final ResourceLoader resourceLoader;
   private final ElasticsearchSynonymService elasticsearchSynonymService;
 
-  private String getSynonymSetName(DictionaryEnvironmentType environmentType) {
-    switch (environmentType) {
-      case CURRENT:
-      case DEV:
-        return "synonyms-nori-dev";
-      case PROD:
-        return "synonyms-nori-prod";
-      default:
-        return "synonyms-nori-dev";
-    }
-  }
-
   public String createNewIndex(String version) throws IOException {
     // 개발 환경 색인으로 간주
     return createNewIndex(version, DictionaryEnvironmentType.DEV);
@@ -61,9 +49,9 @@ public class ElasticsearchIndexService {
     String versionedSynonymSet = "synonyms-nori-" + version;
 
     // 기존 인덱스 삭제 - 임시로 주석처리 (인덱스 보존)
-    // if (indexExists(productIndexName)) {
-    //   deleteIndex(productIndexName);
-    // }
+    if (indexExists(productIndexName)) {
+      deleteIndex(productIndexName);
+    }
     if (indexExists(productIndexName)) {
       log.warn("기존 인덱스 {} 가 이미 존재하지만 삭제하지 않음 (삭제 로직 비활성화)", productIndexName);
       throw new IOException("인덱스가 이미 존재합니다: " + productIndexName);
@@ -97,10 +85,9 @@ public class ElasticsearchIndexService {
         environmentType.getDescription(),
         versionedSynonymSet);
 
-    // 기존 자동완성 인덱스 삭제 - 임시로 주석처리 (인덱스 보존)
-    // if (indexExists(autocompleteIndexName)) {
-    //   deleteIndex(autocompleteIndexName);
-    // }
+    if (indexExists(autocompleteIndexName)) {
+      deleteIndex(autocompleteIndexName);
+    }
     if (indexExists(autocompleteIndexName)) {
       log.warn("기존 자동완성 인덱스 {} 가 이미 존재하지만 삭제하지 않음 (삭제 로직 비활성화)", autocompleteIndexName);
       throw new IOException("자동완성 인덱스가 이미 존재합니다: " + autocompleteIndexName);

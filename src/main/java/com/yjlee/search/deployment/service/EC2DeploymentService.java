@@ -16,241 +16,48 @@ public class EC2DeploymentService {
   @Value("${app.aws.dictionary.ec2-instance-ids}")
   private String[] instanceIds;
 
-  private static final String USER_DICT_BASE_PATH =
-      "/home/ec2-user/elasticsearch/config/analysis/user";
-  private static final String STOPWORD_DICT_BASE_PATH =
-      "/home/ec2-user/elasticsearch/config/analysis/stopword";
-  private static final String UNIT_DICT_BASE_PATH =
-      "/home/ec2-user/elasticsearch/config/analysis/unit";
-
-  public EC2DeploymentResult deployUserDictionary(String content, String version) {
-    log.info("사용자사전 EC2 배포 시작 - 버전: {}, 내용 길이: {}", version, content.length());
+  public EC2DeploymentResult deployFile(String fileName, String basePath, String content, String version) {
+    log.info("EC2 파일 배포 시작 - 파일: {}/{}, 내용 길이: {}", basePath, fileName, content.length());
 
     try {
-      String script = createUserDictDeployScript(content, version);
+      String script = createDeployScript(fileName, basePath, content);
       SsmCommandService.SsmCommandResult result =
           executeDictionaryDeployment(
-              script, "사용자사전 배포", DeploymentConstants.Ssm.DEFAULT_TIMEOUT_SECONDS);
+              script, "파일 배포", DeploymentConstants.Ssm.DEFAULT_TIMEOUT_SECONDS);
 
       return EC2DeploymentResult.builder()
           .success(result.isSuccess())
           .commandId(result.getOutput())
-          .message(result.isSuccess() ? "사용자사전 배포 완료" : "사용자사전 배포 실패: " + result.getError())
+          .message(result.isSuccess() ? "배포 완료" : "배포 실패: " + result.getError())
           .version(version)
           .build();
 
     } catch (Exception e) {
-      log.error("사용자사전 EC2 배포 실패 - 버전: {}", version, e);
+      log.error("EC2 파일 배포 실패 - 파일: {}/{}", basePath, fileName, e);
       return EC2DeploymentResult.builder()
           .success(false)
-          .message("사용자사전 배포 실패: " + e.getMessage())
+          .message("배포 실패: " + e.getMessage())
           .version(version)
           .build();
     }
   }
 
-  public EC2DeploymentResult deployStopwordDictionary(String content, String version) {
-    log.info("불용어사전 EC2 배포 시작 - 버전: {}, 내용 길이: {}", version, content.length());
-
-    try {
-      String script = createStopwordDictDeployScript(content, version);
-      SsmCommandService.SsmCommandResult result =
-          executeDictionaryDeployment(
-              script, "불용어사전 배포", DeploymentConstants.Ssm.DEFAULT_TIMEOUT_SECONDS);
-
-      return EC2DeploymentResult.builder()
-          .success(result.isSuccess())
-          .commandId(result.getOutput())
-          .message(result.isSuccess() ? "불용어사전 배포 완료" : "불용어사전 배포 실패: " + result.getError())
-          .version(version)
-          .build();
-
-    } catch (Exception e) {
-      log.error("불용어사전 EC2 배포 실패 - 버전: {}", version, e);
-      return EC2DeploymentResult.builder()
-          .success(false)
-          .message("불용어사전 배포 실패: " + e.getMessage())
-          .version(version)
-          .build();
-    }
-  }
-
-  public EC2DeploymentResult deployUnitDictionary(String content, String version) {
-    log.info("단위사전 EC2 배포 시작 - 버전: {}, 내용 길이: {}", version, content.length());
-
-    try {
-      String script = createUnitDictDeployScript(content, version);
-      SsmCommandService.SsmCommandResult result =
-          executeDictionaryDeployment(
-              script, "단위사전 배포", DeploymentConstants.Ssm.DEFAULT_TIMEOUT_SECONDS);
-
-      return EC2DeploymentResult.builder()
-          .success(result.isSuccess())
-          .commandId(result.getOutput())
-          .message(result.isSuccess() ? "단위사전 배포 완료" : "단위사전 배포 실패: " + result.getError())
-          .version(version)
-          .build();
-
-    } catch (Exception e) {
-      log.error("단위사전 EC2 배포 실패 - 버전: {}", version, e);
-      return EC2DeploymentResult.builder()
-          .success(false)
-          .message("단위사전 배포 실패: " + e.getMessage())
-          .version(version)
-          .build();
-    }
-  }
-
-  private String createUserDictDeployScript(String content, String version) {
-    String fileName = version + ".txt";
-    String fullFilePath = String.format("%s/%s", USER_DICT_BASE_PATH, fileName);
+  private String createDeployScript(String fileName, String basePath, String content) {
+    String fullFilePath = String.format("%s/%s", basePath, fileName);
 
     return String.format(
         """
-                            #!/bin/bash
-                            set -e
-
-                            echo "=== 사용자사전 배포 시작 ==="
-                            echo "버전: %s"
-                            echo "대상 경로: %s"
-
-                            # 디렉토리 생성
-                            echo "디렉토리 생성: %s"
-                            mkdir -p %s
-
-                            # 파일 내용 작성
-                            echo "파일 생성 중..."
-                            cat > %s << 'EOF'
-            %s
-            EOF
-
-                            # 파일 권한 설정
-                            chmod 644 %s
-
-                            # 결과 확인
-                            if [ -f "%s" ]; then
-                                echo "배포 성공: %s"
-                                echo "파일 크기: $(stat -c%%s %s) bytes"
-                                echo "파일 권한: $(stat -c%%A %s)"
-                                echo "=== 배포 완료 ==="
-                                exit 0
-                            else
-                                echo "배포 실패: 파일이 생성되지 않음"
-                                exit 1
-                            fi
-                            """,
-        version,
-        fullFilePath,
-        USER_DICT_BASE_PATH,
-        USER_DICT_BASE_PATH,
+        #!/bin/bash
+        set -e
+        mkdir -p %s
+        cat > %s << 'EOF'
+        %s
+        EOF
+        chmod 644 %s
+        """,
+        basePath,
         fullFilePath,
         content,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath);
-  }
-
-  private String createStopwordDictDeployScript(String content, String version) {
-    String fileName = version + ".txt";
-    String fullFilePath = String.format("%s/%s", STOPWORD_DICT_BASE_PATH, fileName);
-
-    return String.format(
-        """
-                            #!/bin/bash
-                            set -e
-
-                            echo "=== 불용어사전 배포 시작 ==="
-                            echo "버전: %s"
-                            echo "대상 경로: %s"
-
-                            # 디렉토리 생성
-                            echo "디렉토리 생성: %s"
-                            mkdir -p %s
-
-                            # 파일 내용 작성
-                            echo "파일 생성 중..."
-                            cat > %s << 'EOF'
-            %s
-            EOF
-
-                            # 파일 권한 설정
-                            chmod 644 %s
-
-                            # 결과 확인
-                            if [ -f "%s" ]; then
-                                echo "배포 성공: %s"
-                                echo "파일 크기: $(stat -c%%s %s) bytes"
-                                echo "파일 권한: $(stat -c%%A %s)"
-                                echo "=== 배포 완료 ==="
-                                exit 0
-                            else
-                                echo "배포 실패: 파일이 생성되지 않음"
-                                exit 1
-                            fi
-                            """,
-        version,
-        fullFilePath,
-        STOPWORD_DICT_BASE_PATH,
-        STOPWORD_DICT_BASE_PATH,
-        fullFilePath,
-        content,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath);
-  }
-
-  private String createUnitDictDeployScript(String content, String version) {
-    String fileName = version + ".txt";
-    String fullFilePath = String.format("%s/%s", UNIT_DICT_BASE_PATH, fileName);
-
-    return String.format(
-        """
-                            #!/bin/bash
-                            set -e
-
-                            echo "=== 단위사전 배포 시작 ==="
-                            echo "버전: %s"
-                            echo "대상 경로: %s"
-
-                            # 디렉토리 생성
-                            echo "디렉토리 생성: %s"
-                            mkdir -p %s
-
-                            # 파일 내용 작성
-                            echo "파일 생성 중..."
-                            cat > %s << 'EOF'
-            %s
-            EOF
-
-                            # 파일 권한 설정
-                            chmod 644 %s
-
-                            # 결과 확인
-                            if [ -f "%s" ]; then
-                                echo "배포 성공: %s"
-                                echo "파일 크기: $(stat -c%%s %s) bytes"
-                                echo "파일 권한: $(stat -c%%A %s)"
-                                echo "=== 배포 완료 ==="
-                                exit 0
-                            else
-                                echo "배포 실패: 파일이 생성되지 않음"
-                                exit 1
-                            fi
-                            """,
-        version,
-        fullFilePath,
-        UNIT_DICT_BASE_PATH,
-        UNIT_DICT_BASE_PATH,
-        fullFilePath,
-        content,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath,
-        fullFilePath,
         fullFilePath);
   }
 
