@@ -1,8 +1,8 @@
 package com.yjlee.search.deployment.service;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.dictionary.unit.model.UnitDictionarySnapshot;
-import com.yjlee.search.dictionary.unit.repository.UnitDictionarySnapshotRepository;
+import com.yjlee.search.dictionary.unit.model.UnitDictionary;
+import com.yjlee.search.dictionary.unit.repository.UnitDictionaryRepository;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ElasticsearchUnitService {
 
-  private final UnitDictionarySnapshotRepository unitDictionarySnapshotRepository;
+  private final UnitDictionaryRepository unitDictionaryRepository;
 
   /**
    * 단위 사전 내용을 가져옴 (인덱스 생성 시 사용)
@@ -27,18 +27,16 @@ public class ElasticsearchUnitService {
     log.info("단위 사전 내용 조회 - 환경: {}", environment);
 
     // DB에서 환경별 단위 사전 조회
-    List<UnitDictionarySnapshot> snapshots =
-        unitDictionarySnapshotRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
+    List<UnitDictionary> dictionaries =
+        unitDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
 
-    if (snapshots.isEmpty()) {
+    if (dictionaries.isEmpty()) {
       log.warn("단위 사전 데이터가 없습니다 - 환경: {}", environment);
       return "";
     }
 
     // 단위 사전 내용 생성 (형식: 원본단위,정규화단위)
-    return snapshots.stream()
-        .map(snapshot -> snapshot.getKeyword())
-        .collect(Collectors.joining("\n"));
+    return dictionaries.stream().map(dict -> dict.getKeyword()).collect(Collectors.joining("\n"));
   }
 
   /**

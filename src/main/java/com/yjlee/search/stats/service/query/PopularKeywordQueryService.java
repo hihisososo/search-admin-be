@@ -23,8 +23,11 @@ public class PopularKeywordQueryService {
       LocalDateTime from, LocalDateTime to, int limit) {
     log.info("인기검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
 
+    // 상위 50개만 조회 (최대 50개로 제한)
+    int effectiveLimit = Math.min(limit, 50);
+
     // 단일 ES 쿼리로 현재/이전 주기 동시 조회 (순위 변동 계산 포함)
-    List<KeywordStats> keywordStats = statsRepository.getPopularKeywords(from, to, limit);
+    List<KeywordStats> keywordStats = statsRepository.getPopularKeywords(from, to, effectiveLimit);
 
     // KeywordStats를 PopularKeywordResponse.KeywordStats로 변환
     List<PopularKeywordResponse.KeywordStats> keywords =
@@ -39,29 +42,21 @@ public class PopularKeywordQueryService {
       LocalDateTime from, LocalDateTime to, int limit) {
     log.info("급등검색어 조회 - 기간: {} ~ {}, 제한: {}", from, to, limit);
 
-    // 모든 키워드 조회 (limit 없이)
-    List<KeywordStats> allKeywords =
-        statsRepository.getPopularKeywords(from, to, Integer.MAX_VALUE);
+    // 상위 50개 키워드만 조회
+    List<KeywordStats> popularKeywords = statsRepository.getPopularKeywords(from, to, 50);
 
-    // 이전 기간 마지막 순위 계산 (새로운 키워드의 기준 순위)
-    int lastPreviousRank =
-        allKeywords.isEmpty()
-            ? 10001
-            : allKeywords.stream()
-                    .mapToInt(k -> k.getPreviousRank() != null ? k.getPreviousRank() : 0)
-                    .max()
-                    .orElse(100)
-                + 1;
+    // 이전 기간에 없었던 키워드들의 기준 순위 (51위로 가정)
+    int baseRankForNew = 51;
 
     List<PopularKeywordResponse.KeywordStats> trendingKeywords =
-        allKeywords.stream()
+        popularKeywords.stream()
             .map(
                 keyword -> {
                   // 순위 변동 계산
                   int previousRank =
                       keyword.getPreviousRank() != null
                           ? keyword.getPreviousRank()
-                          : lastPreviousRank;
+                          : baseRankForNew;
                   int rankChange = previousRank - keyword.getRank();
 
                   // rankChange 정보를 포함한 객체로 변환
@@ -80,13 +75,27 @@ public class PopularKeywordQueryService {
                               : PopularKeywordResponse.RankChangeStatus.NEW)
                       .build();
                 })
+            // NEW 키워드와 순위 상승 키워드 모두 포함
             .filter(
-                item -> item.getRankChange() != null && item.getRankChange() > 0) // 순위가 상승한 키워드만
+                item ->
+                    item.getChangeStatus() == PopularKeywordResponse.RankChangeStatus.NEW
+                        || (item.getRankChange() != null && item.getRankChange() > 0))
             .sorted(
-                (a, b) ->
-                    Integer.compare(
-                        b.getRankChange() != null ? b.getRankChange() : 0,
-                        a.getRankChange() != null ? a.getRankChange() : 0)) // 순위 변동량 큰 순
+                (a, b) -> {
+                  // NEW 키워드는 최상위로
+                  if (a.getChangeStatus() == PopularKeywordResponse.RankChangeStatus.NEW
+                      && b.getChangeStatus() != PopularKeywordResponse.RankChangeStatus.NEW) {
+                    return -1;
+                  }
+                  if (b.getChangeStatus() == PopularKeywordResponse.RankChangeStatus.NEW
+                      && a.getChangeStatus() != PopularKeywordResponse.RankChangeStatus.NEW) {
+                    return 1;
+                  }
+                  // 나머지는 순위 변동량이 큰 순
+                  return Integer.compare(
+                      b.getRankChange() != null ? b.getRankChange() : 0,
+                      a.getRankChange() != null ? a.getRankChange() : 0);
+                })
             .limit(limit)
             .collect(Collectors.toList());
 

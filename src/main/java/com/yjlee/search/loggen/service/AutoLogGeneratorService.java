@@ -38,13 +38,30 @@ public class AutoLogGeneratorService {
 
   @Value("${app.log-generator.parallel-llm-count:3}")
   private int parallelLlmCount = 3;
-  
+
   @Value("${server.port:8080}")
   private int serverPort;
 
   private final Random random = new Random();
   private final ExecutorService executorService = Executors.newFixedThreadPool(3);
   private volatile boolean running = false;
+  private volatile boolean manualOverride = false;
+
+  public void startGeneration() {
+    log.info("수동으로 로그 생성 시작 요청");
+    manualOverride = true;
+    System.setProperty("app.log-generator.enabled", "true");
+  }
+
+  public void stopGeneration() {
+    log.info("수동으로 로그 생성 중지 요청");
+    manualOverride = false;
+    System.setProperty("app.log-generator.enabled", "false");
+  }
+
+  public boolean isRunning() {
+    return running;
+  }
 
   @Scheduled(fixedDelay = 5000) // 5초마다 상태 확인
   public void checkAndStartWorkers() {
@@ -113,16 +130,17 @@ public class AutoLogGeneratorService {
       // 2. 실제 검색 수행 (HTTP 요청으로)
       String sessionId = UUID.randomUUID().toString();
       String baseUrl = "http://localhost:" + serverPort;
-      
+
       // URL 인코딩을 위해 UriComponentsBuilder 사용
-      String searchUrl = UriComponentsBuilder.fromHttpUrl(baseUrl + "/api/v1/search")
-          .queryParam("query", searchQuery)
-          .queryParam("size", 20)
-          .queryParam("searchSessionId", sessionId)
-          .build()
-          .toUriString();
-      
-      ResponseEntity<SearchExecuteResponse> responseEntity = 
+      String searchUrl =
+          UriComponentsBuilder.fromHttpUrl(baseUrl + "/api/v1/search")
+              .queryParam("query", searchQuery)
+              .queryParam("size", 20)
+              .queryParam("searchSessionId", sessionId)
+              .build()
+              .toUriString();
+
+      ResponseEntity<SearchExecuteResponse> responseEntity =
           restTemplate.getForEntity(searchUrl, SearchExecuteResponse.class);
       SearchExecuteResponse searchResponse = responseEntity.getBody();
 
@@ -184,11 +202,11 @@ public class AutoLogGeneratorService {
       // HTTP 요청으로 클릭 로그 전송
       String baseUrl = "http://localhost:" + serverPort;
       String clickUrl = baseUrl + "/api/v1/click-logs";
-      
+
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_JSON);
       HttpEntity<ClickLogRequest> entity = new HttpEntity<>(clickRequest, headers);
-      
+
       restTemplate.postForEntity(clickUrl, entity, Object.class);
 
     } catch (Exception e) {

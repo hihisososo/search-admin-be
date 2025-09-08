@@ -5,9 +5,8 @@ import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.category.dto.*;
 import com.yjlee.search.dictionary.category.model.CategoryMapping;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
-import com.yjlee.search.dictionary.category.model.CategoryRankingDictionarySnapshot;
 import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
-import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionarySnapshotRepository;
+import com.yjlee.search.dictionary.common.service.DictionaryService;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,10 +22,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CategoryRankingDictionaryService {
+public class CategoryRankingDictionaryService implements DictionaryService {
 
   private final CategoryRankingDictionaryRepository repository;
-  private final CategoryRankingDictionarySnapshotRepository snapshotRepository;
+
+  @Override
+  public String getDictionaryTypeEnum() {
+    return "CATEGORY";
+  }
 
   @Transactional
   public CategoryRankingDictionaryResponse create(
@@ -35,46 +38,23 @@ public class CategoryRankingDictionaryService {
 
     List<CategoryMapping> mappings = convertToMappings(request.getCategoryMappings());
 
-    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
-      // 현재 사전에 생성
-      if (repository.existsByKeyword(request.getKeyword())) {
-        throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
-      }
-
-      CategoryRankingDictionary dictionary =
-          CategoryRankingDictionary.builder()
-              .keyword(request.getKeyword())
-              .categoryMappings(mappings)
-              .description(request.getDescription())
-              .build();
-
-      CategoryRankingDictionary saved = repository.save(dictionary);
-      log.info("카테고리 랭킹 사전 생성 완료: {} (ID: {}) - 환경: CURRENT", saved.getKeyword(), saved.getId());
-
-      return convertToResponse(saved);
-    } else {
-      // DEV/PROD 스냅샷에 직접 생성
-      if (snapshotRepository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
-        throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
-      }
-
-      CategoryRankingDictionarySnapshot snapshot =
-          CategoryRankingDictionarySnapshot.builder()
-              .environmentType(environment)
-              .keyword(request.getKeyword())
-              .categoryMappings(mappings)
-              .description(request.getDescription())
-              .build();
-
-      CategoryRankingDictionarySnapshot saved = snapshotRepository.save(snapshot);
-      log.info(
-          "카테고리 랭킹 사전 스냅샷 생성 완료: {} (ID: {}) - 환경: {}",
-          saved.getKeyword(),
-          saved.getId(),
-          environment);
-
-      return convertToResponseFromSnapshot(saved);
+    if (repository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
+      throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
     }
+
+    CategoryRankingDictionary dictionary =
+        CategoryRankingDictionary.builder()
+            .environmentType(environment)
+            .keyword(request.getKeyword())
+            .categoryMappings(mappings)
+            .description(request.getDescription())
+            .build();
+
+    CategoryRankingDictionary saved = repository.save(dictionary);
+    log.info(
+        "카테고리 랭킹 사전 생성 완료: {} (ID: {}) - 환경: {}", saved.getKeyword(), saved.getId(), environment);
+
+    return convertToResponse(saved);
   }
 
   @Transactional(readOnly = true)
@@ -95,50 +75,19 @@ public class CategoryRankingDictionaryService {
         sortDir,
         environmentType);
 
-    if (environmentType == null || environmentType == DictionaryEnvironmentType.CURRENT) {
-      return getListFromCurrent(page, size, search, sortBy, sortDir);
-    } else {
-      return getListFromSnapshot(page, size, search, sortBy, sortDir, environmentType);
-    }
-  }
-
-  private PageResponse<CategoryRankingDictionaryListResponse> getListFromCurrent(
-      int page, int size, String search, String sortBy, String sortDir) {
-
-    Sort sort = createSort(sortBy, sortDir, false);
+    Sort sort = createSort(sortBy, sortDir);
     Pageable pageable = PageRequest.of(Math.max(0, page), size, sort);
 
     Page<CategoryRankingDictionary> dictionaryPage;
     if (search != null && !search.trim().isEmpty()) {
-      dictionaryPage = repository.findByKeywordContainingIgnoreCase(search.trim(), pageable);
+      dictionaryPage =
+          repository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
+              environmentType, search.trim(), pageable);
     } else {
-      dictionaryPage = repository.findAll(pageable);
+      dictionaryPage = repository.findByEnvironmentType(environmentType, pageable);
     }
 
     return PageResponse.from(dictionaryPage.map(this::convertToListResponse));
-  }
-
-  private PageResponse<CategoryRankingDictionaryListResponse> getListFromSnapshot(
-      int page,
-      int size,
-      String search,
-      String sortBy,
-      String sortDir,
-      DictionaryEnvironmentType environmentType) {
-
-    Sort sort = createSort(sortBy, sortDir, true);
-    Pageable pageable = PageRequest.of(Math.max(0, page), size, sort);
-
-    Page<CategoryRankingDictionarySnapshot> snapshotPage;
-    if (search != null && !search.trim().isEmpty()) {
-      snapshotPage =
-          snapshotRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
-              environmentType, search.trim(), pageable);
-    } else {
-      snapshotPage = snapshotRepository.findByEnvironmentType(environmentType, pageable);
-    }
-
-    return PageResponse.from(snapshotPage.map(this::convertToListResponseFromSnapshot));
   }
 
   @Transactional(readOnly = true)
@@ -146,20 +95,11 @@ public class CategoryRankingDictionaryService {
       Long id, DictionaryEnvironmentType environment) {
     log.debug("카테고리 랭킹 사전 상세 조회: {} - 환경: {}", id, environment);
 
-    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
-      CategoryRankingDictionary dictionary =
-          repository
-              .findById(id)
-              .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
-      return convertToResponse(dictionary);
-    } else {
-      // DEV/PROD 환경에서는 스냅샷 테이블의 ID로 직접 조회
-      CategoryRankingDictionarySnapshot snapshot =
-          snapshotRepository
-              .findById(id)
-              .orElseThrow(() -> new EntityNotFoundException("스냅샷을 찾을 수 없습니다: " + id));
-      return convertToResponseFromSnapshot(snapshot);
-    }
+    CategoryRankingDictionary dictionary =
+        repository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
+    return convertToResponse(dictionary);
   }
 
   @Transactional
@@ -169,87 +109,44 @@ public class CategoryRankingDictionaryService {
       DictionaryEnvironmentType environment) {
     log.info("카테고리 랭킹 사전 수정 요청: {} - 환경: {}", id, environment);
 
-    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
-      // 현재 사전 수정
-      CategoryRankingDictionary existing =
-          repository
-              .findById(id)
-              .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
+    CategoryRankingDictionary existing =
+        repository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
 
-      if (request.getKeyword() != null) {
-        if (!existing.getKeyword().equals(request.getKeyword())
-            && repository.existsByKeyword(request.getKeyword())) {
-          throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
-        }
-        existing.updateKeyword(request.getKeyword());
+    if (request.getKeyword() != null) {
+      if (!existing.getKeyword().equals(request.getKeyword())
+          && repository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
+        throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
       }
-
-      if (request.getCategoryMappings() != null) {
-        List<CategoryMapping> mappings = convertToMappings(request.getCategoryMappings());
-        existing.updateCategoryMappings(mappings);
-      }
-
-      if (request.getDescription() != null) {
-        existing.updateDescription(request.getDescription());
-      }
-
-      CategoryRankingDictionary updated = repository.save(existing);
-      log.info("카테고리 랭킹 사전 수정 완료: {}", id);
-
-      return convertToResponse(updated);
-    } else {
-      // DEV/PROD 스냅샷 수정
-      CategoryRankingDictionarySnapshot existing =
-          snapshotRepository
-              .findById(id)
-              .orElseThrow(() -> new EntityNotFoundException("스냅샷을 찾을 수 없습니다: " + id));
-
-      if (request.getKeyword() != null) {
-        if (!existing.getKeyword().equals(request.getKeyword())
-            && snapshotRepository.existsByKeywordAndEnvironmentType(
-                request.getKeyword(), environment)) {
-          throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
-        }
-        existing.setKeyword(request.getKeyword());
-      }
-
-      if (request.getCategoryMappings() != null) {
-        List<CategoryMapping> mappings = convertToMappings(request.getCategoryMappings());
-        existing.setCategoryMappings(mappings);
-      }
-
-      if (request.getDescription() != null) {
-        existing.setDescription(request.getDescription());
-      }
-
-      CategoryRankingDictionarySnapshot updated = snapshotRepository.save(existing);
-      log.info("카테고리 랭킹 사전 스냅샷 수정 완료: {} - 환경: {}", id, environment);
-
-      return convertToResponseFromSnapshot(updated);
+      existing.updateKeyword(request.getKeyword());
     }
+
+    if (request.getCategoryMappings() != null) {
+      List<CategoryMapping> mappings = convertToMappings(request.getCategoryMappings());
+      existing.updateCategoryMappings(mappings);
+    }
+
+    if (request.getDescription() != null) {
+      existing.updateDescription(request.getDescription());
+    }
+
+    CategoryRankingDictionary updated = repository.save(existing);
+    log.info("카테고리 랭킹 사전 수정 완료: {}", id);
+
+    return convertToResponse(updated);
   }
 
   @Transactional
   public void delete(Long id, DictionaryEnvironmentType environment) {
     log.info("카테고리 랭킹 사전 삭제 요청: {} - 환경: {}", id, environment);
 
-    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
-      // 현재 사전에서 삭제
-      if (!repository.existsById(id)) {
-        throw new EntityNotFoundException("사전을 찾을 수 없습니다: " + id);
-      }
-
-      repository.deleteById(id);
-      log.info("카테고리 랭킹 사전 삭제 완료: {} - 환경: CURRENT", id);
-    } else {
-      // DEV/PROD 스냅샷에서 삭제
-      if (!snapshotRepository.existsById(id)) {
-        throw new EntityNotFoundException("스냅샷을 찾을 수 없습니다: " + id);
-      }
-
-      snapshotRepository.deleteById(id);
-      log.info("카테고리 랭킹 사전 스냅샷 삭제 완료: {} - 환경: {}", id, environment);
+    if (!repository.existsById(id)) {
+      throw new EntityNotFoundException("사전을 찾을 수 없습니다: " + id);
     }
+
+    repository.deleteById(id);
+    log.info("카테고리 랭킹 사전 삭제 완료: {} - 환경: {}", id, environment);
   }
 
   @Transactional(readOnly = true)
@@ -257,19 +154,11 @@ public class CategoryRankingDictionaryService {
       String keyword, DictionaryEnvironmentType environment) {
     log.debug("키워드로 카테고리 랭킹 사전 조회: {} - 환경: {}", keyword, environment);
 
-    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
-      CategoryRankingDictionary dictionary =
-          repository
-              .findByKeyword(keyword)
-              .orElseThrow(() -> new EntityNotFoundException("키워드를 찾을 수 없습니다: " + keyword));
-      return convertToResponse(dictionary);
-    } else {
-      CategoryRankingDictionarySnapshot snapshot =
-          snapshotRepository
-              .findByKeywordAndEnvironmentType(keyword, environment)
-              .orElseThrow(() -> new EntityNotFoundException("스냅샷을 찾을 수 없습니다: " + keyword));
-      return convertToResponseFromSnapshot(snapshot);
-    }
+    CategoryRankingDictionary dictionary =
+        repository
+            .findByKeywordAndEnvironmentType(keyword, environment)
+            .orElseThrow(() -> new EntityNotFoundException("키워드를 찾을 수 없습니다: " + keyword));
+    return convertToResponse(dictionary);
   }
 
   @Transactional(readOnly = true)
@@ -289,94 +178,80 @@ public class CategoryRankingDictionaryService {
       DictionaryEnvironmentType environment) {
     log.debug("전체 카테고리 랭킹 사전 조회 (매핑 포함) - 환경: {}", environment);
 
-    if (environment == null || environment == DictionaryEnvironmentType.CURRENT) {
-      List<CategoryRankingDictionary> dictionaries = repository.findAll();
-      List<CategoryRankingDictionaryResponse> responses =
-          dictionaries.stream().map(this::convertToResponse).collect(Collectors.toList());
+    List<CategoryRankingDictionary> dictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(environment);
+    List<CategoryRankingDictionaryResponse> responses =
+        dictionaries.stream().map(this::convertToResponse).collect(Collectors.toList());
 
-      return new PageResponse<>(responses, 0, responses.size(), (long) responses.size(), 1);
-    } else {
-      List<CategoryRankingDictionarySnapshot> snapshots =
-          snapshotRepository.findByEnvironmentType(environment);
-      List<CategoryRankingDictionaryResponse> responses =
-          snapshots.stream().map(this::convertToResponseFromSnapshot).collect(Collectors.toList());
-
-      return new PageResponse<>(responses, 0, responses.size(), (long) responses.size(), 1);
-    }
+    return new PageResponse<>(responses, 0, responses.size(), (long) responses.size(), 1);
   }
 
-  @Transactional
-  public void createDevSnapshot() {
-    log.info("개발 환경 카테고리 랭킹 사전 스냅샷 생성 시작");
-
-    List<CategoryRankingDictionary> currentDictionaries = repository.findAll();
-    if (currentDictionaries.isEmpty()) {
-      log.warn("스냅샷으로 저장할 카테고리 랭킹 사전이 없습니다.");
-      return;
-    }
-
-    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
-
-    List<CategoryRankingDictionarySnapshot> snapshots =
-        currentDictionaries.stream()
-            .map(
-                dict ->
-                    CategoryRankingDictionarySnapshot.createSnapshot(
-                        DictionaryEnvironmentType.DEV, dict))
-            .toList();
-
-    snapshotRepository.saveAll(snapshots);
-    log.info("개발 환경 카테고리 랭킹 사전 스냅샷 생성 완료: {}개", snapshots.size());
-  }
-
+  @Override
   @Transactional
   public void deployToDev() {
     log.info("개발 환경 카테고리 랭킹 사전 배포 시작");
 
-    List<CategoryRankingDictionary> currentDictionaries = repository.findAllByOrderByKeywordAsc();
+    List<CategoryRankingDictionary> currentDictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT);
+    if (currentDictionaries.isEmpty()) {
+      log.warn("배포할 카테고리 랭킹 사전이 없습니다.");
+      return;
+    }
 
-    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    // 기존 개발 환경 데이터 삭제
+    repository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
 
-    List<CategoryRankingDictionarySnapshot> devSnapshots =
+    // CURRENT 데이터를 DEV로 복사
+    List<CategoryRankingDictionary> devDictionaries =
         currentDictionaries.stream()
             .map(
                 dict ->
-                    CategoryRankingDictionarySnapshot.createSnapshot(
-                        DictionaryEnvironmentType.DEV, dict))
-            .toList();
-
-    snapshotRepository.saveAll(devSnapshots);
-    log.info("개발 환경 카테고리 랭킹 사전 배포 완료: {}개", devSnapshots.size());
-  }
-
-  @Transactional
-  public void deployToProd() {
-    log.info("운영 환경 카테고리 랭킹 사전 스냅샷 배포 시작");
-
-    List<CategoryRankingDictionarySnapshot> devSnapshots =
-        snapshotRepository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.DEV);
-
-    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.PROD);
-
-    List<CategoryRankingDictionarySnapshot> prodSnapshots =
-        devSnapshots.stream()
-            .map(
-                devSnapshot ->
-                    CategoryRankingDictionarySnapshot.builder()
-                        .environmentType(DictionaryEnvironmentType.PROD)
-                        .keyword(devSnapshot.getKeyword())
-                        .categoryMappings(devSnapshot.getCategoryMappings())
-                        .description(devSnapshot.getDescription())
+                    CategoryRankingDictionary.builder()
+                        .environmentType(DictionaryEnvironmentType.DEV)
+                        .keyword(dict.getKeyword())
+                        .categoryMappings(dict.getCategoryMappings())
+                        .description(dict.getDescription())
                         .build())
             .toList();
 
-    snapshotRepository.saveAll(prodSnapshots);
-    log.info("운영 환경 카테고리 랭킹 사전 스냅샷 배포 완료: {}개", prodSnapshots.size());
+    repository.saveAll(devDictionaries);
+    log.info("개발 환경 카테고리 랭킹 사전 배포 완료: {}개", devDictionaries.size());
   }
 
-  private Sort createSort(String sortBy, String sortDir, boolean isSnapshot) {
+  @Override
+  @Transactional
+  public void deployToProd() {
+    log.info("운영 환경 카테고리 랭킹 사전 배포 시작");
+
+    List<CategoryRankingDictionary> currentDictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT);
+    if (currentDictionaries.isEmpty()) {
+      throw new IllegalStateException("배포할 카테고리 랭킹 사전이 없습니다.");
+    }
+
+    // 기존 운영 환경 데이터 삭제
+    repository.deleteByEnvironmentType(DictionaryEnvironmentType.PROD);
+
+    // CURRENT 데이터를 PROD로 복사
+    List<CategoryRankingDictionary> prodDictionaries =
+        currentDictionaries.stream()
+            .map(
+                dict ->
+                    CategoryRankingDictionary.builder()
+                        .environmentType(DictionaryEnvironmentType.PROD)
+                        .keyword(dict.getKeyword())
+                        .categoryMappings(dict.getCategoryMappings())
+                        .description(dict.getDescription())
+                        .build())
+            .toList();
+
+    repository.saveAll(prodDictionaries);
+    log.info("운영 환경 카테고리 랭킹 사전 배포 완료: {}개", prodDictionaries.size());
+  }
+
+  private Sort createSort(String sortBy, String sortDir) {
     if (sortBy == null || sortBy.trim().isEmpty()) {
-      sortBy = isSnapshot ? "createdAt" : "updatedAt";
+      sortBy = "updatedAt";
     }
     if (sortDir == null || sortDir.trim().isEmpty()) {
       sortDir = "desc";
@@ -393,8 +268,8 @@ public class CategoryRankingDictionaryService {
     }
 
     if (!isValidField) {
-      log.warn("허용되지 않은 정렬 필드: {}. 기본값 {} 사용", sortBy, isSnapshot ? "createdAt" : "updatedAt");
-      sortBy = isSnapshot ? "createdAt" : "updatedAt";
+      log.warn("허용되지 않은 정렬 필드: {}. 기본값 updatedAt 사용", sortBy);
+      sortBy = "updatedAt";
     }
 
     Sort.Direction direction =
@@ -424,17 +299,41 @@ public class CategoryRankingDictionaryService {
         .build();
   }
 
-  private CategoryRankingDictionaryResponse convertToResponseFromSnapshot(
-      CategoryRankingDictionarySnapshot snapshot) {
-    return CategoryRankingDictionaryResponse.builder()
-        .id(snapshot.getId())
-        .keyword(snapshot.getKeyword())
-        .categoryMappings(
-            CategoryRankingDictionaryResponse.convertMappings(snapshot.getCategoryMappings()))
-        .description(snapshot.getDescription())
-        .createdAt(snapshot.getCreatedAt())
-        .updatedAt(snapshot.getUpdatedAt())
-        .build();
+  @Override
+  public String getDictionaryContent(DictionaryEnvironmentType environment) {
+    List<CategoryRankingDictionary> dictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(environment);
+    StringBuilder content = new StringBuilder();
+
+    for (CategoryRankingDictionary dict : dictionaries) {
+      content.append(dict.getKeyword()).append(": ");
+      if (dict.getCategoryMappings() != null && !dict.getCategoryMappings().isEmpty()) {
+        for (CategoryMapping mapping : dict.getCategoryMappings()) {
+          content
+              .append(mapping.getCategory())
+              .append("(")
+              .append(mapping.getWeight())
+              .append("), ");
+        }
+        content.setLength(content.length() - 2); // 마지막 콤마 제거
+      }
+      if (dict.getDescription() != null && !dict.getDescription().isEmpty()) {
+        content.append(" - ").append(dict.getDescription());
+      }
+      content.append("\n");
+    }
+
+    return content.toString();
+  }
+
+  @Override
+  public void realtimeSync(DictionaryEnvironmentType environment) {
+    log.info("카테고리 랭킹 사전 실시간 동기화 - 환경: {}", environment);
+    // TODO: 캐시 업데이트 로직 구현
+  }
+
+  public String getDictionaryType() {
+    return "CATEGORY_RANKING";
   }
 
   private CategoryRankingDictionaryListResponse convertToListResponse(
@@ -449,23 +348,10 @@ public class CategoryRankingDictionaryService {
         .build();
   }
 
-  private CategoryRankingDictionaryListResponse convertToListResponseFromSnapshot(
-      CategoryRankingDictionarySnapshot snapshot) {
-    return CategoryRankingDictionaryListResponse.builder()
-        .id(snapshot.getId())
-        .keyword(snapshot.getKeyword())
-        .categoryCount(
-            snapshot.getCategoryMappings() != null ? snapshot.getCategoryMappings().size() : 0)
-        .description(snapshot.getDescription())
-        .updatedAt(snapshot.getUpdatedAt())
-        .build();
-  }
-
-  /** 개발 환경 스냅샷 삭제 */
   @Transactional
-  public void deleteDevSnapshots() {
-    log.info("개발 환경 카테고리 랭킹 사전 스냅샷 삭제 시작");
-    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
-    log.info("개발 환경 카테고리 랭킹 사전 스냅샷 삭제 완료");
+  public void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+    log.info("카테고리 랭킹 사전 환경별 삭제 시작 - 환경: {}", environment);
+    repository.deleteByEnvironmentType(environment);
+    log.info("카테고리 랭킹 사전 환경별 삭제 완료 - 환경: {}", environment);
   }
 }

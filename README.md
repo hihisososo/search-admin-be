@@ -50,14 +50,15 @@
 ```mermaid
 flowchart LR
   client["사용자 브라우저"]
-  github["GitHub Actions\n(CI/CD)"]
 
   subgraph FE_EC2["FE EC2"]
     fe["Nginx + React(빌드)"]
   end
 
+  github["GitHub Actions"]
+
   subgraph BE_EC2["Backend EC2"]
-    be["Spring Boot (Docker)\nElastic APM Agent"]
+    be["Spring Boot (Docker)  Elastic APM Agent"]
   end
 
   subgraph ES_EC2["Elasticsearch EC2"]
@@ -74,6 +75,7 @@ flowchart LR
   openai[("OpenAI API")]
 
   github -->|Docker Deploy| be
+  github -->|Docker Deploy| fe
   client -->|HTTPS| fe
   fe -->|HTTPS| be
 
@@ -99,7 +101,7 @@ flowchart LR
   - Spring Boot 3.5.3, Spring Data JPA, Java 17, Gradle
   - PostgreSQL 17.4
   - Elasticsearch 8.18.3
-  - OpenAI API
+  - Upstage, OpenAI API
 
 - FE
   - React, TypeScript (별도 리포지토리)

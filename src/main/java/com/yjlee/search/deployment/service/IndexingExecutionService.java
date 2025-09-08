@@ -5,17 +5,10 @@ import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.dictionary.category.service.CategoryRankingDictionaryService;
-import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
-import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
-import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
+import com.yjlee.search.dictionary.common.service.DictionaryDataDeploymentService;
 import com.yjlee.search.dictionary.unit.repository.UnitDictionaryRepository;
-import com.yjlee.search.dictionary.unit.service.UnitDictionaryService;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
-import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import com.yjlee.search.index.service.ProductIndexingService;
-import com.yjlee.search.search.service.category.CategoryRankingService;
-import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -37,14 +30,7 @@ public class IndexingExecutionService {
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final DeploymentHistoryRepository deploymentHistoryRepository;
   private final ProductIndexingService productIndexingService;
-  private final SynonymDictionaryService synonymDictionaryService;
-  private final UserDictionaryService userDictionaryService;
-  private final StopwordDictionaryService stopwordDictionaryService;
-  private final UnitDictionaryService unitDictionaryService;
-  private final TypoCorrectionDictionaryService typoCorrectionDictionaryService;
-  private final CategoryRankingDictionaryService categoryRankingDictionaryService;
-  private final TypoCorrectionService typoCorrectionService;
-  private final CategoryRankingService categoryRankingService;
+  private final DictionaryDataDeploymentService dictionaryDeploymentService;
   private final UserDictionaryRepository userDictionaryRepository;
   private final UnitDictionaryRepository unitDictionaryRepository;
   private final EC2DeploymentService ec2DeploymentService;
@@ -176,18 +162,13 @@ public class IndexingExecutionService {
 
   private void deployDictionariesToDev() {
     try {
-      synonymDictionaryService.deployToDev();
-      userDictionaryService.deployToDev();
-      stopwordDictionaryService.deployToDev();
-      unitDictionaryService.deployToDev();
-      typoCorrectionDictionaryService.deployToDev();
-      categoryRankingDictionaryService.deployToDev();
+      // 모든 사전을 개발 환경으로 배포
+      dictionaryDeploymentService.deployAllToDev();
 
-      // 캐시 업데이트
-      typoCorrectionService.updateCacheRealtime(DictionaryEnvironmentType.DEV);
-      categoryRankingService.updateCacheRealtime(DictionaryEnvironmentType.DEV);
+      // 실시간 동기화 (캐시 업데이트 포함)
+      dictionaryDeploymentService.realtimeSyncAll(DictionaryEnvironmentType.DEV);
 
-      log.info("모든 사전 개발 환경 배포 및 캐시 업데이트 완료");
+      log.info("모든 사전 개발 환경 배포 및 실시간 동기화 완료");
     } catch (Exception e) {
       log.error("사전 개발 환경 배포 실패", e);
       throw new RuntimeException("사전 개발 환경 배포 실패", e);
@@ -250,7 +231,9 @@ public class IndexingExecutionService {
 
   private String getCurrentUserDictionaryContent() {
     try {
-      return userDictionaryRepository.findAll().stream()
+      return userDictionaryRepository
+          .findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT)
+          .stream()
           .map(dict -> dict.getKeyword())
           .reduce("", (acc, keyword) -> acc + keyword + "\n")
           .trim();
@@ -262,23 +245,8 @@ public class IndexingExecutionService {
 
   private String getCurrentStopwordDictionaryContent() {
     try {
-      // DEV 환경의 모든 불용어 사전 조회 (페이징 없이)
-      var response =
-          stopwordDictionaryService.getList(
-              0, 1000, "keyword", "asc", null, DictionaryEnvironmentType.DEV);
-
-      return response.getContent().stream()
-          .map(
-              stopword -> {
-                String keyword = stopword.getKeyword();
-                // 쉼표로 구분된 불용어들을 줄바꿈으로 구분된 형태로 변환
-                if (keyword.contains(",")) {
-                  return String.join("\n", keyword.split(",")).replaceAll("\\s+", ""); // 공백 제거
-                }
-                return keyword;
-              })
-          .reduce("", (acc, keyword) -> acc + keyword + "\n")
-          .trim();
+      // CURRENT 환경의 사전 콘텐츠 조회
+      return dictionaryDeploymentService.getAllDictionaryContent(DictionaryEnvironmentType.CURRENT);
     } catch (Exception e) {
       log.error("불용어사전 내용 조회 실패", e);
       return "";
@@ -287,7 +255,9 @@ public class IndexingExecutionService {
 
   private String getCurrentUnitDictionaryContent() {
     try {
-      return unitDictionaryRepository.findAll().stream()
+      return unitDictionaryRepository
+          .findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT)
+          .stream()
           .map(dict -> dict.getKeyword())
           .reduce("", (acc, keyword) -> acc + keyword + "\n")
           .trim();

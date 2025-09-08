@@ -1,5 +1,6 @@
 package com.yjlee.search.dictionary.category.repository;
 
+import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import java.util.List;
 import java.util.Optional;
@@ -24,10 +25,31 @@ public interface CategoryRankingDictionaryRepository
 
   @Query(
       value =
-          "SELECT DISTINCT JSON_UNQUOTE(JSON_EXTRACT(cm.category_mapping, '$.category')) as category "
+          "SELECT DISTINCT cm->>'category' as category "
               + "FROM category_ranking_dictionaries c, "
-              + "JSON_TABLE(c.category_mappings, '$[*]' COLUMNS(category_mapping JSON PATH '$')) cm "
+              + "jsonb_array_elements(c.category_mappings::jsonb) cm "
               + "ORDER BY category",
       nativeQuery = true)
   List<String> findDistinctCategories();
+
+  // environment_type 기반 조회
+  Page<CategoryRankingDictionary> findByEnvironmentType(
+      DictionaryEnvironmentType environmentType, Pageable pageable);
+
+  List<CategoryRankingDictionary> findByEnvironmentTypeOrderByKeywordAsc(
+      DictionaryEnvironmentType environmentType);
+
+  Page<CategoryRankingDictionary> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
+      DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
+
+  Optional<CategoryRankingDictionary> findByIdAndEnvironmentType(
+      Long id, DictionaryEnvironmentType environmentType);
+
+  Optional<CategoryRankingDictionary> findByKeywordAndEnvironmentType(
+      String keyword, DictionaryEnvironmentType environmentType);
+
+  boolean existsByKeywordAndEnvironmentType(
+      String keyword, DictionaryEnvironmentType environmentType);
+
+  void deleteByEnvironmentType(DictionaryEnvironmentType environmentType);
 }

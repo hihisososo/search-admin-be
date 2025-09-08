@@ -12,7 +12,6 @@ import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryResponse;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.synonym.model.SynonymDictionary;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
-import com.yjlee.search.dictionary.synonym.repository.SynonymDictionarySnapshotRepository;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -32,8 +31,6 @@ import org.springframework.data.domain.Pageable;
 class SynonymDictionaryServiceTest {
 
   @Mock private SynonymDictionaryRepository synonymDictionaryRepository;
-
-  @Mock private SynonymDictionarySnapshotRepository snapshotRepository;
 
   @InjectMocks private SynonymDictionaryService synonymDictionaryService;
 

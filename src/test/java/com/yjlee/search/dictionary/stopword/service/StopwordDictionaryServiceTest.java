@@ -15,7 +15,6 @@ import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryResponse;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.stopword.model.StopwordDictionary;
 import com.yjlee.search.dictionary.stopword.repository.StopwordDictionaryRepository;
-import com.yjlee.search.dictionary.stopword.repository.StopwordDictionarySnapshotRepository;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -35,8 +34,6 @@ import org.springframework.data.domain.Pageable;
 class StopwordDictionaryServiceTest {
 
   @Mock private StopwordDictionaryRepository stopwordDictionaryRepository;
-
-  @Mock private StopwordDictionarySnapshotRepository snapshotRepository;
 
   @InjectMocks private StopwordDictionaryService stopwordDictionaryService;
 
@@ -150,14 +147,17 @@ class StopwordDictionaryServiceTest {
   }
 
   @Test
-  @DisplayName("개발 환경 스냅샷 생성")
-  void createDevSnapshot_Success() {
+  @DisplayName("개발 환경 배포")
+  void deployToDev_Success() {
     List<StopwordDictionary> dictionaries = Arrays.asList(testDictionary);
-    when(stopwordDictionaryRepository.findAll()).thenReturn(dictionaries);
+    when(stopwordDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
+            DictionaryEnvironmentType.CURRENT))
+        .thenReturn(dictionaries);
 
-    stopwordDictionaryService.createDevSnapshot();
+    stopwordDictionaryService.deployToDev();
 
-    verify(snapshotRepository, times(1)).deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
-    verify(snapshotRepository, times(1)).saveAll(anyList());
+    verify(stopwordDictionaryRepository, times(1))
+        .deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    verify(stopwordDictionaryRepository, times(1)).saveAll(anyList());
   }
 }

@@ -72,11 +72,15 @@ public class TypoCorrectionDictionaryController {
   })
   @GetMapping("/{dictionaryId}")
   public ResponseEntity<TypoCorrectionDictionaryResponse> getTypoCorrectionDictionaryDetail(
-      @Parameter(description = "사전 ID") @PathVariable Long dictionaryId) {
+      @Parameter(description = "사전 ID") @PathVariable Long dictionaryId,
+      @Parameter(description = "환경 타입 (CURRENT: 현재, DEV: 개발, PROD: 운영)")
+          @RequestParam(defaultValue = "CURRENT")
+          DictionaryEnvironmentType environment) {
 
-    log.debug("오타교정 사전 상세 조회: {}", dictionaryId);
+    log.debug("오타교정 사전 상세 조회: {} - 환경: {}", dictionaryId, environment);
     TypoCorrectionDictionaryResponse response =
-        typoCorrectionDictionaryService.getTypoCorrectionDictionaryDetail(dictionaryId);
+        typoCorrectionDictionaryService.getTypoCorrectionDictionaryDetail(
+            dictionaryId, environment);
     return ResponseEntity.ok(response);
   }
 

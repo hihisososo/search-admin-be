@@ -7,11 +7,8 @@ import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.user.model.UserDictionary;
-import com.yjlee.search.dictionary.user.model.UserDictionarySnapshot;
 import com.yjlee.search.dictionary.user.repository.UserDictionaryRepository;
-import com.yjlee.search.dictionary.user.repository.UserDictionarySnapshotRepository;
 import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,23 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserDictionaryService
     extends AbstractDictionaryService<
         UserDictionary,
-        UserDictionarySnapshot,
         UserDictionaryCreateRequest,
         UserDictionaryUpdateRequest,
         UserDictionaryResponse,
         UserDictionaryListResponse> {
 
   private final UserDictionaryRepository userDictionaryRepository;
-  private final UserDictionarySnapshotRepository snapshotRepository;
 
   @Override
   protected JpaRepository<UserDictionary, Long> getRepository() {
     return userDictionaryRepository;
-  }
-
-  @Override
-  protected JpaRepository<UserDictionarySnapshot, Long> getSnapshotRepository() {
-    return snapshotRepository;
   }
 
   @Override
@@ -52,17 +42,48 @@ public class UserDictionaryService
   }
 
   @Override
+  public String getDictionaryTypeEnum() {
+    return "USER";
+  }
+
+  @Override
+  protected List<UserDictionary> findByEnvironmentType(DictionaryEnvironmentType environment) {
+    return userDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
+  }
+
+  @Override
+  protected Page<UserDictionary> findByEnvironmentType(
+      DictionaryEnvironmentType environment, Pageable pageable) {
+    return userDictionaryRepository.findByEnvironmentType(environment, pageable);
+  }
+
+  @Override
+  protected void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+    userDictionaryRepository.deleteByEnvironmentType(environment);
+  }
+
+  @Override
+  public String getDictionaryContent(DictionaryEnvironmentType environment) {
+    List<UserDictionary> dictionaries = findByEnvironmentType(environment);
+    StringBuilder content = new StringBuilder();
+
+    for (UserDictionary dict : dictionaries) {
+      content.append(dict.getKeyword());
+      if (dict.getDescription() != null && !dict.getDescription().isEmpty()) {
+        content.append(" - ").append(dict.getDescription());
+      }
+      content.append("\n");
+    }
+
+    return content.toString();
+  }
+
+  @Override
   protected UserDictionary buildEntity(UserDictionaryCreateRequest request) {
     return UserDictionary.builder()
         .keyword(request.getKeyword())
         .description(request.getDescription())
         .build();
-  }
-
-  @Override
-  protected UserDictionarySnapshot createSnapshot(
-      DictionaryEnvironmentType env, UserDictionary entity) {
-    return UserDictionarySnapshot.createSnapshot(env, entity);
   }
 
   @Override
@@ -77,17 +98,6 @@ public class UserDictionaryService
   }
 
   @Override
-  protected UserDictionaryResponse convertToResponse(UserDictionarySnapshot snapshot) {
-    return UserDictionaryResponse.builder()
-        .id(snapshot.getId())
-        .keyword(snapshot.getKeyword())
-        .description(snapshot.getDescription())
-        .createdAt(snapshot.getCreatedAt())
-        .updatedAt(snapshot.getUpdatedAt())
-        .build();
-  }
-
-  @Override
   protected UserDictionaryListResponse convertToListResponse(UserDictionary entity) {
     return UserDictionaryListResponse.builder()
         .id(entity.getId())
@@ -95,17 +105,6 @@ public class UserDictionaryService
         .description(entity.getDescription())
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
-        .build();
-  }
-
-  @Override
-  protected UserDictionaryListResponse convertToListResponse(UserDictionarySnapshot snapshot) {
-    return UserDictionaryListResponse.builder()
-        .id(snapshot.getId())
-        .keyword(snapshot.getKeyword())
-        .description(snapshot.getDescription())
-        .createdAt(snapshot.getCreatedAt())
-        .updatedAt(snapshot.getUpdatedAt())
         .build();
   }
 
@@ -125,51 +124,12 @@ public class UserDictionaryService
   }
 
   @Override
-  protected Page<UserDictionarySnapshot> searchInSnapshotRepository(
-      String keyword, DictionaryEnvironmentType environment, Pageable pageable) {
-    return snapshotRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
-        environment, keyword, pageable);
-  }
-
-  @Override
-  protected UserDictionarySnapshot createSnapshotFromSnapshot(
-      DictionaryEnvironmentType env, UserDictionarySnapshot snapshot) {
-    return UserDictionarySnapshot.builder()
-        .environmentType(env)
-        .keyword(snapshot.getKeyword())
-        .description(snapshot.getDescription())
+  protected UserDictionary copyEntityWithEnvironment(
+      UserDictionary entity, DictionaryEnvironmentType environment) {
+    return UserDictionary.builder()
+        .keyword(entity.getKeyword())
+        .description(entity.getDescription())
+        .environmentType(environment)
         .build();
-  }
-
-  @Override
-  protected Page<UserDictionarySnapshot> findSnapshotsByEnvironment(
-      DictionaryEnvironmentType environment, Pageable pageable) {
-    return snapshotRepository.findByEnvironmentType(environment, pageable);
-  }
-
-  @Override
-  protected Optional<UserDictionarySnapshot> findSnapshotByOriginalIdAndEnvironment(
-      Long originalId, DictionaryEnvironmentType environment) {
-    // 더 이상 사용되지 않음 - AbstractDictionaryService.get()에서 직접 스냅샷 ID로 조회
-    return Optional.empty();
-  }
-
-  @Override
-  protected List<UserDictionarySnapshot> findAllSnapshotsByEnvironment(
-      DictionaryEnvironmentType environment) {
-    return snapshotRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
-  }
-
-  @Override
-  protected void deleteSnapshotsByEnvironment(DictionaryEnvironmentType environment) {
-    snapshotRepository.deleteByEnvironmentType(environment);
-  }
-
-  /** 개발 환경 스냅샷 삭제 */
-  @Transactional
-  public void deleteDevSnapshots() {
-    log.info("개발 환경 사용자 사전 스냅샷 삭제 시작");
-    snapshotRepository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
-    log.info("개발 환경 사용자 사전 스냅샷 삭제 완료");
   }
 }
