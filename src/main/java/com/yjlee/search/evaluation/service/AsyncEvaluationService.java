@@ -131,8 +131,8 @@ public class AsyncEvaluationService {
 
   private void generateCandidatesForOne(EvaluationQuery eq) {
     try {
-      self.generateCandidatesAsync(
-          0L, GenerateCandidatesRequest.builder().queryIds(List.of(eq.getId())).build());
+      // LLM 자동 생성 시에는 기존 로직 사용 (300개 제한 등 품질 체크)
+      groundTruthService.generateCandidatesForAutoGeneration(eq.getId());
     } catch (Exception ignored) {
     }
   }

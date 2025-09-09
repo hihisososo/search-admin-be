@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class VectorSearchService {
 
-  @Value("${app.evaluation.candidate.min-score:0.70}")
+  @Value("${app.evaluation.candidate.min-score:0.60}")
   private double defaultVectorMinScore;
 
   private final EmbeddingService embeddingService;
@@ -90,28 +90,39 @@ public class VectorSearchService {
               .size(topK)
               .minScore(minScore)
               .knn(
-                  k ->
-                      k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
-                          .queryVector(queryVectorList)
-                          .k(topK)
-                          .numCandidates(config.getNumCandidates())
-                          .boost(config.getNameVectorBoost()))
+                  k -> {
+                    var knnBuilder =
+                        k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
+                            .queryVector(queryVectorList)
+                            .k(topK)
+                            .numCandidates(config.getNumCandidates())
+                            .boost(config.getNameVectorBoost());
+
+                    // KNN 필터 적용
+                    if (config.getFilterQueries() != null && !config.getFilterQueries().isEmpty()) {
+                      knnBuilder.filter(config.getFilterQueries());
+                    }
+                    return knnBuilder;
+                  })
               .knn(
-                  k ->
-                      k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
-                          .queryVector(queryVectorList)
-                          .k(topK)
-                          .numCandidates(config.getNumCandidates())
-                          .boost(config.getSpecsVectorBoost()))
+                  k -> {
+                    var knnBuilder =
+                        k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
+                            .queryVector(queryVectorList)
+                            .k(topK)
+                            .numCandidates(config.getNumCandidates())
+                            .boost(config.getSpecsVectorBoost());
+
+                    // KNN 필터 적용
+                    if (config.getFilterQueries() != null && !config.getFilterQueries().isEmpty()) {
+                      knnBuilder.filter(config.getFilterQueries());
+                    }
+                    return knnBuilder;
+                  })
               .source(
                   src ->
                       src.filter(
                           f -> f.excludes(VectorSearchConstants.getVectorFieldsToExclude())));
-
-      // 필터가 있으면 적용
-      if (config.getFilterQueries() != null && !config.getFilterQueries().isEmpty()) {
-        searchBuilder.query(q -> q.bool(b -> b.filter(config.getFilterQueries())));
-      }
 
       SearchRequest searchRequest = searchBuilder.build();
 
@@ -154,28 +165,39 @@ public class VectorSearchService {
               .size(topK)
               .minScore(minScore)
               .knn(
-                  k ->
-                      k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
-                          .queryVector(queryVectorList)
-                          .k(topK)
-                          .numCandidates(config.getNumCandidates())
-                          .boost(config.getNameVectorBoost()))
+                  k -> {
+                    var knnBuilder =
+                        k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
+                            .queryVector(queryVectorList)
+                            .k(topK)
+                            .numCandidates(config.getNumCandidates())
+                            .boost(config.getNameVectorBoost());
+
+                    // KNN 필터 적용
+                    if (config.getFilterQueries() != null && !config.getFilterQueries().isEmpty()) {
+                      knnBuilder.filter(config.getFilterQueries());
+                    }
+                    return knnBuilder;
+                  })
               .knn(
-                  k ->
-                      k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
-                          .queryVector(queryVectorList)
-                          .k(topK)
-                          .numCandidates(config.getNumCandidates())
-                          .boost(config.getSpecsVectorBoost()))
+                  k -> {
+                    var knnBuilder =
+                        k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
+                            .queryVector(queryVectorList)
+                            .k(topK)
+                            .numCandidates(config.getNumCandidates())
+                            .boost(config.getSpecsVectorBoost());
+
+                    // KNN 필터 적용
+                    if (config.getFilterQueries() != null && !config.getFilterQueries().isEmpty()) {
+                      knnBuilder.filter(config.getFilterQueries());
+                    }
+                    return knnBuilder;
+                  })
               .source(
                   src ->
                       src.filter(
                           f -> f.excludes(VectorSearchConstants.getVectorFieldsToExclude())));
-
-      // 필터가 있으면 적용
-      if (config.getFilterQueries() != null && !config.getFilterQueries().isEmpty()) {
-        searchBuilder.query(q -> q.bool(b -> b.filter(config.getFilterQueries())));
-      }
 
       SearchRequest searchRequest = searchBuilder.build();
 

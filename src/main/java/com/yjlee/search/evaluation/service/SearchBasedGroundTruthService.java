@@ -73,11 +73,25 @@ public class SearchBasedGroundTruthService {
     processQueries(queries, progressListener, false);
   }
 
+  // LLM 자동 생성 시 호출 - 기존 로직 유지
+  public void generateCandidatesForAutoGeneration(Long queryId) {
+    processSingleQuery(queryId);
+  }
+
   private void processQueries(
       List<EvaluationQuery> queries, TaskProgressListener progressListener, boolean isFullProcess) {
+    processQueries(queries, progressListener, isFullProcess, true);
+  }
+
+  private void processQueries(
+      List<EvaluationQuery> queries,
+      TaskProgressListener progressListener,
+      boolean isFullProcess,
+      boolean isManualGeneration) {
 
     String processType = isFullProcess ? "전체 모든" : "선택된";
-    log.info("🔍 {} 쿼리의 정답 후보군 생성 시작: {}개", processType, queries.size());
+    log.info(
+        "🔍 {} 쿼리의 정답 후보군 생성 시작: {}개 (수동: {})", processType, queries.size(), isManualGeneration);
 
     if (queries.isEmpty()) {
       return;
@@ -103,8 +117,12 @@ public class SearchBasedGroundTruthService {
                     CompletableFuture.runAsync(
                         () -> {
                           try {
-                            // 독립적인 트랜잭션에서 각 쿼리 처리
-                            processSingleQuery(query.getId());
+                            // 수동/자동 생성에 따라 다른 처리 메서드 호출
+                            if (isManualGeneration) {
+                              processSingleQuerySimple(query.getId());
+                            } else {
+                              processSingleQuery(query.getId());
+                            }
 
                             // 진행률 업데이트
                             int completed = completedCount.incrementAndGet();
@@ -253,6 +271,77 @@ public class SearchBasedGroundTruthService {
         mappingsToDelete.size());
   }
 
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void processSingleQuerySimple(Long queryId) {
+    EvaluationQuery query =
+        evaluationQueryRepository
+            .findById(queryId)
+            .orElseThrow(() -> new RuntimeException("쿼리를 찾을 수 없습니다: " + queryId));
+
+    // 기존 매핑 모두 삭제
+    List<QueryProductMapping> existingMappings =
+        queryProductMappingRepository.findByEvaluationQuery(query);
+    queryProductMappingRepository.deleteAll(existingMappings);
+
+    // 단순하게 300개씩 가져와서 합치기
+    Map<String, String> allCandidates = new LinkedHashMap<>();
+
+    // BM25 검색 - 300개
+    searchByBM25(query.getQuery(), 300).forEach(id -> allCandidates.put(id, "BM25"));
+
+    // 바이그램 검색 - 300개
+    String[] bigramFields = {"name.bigram", "specs.bigram", "category.bigram"};
+    searchByCrossField(query.getQuery(), bigramFields, 300)
+        .forEach(
+            id -> {
+              if (!allCandidates.containsKey(id)) {
+                allCandidates.put(id, "BIGRAM");
+              } else {
+                allCandidates.put(id, "MULTIPLE");
+              }
+            });
+
+    // 벡터 검색 - 300개
+    searchByVector(query.getQuery(), 300)
+        .forEach(
+            id -> {
+              if (!allCandidates.containsKey(id)) {
+                allCandidates.put(id, "VECTOR");
+              } else {
+                allCandidates.put(id, "MULTIPLE");
+              }
+            });
+
+    // 상품 정보 일괄 조회
+    Map<String, ProductDocument> productMap =
+        fetchProductsBulk(new HashSet<>(allCandidates.keySet()));
+
+    // 모든 후보군 저장
+    List<QueryProductMapping> mappingsToAdd = new ArrayList<>();
+    for (Map.Entry<String, String> entry : allCandidates.entrySet()) {
+      String productId = entry.getKey();
+      String searchSource = entry.getValue();
+      ProductDocument product = productMap.get(productId);
+
+      QueryProductMapping mapping =
+          QueryProductMapping.builder()
+              .evaluationQuery(query)
+              .productId(productId)
+              .productName(product != null ? product.getNameRaw() : null)
+              .productSpecs(product != null ? product.getSpecsRaw() : null)
+              .productCategory(product != null ? product.getCategoryName() : null)
+              .searchSource(searchSource)
+              .evaluationSource(EVALUATION_SOURCE_SEARCH)
+              .build();
+      mappingsToAdd.add(mapping);
+    }
+
+    if (!mappingsToAdd.isEmpty()) {
+      queryProductMappingRepository.saveAll(mappingsToAdd);
+      log.info("쿼리 '{}' 수동 생성 완료: {}개 후보군 저장", query.getQuery(), mappingsToAdd.size());
+    }
+  }
+
   public Set<String> getCandidateIdsForQuery(String query) {
     try {
       // 임베딩은 VectorSearchService에서 내부적으로 처리
@@ -376,7 +465,7 @@ public class SearchBasedGroundTruthService {
                                       mm.query(query) // Bigram 검색을 위해 쿼리 그대로 사용
                                           .fields(List.of(fields))
                                           .operator(Operator.Or)
-                                          .minimumShouldMatch("70%")
+                                          .minimumShouldMatch("80%")
                                           .type(TextQueryType.CrossFields))));
 
       SearchResponse<ProductDocument> response =

@@ -228,7 +228,6 @@
           "type": "custom",
           "tokenizer": "userdic_nori_tokenizer"
         }
-        ...
       },
       "tokenizer": {
         "userdic_nori_tokenizer": {
@@ -237,7 +236,6 @@
           "user_dictionary": "{USER_DICT_PATH}",
           "decompound_mode": "discard"
         }
-        ...
       }
     }
   }
@@ -310,7 +308,9 @@
   "size": 300
   }
   ```
+
 - 실제 검색 내용(키워드)
-    <img src="./images/product-search-example-1.png" alt="상품 검색 예시" width="800">
+  <img src="./images/product-search-example-1.png" alt="상품 검색 예시" width="800">
+
 - 폴백 검색 내용(벡터)
-    <img src="./images/product-search-example-2.png" alt="상품 검색 예시" width="800">
+  <img src="./images/product-search-example-2.png" alt="상품 검색 예시" width="800">
