@@ -1,6 +1,7 @@
 package com.yjlee.search.deployment.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,6 +23,12 @@ public class DeleteUnusedIndicesResponse {
   @Schema(description = "삭제 실패한 인덱스 목록", example = "[]")
   private List<String> failedIndices;
 
+  @Schema(description = "삭제된 동의어 세트 목록", example = "[\"synonyms-nori-v20240101120000\"]")
+  private List<String> deletedSynonymSets;
+
+  @Schema(description = "삭제 실패한 동의어 세트 목록", example = "[]")
+  private List<String> failedSynonymSets;
+
   @Schema(description = "삭제 요청된 인덱스 개수", example = "5")
   private int requestedCount;
 
@@ -30,6 +37,15 @@ public class DeleteUnusedIndicesResponse {
 
   @Schema(description = "삭제 실패한 인덱스 개수", example = "0")
   private int failedCount;
+
+  @Schema(description = "삭제 요청된 동의어 세트 개수", example = "3")
+  private int requestedSynonymSetCount;
+
+  @Schema(description = "성공적으로 삭제된 동의어 세트 개수", example = "3")
+  private int deletedSynonymSetCount;
+
+  @Schema(description = "삭제 실패한 동의어 세트 개수", example = "0")
+  private int failedSynonymSetCount;
 
   @Schema(description = "작업 성공 여부", example = "true")
   private boolean success;
@@ -52,9 +68,59 @@ public class DeleteUnusedIndicesResponse {
     return DeleteUnusedIndicesResponse.builder()
         .deletedIndices(deletedIndices)
         .failedIndices(failedIndices)
+        .deletedSynonymSets(new ArrayList<>())
+        .failedSynonymSets(new ArrayList<>())
         .requestedCount(requestedCount)
         .deletedCount(deletedCount)
         .failedCount(failedCount)
+        .requestedSynonymSetCount(0)
+        .deletedSynonymSetCount(0)
+        .failedSynonymSetCount(0)
+        .success(success)
+        .message(message)
+        .build();
+  }
+
+  public static DeleteUnusedIndicesResponse of(
+      List<String> deletedIndices,
+      List<String> failedIndices,
+      int requestedCount,
+      List<String> deletedSynonymSets,
+      List<String> failedSynonymSets,
+      int requestedSynonymSetCount) {
+
+    int deletedCount = deletedIndices.size();
+    int failedCount = failedIndices.size();
+    int deletedSynonymSetCnt = deletedSynonymSets.size();
+    int failedSynonymSetCnt = failedSynonymSets.size();
+    boolean success = failedCount == 0 && failedSynonymSetCnt == 0;
+
+    String message = String.format("%d개의 미사용 인덱스 중 %d개가 삭제되었습니다", requestedCount, deletedCount);
+
+    if (failedCount > 0) {
+      message += String.format(" (%d개 실패)", failedCount);
+    }
+
+    if (requestedSynonymSetCount > 0) {
+      message +=
+          String.format(
+              ", %d개의 동의어 세트 중 %d개가 삭제되었습니다", requestedSynonymSetCount, deletedSynonymSetCnt);
+      if (failedSynonymSetCnt > 0) {
+        message += String.format(" (%d개 실패)", failedSynonymSetCnt);
+      }
+    }
+
+    return DeleteUnusedIndicesResponse.builder()
+        .deletedIndices(deletedIndices)
+        .failedIndices(failedIndices)
+        .deletedSynonymSets(deletedSynonymSets)
+        .failedSynonymSets(failedSynonymSets)
+        .requestedCount(requestedCount)
+        .deletedCount(deletedCount)
+        .failedCount(failedCount)
+        .requestedSynonymSetCount(requestedSynonymSetCount)
+        .deletedSynonymSetCount(deletedSynonymSetCnt)
+        .failedSynonymSetCount(failedSynonymSetCnt)
         .success(success)
         .message(message)
         .build();

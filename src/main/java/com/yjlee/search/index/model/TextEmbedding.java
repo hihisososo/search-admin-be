@@ -27,8 +27,8 @@ public class TextEmbedding {
   @Column(name = "hash", length = 64, nullable = false, unique = true)
   String hash;
 
-  @Column(name = "vector", columnDefinition = "TEXT", nullable = false)
-  String vector;
+  @Column(name = "vector", columnDefinition = "BYTEA", nullable = false)
+  byte[] vector;
 
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)

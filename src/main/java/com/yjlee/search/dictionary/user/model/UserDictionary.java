@@ -14,9 +14,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Table(
     name = "user_dictionaries",
     indexes = {
-        @Index(name = "idx_user_keyword_env", columnList = "keyword, environmentType"),
-        @Index(name = "idx_user_env", columnList = "environmentType"),
-        @Index(name = "idx_user_updated", columnList = "updatedAt DESC")
+      @Index(name = "idx_user_keyword_env", columnList = "keyword, environmentType"),
+      @Index(name = "idx_user_env", columnList = "environmentType"),
+      @Index(name = "idx_user_updated", columnList = "updatedAt DESC")
     })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
@@ -52,8 +52,9 @@ public class UserDictionary implements DictionaryEntity {
   public void updateDescription(String description) {
     this.description = description;
   }
-  
-  public static UserDictionary of(String keyword, String description, DictionaryEnvironmentType environment) {
+
+  public static UserDictionary of(
+      String keyword, String description, DictionaryEnvironmentType environment) {
     return UserDictionary.builder()
         .keyword(keyword)
         .description(description)

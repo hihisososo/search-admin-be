@@ -25,7 +25,7 @@ public class IndexEnvironment {
   @Column(name = "environment_type", nullable = false, unique = true)
   private EnvironmentType environmentType;
 
-  @Column(name = "index_name", nullable = false)
+  @Column(name = "index_name")
   private String indexName;
 
   @Column(name = "autocomplete_index_name")
@@ -43,15 +43,6 @@ public class IndexEnvironment {
 
   @Column(name = "version")
   private String version;
-
-  @Column(name = "is_indexing", nullable = false)
-  private Boolean isIndexing;
-
-  @Column(name = "indexed_document_count")
-  private Long indexedDocumentCount;
-
-  @Column(name = "total_document_count")
-  private Long totalDocumentCount;
 
   @CreationTimestamp
   @Column(name = "created_at")
@@ -78,9 +69,7 @@ public class IndexEnvironment {
 
   public enum IndexStatus {
     ACTIVE("활성"),
-    INACTIVE("비활성"),
-    INDEXING("색인중"),
-    FAILED("실패");
+    INACTIVE("비활성");
 
     private final String description;
 
@@ -93,40 +82,23 @@ public class IndexEnvironment {
     }
   }
 
-  public void startIndexing() {
-    this.isIndexing = true;
-    this.indexStatus = IndexStatus.INDEXING;
-    this.indexedDocumentCount = 0L;
-    this.totalDocumentCount = null;
-  }
-
-  public void completeIndexing(String version, Long documentCount) {
-    this.isIndexing = false;
+  public void activate(String version, Long documentCount) {
     this.indexStatus = IndexStatus.ACTIVE;
     this.version = version;
     this.documentCount = documentCount;
     this.indexDate = LocalDateTime.now();
-    this.indexedDocumentCount = documentCount;
-    this.totalDocumentCount = documentCount;
   }
 
-  public void failIndexing() {
-    this.isIndexing = false;
-    this.indexStatus = IndexStatus.FAILED;
+  public void deactivate() {
+    this.indexStatus = IndexStatus.INACTIVE;
   }
 
-  public void updateIndexingProgress(Long indexedCount, Long totalCount) {
-    this.indexedDocumentCount = indexedCount;
-    this.totalDocumentCount = totalCount;
-  }
-
-  public Integer getIndexingProgress() {
-    if (totalDocumentCount == null || totalDocumentCount == 0) {
-      return 0;
-    }
-    if (indexedDocumentCount == null) {
-      return 0;
-    }
-    return (int) ((indexedDocumentCount * 100) / totalDocumentCount);
+  public void reset() {
+    this.indexStatus = IndexStatus.INACTIVE;
+    this.indexName = null;
+    this.autocompleteIndexName = null;
+    this.documentCount = 0L;
+    this.version = null;
+    this.indexDate = null;
   }
 }

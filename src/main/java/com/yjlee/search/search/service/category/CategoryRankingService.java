@@ -1,16 +1,11 @@
 package com.yjlee.search.search.service.category;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.dictionary.category.model.CategoryMapping;
-import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
-import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -18,7 +13,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CategoryRankingService {
 
-  private final CategoryRankingDictionaryRepository categoryRankingDictionaryRepository;
+  private final CategoryRankingCacheLoader cacheLoader;
   private final ElasticsearchAnalyzeService analyzeService;
 
   // 기본 환경(CURRENT)로 가중치 조회
@@ -33,7 +28,7 @@ public class CategoryRankingService {
       return Collections.emptyMap();
     }
 
-    Map<String, List<CategoryWeight>> cache = loadCategoryCache(environmentType);
+    Map<String, List<CategoryWeight>> cache = cacheLoader.loadCache(environmentType);
     Map<String, Integer> categoryWeights = new HashMap<>();
     Set<String> appliedKeywords = new HashSet<>();
 
@@ -90,49 +85,12 @@ public class CategoryRankingService {
     return categoryWeights;
   }
 
-  @Cacheable(value = "categoryRanking", key = "#environmentType")
-  public Map<String, List<CategoryWeight>> loadCategoryCache(
-      DictionaryEnvironmentType environmentType) {
-    log.info("카테고리 랭킹 사전 캐시 로딩 - 환경: {}", environmentType);
-
-    List<CategoryRankingDictionary> dictionaries =
-        categoryRankingDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
-            environmentType);
-
-    Map<String, List<CategoryWeight>> cache = new HashMap<>();
-    int totalMappings = 0;
-
-    for (CategoryRankingDictionary dict : dictionaries) {
-      String keyword = dict.getKeyword().toLowerCase();
-
-      if (dict.getCategoryMappings() != null && !dict.getCategoryMappings().isEmpty()) {
-        List<CategoryWeight> weights = new ArrayList<>();
-        for (CategoryMapping mapping : dict.getCategoryMappings()) {
-          weights.add(new CategoryWeight(mapping.getCategory(), mapping.getWeight()));
-        }
-        cache.put(keyword, weights);
-        totalMappings += weights.size();
-      }
-    }
-
-    log.info(
-        "카테고리 랭킹 사전 캐시 로딩 완료 - 환경: {}, 키워드: {}개, 매핑: {}개",
-        environmentType,
-        cache.size(),
-        totalMappings);
-
-    return cache;
-  }
-
-  @CacheEvict(value = "categoryRanking", key = "#environmentType")
   public void updateCacheRealtime(DictionaryEnvironmentType environmentType) {
-    log.info("카테고리 랭킹 캐시 클리어 - 환경: {}", environmentType);
-    // 캐시 제거만 하면 다음 요청 시 자동으로 재로드됨
+    cacheLoader.evictCache(environmentType);
   }
 
-  @CacheEvict(value = "categoryRanking", allEntries = true)
   public void clearAllCache() {
-    log.info("모든 카테고리 랭킹 캐시 클리어");
+    cacheLoader.evictAllCache();
   }
 
   public static class CategoryWeight {

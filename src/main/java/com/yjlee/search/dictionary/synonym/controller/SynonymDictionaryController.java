@@ -77,18 +77,22 @@ public class SynonymDictionaryController {
       @RequestParam DictionaryEnvironmentType environment) {
     try {
       String synonymSetName = getSynonymSetName(environment);
-      
+
       if (environment != DictionaryEnvironmentType.CURRENT) {
-        IndexEnvironment.EnvironmentType envType = environment == DictionaryEnvironmentType.DEV
-            ? IndexEnvironment.EnvironmentType.DEV
-            : IndexEnvironment.EnvironmentType.PROD;
-        
-        indexEnvironmentRepository.findByEnvironmentType(envType)
+        IndexEnvironment.EnvironmentType envType =
+            environment == DictionaryEnvironmentType.DEV
+                ? IndexEnvironment.EnvironmentType.DEV
+                : IndexEnvironment.EnvironmentType.PROD;
+
+        indexEnvironmentRepository
+            .findByEnvironmentType(envType)
             .filter(env -> env.getVersion() != null)
-            .orElseThrow(() -> new IllegalStateException(
-                environment.getDescription() + " 환경에 인덱스가 없습니다. 먼저 인덱스를 생성하고 배포해주세요."));
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        environment.getDescription() + " 환경에 인덱스가 없습니다. 먼저 인덱스를 생성하고 배포해주세요."));
       }
-      
+
       elasticsearchSynonymService.createOrUpdateSynonymSet(synonymSetName, environment);
       return SynonymSyncResponse.success(environment.getDescription());
     } catch (Exception e) {
@@ -100,12 +104,14 @@ public class SynonymDictionaryController {
     if (environment == DictionaryEnvironmentType.CURRENT) {
       return "synonyms-nori-current";
     }
-    
-    IndexEnvironment.EnvironmentType envType = environment == DictionaryEnvironmentType.DEV
-        ? IndexEnvironment.EnvironmentType.DEV
-        : IndexEnvironment.EnvironmentType.PROD;
-    
-    return indexEnvironmentRepository.findByEnvironmentType(envType)
+
+    IndexEnvironment.EnvironmentType envType =
+        environment == DictionaryEnvironmentType.DEV
+            ? IndexEnvironment.EnvironmentType.DEV
+            : IndexEnvironment.EnvironmentType.PROD;
+
+    return indexEnvironmentRepository
+        .findByEnvironmentType(envType)
         .map(env -> "synonyms-nori-" + env.getVersion())
         .orElse("synonyms-nori-" + environment.name().toLowerCase());
   }

@@ -16,7 +16,8 @@ public class EC2DeploymentService {
   @Value("${app.aws.dictionary.ec2-instance-ids}")
   private String[] instanceIds;
 
-  public EC2DeploymentResult deployFile(String fileName, String basePath, String content, String version) {
+  public EC2DeploymentResult deployFile(
+      String fileName, String basePath, String content, String version) {
     log.info("EC2 파일 배포 시작 - 파일: {}/{}, 내용 길이: {}", basePath, fileName, content.length());
 
     try {
@@ -55,10 +56,7 @@ public class EC2DeploymentService {
         EOF
         chmod 644 %s
         """,
-        basePath,
-        fullFilePath,
-        content,
-        fullFilePath);
+        basePath, fullFilePath, content, fullFilePath);
   }
 
   private SsmCommandService.SsmCommandResult executeDictionaryDeployment(

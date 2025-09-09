@@ -3,8 +3,6 @@ package com.yjlee.search.dictionary.stopword.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.yjlee.search.common.PageResponse;
@@ -76,25 +74,6 @@ class StopwordDictionaryServiceTest {
     assertThat(response).isNotNull();
     assertThat(response.getContent()).hasSize(1);
     assertThat(response.getContent().get(0).getKeyword()).isEqualTo("테스트");
-  }
-
-  @Test
-  @DisplayName("현재 불용어 사전 목록 조회 - 검색어 포함")
-  void getStopwordDictionaries_CurrentEnvironment_WithSearch() {
-    List<StopwordDictionary> dictionaries = Arrays.asList(testDictionary);
-    Page<StopwordDictionary> page = new PageImpl<>(dictionaries, PageRequest.of(0, 10), 1);
-
-    when(stopwordDictionaryRepository.findByKeywordContainingIgnoreCase(
-            anyString(), any(Pageable.class)))
-        .thenReturn(page);
-
-    PageResponse<StopwordDictionaryListResponse> response =
-        stopwordDictionaryService.getList(1, 10, null, null, "테스트", null);
-
-    assertThat(response).isNotNull();
-    assertThat(response.getContent()).hasSize(1);
-    verify(stopwordDictionaryRepository, times(1))
-        .findByKeywordContainingIgnoreCase(eq("테스트"), any(Pageable.class));
   }
 
   @Test

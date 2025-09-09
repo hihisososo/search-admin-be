@@ -14,9 +14,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Table(
     name = "typo_correction_dictionaries",
     indexes = {
-        @Index(name = "idx_typo_keyword_env", columnList = "keyword, environmentType"),
-        @Index(name = "idx_typo_env", columnList = "environmentType"),
-        @Index(name = "idx_typo_updated", columnList = "updatedAt DESC")
+      @Index(name = "idx_typo_keyword_env", columnList = "keyword, environmentType"),
+      @Index(name = "idx_typo_env", columnList = "environmentType"),
+      @Index(name = "idx_typo_updated", columnList = "updatedAt DESC")
     })
 @EntityListeners(AuditingEntityListener.class)
 @Getter

@@ -1,12 +1,12 @@
 package com.yjlee.search.evaluation.service;
 
+import com.yjlee.search.async.model.AsyncTask;
+import com.yjlee.search.async.model.AsyncTaskType;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
 import com.yjlee.search.evaluation.dto.GenerateQueriesRequest;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
 import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
-import com.yjlee.search.evaluation.model.AsyncTask;
-import com.yjlee.search.evaluation.model.AsyncTaskType;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.search.dto.SearchMode;
 import com.yjlee.search.search.service.VectorSearchService;
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class AsyncEvaluationService {
 
-  private final AsyncTaskService asyncTaskService;
+  private final com.yjlee.search.async.service.AsyncTaskService asyncTaskService;
   private final QueryGenerationService queryGenerationService;
   private final SearchBasedGroundTruthService groundTruthService;
   private final EvaluationQueryService evaluationQueryService;
@@ -33,7 +33,7 @@ public class AsyncEvaluationService {
   private final VectorSearchService vectorSearchService;
 
   public AsyncEvaluationService(
-      AsyncTaskService asyncTaskService,
+      com.yjlee.search.async.service.AsyncTaskService asyncTaskService,
       QueryGenerationService queryGenerationService,
       SearchBasedGroundTruthService groundTruthService,
       EvaluationQueryService evaluationQueryService,

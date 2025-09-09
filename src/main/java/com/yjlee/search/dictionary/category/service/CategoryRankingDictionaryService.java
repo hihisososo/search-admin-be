@@ -4,7 +4,6 @@ import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.category.dto.*;
 import com.yjlee.search.dictionary.category.mapper.CategoryRankingDictionaryMapper;
-import com.yjlee.search.dictionary.category.model.CategoryMapping;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
 import com.yjlee.search.dictionary.common.enums.DictionarySortField;
@@ -12,7 +11,6 @@ import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.search.service.category.CategoryRankingService;
 import jakarta.persistence.EntityNotFoundException;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,36 +36,50 @@ public class CategoryRankingDictionaryService implements DictionaryService {
     if (repository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
       throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
     }
-    return mapper.toResponse(repository.save(CategoryRankingDictionary.of(
-        request.getKeyword(),
-        mapper.toMappings(request.getCategoryMappings()),
-        request.getDescription(),
-        environment)));
+    return mapper.toResponse(
+        repository.save(
+            CategoryRankingDictionary.of(
+                request.getKeyword(),
+                mapper.toMappings(request.getCategoryMappings()),
+                request.getDescription(),
+                environment)));
   }
 
   @Transactional(readOnly = true)
   public PageResponse<CategoryRankingDictionaryListResponse> getList(
-      int page, int size, String search, String sortBy, String sortDir,
+      int page,
+      int size,
+      String search,
+      String sortBy,
+      String sortDir,
       DictionaryEnvironmentType environmentType) {
     Pageable pageable = PageRequest.of(Math.max(0, page), size, createSort(sortBy, sortDir));
-    Page<CategoryRankingDictionary> dictionaryPage = (search != null && !search.trim().isEmpty())
-        ? repository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(environmentType, search.trim(), pageable)
-        : repository.findByEnvironmentType(environmentType, pageable);
+    Page<CategoryRankingDictionary> dictionaryPage =
+        (search != null && !search.trim().isEmpty())
+            ? repository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
+                environmentType, search.trim(), pageable)
+            : repository.findByEnvironmentType(environmentType, pageable);
     return PageResponse.from(dictionaryPage.map(mapper::toListResponse));
   }
 
   @Transactional(readOnly = true)
   public CategoryRankingDictionaryResponse getDetail(Long id) {
-    return mapper.toResponse(repository.findById(id)
-        .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id)));
+    return mapper.toResponse(
+        repository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id)));
   }
 
   @Transactional
   public CategoryRankingDictionaryResponse update(
-      Long id, CategoryRankingDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
-    CategoryRankingDictionary existing = repository.findById(id)
-        .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
-    
+      Long id,
+      CategoryRankingDictionaryUpdateRequest request,
+      DictionaryEnvironmentType environment) {
+    CategoryRankingDictionary existing =
+        repository
+            .findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
+
     if (request.getKeyword() != null) {
       if (!existing.getKeyword().equals(request.getKeyword())
           && repository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
@@ -86,8 +98,7 @@ public class CategoryRankingDictionaryService implements DictionaryService {
 
   @Transactional
   public void delete(Long id) {
-    repository.findById(id)
-        .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
+    repository.findById(id).orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
     repository.deleteById(id);
   }
 
@@ -112,17 +123,15 @@ public class CategoryRankingDictionaryService implements DictionaryService {
   public void deployToProd() {
     deployToEnvironment(DictionaryEnvironmentType.DEV, DictionaryEnvironmentType.PROD);
   }
-  
+
   private void deployToEnvironment(DictionaryEnvironmentType from, DictionaryEnvironmentType to) {
     var sourceDictionaries = repository.findByEnvironmentTypeOrderByKeywordAsc(from);
-    if (sourceDictionaries.isEmpty() && to == DictionaryEnvironmentType.PROD) {
-      throw new IllegalStateException("개발 환경에 배포된 카테고리 랭킹 사전이 없습니다.");
-    }
     if (sourceDictionaries.isEmpty()) return;
-    
+
     repository.deleteByEnvironmentType(to);
-    var targetDictionaries = sourceDictionaries.stream()
-        .map(dict -> mapper.copyWithEnvironment(dict, to)).toList();
+
+    var targetDictionaries =
+        sourceDictionaries.stream().map(dict -> mapper.copyWithEnvironment(dict, to)).toList();
     repository.saveAll(targetDictionaries);
     log.info("{} 환경 카테고리 랭킹 사전 배포 완료: {}개", to, targetDictionaries.size());
   }
@@ -132,7 +141,6 @@ public class CategoryRankingDictionaryService implements DictionaryService {
         "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC,
         DictionarySortField.getValidFieldOrDefault(sortBy));
   }
-
 
   @Override
   public void realtimeSync(DictionaryEnvironmentType environment) {

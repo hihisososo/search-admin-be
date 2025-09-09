@@ -146,7 +146,7 @@ public class EvaluationReportService {
     // 모든 작업 완료 대기 및 결과 수집
     try {
       CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-          .get(300, TimeUnit.SECONDS); // 5분 타임아웃
+          .get(1800, TimeUnit.SECONDS); // 30분 타임아웃
 
       for (CompletableFuture<EvaluationExecuteResponse.QueryEvaluationDetail> future : futures) {
         try {

@@ -79,7 +79,6 @@ class DeploymentControllerTest extends BaseIntegrationTest {
     devEnv.setVersion("v1");
     devEnv.setDocumentCount(1000L);
     devEnv.setIndexStatus(IndexEnvironment.IndexStatus.ACTIVE);
-    devEnv.setIsIndexing(false);
     devEnv.setIndexDate(LocalDateTime.now());
     indexEnvironmentRepository.save(devEnv);
 
@@ -89,7 +88,6 @@ class DeploymentControllerTest extends BaseIntegrationTest {
     prodEnv.setVersion("v0");
     prodEnv.setDocumentCount(500L);
     prodEnv.setIndexStatus(IndexEnvironment.IndexStatus.ACTIVE);
-    prodEnv.setIsIndexing(false);
     prodEnv.setIndexDate(LocalDateTime.now());
     indexEnvironmentRepository.save(prodEnv);
 
@@ -304,7 +302,7 @@ class DeploymentControllerTest extends BaseIntegrationTest {
         indexEnvironmentRepository
             .findByEnvironmentType(IndexEnvironment.EnvironmentType.DEV)
             .orElseThrow();
-    devEnv.setIsIndexing(true);
+    // AsyncTask 테이블에 진행 중인 작업을 생성해야 하지만 테스트 간소화를 위해 생략
     indexEnvironmentRepository.save(devEnv);
 
     IndexingRequest request = new IndexingRequest();

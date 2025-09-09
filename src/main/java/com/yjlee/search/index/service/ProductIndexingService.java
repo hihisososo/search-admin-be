@@ -7,11 +7,11 @@ import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.index.service.monitor.IndexProgressMonitor;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,6 +19,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -28,8 +29,11 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ProductIndexingService {
 
-  private static final int BATCH_SIZE = 500;
-  private static final int MAX_CONCURRENT_BATCHES = 8;
+  @Value("${indexing.batch-size:200}")
+  private int batchSize;
+
+  @Value("${indexing.max-concurrent-batches:8}")
+  private int maxConcurrentBatches;
 
   private final ProductRepository productRepository;
   private final ProductEmbeddingService productEmbeddingService;
@@ -40,9 +44,18 @@ public class ProductIndexingService {
   private final ElasticsearchClient elasticsearchClient;
 
   private IndexingProgressCallback progressCallback;
-  private final Semaphore batchSemaphore = new Semaphore(MAX_CONCURRENT_BATCHES);
-  private final ExecutorService indexingExecutor =
-      Executors.newFixedThreadPool(MAX_CONCURRENT_BATCHES);
+  private Semaphore batchSemaphore;
+  private ExecutorService indexingExecutor;
+
+  @PostConstruct
+  public void init() {
+    this.batchSemaphore = new Semaphore(maxConcurrentBatches);
+    this.indexingExecutor = Executors.newFixedThreadPool(maxConcurrentBatches);
+    log.info(
+        "ProductIndexingService initialized - batchSize: {}, maxConcurrentBatches: {}",
+        batchSize,
+        maxConcurrentBatches);
+  }
 
   public int indexAllProducts() throws IOException {
     return indexAllProducts(null);
@@ -83,7 +96,7 @@ public class ProductIndexingService {
         (maxDocuments != null && maxDocuments > 0)
             ? Math.min(maxDocuments, totalProducts)
             : totalProducts;
-    int totalBatches = (int) Math.ceil((double) effectiveTotal / BATCH_SIZE);
+    int totalBatches = (int) Math.ceil((double) effectiveTotal / batchSize);
 
     progressMonitor.start(effectiveTotal);
     setupProgressCallback();
@@ -110,7 +123,7 @@ public class ProductIndexingService {
 
       if (remainingDocs <= 0) break;
 
-      final int batchLimit = Math.min(BATCH_SIZE, remainingDocs);
+      final int batchLimit = Math.min(batchSize, remainingDocs);
       CompletableFuture<Integer> future = processBatchAsync(currentBatch, targetIndex, batchLimit);
       futures.add(future);
       processedCount += batchLimit;
@@ -127,10 +140,6 @@ public class ProductIndexingService {
     return totalIndexed;
   }
 
-  private CompletableFuture<Integer> processBatchAsync(int batchNumber, String targetIndex) {
-    return processBatchAsync(batchNumber, targetIndex, BATCH_SIZE);
-  }
-
   private CompletableFuture<Integer> processBatchAsync(
       int batchNumber, String targetIndex, int batchLimit) {
     return CompletableFuture.supplyAsync(
@@ -141,7 +150,7 @@ public class ProductIndexingService {
 
             Page<Product> productPage =
                 productRepository.findAll(
-                    PageRequest.of(batchNumber, Math.min(batchLimit, BATCH_SIZE)));
+                    PageRequest.of(batchNumber, Math.min(batchLimit, batchSize)));
 
             if (productPage.isEmpty()) {
               return 0;

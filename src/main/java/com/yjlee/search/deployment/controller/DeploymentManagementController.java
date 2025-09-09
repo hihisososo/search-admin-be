@@ -1,5 +1,6 @@
 package com.yjlee.search.deployment.controller;
 
+import com.yjlee.search.async.dto.AsyncTaskStartResponse;
 import com.yjlee.search.deployment.dto.*;
 import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.service.SimpleDeploymentService;
@@ -38,22 +39,24 @@ public class DeploymentManagementController {
     return ResponseEntity.ok(response);
   }
 
-  @Operation(summary = "색인 실행", description = "개발 환경에서 색인을 실행합니다.")
+  @Operation(summary = "색인 실행", description = "개발 환경에서 비동기로 색인을 실행합니다.")
   @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "색인 시작 성공"),
+    @ApiResponse(responseCode = "200", description = "색인 작업 시작 성공"),
     @ApiResponse(responseCode = "400", description = "잘못된 요청"),
     @ApiResponse(responseCode = "500", description = "서버 에러")
   })
   @PostMapping("/indexing")
-  public ResponseEntity<DeploymentOperationResponse> executeIndexing(
+  public ResponseEntity<AsyncTaskStartResponse> executeIndexing(
       @RequestBody IndexingRequest request) {
+    try {
+      Long taskId = deploymentService.executeIndexing(request);
 
-    DeploymentOperationResponse response = deploymentService.executeIndexing(request);
-
-    if (response.isSuccess()) {
-      return ResponseEntity.ok(response);
-    } else {
-      return ResponseEntity.badRequest().body(response);
+      return ResponseEntity.ok(
+          AsyncTaskStartResponse.builder().taskId(taskId).message("색인 작업이 시작되었습니다").build());
+    } catch (IllegalStateException e) {
+      log.error("색인 실행 실패: {}", e.getMessage());
+      return ResponseEntity.badRequest()
+          .body(AsyncTaskStartResponse.builder().taskId(null).message(e.getMessage()).build());
     }
   }
 
@@ -147,7 +150,7 @@ public class DeploymentManagementController {
           "미사용 인덱스 삭제 부분 실패 - 성공: {}, 실패: {}",
           response.getDeletedCount(),
           response.getFailedCount());
-      return ResponseEntity.ok(response); // 부분 성공도 200으로 반환
+      return ResponseEntity.ok(response);
     }
   }
 }

@@ -14,9 +14,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Table(
     name = "synonym_dictionaries",
     indexes = {
-        @Index(name = "idx_synonym_keyword_env", columnList = "keyword, environmentType"),
-        @Index(name = "idx_synonym_env", columnList = "environmentType"),
-        @Index(name = "idx_synonym_updated", columnList = "updatedAt DESC")
+      @Index(name = "idx_synonym_keyword_env", columnList = "keyword, environmentType"),
+      @Index(name = "idx_synonym_env", columnList = "environmentType"),
+      @Index(name = "idx_synonym_updated", columnList = "updatedAt DESC")
     })
 @EntityListeners(AuditingEntityListener.class)
 @Getter

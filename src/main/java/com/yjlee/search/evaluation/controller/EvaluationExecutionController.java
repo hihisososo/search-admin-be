@@ -1,14 +1,11 @@
 package com.yjlee.search.evaluation.controller;
 
-import com.yjlee.search.evaluation.dto.AsyncTaskListResponse;
-import com.yjlee.search.evaluation.dto.AsyncTaskResponse;
-import com.yjlee.search.evaluation.dto.AsyncTaskStartResponse;
+import com.yjlee.search.async.dto.AsyncTaskStartResponse;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportSummaryResponse;
 import com.yjlee.search.evaluation.model.EvaluationReport;
 import com.yjlee.search.evaluation.service.AsyncEvaluationService;
-import com.yjlee.search.evaluation.service.AsyncTaskService;
 import com.yjlee.search.evaluation.service.EvaluationReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,31 +25,6 @@ public class EvaluationExecutionController {
 
   private final EvaluationReportService evaluationReportService;
   private final AsyncEvaluationService asyncEvaluationService;
-  private final AsyncTaskService asyncTaskService;
-
-  @GetMapping("/tasks/{taskId}")
-  @Operation(summary = "비동기 작업 상태 조회")
-  public ResponseEntity<AsyncTaskResponse> getTaskStatus(@PathVariable Long taskId) {
-    return asyncTaskService
-        .getTask(taskId)
-        .map(ResponseEntity::ok)
-        .orElse(ResponseEntity.notFound().build());
-  }
-
-  @GetMapping("/tasks")
-  @Operation(summary = "비동기 작업 리스트 조회")
-  public ResponseEntity<AsyncTaskListResponse> getTasks(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
-    AsyncTaskListResponse response = asyncTaskService.getRecentTasks(page, size);
-    return ResponseEntity.ok(response);
-  }
-
-  @GetMapping("/tasks/running")
-  @Operation(summary = "실행 중인 작업 조회")
-  public ResponseEntity<List<AsyncTaskResponse>> getRunningTasks() {
-    List<AsyncTaskResponse> runningTasks = asyncTaskService.getRunningTasks();
-    return ResponseEntity.ok(runningTasks);
-  }
 
   @PostMapping("/evaluate-async")
   @Operation(summary = "평가 실행 (비동기)")

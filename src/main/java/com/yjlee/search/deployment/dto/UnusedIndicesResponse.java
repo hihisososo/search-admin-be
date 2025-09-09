@@ -1,6 +1,7 @@
 package com.yjlee.search.deployment.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,11 +28,17 @@ public class UnusedIndicesResponse {
   @Schema(description = "Alias에 연결된 인덱스 목록", example = "[\"products-20240301120000\"]")
   private List<String> aliasedIndices;
 
+  @Schema(description = "사용하지 않는 동의어 세트 목록", example = "[\"synonyms-nori-v20240101120000\"]")
+  private List<String> unusedSynonymSets;
+
   @Schema(description = "전체 인덱스 개수", example = "10")
   private int totalCount;
 
   @Schema(description = "삭제 가능한 인덱스 개수", example = "5")
   private int deletableCount;
+
+  @Schema(description = "삭제 가능한 동의어 세트 개수", example = "3")
+  private int deletableSynonymSetCount;
 
   public static UnusedIndicesResponse of(
       List<String> unusedIndices, List<String> usedIndices, List<String> aliasedIndices) {
@@ -39,8 +46,26 @@ public class UnusedIndicesResponse {
         .unusedIndices(unusedIndices)
         .usedIndices(usedIndices)
         .aliasedIndices(aliasedIndices)
+        .unusedSynonymSets(new ArrayList<>())
         .totalCount(unusedIndices.size() + usedIndices.size())
         .deletableCount(unusedIndices.size())
+        .deletableSynonymSetCount(0)
+        .build();
+  }
+
+  public static UnusedIndicesResponse of(
+      List<String> unusedIndices,
+      List<String> usedIndices,
+      List<String> aliasedIndices,
+      List<String> unusedSynonymSets) {
+    return UnusedIndicesResponse.builder()
+        .unusedIndices(unusedIndices)
+        .usedIndices(usedIndices)
+        .aliasedIndices(aliasedIndices)
+        .unusedSynonymSets(unusedSynonymSets)
+        .totalCount(unusedIndices.size() + usedIndices.size())
+        .deletableCount(unusedIndices.size())
+        .deletableSynonymSetCount(unusedSynonymSets.size())
         .build();
   }
 }

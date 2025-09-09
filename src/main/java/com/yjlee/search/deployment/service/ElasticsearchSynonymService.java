@@ -7,6 +7,7 @@ import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.dictionary.synonym.model.SynonymDictionary;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -43,16 +44,50 @@ public class ElasticsearchSynonymService {
     }
   }
 
+  public List<String> getAllSynonymSets() {
+    try {
+      var response = elasticsearchClient.synonyms().getSynonymsSets(g -> g);
+
+      List<String> synonymSetNames =
+          response.results().stream()
+              .map(result -> result.synonymsSet())
+              .collect(Collectors.toList());
+
+      log.info("전체 동의어 세트 조회 완료 - 개수: {}", synonymSetNames.size());
+      return synonymSetNames;
+    } catch (Exception e) {
+      log.error("동의어 세트 목록 조회 실패", e);
+      return new ArrayList<>();
+    }
+  }
+
+  public List<String> deleteSynonymSets(List<String> setNames) {
+    List<String> deletedSets = new ArrayList<>();
+
+    for (String setName : setNames) {
+      try {
+        var request =
+            co.elastic.clients.elasticsearch.synonyms.DeleteSynonymRequest.of(d -> d.id(setName));
+        elasticsearchClient.synonyms().deleteSynonym(request);
+        deletedSets.add(setName);
+        log.info("동의어 세트 삭제 성공 - set: {}", setName);
+      } catch (Exception e) {
+        log.warn("동의어 세트 삭제 실패 - set: {}, msg: {}", setName, e.getMessage());
+      }
+    }
+
+    log.info("동의어 세트 일괄 삭제 완료 - 요청: {}개, 성공: {}개", setNames.size(), deletedSets.size());
+    return deletedSets;
+  }
+
   /** 환경별 동의어 규칙 조회 */
   private List<String> getSynonymRules(DictionaryEnvironmentType environmentType) {
     try {
       // Repository에서 직접 데이터 조회
-      List<SynonymDictionary> dictionaries = 
+      List<SynonymDictionary> dictionaries =
           synonymDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environmentType);
-      
-      return dictionaries.stream()
-          .map(dict -> dict.getKeyword())
-          .collect(Collectors.toList());
+
+      return dictionaries.stream().map(dict -> dict.getKeyword()).collect(Collectors.toList());
     } catch (Exception e) {
       log.error("동의어 규칙 조회 실패 - 환경: {}", environmentType.getDescription(), e);
       return List.of();

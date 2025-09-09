@@ -6,8 +6,8 @@ import static com.yjlee.search.evaluation.constants.EvaluationConstants.DEFAULT_
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.DEFAULT_PRODUCT_NAME;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.DEFAULT_PRODUCT_SPECS;
 
+import com.yjlee.search.async.dto.AsyncTaskStartResponse;
 import com.yjlee.search.evaluation.dto.AddProductMappingRequest;
-import com.yjlee.search.evaluation.dto.AsyncTaskStartResponse;
 import com.yjlee.search.evaluation.dto.BulkDeleteRequest;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse;

@@ -1,6 +1,7 @@
 package com.yjlee.search.deployment.service;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import com.yjlee.search.async.model.AsyncTaskType;
+import com.yjlee.search.async.service.AsyncTaskService;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.dto.*;
 import com.yjlee.search.deployment.model.DeploymentHistory;
@@ -8,17 +9,14 @@ import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.common.service.DictionaryDataDeploymentService;
-import com.yjlee.search.index.service.ProductIndexingService;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,105 +26,57 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class SimpleDeploymentService {
 
-  @Value("${indexing.max-documents:}")
-  private Integer maxDocumentsConfig;
-
   private final IndexEnvironmentRepository environmentRepository;
   private final DeploymentHistoryRepository historyRepository;
-  private final ProductIndexingService productIndexingService;
-  private final DictionaryDataDeploymentService dictionaryDeploymentService;
   private final ElasticsearchIndexService elasticsearchIndexService;
-  private final ElasticsearchClient elasticsearchClient;
+  private final ElasticsearchSynonymService elasticsearchSynonymService;
+  private final DictionaryDataDeploymentService dictionaryDeploymentService;
+  private final AsyncTaskService asyncTaskService;
+  private final AsyncIndexingService asyncIndexingService;
 
-  /**
-   * 환경 목록 조회
-   */
+  /** 환경 목록 조회 */
   public EnvironmentListResponse getEnvironments() {
     List<IndexEnvironment> environments = environmentRepository.findAll();
-    List<EnvironmentInfoResponse> responses = environments.stream()
-        .map(this::toEnvironmentResponse)
-        .toList();
+    List<EnvironmentInfoResponse> responses =
+        environments.stream().map(this::toEnvironmentResponse).toList();
     return EnvironmentListResponse.of(responses);
   }
 
-  /**
-   * 색인 실행
-   */
+  /** 색인 실행 (비동기) */
   @Transactional
-  public synchronized DeploymentOperationResponse executeIndexing(IndexingRequest request) {
+  public synchronized Long executeIndexing(IndexingRequest request) {
     log.info("색인 시작: {}", request.getDescription());
 
-    try {
-      // 개발 환경 조회
-      IndexEnvironment devEnv = getEnvironment(IndexEnvironment.EnvironmentType.DEV);
-      
-      // 색인 중복 실행 방지
-      if (devEnv.getIsIndexing()) {
-        return DeploymentOperationResponse.failure("색인이 이미 진행 중입니다.");
-      }
+    // 개발 환경 조회
+    IndexEnvironment devEnv = getEnvironment(IndexEnvironment.EnvironmentType.DEV);
 
-      // 색인 시작 상태 변경
-      devEnv.startIndexing();
-      environmentRepository.save(devEnv);
-
-      // 버전 생성 및 이력 저장
-      String version = generateVersion();
-      DeploymentHistory history = createHistory(
-          DeploymentHistory.DeploymentType.INDEXING, 
-          version, 
-          request.getDescription()
-      );
-      history = historyRepository.save(history);
-
-      // 비동기 색인 실행
-      executeIndexingAsync(devEnv.getId(), version, history.getId());
-
-      return DeploymentOperationResponse.success("색인이 시작되었습니다.", version, history.getId());
-
-    } catch (Exception e) {
-      log.error("색인 실패", e);
-      return DeploymentOperationResponse.failure("색인 실패: " + e.getMessage());
+    // 색인 중복 실행 방지
+    if (asyncTaskService.hasRunningTask(AsyncTaskType.INDEXING)) {
+      throw new IllegalStateException("색인이 이미 진행 중입니다.");
     }
+
+    // 개발 환경 초기화 - 색인 시작 전 상태 리셋
+    devEnv.reset();
+    environmentRepository.save(devEnv);
+
+    // 버전 생성 및 이력 저장
+    String version = generateVersion();
+    DeploymentHistory history =
+        createHistory(DeploymentHistory.DeploymentType.INDEXING, version, request.getDescription());
+    history = historyRepository.save(history);
+
+    // AsyncTask 생성
+    String initialMessage = String.format("색인 준비 중... (버전: %s)", version);
+    var task = asyncTaskService.createTask(AsyncTaskType.INDEXING, initialMessage);
+
+    // 비동기 색인 실행
+    asyncIndexingService.executeIndexingAsync(
+        devEnv.getId(), version, history.getId(), task.getId());
+
+    return task.getId();
   }
 
-  /**
-   * 비동기 색인 실행
-   */
-  @Async("deploymentTaskExecutor")
-  public void executeIndexingAsync(Long envId, String version, Long historyId) {
-    try {
-      log.info("비동기 색인 시작 - 버전: {}", version);
-
-      // 1. 사전 데이터 배포
-      deployDictionaries(version);
-
-      // 2. 새 인덱스 생성
-      String newIndexName = elasticsearchIndexService.createNewIndex(
-          version, 
-          DictionaryEnvironmentType.DEV
-      );
-
-      // 3. 상품 색인
-      productIndexingService.setProgressCallback((indexed, total) -> 
-          updateIndexingProgress(envId, indexed, total)
-      );
-      
-      int documentCount = indexProducts(newIndexName);
-
-      // 4. 완료 처리
-      completeIndexing(envId, historyId, newIndexName, version, documentCount);
-
-      log.info("색인 완료 - 버전: {}, 문서: {}개", version, documentCount);
-
-    } catch (Exception e) {
-      log.error("색인 실패 - 버전: {}", version, e);
-      failIndexing(envId, historyId);
-    }
-  }
-
-  /**
-   * 배포 실행 (DEV → PROD)
-   */
+  /** 배포 실행 (DEV → PROD) */
   @Transactional
   public DeploymentOperationResponse executeDeployment(DeploymentRequest request) {
     log.info("배포 시작: {}", request.getDescription());
@@ -140,21 +90,18 @@ public class SimpleDeploymentService {
       validateDeployment(devEnv, prodEnv);
 
       // 배포 이력 생성
-      DeploymentHistory history = createHistory(
-          DeploymentHistory.DeploymentType.DEPLOYMENT,
-          devEnv.getVersion(),
-          request.getDescription()
-      );
+      DeploymentHistory history =
+          createHistory(
+              DeploymentHistory.DeploymentType.DEPLOYMENT,
+              devEnv.getVersion(),
+              request.getDescription());
       history = historyRepository.save(history);
 
       // 배포 실행
       performDeployment(devEnv, prodEnv, history.getId());
 
       return DeploymentOperationResponse.success(
-          "배포가 완료되었습니다.", 
-          devEnv.getVersion(), 
-          history.getId()
-      );
+          "배포가 완료되었습니다.", devEnv.getVersion(), history.getId());
 
     } catch (Exception e) {
       log.error("배포 실패", e);
@@ -162,23 +109,20 @@ public class SimpleDeploymentService {
     }
   }
 
-  /**
-   * 배포 가능 검증
-   */
+  /** 배포 가능 검증 */
   private void validateDeployment(IndexEnvironment devEnv, IndexEnvironment prodEnv) {
     if (devEnv.getIndexStatus() != IndexEnvironment.IndexStatus.ACTIVE) {
       throw new IllegalStateException("개발 환경에 활성화된 색인이 없습니다.");
     }
-    
-    if (devEnv.getIsIndexing()) {
+
+    if (asyncTaskService.hasRunningTask(AsyncTaskType.INDEXING)) {
       throw new IllegalStateException("개발 환경에서 색인이 진행 중입니다.");
     }
   }
 
-  /**
-   * 실제 배포 수행
-   */
-  private void performDeployment(IndexEnvironment devEnv, IndexEnvironment prodEnv, Long historyId) {
+  /** 실제 배포 수행 */
+  private void performDeployment(
+      IndexEnvironment devEnv, IndexEnvironment prodEnv, Long historyId) {
     try {
       log.info("배포 실행: {} → products-search", devEnv.getIndexName());
 
@@ -187,9 +131,9 @@ public class SimpleDeploymentService {
 
       // 2. Alias 업데이트
       elasticsearchIndexService.updateProductsSearchAlias(devEnv.getIndexName());
-      
-      String autocompleteIndex = elasticsearchIndexService
-          .getAutocompleteIndexNameFromProductIndex(devEnv.getIndexName());
+
+      String autocompleteIndex =
+          elasticsearchIndexService.getAutocompleteIndexNameFromProductIndex(devEnv.getIndexName());
       elasticsearchIndexService.updateAutocompleteSearchAlias(autocompleteIndex);
 
       // 3. 기존 운영 인덱스 삭제 (옵션)
@@ -206,8 +150,7 @@ public class SimpleDeploymentService {
       environmentRepository.save(prodEnv);
 
       // 5. 개발 환경 초기화
-      devEnv.setIndexStatus(IndexEnvironment.IndexStatus.INACTIVE);
-      devEnv.setIsIndexing(false);
+      devEnv.reset();
       environmentRepository.save(devEnv);
 
       // 6. 개발 사전 데이터 초기화
@@ -227,22 +170,18 @@ public class SimpleDeploymentService {
     }
   }
 
-  /**
-   * 배포 이력 조회
-   */
+  /** 배포 이력 조회 */
   public DeploymentHistoryListResponse getDeploymentHistory(
       Pageable pageable,
       DeploymentHistory.DeploymentStatus status,
       DeploymentHistory.DeploymentType type) {
-    
+
     Page<DeploymentHistory> histories = historyRepository.findByFilters(status, type, pageable);
     Page<DeploymentHistoryResponse> responses = histories.map(DeploymentHistoryResponse::from);
     return DeploymentHistoryListResponse.of(responses);
   }
 
-  /**
-   * 미사용 인덱스 조회
-   */
+  /** 미사용 인덱스 조회 */
   public UnusedIndicesResponse getUnusedIndices() {
     try {
       // 사용 중인 인덱스 수집
@@ -260,49 +199,86 @@ public class SimpleDeploymentService {
       // 미사용 인덱스 찾기
       List<String> unusedIndices = elasticsearchIndexService.getUnusedIndices(usedIndices);
 
+      // 전체 동의어 세트 조회
+      List<String> allSynonymSets = elasticsearchSynonymService.getAllSynonymSets();
+
+      // 사용 중인 동의어 세트 수집 (synonyms-nori-{version} 패턴)
+      Set<String> usedSynonymSets = new HashSet<>();
+      for (String indexName : usedIndices) {
+        // products-v20240909092544 -> v20240909092544
+        if (indexName.startsWith("products-v") || indexName.startsWith("autocomplete-v")) {
+          String version = indexName.substring(indexName.indexOf("-v") + 1);
+          String synonymSetName = "synonyms-nori-" + version;
+          usedSynonymSets.add(synonymSetName);
+        }
+      }
+
+      // 미사용 동의어 세트 찾기
+      List<String> unusedSynonymSets =
+          allSynonymSets.stream()
+              .filter(set -> set.startsWith("synonyms-nori-"))
+              .filter(set -> !usedSynonymSets.contains(set))
+              .collect(Collectors.toList());
+
       return UnusedIndicesResponse.of(
-          unusedIndices, 
-          new ArrayList<>(usedIndices), 
-          new ArrayList<>(aliasedIndices)
-      );
+          unusedIndices,
+          new ArrayList<>(usedIndices),
+          new ArrayList<>(aliasedIndices),
+          unusedSynonymSets);
     } catch (Exception e) {
       log.error("미사용 인덱스 조회 실패", e);
       throw new RuntimeException("미사용 인덱스 조회 실패", e);
     }
   }
 
-  /**
-   * 미사용 인덱스 삭제
-   */
+  /** 미사용 인덱스 삭제 */
   @Transactional
   public DeleteUnusedIndicesResponse deleteUnusedIndices() {
     try {
       UnusedIndicesResponse unused = getUnusedIndices();
       List<String> unusedIndices = unused.getUnusedIndices();
+      List<String> unusedSynonymSets = unused.getUnusedSynonymSets();
 
-      if (unusedIndices.isEmpty()) {
-        return DeleteUnusedIndicesResponse.of(new ArrayList<>(), new ArrayList<>(), 0);
+      if (unusedIndices.isEmpty() && unusedSynonymSets.isEmpty()) {
+        return DeleteUnusedIndicesResponse.of(
+            new ArrayList<>(), new ArrayList<>(), 0, new ArrayList<>(), new ArrayList<>(), 0);
       }
 
-      log.info("미사용 인덱스 삭제: {}개", unusedIndices.size());
+      log.info("미사용 인덱스 삭제: {}개, 동의어 세트 삭제: {}개", unusedIndices.size(), unusedSynonymSets.size());
 
+      // 인덱스 삭제
       List<String> deletedIndices = elasticsearchIndexService.deleteUnusedIndices(unusedIndices);
       List<String> failedIndices = new ArrayList<>(unusedIndices);
       failedIndices.removeAll(deletedIndices);
 
+      // 동의어 세트 삭제 (인덱스 삭제 후 진행)
+      List<String> deletedSynonymSets =
+          elasticsearchSynonymService.deleteSynonymSets(unusedSynonymSets);
+      List<String> failedSynonymSets = new ArrayList<>(unusedSynonymSets);
+      failedSynonymSets.removeAll(deletedSynonymSets);
+
       // 삭제 이력 생성
-      DeploymentHistory history = createHistory(
-          DeploymentHistory.DeploymentType.CLEANUP,
-          generateVersion(),
-          String.format("미사용 인덱스 정리 - %d개 삭제", deletedIndices.size())
-      );
-      history.setStatus(failedIndices.isEmpty() 
-          ? DeploymentHistory.DeploymentStatus.COMPLETED 
-          : DeploymentHistory.DeploymentStatus.PARTIAL);
-      history.setDocumentCount((long) deletedIndices.size());
+      String description = String.format("미사용 인덱스 %d개 삭제", deletedIndices.size());
+      if (!deletedSynonymSets.isEmpty()) {
+        description += String.format(", 동의어 세트 %d개 삭제", deletedSynonymSets.size());
+      }
+
+      DeploymentHistory history =
+          createHistory(DeploymentHistory.DeploymentType.CLEANUP, generateVersion(), description);
+      history.setStatus(
+          failedIndices.isEmpty() && failedSynonymSets.isEmpty()
+              ? DeploymentHistory.DeploymentStatus.COMPLETED
+              : DeploymentHistory.DeploymentStatus.PARTIAL);
+      history.setDocumentCount((long) (deletedIndices.size() + deletedSynonymSets.size()));
       historyRepository.save(history);
 
-      return DeleteUnusedIndicesResponse.of(deletedIndices, failedIndices, unusedIndices.size());
+      return DeleteUnusedIndicesResponse.of(
+          deletedIndices,
+          failedIndices,
+          unusedIndices.size(),
+          deletedSynonymSets,
+          failedSynonymSets,
+          unusedSynonymSets.size());
 
     } catch (Exception e) {
       log.error("미사용 인덱스 삭제 실패", e);
@@ -313,7 +289,8 @@ public class SimpleDeploymentService {
   // === Private Helper Methods ===
 
   private IndexEnvironment getEnvironment(IndexEnvironment.EnvironmentType type) {
-    return environmentRepository.findByEnvironmentType(type)
+    return environmentRepository
+        .findByEnvironmentType(type)
         .orElseThrow(() -> new IllegalStateException("환경 설정이 없습니다: " + type));
   }
 
@@ -322,9 +299,7 @@ public class SimpleDeploymentService {
   }
 
   private DeploymentHistory createHistory(
-      DeploymentHistory.DeploymentType type, 
-      String version, 
-      String description) {
+      DeploymentHistory.DeploymentType type, String version, String description) {
     return DeploymentHistory.builder()
         .deploymentType(type)
         .status(DeploymentHistory.DeploymentStatus.IN_PROGRESS)
@@ -333,82 +308,20 @@ public class SimpleDeploymentService {
         .build();
   }
 
-  private void deployDictionaries(String version) {
-    try {
-      dictionaryDeploymentService.deployAllToDev(version);
-      log.info("사전 배포 완료 - 버전: {}", version);
-    } catch (Exception e) {
-      throw new RuntimeException("사전 배포 실패", e);
-    }
-  }
-
-  private int indexProducts(String indexName) throws IOException {
-    if (maxDocumentsConfig != null && maxDocumentsConfig > 0) {
-      log.info("상품 색인: {} (최대 {}개)", indexName, maxDocumentsConfig);
-      return productIndexingService.indexProductsToIndex(indexName, maxDocumentsConfig);
-    } else {
-      log.info("상품 색인: {} (전체)", indexName);
-      return productIndexingService.indexProductsToIndex(indexName);
-    }
-  }
-
-  @Transactional
-  private void updateIndexingProgress(Long envId, Long indexed, Long total) {
-    environmentRepository.findById(envId).ifPresent(env -> {
-      env.updateIndexingProgress(indexed, total);
-      environmentRepository.save(env);
-    });
-  }
-
-  @Transactional
-  private void completeIndexing(Long envId, Long historyId, String indexName, String version, int count) {
-    // 환경 업데이트
-    IndexEnvironment env = environmentRepository.findById(envId)
-        .orElseThrow(() -> new IllegalStateException("환경을 찾을 수 없습니다"));
-    
-    // 기존 인덱스 삭제 (옵션)
-    deleteOldIndex(env.getIndexName());
-    deleteOldIndex(env.getAutocompleteIndexName());
-    
-    env.setIndexName(indexName);
-    env.setAutocompleteIndexName(elasticsearchIndexService
-        .getAutocompleteIndexNameFromProductIndex(indexName));
-    env.completeIndexing(version, (long) count);
-    environmentRepository.save(env);
-
-    // 이력 완료
-    completeHistory(historyId, (long) count);
-    
-    // 실시간 동기화
-    try {
-      dictionaryDeploymentService.realtimeSyncAll(DictionaryEnvironmentType.DEV);
-    } catch (Exception e) {
-      log.warn("실시간 동기화 실패 (무시): {}", e.getMessage());
-    }
-  }
-
-  @Transactional
-  private void failIndexing(Long envId, Long historyId) {
-    // 환경 복구
-    IndexEnvironment env = environmentRepository.findById(envId)
-        .orElseThrow(() -> new IllegalStateException("환경을 찾을 수 없습니다"));
-    env.failIndexing();
-    environmentRepository.save(env);
-
-    // 이력 실패
-    failHistory(historyId);
-  }
-
   private void completeHistory(Long historyId, Long count) {
-    DeploymentHistory history = historyRepository.findById(historyId)
-        .orElseThrow(() -> new IllegalStateException("이력을 찾을 수 없습니다"));
+    DeploymentHistory history =
+        historyRepository
+            .findById(historyId)
+            .orElseThrow(() -> new IllegalStateException("이력을 찾을 수 없습니다"));
     history.complete(LocalDateTime.now(), count);
     historyRepository.save(history);
   }
 
   private void failHistory(Long historyId) {
-    DeploymentHistory history = historyRepository.findById(historyId)
-        .orElseThrow(() -> new IllegalStateException("이력을 찾을 수 없습니다"));
+    DeploymentHistory history =
+        historyRepository
+            .findById(historyId)
+            .orElseThrow(() -> new IllegalStateException("이력을 찾을 수 없습니다"));
     history.fail();
     historyRepository.save(history);
   }
@@ -435,10 +348,6 @@ public class SimpleDeploymentService {
         .indexStatusDescription(env.getIndexStatus().getDescription())
         .indexDate(env.getIndexDate())
         .version(env.getVersion())
-        .isIndexing(env.getIsIndexing())
-        .indexingProgress(env.getIndexingProgress())
-        .indexedDocumentCount(env.getIndexedDocumentCount())
-        .totalDocumentCount(env.getTotalDocumentCount())
         .build();
   }
 }

@@ -17,9 +17,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Table(
     name = "category_ranking_dictionaries",
     indexes = {
-        @Index(name = "idx_category_ranking_keyword_env", columnList = "keyword, environmentType"),
-        @Index(name = "idx_category_ranking_env", columnList = "environmentType"),
-        @Index(name = "idx_category_ranking_updated", columnList = "updatedAt DESC")
+      @Index(name = "idx_category_ranking_keyword_env", columnList = "keyword, environmentType"),
+      @Index(name = "idx_category_ranking_env", columnList = "environmentType"),
+      @Index(name = "idx_category_ranking_updated", columnList = "updatedAt DESC")
     })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
@@ -76,8 +76,12 @@ public class CategoryRankingDictionary implements DictionaryEntity {
       categoryMappings.removeIf(m -> m.getCategory().equals(category));
     }
   }
-  
-  public static CategoryRankingDictionary of(String keyword, List<CategoryMapping> mappings, String description, DictionaryEnvironmentType environment) {
+
+  public static CategoryRankingDictionary of(
+      String keyword,
+      List<CategoryMapping> mappings,
+      String description,
+      DictionaryEnvironmentType environment) {
     return CategoryRankingDictionary.builder()
         .keyword(keyword)
         .categoryMappings(mappings)

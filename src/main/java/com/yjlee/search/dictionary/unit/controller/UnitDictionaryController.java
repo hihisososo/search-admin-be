@@ -6,8 +6,8 @@ import com.yjlee.search.dictionary.unit.dto.UnitDictionaryCreateRequest;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryListResponse;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryResponse;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryUpdateRequest;
-import com.yjlee.search.dictionary.unit.service.UnitDictionaryService;
 import com.yjlee.search.dictionary.unit.dto.UnitSyncResponse;
+import com.yjlee.search.dictionary.unit.service.UnitDictionaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -73,8 +73,7 @@ public class UnitDictionaryController {
   @Operation(summary = "실시간 반영 불가")
   @PostMapping("/realtime-sync")
   @ResponseStatus(HttpStatus.BAD_REQUEST)
-  public UnitSyncResponse syncUnitDictionary(
-      @RequestParam DictionaryEnvironmentType environment) {
+  public UnitSyncResponse syncUnitDictionary(@RequestParam DictionaryEnvironmentType environment) {
     return UnitSyncResponse.error(environment.getDescription());
   }
 }

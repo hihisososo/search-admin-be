@@ -13,7 +13,7 @@ spring:
       connection-timeout: 30000
       max-lifetime: 600000
       pool-name: SearchAdminPool
-      leak-detection-threshold: 60000
+      leak-detection-threshold: 6000000
   jpa:
     hibernate:
       ddl-auto: update
@@ -46,14 +46,11 @@ openai:
   api:
     key: ${OPENAI_API_KEY}
     url: https://api.openai.com/v1/chat/completions
-    embedding: https://api.openai.com/v1/embeddings
+    model: gpt-5-nano
     connect-timeout-ms: 8000
     read-timeout-ms: 45000
     max-retries: 10
     initial-backoff-ms: 1000
-  embedding:
-    model: text-embedding-3-large
-    dimension: 1536
 
 upstage:
   api:
@@ -77,14 +74,7 @@ generation:
   query:
     batch-size: 20
 
-embedding:
-  provider: ${EMBEDDING_PROVIDER:upstage}  # openai or upstage
-  cache:
-    memory:
-      enabled: true
-      size: 1000
-    db:
-      enabled: true
-
 indexing:
-  max-documents: ${INDEXING_MAX_DOCUMENTS:1000}
+  max-documents: ${INDEXING_MAX_DOCUMENTS:100000}
+  batch-size: ${INDEXING_BATCH_SIZE:200}
+  max-concurrent-batches: ${INDEXING_MAX_CONCURRENT:8}

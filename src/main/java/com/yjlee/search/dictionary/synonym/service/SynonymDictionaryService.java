@@ -3,6 +3,7 @@ package com.yjlee.search.dictionary.synonym.service;
 import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.common.util.EnvironmentTypeConverter;
+import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryListResponse;
@@ -10,7 +11,6 @@ import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryResponse;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.synonym.model.SynonymDictionary;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
-import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.search.service.IndexResolver;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
@@ -234,19 +234,20 @@ public class SynonymDictionaryService implements DictionaryService {
   @Override
   public void realtimeSync(DictionaryEnvironmentType environment) {
     log.info("동의어 사전 실시간 동기화 - 환경: {}", environment);
-    
+
     try {
       String synonymSetName;
-      
+
       if (environment == DictionaryEnvironmentType.CURRENT) {
         // CURRENT 환경은 synonyms-nori-current 사용
         synonymSetName = "synonyms-nori-current";
       } else {
         // DEV/PROD 환경은 현재 인덱스 버전에 맞는 synonym set 사용
         try {
-          String indexName = indexResolver.resolveProductIndex(
-              EnvironmentTypeConverter.toIndexEnvironmentType(environment));
-          
+          String indexName =
+              indexResolver.resolveProductIndex(
+                  EnvironmentTypeConverter.toIndexEnvironmentType(environment));
+
           // 인덱스 이름에서 버전 추출 (예: products_v15 -> v15)
           String version = indexName.substring(indexName.lastIndexOf("_v") + 1);
           synonymSetName = "synonyms-nori-" + version;
@@ -256,11 +257,11 @@ public class SynonymDictionaryService implements DictionaryService {
           return;
         }
       }
-      
+
       // Elasticsearch synonym set 업데이트
       elasticsearchSynonymService.createOrUpdateSynonymSet(synonymSetName, environment);
       log.info("동의어 사전 Elasticsearch 동기화 완료 - 환경: {}, synonymSet: {}", environment, synonymSetName);
-      
+
     } catch (Exception e) {
       log.error("동의어 사전 실시간 동기화 실패 - 환경: {}", environment, e);
       throw new RuntimeException("동의어 사전 실시간 동기화 실패", e);
