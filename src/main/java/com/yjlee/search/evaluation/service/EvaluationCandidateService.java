@@ -59,7 +59,12 @@ public class EvaluationCandidateService {
   public ProductDocument getProductDetails(String productId) {
     try {
       String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
-      GetRequest request = GetRequest.of(g -> g.index(indexName).id(productId));
+      GetRequest request =
+          GetRequest.of(
+              g ->
+                  g.index(indexName)
+                      .id(productId)
+                      .source(s -> s.excludes("name_vector", "specs_vector")));
       GetResponse<ProductDocument> response =
           elasticsearchClient.get(request, ProductDocument.class);
       return response.found() ? response.source() : null;

@@ -55,8 +55,11 @@ public class LLMQueryEvaluationWorker {
       String devIndexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
       log.debug("개발 환경 인덱스 사용: {}", devIndexName);
 
-      // MultiGet 요청 생성
-      MgetRequest.Builder requestBuilder = new MgetRequest.Builder().index(devIndexName);
+      // MultiGet 요청 생성 (벡터 필드 제외)
+      MgetRequest.Builder requestBuilder =
+          new MgetRequest.Builder()
+              .index(devIndexName)
+              .source(s -> s.excludes("name_vector", "specs_vector"));
 
       // 각 상품 ID를 요청에 추가
       for (String productId : productIds) {
@@ -109,7 +112,12 @@ public class LLMQueryEvaluationWorker {
       // 개발 환경의 인덱스명 사용
       String devIndexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
 
-      GetRequest request = GetRequest.of(g -> g.index(devIndexName).id(productId));
+      GetRequest request =
+          GetRequest.of(
+              g ->
+                  g.index(devIndexName)
+                      .id(productId)
+                      .source(s -> s.excludes("name_vector", "specs_vector")));
 
       GetResponse<ProductDocument> response =
           elasticsearchClient.get(request, ProductDocument.class);
@@ -258,6 +266,7 @@ public class LLMQueryEvaluationWorker {
         throw new RuntimeException("Rate limit exceeded", e);
       }
       log.error("배치 처리 실패", e);
+      throw e; // 모든 예외를 상위로 전파
     }
   }
 
