@@ -80,14 +80,11 @@ public class LLMQueueManager {
         // Rate limit 체크
         boolean isLimited = rateLimitManager.isRateLimited();
         if (isLimited) {
-          log.warn("[DEBUG] Worker {} - Rate limit 활성화 상태, 대기 시작", workerId);
           rateLimitManager.waitIfRateLimited();
-          log.info("[DEBUG] Worker {} - Rate limit 대기 종료", workerId);
           continue;
         }
 
         // 큐에서 작업 가져오기
-        log.trace("[DEBUG] Worker {} - 큐에서 작업 대기 중, 큐 크기: {}", workerId, taskQueue.size());
         LLMTask<?> task = taskQueue.poll(1, TimeUnit.SECONDS);
         if (task == null) {
           continue;
@@ -144,16 +141,8 @@ public class LLMQueueManager {
     LLMTask<T> task = new LLMTask<>(prompt, temperature, responseProcessor, future, description);
 
     try {
-      int queueSizeBefore = taskQueue.size();
       taskQueue.put(task);
-      int queueSizeAfter = taskQueue.size();
-      log.info(
-          "[DEBUG] LLM 작업 큐에 추가 성공: {}, 큐 크기: {} -> {}",
-          description,
-          queueSizeBefore,
-          queueSizeAfter);
     } catch (InterruptedException e) {
-      log.error("[DEBUG] LLM 작업 큐 추가 실패 (InterruptedException): {}", description);
       Thread.currentThread().interrupt();
       future.completeExceptionally(e);
     }

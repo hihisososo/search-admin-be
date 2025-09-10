@@ -22,11 +22,16 @@ public class ProductDtoConverter {
 
   public ProductDto convert(String id, Double score, JsonNode source) {
     if (source == null) {
-      return ProductDto.builder().id(id).score(score != null ? score : 0.0).build();
+      return ProductDto.builder()
+          .id(null)
+          .documentId(id)
+          .score(score != null ? score : 0.0)
+          .build();
     }
 
     return ProductDto.builder()
-        .id(id)
+        .id(getTextValue(source, "id")) // 상품 ID
+        .documentId(id) // ES 문서 ID
         .score(score != null ? score : 0.0)
         .name(getTextValue(source, "name"))
         .nameRaw(getTextValue(source, "name_raw", getTextValue(source, "name")))

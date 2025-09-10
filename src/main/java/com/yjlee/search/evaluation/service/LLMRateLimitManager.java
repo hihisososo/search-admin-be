@@ -75,23 +75,17 @@ public class LLMRateLimitManager {
   }
 
   public void setRateLimitActive() {
-    boolean wasLimited = isRateLimited.getAndSet(true);
-    log.warn("[DEBUG] Rate limit 활성화 - 이전 상태: {}, 현재: true", wasLimited);
+    isRateLimited.getAndSet(true);
     log.warn("⚠️ Rate limit 활성화 - Health check로 해제 확인 예정");
   }
 
   public void clearRateLimit() {
-    boolean wasLimited = isRateLimited.getAndSet(false);
-    log.info("[DEBUG] Rate limit 해제 - 이전 상태: {}, 현재: false", wasLimited);
+    isRateLimited.getAndSet(false);
     log.info("✅ Rate limit 해제됨");
   }
 
   public boolean isRateLimited() {
-    boolean limited = isRateLimited.get();
-    if (limited) {
-      log.trace("[DEBUG] Rate limit 상태 확인: 활성화됨");
-    }
-    return limited;
+    return isRateLimited.get();
   }
 
   public void waitIfRateLimited() throws InterruptedException {

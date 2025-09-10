@@ -53,7 +53,6 @@ public class EvaluationExecutionController {
                         .totalQueries(r.getTotalQueries())
                         .averagePrecision20(r.getAveragePrecision20())
                         .averageRecall300(r.getAverageRecall300())
-                        .averageF1ScoreAt20(r.getAverageF1ScoreAt20())
                         .createdAt(r.getCreatedAt())
                         .build())
             .toList();

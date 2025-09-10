@@ -15,9 +15,7 @@ import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse.EvaluationQue
 import com.yjlee.search.evaluation.dto.EvaluationQueryResponse;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
-import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
 import com.yjlee.search.evaluation.dto.QueryDocumentMappingResponse;
-import com.yjlee.search.evaluation.dto.QuerySuggestResponse;
 import com.yjlee.search.evaluation.dto.SimpleTextRequest;
 import com.yjlee.search.evaluation.dto.UpdateProductMappingRequest;
 import com.yjlee.search.evaluation.dto.UpdateQueryRequest;
@@ -28,7 +26,6 @@ import com.yjlee.search.evaluation.service.CategoryService;
 import com.yjlee.search.evaluation.service.EvaluationCandidateService;
 import com.yjlee.search.evaluation.service.EvaluationQueryService;
 import com.yjlee.search.evaluation.service.EvaluationStatisticsService;
-import com.yjlee.search.evaluation.service.QuerySuggestService;
 import com.yjlee.search.evaluation.util.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,7 +49,6 @@ public class EvaluationSetController {
   private final EvaluationQueryService evaluationQueryService;
   private final EvaluationCandidateService evaluationCandidateService;
   private final AsyncEvaluationService asyncEvaluationService;
-  private final QuerySuggestService querySuggestService;
   private final CategoryService categoryService;
   private final EvaluationStatisticsService evaluationStatisticsService;
 
@@ -82,16 +78,6 @@ public class EvaluationSetController {
             .hasPrevious(pagedResult.isHasPrevious())
             .build();
     return ResponseEntity.ok(response);
-  }
-
-  @GetMapping("/queries/recommend")
-  @Operation(summary = "평가 쿼리 추천")
-  public ResponseEntity<QuerySuggestResponse> suggestQueries(
-      @RequestParam(defaultValue = "20") Integer count,
-      @RequestParam(required = false) Integer minCandidates,
-      @RequestParam(required = false) Integer maxCandidates) {
-    return ResponseEntity.ok(
-        querySuggestService.suggestQueries(count, minCandidates, maxCandidates));
   }
 
   @GetMapping("/queries/{queryId}/documents")
@@ -174,18 +160,6 @@ public class EvaluationSetController {
         request.getEvaluationReason(),
         request.getConfidence());
     return ResponseEntity.ok().build();
-  }
-
-  @PostMapping("/queries/generate-async")
-  @Operation(summary = "LLM 쿼리 생성 (비동기)")
-  public ResponseEntity<AsyncTaskStartResponse> generateQueriesAsync(
-      @Valid @RequestBody LLMQueryGenerateRequest request) {
-    Long taskId = asyncEvaluationService.startLLMQueryGeneration(request);
-    return ResponseEntity.ok(
-        AsyncTaskStartResponse.builder()
-            .taskId(taskId)
-            .message("LLM 쿼리 생성 작업이 시작되었습니다. 작업 ID: " + taskId)
-            .build());
   }
 
   @PostMapping("/candidates/generate-async")

@@ -9,12 +9,14 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.yjlee.search.common.service.ProductBulkFetchService;
 import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
+import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.VectorSearchService;
@@ -26,7 +28,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,9 +46,9 @@ public class SearchBasedGroundTruthService {
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final VectorSearchService vectorSearchService;
   private final QueryBuilder queryBuilder;
+  private final ProductBulkFetchService productBulkFetchService;
 
   private static final int FIXED_PER_STRATEGY = 301;
-  private static final int FIXED_MAX_TOTAL_PER_QUERY = 300;
   private static final int MAX_PARALLEL_QUERIES = 5;
 
   // 제한된 스레드 풀로 동시 실행 제어
@@ -69,29 +70,14 @@ public class SearchBasedGroundTruthService {
   public void generateCandidatesForSelectedQueries(
       List<Long> queryIds, TaskProgressListener progressListener) {
     List<EvaluationQuery> queries = evaluationQueryRepository.findAllById(queryIds);
-
     processQueries(queries, progressListener, false);
-  }
-
-  // LLM 자동 생성 시 호출 - 기존 로직 유지
-  public void generateCandidatesForAutoGeneration(Long queryId) {
-    processSingleQuery(queryId);
   }
 
   private void processQueries(
       List<EvaluationQuery> queries, TaskProgressListener progressListener, boolean isFullProcess) {
-    processQueries(queries, progressListener, isFullProcess, true);
-  }
-
-  private void processQueries(
-      List<EvaluationQuery> queries,
-      TaskProgressListener progressListener,
-      boolean isFullProcess,
-      boolean isManualGeneration) {
 
     String processType = isFullProcess ? "전체 모든" : "선택된";
-    log.info(
-        "🔍 {} 쿼리의 정답 후보군 생성 시작: {}개 (수동: {})", processType, queries.size(), isManualGeneration);
+    log.info("🔍 {} 쿼리의 정답 후보군 생성 시작: {}개", processType, queries.size());
 
     if (queries.isEmpty()) {
       return;
@@ -117,12 +103,7 @@ public class SearchBasedGroundTruthService {
                     CompletableFuture.runAsync(
                         () -> {
                           try {
-                            // 수동/자동 생성에 따라 다른 처리 메서드 호출
-                            if (isManualGeneration) {
-                              processSingleQuerySimple(query.getId());
-                            } else {
-                              processSingleQuery(query.getId());
-                            }
+                            processSingleQuerySimple(query.getId());
 
                             // 진행률 업데이트
                             int completed = completedCount.incrementAndGet();
@@ -154,121 +135,6 @@ public class SearchBasedGroundTruthService {
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
     log.info("✅ {} 쿼리의 정답 후보군 생성 완료", processType);
-  }
-
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public void processSingleQuery(Long queryId) {
-    EvaluationQuery query =
-        evaluationQueryRepository
-            .findById(queryId)
-            .orElseThrow(() -> new RuntimeException("쿼리를 찾을 수 없습니다: " + queryId));
-
-    // 기존 매핑 조회
-    List<QueryProductMapping> existingMappings =
-        queryProductMappingRepository.findByEvaluationQuery(query);
-    Map<String, QueryProductMapping> existingMap =
-        existingMappings.stream()
-            .collect(
-                Collectors.toMap(
-                    QueryProductMapping::getProductId, Function.identity(), (v1, v2) -> v1));
-
-    // 새로운 후보군 생성
-    Map<String, String> candidatesWithSource =
-        collectCandidatesWithSourceTracking(query.getQuery(), null);
-
-    // 300개 제한
-    Map<String, String> limitedCandidates =
-        candidatesWithSource.entrySet().stream()
-            .limit(FIXED_MAX_TOTAL_PER_QUERY)
-            .collect(
-                LinkedHashMap::new,
-                (m, e) -> m.put(e.getKey(), e.getValue()),
-                LinkedHashMap::putAll);
-
-    // 차분 처리: 추가, 업데이트, 삭제 항목 분류
-    Set<String> toAdd = new HashSet<>(limitedCandidates.keySet());
-    toAdd.removeAll(existingMap.keySet());
-
-    Set<String> toRemove = new HashSet<>(existingMap.keySet());
-    toRemove.removeAll(limitedCandidates.keySet());
-
-    Set<String> toUpdate = new HashSet<>(existingMap.keySet());
-    toUpdate.retainAll(limitedCandidates.keySet());
-
-    // 상품 정보 일괄 조회 (추가할 항목만)
-    Map<String, ProductDocument> productMap = fetchProductsBulk(toAdd);
-
-    // 삭제할 매핑 (평가되지 않은 경우만)
-    List<QueryProductMapping> mappingsToDelete = new ArrayList<>();
-    toRemove.forEach(
-        productId -> {
-          QueryProductMapping existing = existingMap.get(productId);
-          if (existing.getRelevanceScore() == null) {
-            mappingsToDelete.add(existing);
-          }
-        });
-    if (!mappingsToDelete.isEmpty()) {
-      queryProductMappingRepository.deleteAll(mappingsToDelete);
-      log.debug("쿼리 '{}'의 매핑 {}개 삭제", query.getQuery(), mappingsToDelete.size());
-    }
-
-    // 업데이트할 매핑 (searchSource 변경된 경우만)
-    List<QueryProductMapping> mappingsToUpdate = new ArrayList<>();
-    toUpdate.forEach(
-        productId -> {
-          QueryProductMapping existing = existingMap.get(productId);
-          String newSearchSource = limitedCandidates.get(productId);
-
-          if (!newSearchSource.equals(existing.getSearchSource())
-              && existing.getRelevanceScore() == null) {
-            QueryProductMapping updated =
-                QueryProductMapping.builder()
-                    .id(existing.getId())
-                    .evaluationQuery(existing.getEvaluationQuery())
-                    .productId(existing.getProductId())
-                    .productName(existing.getProductName())
-                    .productSpecs(existing.getProductSpecs())
-                    .productCategory(existing.getProductCategory())
-                    .searchSource(newSearchSource)
-                    .evaluationSource(EVALUATION_SOURCE_SEARCH)
-                    .build();
-            mappingsToUpdate.add(updated);
-          }
-        });
-    if (!mappingsToUpdate.isEmpty()) {
-      queryProductMappingRepository.saveAll(mappingsToUpdate);
-      log.debug("쿼리 '{}'의 매핑 {}개 업데이트", query.getQuery(), mappingsToUpdate.size());
-    }
-
-    // 추가할 매핑 생성
-    List<QueryProductMapping> mappingsToAdd = new ArrayList<>();
-    toAdd.forEach(
-        productId -> {
-          ProductDocument product = productMap.get(productId);
-          String searchSource = limitedCandidates.get(productId);
-          QueryProductMapping mapping =
-              QueryProductMapping.builder()
-                  .evaluationQuery(query)
-                  .productId(productId)
-                  .productName(product != null ? product.getNameRaw() : null)
-                  .productSpecs(product != null ? product.getSpecsRaw() : null)
-                  .productCategory(product != null ? product.getCategoryName() : null)
-                  .searchSource(searchSource)
-                  .evaluationSource(EVALUATION_SOURCE_SEARCH)
-                  .build();
-          mappingsToAdd.add(mapping);
-        });
-    if (!mappingsToAdd.isEmpty()) {
-      queryProductMappingRepository.saveAll(mappingsToAdd);
-      log.debug("쿼리 '{}'에 대한 새 매핑 {}개 저장", query.getQuery(), mappingsToAdd.size());
-    }
-
-    log.debug(
-        "쿼리 '{}' 처리 완료: 추가 {}개, 업데이트 {}개, 삭제 {}개",
-        query.getQuery(),
-        toAdd.size(),
-        mappingsToUpdate.size(),
-        mappingsToDelete.size());
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -342,58 +208,6 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  public Set<String> getCandidateIdsForQuery(String query) {
-    try {
-      // 임베딩은 VectorSearchService에서 내부적으로 처리
-      return collectCandidatesWithSourceTracking(query, null).keySet();
-    } catch (Exception e) {
-      log.warn("쿼리 후보 수집 실패: {}", query, e);
-      return new LinkedHashSet<>();
-    }
-  }
-
-  public int getBM25CandidateCount(String query) {
-    try {
-      return searchByBM25(query, 100).size(); // 최대 100개까지만 카운트
-    } catch (Exception e) {
-      log.warn("BM25 후보 개수 확인 실패: {}", query, e);
-      return 0;
-    }
-  }
-
-  private Map<String, String> collectCandidatesWithSourceTracking(
-      String query, float[] queryEmbedding) {
-    Map<String, String> productSourceMap = new LinkedHashMap<>();
-
-    // BM25 검색 - 실제 검색과 동일한 쿼리 사용
-    searchByBM25(query).forEach(id -> productSourceMap.put(id, "BM25"));
-
-    // 바이그램 검색 - 쿼리 그대로 사용 (색인 시에만 공백 제거됨)
-    String[] bigramFields = {"name.bigram", "specs.bigram", "category.bigram"};
-    searchByCrossField(query, bigramFields)
-        .forEach(
-            id -> {
-              if (!productSourceMap.containsKey(id)) {
-                productSourceMap.put(id, "BIGRAM");
-              } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
-                productSourceMap.put(id, "MULTIPLE");
-              }
-            });
-
-    // 벡터 검색 - query 문자열 사용 (VectorSearchService가 임베딩 생성 및 캐싱 처리)
-    searchByVector(query)
-        .forEach(
-            id -> {
-              if (!productSourceMap.containsKey(id)) {
-                productSourceMap.put(id, "VECTOR");
-              } else if (!"MULTIPLE".equals(productSourceMap.get(id))) {
-                productSourceMap.put(id, "MULTIPLE");
-              }
-            });
-
-    return productSourceMap;
-  }
-
   private List<String> searchByBM25(String query) {
     return searchByBM25(query, FIXED_PER_STRATEGY);
   }
@@ -411,7 +225,16 @@ public class SearchBasedGroundTruthService {
           queryBuilder.buildBoolQuery(searchRequest);
 
       SearchRequest request =
-          SearchRequest.of(s -> s.index(indexName).size(size).query(q -> q.bool(boolQuery)));
+          SearchRequest.of(
+              s ->
+                  s.index(indexName)
+                      .size(size)
+                      .source(
+                          src ->
+                              src.filter(
+                                  f ->
+                                      f.excludes(VectorSearchConstants.getVectorFieldsToExclude())))
+                      .query(q -> q.bool(boolQuery)));
 
       SearchResponse<ProductDocument> response =
           elasticsearchClient.search(request, ProductDocument.class);
@@ -458,6 +281,11 @@ public class SearchBasedGroundTruthService {
               s ->
                   s.index(indexName)
                       .size(size)
+                      .source(
+                          src ->
+                              src.filter(
+                                  f ->
+                                      f.excludes(VectorSearchConstants.getVectorFieldsToExclude())))
                       .query(
                           q ->
                               q.multiMatch(
@@ -486,33 +314,10 @@ public class SearchBasedGroundTruthService {
   }
 
   private Map<String, ProductDocument> fetchProductsBulk(Set<String> productIds) {
-    Map<String, ProductDocument> productMap = new HashMap<>();
-
     if (productIds == null || productIds.isEmpty()) {
-      return productMap;
+      return new HashMap<>();
     }
-
-    try {
-      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
-
-      var mgetResponse =
-          elasticsearchClient.mget(
-              m -> m.index(indexName).ids(new ArrayList<>(productIds)), ProductDocument.class);
-
-      for (var doc : mgetResponse.docs()) {
-        if (doc.result().found() && doc.result().source() != null) {
-          productMap.put(doc.result().id(), doc.result().source());
-        }
-      }
-
-      log.debug("Bulk fetch 완료: 요청 {}개, 조회 성공 {}개", productIds.size(), productMap.size());
-
-    } catch (Exception e) {
-      log.error("Bulk 상품 조회 실패", e);
-      // Fallback 제거 - 실패 시 빈 맵 반환
-    }
-
-    return productMap;
+    return productBulkFetchService.fetchBulk(new ArrayList<>(productIds), EnvironmentType.DEV);
   }
 
   @PreDestroy

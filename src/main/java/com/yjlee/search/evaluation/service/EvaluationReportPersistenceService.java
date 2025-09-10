@@ -30,13 +30,11 @@ public class EvaluationReportPersistenceService {
       int totalQueries,
       double avgRecall300,
       double avgPrecision20,
-      double avgF1ScoreAt20,
       List<EvaluationExecuteResponse.QueryEvaluationDetail> queryDetails) {
 
     // 리포트 저장
     EvaluationReport report =
-        saveEvaluationReport(
-            reportName, totalQueries, avgRecall300, avgPrecision20, avgF1ScoreAt20);
+        saveEvaluationReport(reportName, totalQueries, avgRecall300, avgPrecision20);
 
     // 세부 결과를 구조화 테이블에 저장
     List<EvaluationReportDetail> detailRows = new ArrayList<>();
@@ -52,7 +50,6 @@ public class EvaluationReportPersistenceService {
               .correctCount(d.getCorrectCount())
               .precisionAt20(d.getPrecisionAt20())
               .recallAt300(d.getRecallAt300())
-              .f1ScoreAt20(d.getF1ScoreAt20())
               .build());
 
       // MISSING, WRONG 타입만 저장
@@ -97,11 +94,7 @@ public class EvaluationReportPersistenceService {
   }
 
   private EvaluationReport saveEvaluationReport(
-      String reportName,
-      int totalQueries,
-      double averageRecall300,
-      double averagePrecision20,
-      double averageF1ScoreAt20) {
+      String reportName, int totalQueries, double averageRecall300, double averagePrecision20) {
     try {
       // JSON은 더 이상 저장하지 않음 (대용량 방지)
       EvaluationReport report =
@@ -110,7 +103,6 @@ public class EvaluationReportPersistenceService {
               .totalQueries(totalQueries)
               .averageRecall300(averageRecall300)
               .averagePrecision20(averagePrecision20)
-              .averageF1ScoreAt20(averageF1ScoreAt20)
               .detailedResults(null)
               .build();
 

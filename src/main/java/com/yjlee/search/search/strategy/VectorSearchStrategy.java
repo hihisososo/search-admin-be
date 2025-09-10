@@ -32,7 +32,6 @@ public class VectorSearchStrategy implements SearchStrategy {
 
   private final VectorSearchService vectorSearchService;
   private final ProductDtoConverter productDtoConverter;
-  private final com.yjlee.search.search.service.builder.query.FilterQueryBuilder filterQueryBuilder;
   private final ElasticsearchClient elasticsearchClient;
 
   @Override
@@ -42,11 +41,7 @@ public class VectorSearchStrategy implements SearchStrategy {
 
     long startTime = System.currentTimeMillis();
 
-    // 필터 쿼리 생성
-    java.util.List<co.elastic.clients.elasticsearch._types.query_dsl.Query> filterQueries =
-        filterQueryBuilder.buildFilterQueries(request.getFilters());
-
-    // 벡터 검색 설정
+    // 벡터 검색 설정 (필터 없이)
     VectorSearchConfig config =
         VectorSearchConfig.builder()
             .topK(
@@ -58,7 +53,6 @@ public class VectorSearchStrategy implements SearchStrategy {
                 request.getNameVectorBoost() != null ? request.getNameVectorBoost() : 0.7f)
             .specsVectorBoost(
                 request.getSpecsVectorBoost() != null ? request.getSpecsVectorBoost() : 0.3f)
-            .filterQueries(filterQueries)
             .build();
 
     VectorSearchResult searchResult =
@@ -67,6 +61,9 @@ public class VectorSearchStrategy implements SearchStrategy {
 
     SearchResponse<JsonNode> response = searchResult.getResponse();
     List<Hit<JsonNode>> allHits = response.hits().hits();
+
+    // Post-filtering 적용
+    List<Hit<JsonNode>> filteredHits = applyPostFiltering(allHits, request.getFilters());
 
     // 정렬 처리
     ProductSortType sortType =
@@ -80,7 +77,7 @@ public class VectorSearchStrategy implements SearchStrategy {
             .map(ProductSortOrder::getSortOrder)
             .orElse(SortOrder.Desc);
 
-    List<Hit<JsonNode>> sortedHits = applySorting(allHits, sortType, sortOrder);
+    List<Hit<JsonNode>> sortedHits = applySorting(filteredHits, sortType, sortOrder);
 
     // 페이징 처리
     int page = request.getPage();
@@ -200,5 +197,59 @@ public class VectorSearchStrategy implements SearchStrategy {
       log.warn("SearchRequest JSON 변환 실패: {}", e.getMessage());
       return null;
     }
+  }
+
+  /** Post-filtering 적용 */
+  private List<Hit<JsonNode>> applyPostFiltering(
+      List<Hit<JsonNode>> hits, ProductFiltersDto filters) {
+    if (filters == null) {
+      return hits;
+    }
+
+    return hits.stream()
+        .filter(hit -> matchesFilters(hit.source(), filters))
+        .collect(Collectors.toList());
+  }
+
+  /** 필터 매칭 확인 */
+  private boolean matchesFilters(JsonNode source, ProductFiltersDto filters) {
+    if (source == null) {
+      return false;
+    }
+
+    // 브랜드 필터
+    if (filters.getBrand() != null && !filters.getBrand().isEmpty()) {
+      String brandName =
+          source.has(ESFields.BRAND_NAME) ? source.get(ESFields.BRAND_NAME).asText() : null;
+      if (brandName == null || !filters.getBrand().contains(brandName)) {
+        return false;
+      }
+    }
+
+    // 카테고리 필터
+    if (filters.getCategory() != null && !filters.getCategory().isEmpty()) {
+      String categoryName =
+          source.has(ESFields.CATEGORY_NAME) ? source.get(ESFields.CATEGORY_NAME).asText() : null;
+      if (categoryName == null || !filters.getCategory().contains(categoryName)) {
+        return false;
+      }
+    }
+
+    // 가격 범위 필터
+    if (filters.getPriceRange() != null) {
+      PriceRangeDto priceRange = filters.getPriceRange();
+      Double price = source.has(ESFields.PRICE) ? source.get(ESFields.PRICE).asDouble() : null;
+      if (price == null) {
+        return false;
+      }
+      if (priceRange.getFrom() != null && price < priceRange.getFrom()) {
+        return false;
+      }
+      if (priceRange.getTo() != null && price > priceRange.getTo()) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

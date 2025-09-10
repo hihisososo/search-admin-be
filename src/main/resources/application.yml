@@ -65,20 +65,15 @@ upstage:
 logging:
   level:
     com.yjlee.search: DEBUG
-    com.yjlee.search.common.service.LLMQueueManager: TRACE
-    com.yjlee.search.evaluation.service.LLMRateLimitManager: TRACE
 
 evaluation:
   llm:
     batch-size: 10
-    worker-threads: 20
-generation:
-  query:
-    batch-size: 20
+    worker-threads: 10
 
 llm:
   queue:
-    worker-threads: 20
+    worker-threads: 10
 
 indexing:
   max-documents: ${INDEXING_MAX_DOCUMENTS:100000}

@@ -2,9 +2,7 @@ package com.yjlee.search.evaluation.service;
 
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.EVALUATION_SOURCE_USER;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.GetRequest;
-import co.elastic.clients.elasticsearch.core.GetResponse;
+import com.yjlee.search.common.service.ProductBulkFetchService;
 import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
@@ -30,8 +28,7 @@ public class EvaluationCandidateService {
 
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final EvaluationQueryRepository evaluationQueryRepository;
-  private final ElasticsearchClient elasticsearchClient;
-  private final com.yjlee.search.search.service.IndexResolver indexResolver;
+  private final ProductBulkFetchService productBulkFetchService;
 
   public List<QueryProductMapping> getQueryMappings(String query) {
     Optional<EvaluationQuery> evaluationQuery = evaluationQueryRepository.findByQuery(query);
@@ -57,21 +54,7 @@ public class EvaluationCandidateService {
   }
 
   public ProductDocument getProductDetails(String productId) {
-    try {
-      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
-      GetRequest request =
-          GetRequest.of(
-              g ->
-                  g.index(indexName)
-                      .id(productId)
-                      .source(s -> s.excludes("name_vector", "specs_vector")));
-      GetResponse<ProductDocument> response =
-          elasticsearchClient.get(request, ProductDocument.class);
-      return response.found() ? response.source() : null;
-    } catch (Exception e) {
-      log.warn("⚠️ ES에서 상품 {} 조회 실패", productId, e);
-      return null;
-    }
+    return productBulkFetchService.fetchSingle(productId, EnvironmentType.DEV);
   }
 
   @Transactional

@@ -30,7 +30,7 @@ public class LLMQueuedEvaluationService {
   @Value("${evaluation.llm.batch-size:10}")
   private int batchSize;
 
-  @Value("${evaluation.llm.worker-threads:5}")
+  @Value("${evaluation.llm.worker-threads:20}")
   private int workerThreads;
 
   // 평가 작업 큐

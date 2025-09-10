@@ -39,7 +39,4 @@ public class EvaluationReportDetail {
 
   @Column(name = "recall_at300")
   private Double recallAt300;
-
-  @Column(name = "f1_score_at20")
-  private Double f1ScoreAt20;
 }

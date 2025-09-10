@@ -1,9 +1,7 @@
 package com.yjlee.search.evaluation.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.MgetRequest;
-import co.elastic.clients.elasticsearch.core.MgetResponse;
-import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
+import com.yjlee.search.common.service.ProductBulkFetchService;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
@@ -56,6 +54,7 @@ public class EvaluationReportService {
   private final ElasticsearchClient elasticsearchClient;
   private final IndexResolver indexResolver;
   private final EvaluationReportPersistenceService persistenceService;
+  private final ProductBulkFetchService productBulkFetchService;
 
   // 캐시 제거 - 직접 조회 방식으로 변경
 
@@ -75,7 +74,8 @@ public class EvaluationReportService {
       SearchService searchService,
       ElasticsearchClient elasticsearchClient,
       IndexResolver indexResolver,
-      EvaluationReportPersistenceService persistenceService) {
+      EvaluationReportPersistenceService persistenceService,
+      ProductBulkFetchService productBulkFetchService) {
     this.evaluationQueryService = evaluationQueryService;
     this.queryProductMappingRepository = queryProductMappingRepository;
     this.evaluationReportRepository = evaluationReportRepository;
@@ -85,6 +85,7 @@ public class EvaluationReportService {
     this.elasticsearchClient = elasticsearchClient;
     this.indexResolver = indexResolver;
     this.persistenceService = persistenceService;
+    this.productBulkFetchService = productBulkFetchService;
   }
 
   private static final int DEFAULT_RETRIEVAL_SIZE = 300;
@@ -111,7 +112,6 @@ public class EvaluationReportService {
 
     double totalRecall300 = 0.0; // Recall@300
     double totalPrecision20 = 0.0; // Precision@20
-    double totalF1ScoreAt20 = 0.0; // F1-Score@20
 
     // 동기화된 리스트 사용으로 스레드 안전성 확보
     List<EvaluationExecuteResponse.QueryEvaluationDetail> synchronizedQueryDetails =
@@ -170,8 +170,10 @@ public class EvaluationReportService {
       String query = detail.getQuery();
       // 정답셋 직접 조회
       Set<String> relevantDocs = getRelevantDocuments(query);
+      // 정답 개수만큼 검색 (최소 20개 - Precision@20 계산용)
+      int searchSize = Math.max(relevantDocs.size(), 20);
       List<String> retrievedDocs =
-          getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK);
+          getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK, searchSize);
 
       // Recall@300
       double recall300 = computeRecallAtK(retrievedDocs, relevantDocs, 300);
@@ -182,21 +184,15 @@ public class EvaluationReportService {
       double precision20 = computePrecisionAtK(retrievedDocs, relevantDocs, 20);
       totalPrecision20 += precision20;
       detail.setPrecisionAt20(precision20);
-
-      // F1-Score@20 계산
-      double f1ScoreAt20 = computeF1Score(precision20, recall300);
-      totalF1ScoreAt20 += f1ScoreAt20;
-      detail.setF1ScoreAt20(f1ScoreAt20);
     }
 
     double avgRecall300 = queries.isEmpty() ? 0.0 : totalRecall300 / queries.size();
     double avgPrecision20 = queries.isEmpty() ? 0.0 : totalPrecision20 / queries.size();
-    double avgF1ScoreAt20 = queries.isEmpty() ? 0.0 : totalF1ScoreAt20 / queries.size();
 
     // 트랜잭션 내에서 DB 저장 처리 (외부 서비스 호출)
     EvaluationReport report =
         persistenceService.saveEvaluationResults(
-            reportName, queries.size(), avgRecall300, avgPrecision20, avgF1ScoreAt20, queryDetails);
+            reportName, queries.size(), avgRecall300, avgPrecision20, queryDetails);
 
     log.info(
         "✅ 평가 실행 완료: Recall@300={}, Precision@20={}",
@@ -210,7 +206,6 @@ public class EvaluationReportService {
         .reportName(reportName)
         .recall300(avgRecall300)
         .precision20(avgPrecision20)
-        .f1ScoreAt20(avgF1ScoreAt20)
         .totalQueries(queries.size())
         .queryDetails(queryDetails)
         .createdAt(report.getCreatedAt())
@@ -225,8 +220,10 @@ public class EvaluationReportService {
       String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
     // 정답셋 직접 조회
     Set<String> relevantDocs = getRelevantDocuments(query);
+    // 정답 개수만큼 검색 (최소 20개 - Precision@20 계산용)
+    int searchSize = Math.max(relevantDocs.size(), 20);
     List<String> retrievedDocs =
-        getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK); // 순서 유지
+        getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK, searchSize); // 순서 유지
     Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
 
@@ -309,7 +306,8 @@ public class EvaluationReportService {
     for (int i = 0; i < limit; i++) {
       if (relevantSet.contains(retrievedOrder.get(i))) hits++;
     }
-    return limit == 0 ? 0.0 : (double) hits / limit;
+    // 분모를 항상 k로 고정하여 엄격한 평가
+    return (double) hits / k;
   }
 
   private double computeAveragePrecision(List<String> retrievedOrder, Set<String> relevantSet) {
@@ -323,11 +321,6 @@ public class EvaluationReportService {
       }
     }
     return hits == 0 ? 0.0 : (sumPrecision / relevantSet.size());
-  }
-
-  private double computeF1Score(double precision, double recall) {
-    if (precision + recall == 0) return 0.0;
-    return 2 * precision * recall / (precision + recall);
   }
 
   private double computeNdcg(List<String> retrievedOrder, Set<String> relevantSet) {
@@ -418,19 +411,26 @@ public class EvaluationReportService {
 
   // 순서를 보존한 검색 결과 목록
   private List<String> getRetrievedDocumentsOrdered(String query) {
-    return getRetrievedDocumentsOrdered(query, SearchMode.KEYWORD_ONLY, 60, 100);
+    return getRetrievedDocumentsOrdered(
+        query, SearchMode.KEYWORD_ONLY, 60, 100, DEFAULT_RETRIEVAL_SIZE);
   }
 
   private List<String> getRetrievedDocumentsOrdered(
       String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
+    return getRetrievedDocumentsOrdered(
+        query, searchMode, rrfK, hybridTopK, DEFAULT_RETRIEVAL_SIZE);
+  }
+
+  private List<String> getRetrievedDocumentsOrdered(
+      String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK, int size) {
     try {
-      log.info("🔍 DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, DEFAULT_RETRIEVAL_SIZE);
+      log.info("🔍 DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, size);
 
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
       searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
       searchRequest.setQuery(query);
       searchRequest.setPage(0);
-      searchRequest.setSize(DEFAULT_RETRIEVAL_SIZE);
+      searchRequest.setSize(size);
       searchRequest.setExplain(false);
       searchRequest.setSearchMode(searchMode);
       searchRequest.setRrfK(rrfK);
@@ -523,7 +523,6 @@ public class EvaluationReportService {
               .correctCount(r.getCorrectCount())
               .precisionAt20(r.getPrecisionAt20())
               .recallAt300(r.getRecallAt300())
-              .f1ScoreAt20(r.getF1ScoreAt20())
               .missingDocuments(missingByQuery.getOrDefault(r.getQuery(), List.of()))
               .wrongDocuments(wrongByQuery.getOrDefault(r.getQuery(), List.of()))
               .build();
@@ -538,7 +537,6 @@ public class EvaluationReportService {
         .totalQueries(report.getTotalQueries())
         .averageRecall300(report.getAverageRecall300())
         .averagePrecision20(report.getAveragePrecision20())
-        .averageF1ScoreAt20(report.getAverageF1ScoreAt20())
         .createdAt(report.getCreatedAt())
         .queryDetails(details)
         .build();
@@ -654,23 +652,10 @@ public class EvaluationReportService {
   }
 
   private Map<String, ProductDocument> getProductsBulk(List<String> productIds) {
-    Map<String, ProductDocument> productMap = new HashMap<>();
-    if (productIds == null || productIds.isEmpty()) return productMap;
-    try {
-      String indexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
-      MgetRequest.Builder builder = new MgetRequest.Builder().index(indexName);
-      for (String id : productIds) builder.ids(id);
-      MgetResponse<ProductDocument> response =
-          elasticsearchClient.mget(builder.build(), ProductDocument.class);
-      for (MultiGetResponseItem<ProductDocument> item : response.docs()) {
-        if (item.result() != null && item.result().found()) {
-          productMap.put(item.result().id(), item.result().source());
-        }
-      }
-    } catch (Exception e) {
-      log.warn("제품 벌크 조회 실패: {}개", productIds.size(), e);
+    if (productIds == null || productIds.isEmpty()) {
+      return new HashMap<>();
     }
-    return productMap;
+    return productBulkFetchService.fetchBulk(productIds, IndexEnvironment.EnvironmentType.DEV);
   }
 
   @Getter

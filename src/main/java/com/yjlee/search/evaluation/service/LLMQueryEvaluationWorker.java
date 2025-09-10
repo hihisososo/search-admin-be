@@ -2,23 +2,16 @@ package com.yjlee.search.evaluation.service;
 
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.EVALUATION_SOURCE_LLM;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.GetRequest;
-import co.elastic.clients.elasticsearch.core.GetResponse;
-import co.elastic.clients.elasticsearch.core.MgetRequest;
-import co.elastic.clients.elasticsearch.core.MgetResponse;
-import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.service.LLMQueueManager;
+import com.yjlee.search.common.service.ProductBulkFetchService;
 import com.yjlee.search.common.util.PromptTemplateLoader;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
-import com.yjlee.search.search.service.IndexResolver;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,97 +28,15 @@ import org.springframework.stereotype.Service;
 public class LLMQueryEvaluationWorker {
 
   private final LLMQueueManager llmQueueManager;
-  private final ElasticsearchClient elasticsearchClient;
+  private final ProductBulkFetchService productBulkFetchService;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final ObjectMapper objectMapper;
   private final PromptTemplateLoader promptTemplateLoader;
-  private final IndexResolver indexResolver;
 
   /** ES에서 여러 상품을 한 번에 조회 (벌크 조회) */
   public Map<String, ProductDocument> getProductsBulk(List<String> productIds) {
-    if (productIds.isEmpty()) {
-      return new HashMap<>();
-    }
-
-    try {
-      log.debug("🔍 ES 벌크 조회 시작: {}개 상품", productIds.size());
-
-      // 개발 환경의 인덱스명 사용
-      String devIndexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
-      log.debug("개발 환경 인덱스 사용: {}", devIndexName);
-
-      // MultiGet 요청 생성 (벡터 필드 제외)
-      MgetRequest.Builder requestBuilder =
-          new MgetRequest.Builder()
-              .index(devIndexName)
-              .source(s -> s.excludes("name_vector", "specs_vector"));
-
-      // 각 상품 ID를 요청에 추가
-      for (String productId : productIds) {
-        requestBuilder.ids(productId);
-      }
-
-      MgetRequest request = requestBuilder.build();
-      MgetResponse<ProductDocument> response =
-          elasticsearchClient.mget(request, ProductDocument.class);
-
-      // 응답을 Map으로 변환
-      Map<String, ProductDocument> productMap = new HashMap<>();
-      for (MultiGetResponseItem<ProductDocument> item : response.docs()) {
-        if (item.result() != null && item.result().found()) {
-          String productId = item.result().id();
-          ProductDocument product = item.result().source();
-          if (product != null) {
-            productMap.put(productId, product);
-          }
-        }
-      }
-
-      log.debug("🔍 ES 벌크 조회 완료: {}/{}개 상품 조회 성공", productMap.size(), productIds.size());
-      return productMap;
-
-    } catch (Exception e) {
-      log.error("⚠️ ES 벌크 조회 실패", e);
-      // 벌크 조회 실패 시 개별 조회로 폴백
-      log.warn("벌크 조회 실패, 개별 조회로 폴백 실행");
-      return getProductsIndividually(productIds);
-    }
-  }
-
-  /** 벌크 조회 실패 시 개별 조회로 폴백 */
-  private Map<String, ProductDocument> getProductsIndividually(List<String> productIds) {
-    Map<String, ProductDocument> productMap = new HashMap<>();
-
-    for (String productId : productIds) {
-      ProductDocument product = getProductFromES(productId);
-      if (product != null) {
-        productMap.put(productId, product);
-      }
-    }
-
-    return productMap;
-  }
-
-  private ProductDocument getProductFromES(String productId) {
-    try {
-      // 개발 환경의 인덱스명 사용
-      String devIndexName = indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV);
-
-      GetRequest request =
-          GetRequest.of(
-              g ->
-                  g.index(devIndexName)
-                      .id(productId)
-                      .source(s -> s.excludes("name_vector", "specs_vector")));
-
-      GetResponse<ProductDocument> response =
-          elasticsearchClient.get(request, ProductDocument.class);
-      return response.found() ? response.source() : null;
-    } catch (Exception e) {
-      log.warn("⚠️ ES에서 상품 {} 조회 실패", productId, e);
-      return null;
-    }
+    return productBulkFetchService.fetchBulk(productIds);
   }
 
   private List<QueryProductMapping> parseBulkEvaluationResponse(

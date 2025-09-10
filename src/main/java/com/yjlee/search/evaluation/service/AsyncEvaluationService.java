@@ -4,15 +4,12 @@ import com.yjlee.search.async.model.AsyncTask;
 import com.yjlee.search.async.model.AsyncTaskType;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
-import com.yjlee.search.evaluation.dto.GenerateQueriesRequest;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
-import com.yjlee.search.evaluation.dto.LLMQueryGenerateRequest;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.search.dto.SearchMode;
 import com.yjlee.search.search.service.VectorSearchService;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -24,7 +21,6 @@ import org.springframework.stereotype.Service;
 public class AsyncEvaluationService {
 
   private final com.yjlee.search.async.service.AsyncTaskService asyncTaskService;
-  private final QueryGenerationService queryGenerationService;
   private final SearchBasedGroundTruthService groundTruthService;
   private final EvaluationQueryService evaluationQueryService;
   private final EvaluationReportService evaluationReportService;
@@ -34,7 +30,6 @@ public class AsyncEvaluationService {
 
   public AsyncEvaluationService(
       com.yjlee.search.async.service.AsyncTaskService asyncTaskService,
-      QueryGenerationService queryGenerationService,
       SearchBasedGroundTruthService groundTruthService,
       EvaluationQueryService evaluationQueryService,
       EvaluationReportService evaluationReportService,
@@ -42,106 +37,12 @@ public class AsyncEvaluationService {
       VectorSearchService vectorSearchService,
       @Lazy AsyncEvaluationService self) {
     this.asyncTaskService = asyncTaskService;
-    this.queryGenerationService = queryGenerationService;
     this.groundTruthService = groundTruthService;
     this.evaluationQueryService = evaluationQueryService;
     this.evaluationReportService = evaluationReportService;
     this.llmCandidateEvaluationService = llmCandidateEvaluationService;
     this.vectorSearchService = vectorSearchService;
     this.self = self;
-  }
-
-  private static final int FIXED_MIN_CANDIDATES = 30;
-  private static final int FIXED_MIN_BM25_CANDIDATES = 20;
-
-  public Long startLLMQueryGeneration(LLMQueryGenerateRequest request) {
-    AsyncTask task =
-        asyncTaskService.createTask(AsyncTaskType.QUERY_GENERATION, "LLM 쿼리 생성 준비 중...");
-    self.generateLLMQueriesAsync(task.getId(), request);
-    return task.getId();
-  }
-
-  @Async("evaluationTaskExecutor")
-  public void generateLLMQueriesAsync(Long taskId, LLMQueryGenerateRequest request) {
-    try {
-      asyncTaskService.updateProgress(taskId, 10, "LLM 쿼리 생성 시작...");
-
-      int target = request.getCount();
-      List<String> accepted = new ArrayList<>();
-      java.util.Set<String> tried = new java.util.HashSet<>();
-      int round = 0;
-      while (accepted.size() < target) {
-        round++;
-        int need = Math.max(5, (target - accepted.size()) * 3);
-        List<String> pool = queryGenerationService.generateQueriesPreview(need);
-
-        int acceptedThisRound = 0;
-        for (String q : pool) {
-          if (accepted.size() >= target) break;
-          if (q == null || q.isBlank() || tried.contains(q)) continue;
-          tried.add(q);
-          Set<String> ids = groundTruthService.getCandidateIdsForQuery(q);
-          int bm25Count = groundTruthService.getBM25CandidateCount(q);
-          // 전체 30~300개, BM25 20개 이상인 경우만 수용
-          if (ids.size() >= FIXED_MIN_CANDIDATES
-              && ids.size() <= 300
-              && bm25Count >= FIXED_MIN_BM25_CANDIDATES) {
-            EvaluationQuery eq = evaluationQueryService.createQuerySafely(q);
-            generateCandidatesForOne(eq);
-            accepted.add(q);
-            acceptedThisRound++;
-            asyncTaskService.updateProgress(
-                taskId,
-                Math.min(80, 10 + (accepted.size() * 60 / target)),
-                String.format("생성/저장: %d/%d (round %d)", accepted.size(), target, round));
-          } else if (ids.size() > 300) {
-            log.debug("쿼리 '{}' 건너뜀 - 후보군 {}개로 300개 초과", q, ids.size());
-          } else if (bm25Count < FIXED_MIN_BM25_CANDIDATES) {
-            log.debug("쿼리 '{}' 건너뜀 - BM25 결과 {}개로 20개 미만", q, bm25Count);
-          }
-        }
-
-        // 안전장치: 라운드가 계속 0개 수용이면 점진적으로 need를 키우며 재시도
-        if (acceptedThisRound == 0) {
-          asyncTaskService.updateProgress(
-              taskId,
-              Math.min(79, 10 + (accepted.size() * 60 / target)),
-              String.format("라운드 %d에서 적합 쿼리 없음, 재시도", round));
-        }
-
-        // 무한 루프 방지 - 충분히 많은 라운드 수행 후에도 목표 미달이면 종료
-        if (round > 50 && accepted.size() < target) {
-          log.warn("LLM 쿼리 생성 목표 미달 - 요청: {}, 달성: {}", target, accepted.size());
-          break;
-        }
-      }
-
-      asyncTaskService.updateProgress(taskId, 90, "정리 중...");
-      asyncTaskService.completeTask(
-          taskId,
-          QueryGenerationResult.builder()
-              .generatedCount(accepted.size())
-              .requestedCount(target)
-              .queries(accepted)
-              .build());
-    } catch (Exception e) {
-      asyncTaskService.failTask(taskId, "LLM 쿼리 생성 실패: " + e.getMessage());
-    }
-  }
-
-  private void generateCandidatesForOne(EvaluationQuery eq) {
-    try {
-      // LLM 자동 생성 시에는 기존 로직 사용 (300개 제한 등 품질 체크)
-      groundTruthService.generateCandidatesForAutoGeneration(eq.getId());
-    } catch (Exception ignored) {
-    }
-  }
-
-  public Long startQueryGeneration(GenerateQueriesRequest request) {
-    AsyncTask task = asyncTaskService.createTask(AsyncTaskType.QUERY_GENERATION, "쿼리 자동생성 준비 중...");
-
-    self.generateQueriesAsync(task.getId(), request);
-    return task.getId();
   }
 
   public Long startCandidateGeneration(GenerateCandidatesRequest request) {
@@ -166,33 +67,6 @@ public class AsyncEvaluationService {
 
     self.evaluateLLMCandidatesAsync(task.getId(), request);
     return task.getId();
-  }
-
-  @Async("evaluationTaskExecutor")
-  public void generateQueriesAsync(Long taskId, GenerateQueriesRequest request) {
-    try {
-      log.info("비동기 쿼리 생성 시작: taskId={}, count={}", taskId, request.getCount());
-
-      asyncTaskService.updateProgress(taskId, 10, "쿼리 생성 시작...");
-
-      List<String> generatedQueries = generateQueriesWithProgress(taskId, request.getCount());
-
-      asyncTaskService.updateProgress(taskId, 90, "생성된 쿼리 저장 중...");
-
-      QueryGenerationResult result =
-          QueryGenerationResult.builder()
-              .generatedCount(generatedQueries.size())
-              .requestedCount(request.getCount())
-              .queries(generatedQueries)
-              .build();
-
-      asyncTaskService.completeTask(taskId, result);
-      log.info("비동기 쿼리 생성 완료: taskId={}, 생성된 개수={}", taskId, generatedQueries.size());
-
-    } catch (Exception e) {
-      log.error("비동기 쿼리 생성 실패: taskId={}", taskId, e);
-      asyncTaskService.failTask(taskId, "쿼리 생성 실패: " + e.getMessage());
-    }
   }
 
   @Async("evaluationTaskExecutor")
@@ -342,12 +216,6 @@ public class AsyncEvaluationService {
     }
   }
 
-  private List<String> generateQueriesWithProgress(Long taskId, int count) {
-    asyncTaskService.updateProgress(taskId, 40, "LLM 쿼리 생성 중...");
-    List<String> queries = queryGenerationService.generateRandomQueries(count);
-    return queries;
-  }
-
   /** 하이브리드 검색 평가 전 모든 쿼리에 대한 임베딩 사전 캐싱 */
   private void precacheEmbeddings(Long taskId) {
     try {
@@ -397,16 +265,6 @@ public class AsyncEvaluationService {
   }
 
   // 결과 DTO 클래스들
-  @lombok.Builder
-  @lombok.Getter
-  @lombok.AllArgsConstructor
-  @lombok.NoArgsConstructor
-  public static class QueryGenerationResult {
-    private int generatedCount;
-    private int requestedCount;
-    private List<String> queries;
-  }
-
   @lombok.Builder
   @lombok.Getter
   @lombok.AllArgsConstructor
