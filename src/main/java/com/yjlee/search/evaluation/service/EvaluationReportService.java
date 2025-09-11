@@ -57,7 +57,7 @@ public class EvaluationReportService {
 
   @PreDestroy
   public void shutdown() {
-    log.info("🔄 EvaluationReportService 종료 처리 완료");
+    log.info("EvaluationReportService 종료 처리 완료");
   }
 
   public EvaluationReportService(
@@ -99,7 +99,7 @@ public class EvaluationReportService {
       Integer hybridTopK,
       ProgressCallback progressCallback) {
     log.info(
-        "📊 평가 실행 시작: {}, 검색 결과 개수: {}, 검색모드: {}", reportName, DEFAULT_RETRIEVAL_SIZE, searchMode);
+        "평가 실행 시작: {}, 검색 결과 개수: {}, 검색모드: {}", reportName, DEFAULT_RETRIEVAL_SIZE, searchMode);
 
     List<EvaluationQuery> queries = evaluationQueryService.getAllQueries();
 
@@ -377,7 +377,7 @@ public class EvaluationReportService {
 
   private Set<String> getRetrievedDocuments(String query) {
     try {
-      log.info("🔍 DEV 환경 검색 API 호출: {}, 검색 결과 개수: {}", query, DEFAULT_RETRIEVAL_SIZE);
+      log.info("DEV 환경 검색 API 호출: {}, 검색 결과 개수: {}", query, DEFAULT_RETRIEVAL_SIZE);
 
       // DEV 환경 시뮬레이션 검색 요청 생성
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
@@ -421,7 +421,7 @@ public class EvaluationReportService {
   private List<String> getRetrievedDocumentsOrdered(
       String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK, int size) {
     try {
-      log.info("🔍 DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, size);
+      log.info("DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, size);
 
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
       searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);

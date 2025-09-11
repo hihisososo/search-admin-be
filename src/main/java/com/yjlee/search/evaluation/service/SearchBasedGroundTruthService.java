@@ -77,7 +77,7 @@ public class SearchBasedGroundTruthService {
       List<EvaluationQuery> queries, TaskProgressListener progressListener, boolean isFullProcess) {
 
     String processType = isFullProcess ? "전체 모든" : "선택된";
-    log.info("🔍 {} 쿼리의 정답 후보군 생성 시작: {}개", processType, queries.size());
+    log.info("{} 쿼리의 정답 후보군 생성 시작: {}개", processType, queries.size());
 
     if (queries.isEmpty()) {
       return;

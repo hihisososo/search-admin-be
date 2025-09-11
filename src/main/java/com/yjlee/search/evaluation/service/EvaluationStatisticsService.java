@@ -33,7 +33,7 @@ public class EvaluationStatisticsService {
 
   public List<EvaluationQueryListResponse.EvaluationQueryDto> getQueriesWithStats(
       String sortBy, String sortDirection, String queryFilter) {
-    log.info("📊 쿼리 통계 조회: 정렬={} {}, 필터={}", sortBy, sortDirection, queryFilter);
+    log.info("쿼리 통계 조회: 정렬={} {}, 필터={}", sortBy, sortDirection, queryFilter);
 
     var statsData = queryProductMappingRepository.findQueryStats();
     Map<String, QueryStatsDto> statsMap =
