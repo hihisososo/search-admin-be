@@ -18,14 +18,18 @@
   
 #### 개선점
 - 아래와 같이 실검색에서 놓친 문서와, 동의어 등록 후보군들을 확인할 수 있었습니다
-- 놓친 문서 예
-  <img src="./images/evaluation_missing.png" alt="놓친 문서 예시" width="600">
-- 동의어 등록 후보
-  <img src="./images/evaluation_synonym.png" alt="동의어 등록 후보" width="600">
+  - 놓친 문서 예
+    
+    <img src="./images/evaluation_missing.png" alt="놓친 문서 예시" width="600">
+    
+  - 동의어 등록 후보
+    
+    <img src="./images/evaluation_synonym.png" alt="동의어 등록 후보" width="600">
 #### 한계점
 - 평가 일관성이 부족하며, 잘못된 평가를 내리는 부분도 상당수 존재하였습니다
-- "오이" 검색시 잘못된 평가
-  <img src="./images/evaluation_llm.png" alt="잘못된 평가" width="600">
+  - "오이" 검색시 잘못된 평가
+    
+    <img src="./images/evaluation_llm.png" alt="잘못된 평가" width="600">
 
 #### 평가 결과 및 분석
   - 키워드검색 : precision@20 : 0.935, recall@300 : 0.865
