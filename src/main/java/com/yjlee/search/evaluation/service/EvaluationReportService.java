@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -110,9 +111,9 @@ public class EvaluationReportService {
     double totalRecall300 = 0.0; // Recall@300
     double totalPrecision20 = 0.0; // Precision@20
 
-    // 동기화된 리스트 사용으로 스레드 안전성 확보
+    // Thread-safe 리스트 사용으로 스레드 안전성 확보
     List<EvaluationExecuteResponse.QueryEvaluationDetail> synchronizedQueryDetails =
-        Collections.synchronizedList(new ArrayList<>());
+        new CopyOnWriteArrayList<>();
 
     // 진행률 추적을 위한 AtomicInteger
     AtomicInteger completed = new AtomicInteger(0);

@@ -12,10 +12,10 @@ import com.yjlee.search.search.dto.VectorSearchConfig;
 import com.yjlee.search.search.dto.VectorSearchResult;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,31 +32,40 @@ public class VectorSearchService {
   private final EmbeddingService embeddingService;
   private final ElasticsearchClient elasticsearchClient;
 
-  // LRU 캐시 - 최대 항목 유지
-  private final Map<String, float[]> embeddingCache =
-      Collections.synchronizedMap(
-          new LinkedHashMap<String, float[]>(
-              SearchConstants.EMBEDDING_CACHE_SIZE + 1, SearchConstants.CACHE_LOAD_FACTOR, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<String, float[]> eldest) {
-              return size() > SearchConstants.EMBEDDING_CACHE_SIZE;
-            }
-          });
+  // Thread-safe LRU 캐시
+  private final Map<String, float[]> embeddingCache = new ConcurrentHashMap<>();
+  private final ReentrantReadWriteLock cacheLock = new ReentrantReadWriteLock();
 
   /** 쿼리 임베딩 생성 (캐싱 포함) */
   public float[] getQueryEmbedding(String query) {
-    // 캐시 체크
-    float[] cached = embeddingCache.get(query);
-    if (cached != null) {
-      return cached;
+    // Read lock으로 캐시 체크
+    cacheLock.readLock().lock();
+    try {
+      float[] cached = embeddingCache.get(query);
+      if (cached != null) {
+        return cached;
+      }
+    } finally {
+      cacheLock.readLock().unlock();
     }
 
-    // 캐시에 없으면 생성 (락 밖에서)
+    // 캐시에 없으면 생성
     log.debug("Generating embedding for query: {}", query);
     float[] embedding = embeddingService.getEmbedding(query, EmbeddingType.QUERY);
 
-    // 캐시에 저장
-    embeddingCache.put(query, embedding);
+    // Write lock으로 캐시에 저장
+    cacheLock.writeLock().lock();
+    try {
+      // LRU: 캐시 크기 초과시 가장 오래된 항목 제거
+      if (embeddingCache.size() >= SearchConstants.EMBEDDING_CACHE_SIZE) {
+        String oldestKey = embeddingCache.keySet().iterator().next();
+        embeddingCache.remove(oldestKey);
+      }
+      embeddingCache.put(query, embedding);
+    } finally {
+      cacheLock.writeLock().unlock();
+    }
+    
     return embedding;
   }
 

@@ -23,6 +23,7 @@ import com.yjlee.search.search.dto.*;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
@@ -93,7 +94,7 @@ class SearchControllerTest extends BaseIntegrationTest {
             .replace("{SYNONYM_SET_NAME}", "synonyms-nori-dev");
 
     // Elasticsearch가 준비될 때까지 잠시 대기
-    Thread.sleep(2000);
+    TimeUnit.SECONDS.sleep(2);
 
     var request =
         CreateIndexRequest.of(
@@ -156,7 +157,7 @@ class SearchControllerTest extends BaseIntegrationTest {
     assertThat(response.errors()).isFalse();
 
     // 색인된 문서 수 확인
-    Thread.sleep(1000); // 색인 완료 대기
+    TimeUnit.SECONDS.sleep(1); // 색인 완료 대기
     var countResponse = elasticsearchClient.count(c -> c.index(PRODUCT_INDEX));
     log.info("======= Indexed Documents Count: {} =======", countResponse.count());
 
@@ -197,7 +198,7 @@ class SearchControllerTest extends BaseIntegrationTest {
     elasticsearchClient.indices().refresh(r -> r.index(PRODUCT_INDEX, AUTOCOMPLETE_INDEX));
 
     // 자동완성 색인 확인 (디버깅용)
-    Thread.sleep(500);
+    TimeUnit.MILLISECONDS.sleep(500);
     var autocompleteCount = elasticsearchClient.count(c -> c.index(AUTOCOMPLETE_INDEX));
     log.info("======= Indexed Autocomplete Documents Count: {} =======", autocompleteCount.count());
 

@@ -3,6 +3,7 @@ package com.yjlee.search.embedding.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,7 +74,7 @@ public class UpstageEmbeddingService implements EmbeddingService {
         allEmbeddings.addAll(chunkEmbeddings);
 
         if (endIndex < texts.size()) {
-          Thread.sleep(100);
+          TimeUnit.MILLISECONDS.sleep(100);
         }
 
       } catch (Exception e) {
@@ -126,14 +127,7 @@ public class UpstageEmbeddingService implements EmbeddingService {
       } catch (HttpClientErrorException e) {
         if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
           log.warn("Rate limit 도달 (429), 30초 대기 후 재시도");
-          Thread.sleep(30000);
-        } else {
-          throw e;
-        }
-      } catch (Exception e) {
-        if (e.getMessage() != null && e.getMessage().contains("429")) {
-          log.warn("Rate limit 도달, 30초 대기 후 재시도");
-          Thread.sleep(30000);
+          TimeUnit.SECONDS.sleep(30);
         } else {
           throw e;
         }

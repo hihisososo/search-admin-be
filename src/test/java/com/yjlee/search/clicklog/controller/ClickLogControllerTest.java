@@ -15,6 +15,7 @@ import com.yjlee.search.clicklog.model.ClickLogDocument;
 import com.yjlee.search.common.config.BaseIntegrationTest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -63,7 +64,7 @@ class ClickLogControllerTest extends BaseIntegrationTest {
         .andExpect(jsonPath("$.timestamp").exists());
 
     // then - Elasticsearch에서 확인
-    Thread.sleep(1000); // 인덱싱 대기
+    TimeUnit.SECONDS.sleep(1); // 인덱싱 대기
     elasticsearchClient.indices().refresh();
 
     String indexName = "click-logs-" + LocalDateTime.now().format(INDEX_DATE_FORMATTER);
@@ -184,7 +185,7 @@ class ClickLogControllerTest extends BaseIntegrationTest {
         .andExpect(status().isOk());
 
     // then
-    Thread.sleep(1000); // 인덱싱 대기
+    TimeUnit.SECONDS.sleep(1); // 인덱싱 대기
     elasticsearchClient.indices().refresh();
 
     String indexName = "click-logs-" + LocalDateTime.now().format(INDEX_DATE_FORMATTER);
