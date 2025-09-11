@@ -170,8 +170,8 @@ public class EvaluationReportService {
       String query = detail.getQuery();
       // 정답셋 직접 조회
       Set<String> relevantDocs = getRelevantDocuments(query);
-      // 정답 개수만큼 검색 (최소 20개 - Precision@20 계산용)
-      int searchSize = Math.max(relevantDocs.size(), 20);
+      // Recall@300 계산을 위해 항상 300개 검색
+      int searchSize = 300;
       List<String> retrievedDocs =
           getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK, searchSize);
 
@@ -220,8 +220,8 @@ public class EvaluationReportService {
       String query, SearchMode searchMode, Integer rrfK, Integer hybridTopK) {
     // 정답셋 직접 조회
     Set<String> relevantDocs = getRelevantDocuments(query);
-    // 정답 개수만큼 검색 (최소 20개 - Precision@20 계산용)
-    int searchSize = Math.max(relevantDocs.size(), 20);
+    // Recall@300 계산을 위해 항상 300개 검색
+    int searchSize = 300;
     List<String> retrievedDocs =
         getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK, searchSize); // 순서 유지
     Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
