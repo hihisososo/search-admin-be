@@ -23,11 +23,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("IndexResolver 테스트")
 class IndexResolverTest {
 
-  @Mock
-  private IndexNameProvider indexNameProvider;
+  @Mock private IndexNameProvider indexNameProvider;
 
-  @Mock
-  private IndexEnvironmentRepository indexEnvironmentRepository;
+  @Mock private IndexEnvironmentRepository indexEnvironmentRepository;
 
   private IndexResolver indexResolver;
 
@@ -63,7 +61,8 @@ class IndexResolverTest {
   @DisplayName("환경별 상품 인덱스 반환 - DEV")
   void testResolveProductIndexForDev() {
     // given
-    IndexEnvironment devEnv = createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.ACTIVE);
+    IndexEnvironment devEnv =
+        createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.ACTIVE);
     when(indexEnvironmentRepository.findByEnvironmentType(EnvironmentType.DEV))
         .thenReturn(Optional.of(devEnv));
 
@@ -78,7 +77,8 @@ class IndexResolverTest {
   @DisplayName("환경별 상품 인덱스 반환 - PROD")
   void testResolveProductIndexForProd() {
     // given
-    IndexEnvironment prodEnv = createEnvironment(EnvironmentType.PROD, "products-prod-v2", IndexStatus.ACTIVE);
+    IndexEnvironment prodEnv =
+        createEnvironment(EnvironmentType.PROD, "products-prod-v2", IndexStatus.ACTIVE);
     when(indexEnvironmentRepository.findByEnvironmentType(EnvironmentType.PROD))
         .thenReturn(Optional.of(prodEnv));
 
@@ -93,7 +93,8 @@ class IndexResolverTest {
   @DisplayName("환경별 자동완성 인덱스 반환")
   void testResolveAutocompleteIndexForEnvironment() {
     // given
-    IndexEnvironment devEnv = createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.ACTIVE);
+    IndexEnvironment devEnv =
+        createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.ACTIVE);
     when(indexEnvironmentRepository.findByEnvironmentType(EnvironmentType.DEV))
         .thenReturn(Optional.of(devEnv));
     when(indexNameProvider.getProductsIndexPrefix()).thenReturn("products");
@@ -110,7 +111,8 @@ class IndexResolverTest {
   @DisplayName("시뮬레이션용 상품 인덱스 반환 - INACTIVE 상태 허용")
   void testResolveProductIndexForSimulation() {
     // given
-    IndexEnvironment devEnv = createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.INACTIVE);
+    IndexEnvironment devEnv =
+        createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.INACTIVE);
     when(indexEnvironmentRepository.findByEnvironmentType(EnvironmentType.DEV))
         .thenReturn(Optional.of(devEnv));
 
@@ -125,7 +127,8 @@ class IndexResolverTest {
   @DisplayName("시뮬레이션용 자동완성 인덱스 반환")
   void testResolveAutocompleteIndexForSimulation() {
     // given
-    IndexEnvironment devEnv = createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.INACTIVE);
+    IndexEnvironment devEnv =
+        createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.INACTIVE);
     when(indexEnvironmentRepository.findByEnvironmentType(EnvironmentType.DEV))
         .thenReturn(Optional.of(devEnv));
     when(indexNameProvider.getProductsIndexPrefix()).thenReturn("products");
@@ -183,7 +186,8 @@ class IndexResolverTest {
   @DisplayName("인덱스가 활성 상태가 아닐 때 예외 발생")
   void testThrowExceptionWhenIndexNotActive() {
     // given
-    IndexEnvironment devEnv = createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.INACTIVE);
+    IndexEnvironment devEnv =
+        createEnvironment(EnvironmentType.DEV, "products-dev-v1", IndexStatus.INACTIVE);
     when(indexEnvironmentRepository.findByEnvironmentType(EnvironmentType.DEV))
         .thenReturn(Optional.of(devEnv));
 
@@ -193,7 +197,8 @@ class IndexResolverTest {
         .hasMessageContaining("개발 환경의 인덱스가 활성 상태가 아닙니다.");
   }
 
-  private IndexEnvironment createEnvironment(EnvironmentType type, String indexName, IndexStatus status) {
+  private IndexEnvironment createEnvironment(
+      EnvironmentType type, String indexName, IndexStatus status) {
     IndexEnvironment env = new IndexEnvironment();
     env.setEnvironmentType(type);
     env.setIndexName(indexName);

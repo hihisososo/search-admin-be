@@ -14,12 +14,13 @@ class EnvironmentTypeConverterTest {
   @DisplayName("IndexEnvironmentType을 DictionaryEnvironmentType으로 변환")
   void testToDictionaryEnvironmentType() {
     // DEV 변환
-    DictionaryEnvironmentType result = 
+    DictionaryEnvironmentType result =
         EnvironmentTypeConverter.toDictionaryEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
     assertThat(result).isEqualTo(DictionaryEnvironmentType.DEV);
 
     // PROD 변환
-    result = EnvironmentTypeConverter.toDictionaryEnvironmentType(IndexEnvironment.EnvironmentType.PROD);
+    result =
+        EnvironmentTypeConverter.toDictionaryEnvironmentType(IndexEnvironment.EnvironmentType.PROD);
     assertThat(result).isEqualTo(DictionaryEnvironmentType.PROD);
 
     // null 처리
@@ -31,7 +32,7 @@ class EnvironmentTypeConverterTest {
   @DisplayName("DictionaryEnvironmentType을 IndexEnvironmentType으로 변환")
   void testToIndexEnvironmentType() {
     // DEV 변환
-    IndexEnvironment.EnvironmentType result = 
+    IndexEnvironment.EnvironmentType result =
         EnvironmentTypeConverter.toIndexEnvironmentType(DictionaryEnvironmentType.DEV);
     assertThat(result).isEqualTo(IndexEnvironment.EnvironmentType.DEV);
 
@@ -53,8 +54,10 @@ class EnvironmentTypeConverterTest {
   void testBidirectionalConversion() {
     // DEV -> Dictionary -> Index
     IndexEnvironment.EnvironmentType originalIndex = IndexEnvironment.EnvironmentType.DEV;
-    DictionaryEnvironmentType dict = EnvironmentTypeConverter.toDictionaryEnvironmentType(originalIndex);
-    IndexEnvironment.EnvironmentType convertedBack = EnvironmentTypeConverter.toIndexEnvironmentType(dict);
+    DictionaryEnvironmentType dict =
+        EnvironmentTypeConverter.toDictionaryEnvironmentType(originalIndex);
+    IndexEnvironment.EnvironmentType convertedBack =
+        EnvironmentTypeConverter.toIndexEnvironmentType(dict);
     assertThat(convertedBack).isEqualTo(originalIndex);
 
     // PROD -> Dictionary -> Index

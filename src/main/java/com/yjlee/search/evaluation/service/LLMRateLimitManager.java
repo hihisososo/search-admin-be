@@ -32,7 +32,7 @@ public class LLMRateLimitManager {
 
       running.set(true);
       scheduler = Executors.newScheduledThreadPool(1);
-      
+
       // 초기 지연 없이 5초마다 실행
       scheduler.scheduleWithFixedDelay(this::performHealthCheck, 0, 5, TimeUnit.SECONDS);
       log.info("LLM health check 스케줄러 시작");

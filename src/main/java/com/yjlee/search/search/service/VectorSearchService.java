@@ -65,7 +65,7 @@ public class VectorSearchService {
     } finally {
       cacheLock.writeLock().unlock();
     }
-    
+
     return embedding;
   }
 

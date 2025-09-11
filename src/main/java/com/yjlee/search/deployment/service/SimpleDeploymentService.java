@@ -67,7 +67,8 @@ public class SimpleDeploymentService {
       // 버전 생성 및 이력 저장
       String version = generateVersion();
       DeploymentHistory history =
-          createHistory(DeploymentHistory.DeploymentType.INDEXING, version, request.getDescription());
+          createHistory(
+              DeploymentHistory.DeploymentType.INDEXING, version, request.getDescription());
       history = historyRepository.save(history);
 
       // AsyncTask 생성

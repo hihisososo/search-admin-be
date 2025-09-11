@@ -15,8 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("HttpRequestUtils 테스트")
 class HttpRequestUtilsTest {
 
-  @Mock
-  private HttpServletRequest request;
+  @Mock private HttpServletRequest request;
 
   private HttpRequestUtils httpRequestUtils;
 

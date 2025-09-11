@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -74,19 +73,15 @@ public class AutoLogGeneratorService {
       // 시작
       running = true;
       log.info("LLM 로그 생성 워커 {}EA 시작", parallelLlmCount);
-      
+
       // ScheduledExecutorService 생성
       scheduledExecutor = Executors.newScheduledThreadPool(parallelLlmCount);
-      
+
       for (int i = 0; i < parallelLlmCount; i++) {
         final int workerId = i + 1;
         // 1초마다 실행되는 스케줄 태스크로 변경
         scheduledExecutor.scheduleWithFixedDelay(
-            () -> runWorkerTask(workerId),
-            0,
-            1,
-            TimeUnit.SECONDS
-        );
+            () -> runWorkerTask(workerId), 0, 1, TimeUnit.SECONDS);
       }
     } else if (!enabled && running) {
       // 종료
@@ -102,7 +97,7 @@ public class AutoLogGeneratorService {
     if (!running) {
       return;
     }
-    
+
     try {
       // 로그 생성
       generateLLMBasedLog();
