@@ -167,6 +167,21 @@ public class VectorSearchStrategy implements SearchStrategy {
   }
 
   private Comparator<Hit<JsonNode>> createComparator(String fieldName, SortOrder sortOrder) {
+    // REGISTERED_MONTH는 문자열로 비교
+    if (fieldName.equals(ESFields.REGISTERED_MONTH)) {
+      Comparator<Hit<JsonNode>> comparator =
+          Comparator.comparing(
+              hit -> {
+                JsonNode source = hit.source();
+                if (source == null || !source.has(fieldName) || source.get(fieldName).isNull()) {
+                  return sortOrder == SortOrder.Asc ? "9999-99" : "0000-00";
+                }
+                return source.get(fieldName).asText();
+              });
+      return sortOrder == SortOrder.Desc ? comparator.reversed() : comparator;
+    }
+
+    // 나머지 필드는 숫자로 비교
     Comparator<Hit<JsonNode>> comparator =
         Comparator.comparing(
             hit -> {
