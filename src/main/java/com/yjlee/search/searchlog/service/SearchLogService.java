@@ -24,6 +24,7 @@ import com.yjlee.search.searchlog.dto.SearchLogResponse;
 import com.yjlee.search.searchlog.dto.TrendingKeywordDto;
 import com.yjlee.search.searchlog.dto.TrendingKeywordsResponse;
 import com.yjlee.search.searchlog.model.SearchLogDocument;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -66,7 +67,7 @@ public class SearchLogService {
 
       log.debug("Search log saved successfully");
 
-    } catch (Exception e) {
+    } catch (IOException e) {
       log.error("Failed to save search log: {}", e.getMessage(), e);
     }
   }
@@ -110,7 +111,7 @@ public class SearchLogService {
           .lastUpdated(LocalDateTime.now(ZoneOffset.UTC))
           .build();
 
-    } catch (Exception e) {
+    } catch (IOException e) {
       log.error("인기 검색어 조회 실패", e);
       throw new RuntimeException("인기 검색어 조회 실패: " + e.getMessage(), e);
     }
@@ -296,7 +297,7 @@ public class SearchLogService {
           .lastUpdated(LocalDateTime.now(ZoneOffset.UTC))
           .build();
 
-    } catch (Exception e) {
+    } catch (IOException e) {
       log.error("급등 검색어 조회 실패", e);
       throw new RuntimeException("급등 검색어 조회 실패: " + e.getMessage(), e);
     }

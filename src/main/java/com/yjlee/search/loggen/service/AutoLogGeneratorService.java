@@ -12,6 +12,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +44,7 @@ public class AutoLogGeneratorService {
   private int serverPort;
 
   private final Random random = new Random();
-  private final ExecutorService executorService = Executors.newFixedThreadPool(3);
+  private ScheduledExecutorService scheduledExecutor;
   private volatile boolean running = false;
   private volatile boolean manualOverride = false;
 
@@ -73,46 +74,41 @@ public class AutoLogGeneratorService {
       // 시작
       running = true;
       log.info("LLM 로그 생성 워커 {}EA 시작", parallelLlmCount);
-
+      
+      // ScheduledExecutorService 생성
+      scheduledExecutor = Executors.newScheduledThreadPool(parallelLlmCount);
+      
       for (int i = 0; i < parallelLlmCount; i++) {
         final int workerId = i + 1;
-        executorService.submit(() -> runWorker(workerId));
+        // 1초마다 실행되는 스케줄 태스크로 변경
+        scheduledExecutor.scheduleWithFixedDelay(
+            () -> runWorkerTask(workerId),
+            0,
+            1,
+            TimeUnit.SECONDS
+        );
       }
     } else if (!enabled && running) {
       // 종료
       running = false;
       log.info("LLM 로그 생성 워커 중지 요청");
+      if (scheduledExecutor != null) {
+        scheduledExecutor.shutdown();
+      }
     }
   }
 
-  private void runWorker(int workerId) {
-    log.info("LLM 워커 {} 시작", workerId);
-
-    while (running) {
-      try {
-        // 로그 생성
-        generateLLMBasedLog();
-
-        // 1초 대기
-        Thread.sleep(1000);
-
-      } catch (InterruptedException e) {
-        log.info("LLM 워커 {} 인터럽트", workerId);
-        Thread.currentThread().interrupt();
-        break;
-      } catch (Exception e) {
-        log.error("LLM 워커 {} 에러: {}", workerId, e.getMessage());
-        // 에러 발생 시에도 1초 대기 후 계속
-        try {
-          Thread.sleep(1000);
-        } catch (InterruptedException ie) {
-          Thread.currentThread().interrupt();
-          break;
-        }
-      }
+  private void runWorkerTask(int workerId) {
+    if (!running) {
+      return;
     }
-
-    log.info("LLM 워커 {} 종료", workerId);
+    
+    try {
+      // 로그 생성
+      generateLLMBasedLog();
+    } catch (Exception e) {
+      log.error("LLM 워커 {} 에러: {}", workerId, e.getMessage());
+    }
   }
 
   private void generateLLMBasedLog() {
@@ -218,14 +214,16 @@ public class AutoLogGeneratorService {
   public void shutdown() {
     log.info("AutoLogGeneratorService 종료 시작");
     running = false;
-    executorService.shutdown();
-    try {
-      if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
-        executorService.shutdownNow();
+    if (scheduledExecutor != null) {
+      scheduledExecutor.shutdown();
+      try {
+        if (!scheduledExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
+          scheduledExecutor.shutdownNow();
+        }
+      } catch (InterruptedException e) {
+        scheduledExecutor.shutdownNow();
+        Thread.currentThread().interrupt();
       }
-    } catch (InterruptedException e) {
-      executorService.shutdownNow();
-      Thread.currentThread().interrupt();
     }
   }
 }

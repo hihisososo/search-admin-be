@@ -54,7 +54,7 @@ public class EvaluationCandidateService {
   }
 
   public ProductDocument getProductDetails(String productId) {
-    return productBulkFetchService.fetchSingle(productId, EnvironmentType.DEV);
+    return productBulkFetchService.fetchSingle(productId, EnvironmentType.DEV).orElse(null);
   }
 
   @Transactional

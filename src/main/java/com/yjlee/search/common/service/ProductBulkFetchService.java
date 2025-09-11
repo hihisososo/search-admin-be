@@ -79,20 +79,18 @@ public class ProductBulkFetchService {
     Map<String, ProductDocument> productMap = new HashMap<>();
 
     for (String productId : productIds) {
-      ProductDocument product = fetchSingle(productId, environmentType);
-      if (product != null) {
-        productMap.put(productId, product);
-      }
+      Optional<ProductDocument> product = fetchSingle(productId, environmentType);
+      product.ifPresent(doc -> productMap.put(productId, doc));
     }
 
     return productMap;
   }
 
-  public ProductDocument fetchSingle(String productId) {
+  public Optional<ProductDocument> fetchSingle(String productId) {
     return fetchSingle(productId, IndexEnvironment.EnvironmentType.DEV);
   }
 
-  public ProductDocument fetchSingle(
+  public Optional<ProductDocument> fetchSingle(
       String productId, IndexEnvironment.EnvironmentType environmentType) {
 
     try {
@@ -107,11 +105,11 @@ public class ProductBulkFetchService {
 
       GetResponse<ProductDocument> response =
           elasticsearchClient.get(request, ProductDocument.class);
-      return response.found() ? response.source() : null;
+      return response.found() ? Optional.ofNullable(response.source()) : Optional.empty();
 
     } catch (Exception e) {
       log.warn("ES에서 상품 {} 조회 실패", productId, e);
-      return null;
+      return Optional.empty();
     }
   }
 }

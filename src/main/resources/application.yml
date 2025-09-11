@@ -64,7 +64,7 @@ upstage:
   
 logging:
   level:
-    com.yjlee.search: DEBUG
+    com.yjlee.search: INFO
 
 evaluation:
   llm:

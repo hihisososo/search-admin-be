@@ -12,6 +12,8 @@ import com.yjlee.search.dictionary.common.service.DictionaryDataDeploymentServic
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +35,7 @@ public class SimpleDeploymentService {
   private final DictionaryDataDeploymentService dictionaryDeploymentService;
   private final AsyncTaskService asyncTaskService;
   private final AsyncIndexingService asyncIndexingService;
+  private final Lock indexingLock = new ReentrantLock();
 
   /** 환경 목록 조회 */
   public EnvironmentListResponse getEnvironments() {
@@ -44,36 +47,41 @@ public class SimpleDeploymentService {
 
   /** 색인 실행 (비동기) */
   @Transactional
-  public synchronized Long executeIndexing(IndexingRequest request) {
-    log.debug("색인 시작: {}", request.getDescription());
+  public Long executeIndexing(IndexingRequest request) {
+    indexingLock.lock();
+    try {
+      log.debug("색인 시작: {}", request.getDescription());
 
-    // 개발 환경 조회
-    IndexEnvironment devEnv = getEnvironment(IndexEnvironment.EnvironmentType.DEV);
+      // 개발 환경 조회
+      IndexEnvironment devEnv = getEnvironment(IndexEnvironment.EnvironmentType.DEV);
 
-    // 색인 중복 실행 방지
-    if (asyncTaskService.hasRunningTask(AsyncTaskType.INDEXING)) {
-      throw new IllegalStateException("색인이 이미 진행 중입니다.");
+      // 색인 중복 실행 방지
+      if (asyncTaskService.hasRunningTask(AsyncTaskType.INDEXING)) {
+        throw new IllegalStateException("색인이 이미 진행 중입니다.");
+      }
+
+      // 개발 환경 초기화 - 색인 시작 전 상태 리셋
+      devEnv.reset();
+      environmentRepository.save(devEnv);
+
+      // 버전 생성 및 이력 저장
+      String version = generateVersion();
+      DeploymentHistory history =
+          createHistory(DeploymentHistory.DeploymentType.INDEXING, version, request.getDescription());
+      history = historyRepository.save(history);
+
+      // AsyncTask 생성
+      String initialMessage = String.format("색인 준비 중... (버전: %s)", version);
+      var task = asyncTaskService.createTask(AsyncTaskType.INDEXING, initialMessage);
+
+      // 비동기 색인 실행
+      asyncIndexingService.executeIndexingAsync(
+          devEnv.getId(), version, history.getId(), task.getId());
+
+      return task.getId();
+    } finally {
+      indexingLock.unlock();
     }
-
-    // 개발 환경 초기화 - 색인 시작 전 상태 리셋
-    devEnv.reset();
-    environmentRepository.save(devEnv);
-
-    // 버전 생성 및 이력 저장
-    String version = generateVersion();
-    DeploymentHistory history =
-        createHistory(DeploymentHistory.DeploymentType.INDEXING, version, request.getDescription());
-    history = historyRepository.save(history);
-
-    // AsyncTask 생성
-    String initialMessage = String.format("색인 준비 중... (버전: %s)", version);
-    var task = asyncTaskService.createTask(AsyncTaskType.INDEXING, initialMessage);
-
-    // 비동기 색인 실행
-    asyncIndexingService.executeIndexingAsync(
-        devEnv.getId(), version, history.getId(), task.getId());
-
-    return task.getId();
   }
 
   /** 배포 실행 (DEV → PROD) */
