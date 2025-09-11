@@ -10,7 +10,8 @@ import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.constant.DeploymentConstants;
 import com.yjlee.search.deployment.service.EC2DeploymentService;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
-import com.yjlee.search.dictionary.stopword.service.StopwordDictionaryService;
+import com.yjlee.search.dictionary.stopword.model.StopwordDictionary;
+import com.yjlee.search.dictionary.stopword.repository.StopwordDictionaryRepository;
 import com.yjlee.search.dictionary.unit.model.UnitDictionary;
 import com.yjlee.search.dictionary.unit.repository.UnitDictionaryRepository;
 import com.yjlee.search.dictionary.user.model.UserDictionary;
@@ -44,7 +45,7 @@ public class TempIndexService {
   private final ElasticsearchSynonymService elasticsearchSynonymService;
   private final UserDictionaryRepository userDictionaryRepository;
   private final UnitDictionaryRepository unitDictionaryRepository;
-  private final StopwordDictionaryService stopwordDictionaryService;
+  private final StopwordDictionaryRepository stopwordDictionaryRepository;
   private final EC2DeploymentService ec2DeploymentService;
   private final ResourceLoader resourceLoader;
 
@@ -141,7 +142,9 @@ public class TempIndexService {
   }
 
   private String buildUserDictionaryContent() {
-    List<UserDictionary> dictionaries = userDictionaryRepository.findAll();
+    List<UserDictionary> dictionaries =
+        userDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
+            DictionaryEnvironmentType.CURRENT);
 
     // Nori 사용자 사전 형식: 단어만 한 줄에 하나씩
     // 추가 정보가 필요한 경우 확장 가능
@@ -152,22 +155,13 @@ public class TempIndexService {
     // CURRENT 환경의 불용어 사전 가져오기 (페이징 없이 전체 조회)
     try {
       // 큰 페이지 크기로 전체 불용어 가져오기
-      var response =
-          stopwordDictionaryService.getList(
-              0, 10000, "keyword", "asc", null, DictionaryEnvironmentType.CURRENT);
+      List<StopwordDictionary> dictionaries =
+          stopwordDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
+              DictionaryEnvironmentType.CURRENT);
 
-      return response.getContent().stream()
-          .map(
-              stopword -> {
-                String keyword = stopword.getKeyword();
-                // 쉼표로 구분된 불용어들을 줄바꿈으로 구분된 형태로 변환
-                if (keyword.contains(",")) {
-                  return String.join("\n", keyword.split(",")).replaceAll("\\s+", "");
-                }
-                return keyword;
-              })
-          .reduce("", (acc, keyword) -> acc + keyword + "\n")
-          .trim();
+      return dictionaries.stream()
+          .map(StopwordDictionary::getKeyword)
+          .collect(Collectors.joining("\n"));
     } catch (Exception e) {
       log.error("불용어 사전 내용 조회 실패", e);
       return "";
@@ -175,7 +169,9 @@ public class TempIndexService {
   }
 
   private String buildUnitDictionaryContent() {
-    List<UnitDictionary> dictionaries = unitDictionaryRepository.findAll();
+    List<UnitDictionary> dictionaries =
+        unitDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
+            DictionaryEnvironmentType.CURRENT);
 
     // 단위 사전 형식: kg,킬로그램
     return dictionaries.stream().map(UnitDictionary::getKeyword).collect(Collectors.joining("\n"));
