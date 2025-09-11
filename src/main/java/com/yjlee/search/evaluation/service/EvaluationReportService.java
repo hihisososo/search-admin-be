@@ -50,13 +50,10 @@ public class EvaluationReportService {
   private final com.yjlee.search.evaluation.repository.EvaluationReportDocumentRepository
       reportDocumentRepository;
   private final SearchService searchService;
-  // private final ObjectMapper objectMapper; // 미사용
   private final ElasticsearchClient elasticsearchClient;
   private final IndexResolver indexResolver;
   private final EvaluationReportPersistenceService persistenceService;
   private final ProductBulkFetchService productBulkFetchService;
-
-  // 캐시 제거 - 직접 조회 방식으로 변경
 
   @PreDestroy
   public void shutdown() {
