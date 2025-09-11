@@ -31,7 +31,7 @@
     
     <img src="./images/evaluation_llm.png" alt="잘못된 평가" width="600">
 
-#### 평가 결과 및 분석
+#### 평가 결과 및 분석 
   - 키워드검색 : precision@20 : 0.935, recall@300 : 0.865
   - 하이브리드 : precision@20 : 0.942, recall@300 : 0.942
   - precision, recall 이 굉장히 높게 나왔습니다. 이유를 분석해보면, 단순 키워드위주의 문서 특성, 각 분석기별 결과를 pooling 한것을 평가셋으로 삼아 정답이 검색될 확률이 매우 높음, 실검색 쿼리 미반영의 영향으로 보입니다

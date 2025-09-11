@@ -309,7 +309,9 @@
   ```
 
 - 실제 검색 내용(키워드)
+
   <img src="./images/product-search-example-1.png" alt="상품 검색 예시" width="800">
 
 - 폴백 검색 내용(벡터)
+
   <img src="./images/product-search-example-2.png" alt="상품 검색 예시" width="800">

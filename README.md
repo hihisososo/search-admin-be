@@ -71,7 +71,7 @@ flowchart LR
   end
 
   rds[("Amazon RDS (PostgreSQL)")]
-  ssm[("AWS SSM Parameter Store")]
+  upstage[("Upstage API")]
   openai[("OpenAI API")]
 
   github -->|Docker Deploy| be
@@ -82,7 +82,7 @@ flowchart LR
   be -->|JDBC| rds
   be -->|ES Java Client| es
   be -->|HTTP| openai
-  be -->|SSM SDK| ssm
+  be -->|HTTP| upstage
 
   prom -->|Scrape| be
   be -->|APM Agent| apm
