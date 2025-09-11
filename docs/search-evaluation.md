@@ -14,20 +14,15 @@
 - 동일한 쿼리에 대해 실제검색(형태소)/바이그램/벡터 방식으로 질의해서 정답 후보군을 가져오도록 하여 실제 검색에서의 놓친 문서를 찾을 수 있도록 고려하였습니다
 - 평가 리소스 부족으로, 총 검색 결과 500개 이하의 작은 쿼리만 수행하였습니다
 - 쿼리는 각 카테고리별 2개(총100개) 선별하였습니다
-
-- 프롬프트(평가)
-  - [프롬프트](../src/main/resources/prompts/bulk-product-relevance-evaluation.txt)
+- [평가 프롬프트](../src/main/resources/prompts/bulk-product-relevance-evaluation.txt)
   
 #### 개선점
 - 아래와 같이 실검색에서 놓친 문서와, 동의어 등록 후보군들을 확인할 수 있었습니다
-  - 놓친 문서 예시
-    ![놓친 문서 예시](./images/evaluation_missing.png)
-  - 동의어 등록 후보
-    ![동의어 등록 후보](./images/evaluation_synonym.png)
+- <img src="./images/evaluation_missing.png" alt="놓친 문서 예시" width="600">
+- <img src="./images/evaluation_synonym.png" alt="동의어 등록 후보" width="600">
 #### 한계점
 - 평가 일관성이 부족하며, 잘못된 평가를 내리는 부분도 상당수 존재하였습니다
-  - 잘못된 평가(검색어 오이와 관련 없음에도 연관되었다고 평가)
-    ![잘못된 평가](./images/evaluation_llm.png)
+- <img src="./images/evaluation_llm.png" alt="잘못된 평가" width="600">
 
 #### 평가 결과 및 분석
   - 키워드검색 : precision@20 : 0.935, recall@300 : 0.865
