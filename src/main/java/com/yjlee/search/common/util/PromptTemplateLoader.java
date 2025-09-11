@@ -17,7 +17,7 @@ public class PromptTemplateLoader {
       ClassPathResource resource = new ClassPathResource("prompts/" + templatePath);
       return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
     } catch (IOException e) {
-      log.error("❌ 프롬프트 템플릿 로드 실패: {}", templatePath, e);
+      log.error("프롬프트 템플릿 로드 실패: {}", templatePath, e);
       return "";
     }
   }

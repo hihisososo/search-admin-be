@@ -48,7 +48,7 @@ public class LLMQueryEvaluationWorker {
       JsonNode jsonArray = objectMapper.readTree(cleanedResponse);
 
       if (!jsonArray.isArray()) {
-        log.warn("⚠️ LLM 응답이 배열 형식이 아닙니다: {}", response);
+        log.warn("LLM 응답이 배열 형식이 아닙니다: {}", response);
         return new ArrayList<>();
       }
 
@@ -103,13 +103,13 @@ public class LLMQueryEvaluationWorker {
           updatedMappings.add(updatedMapping);
 
         } catch (Exception e) {
-          log.warn("⚠️ 상품 {} 평가 결과 파싱 실패 - 미평가로 유지", mapping.getProductId(), e);
+          log.warn("상품 {} 평가 결과 파싱 실패 - 미평가로 유지", mapping.getProductId(), e);
           // 파싱 실패: 미평가로 유지
         }
       }
 
     } catch (Exception e) {
-      log.warn("⚠️ 벌크 평가 응답 전체 파싱 실패 - 미평가로 유지: {}", response, e);
+      log.warn("벌크 평가 응답 전체 파싱 실패 - 미평가로 유지: {}", response, e);
       return new ArrayList<>();
     }
 

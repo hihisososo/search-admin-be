@@ -57,7 +57,7 @@ public class LLMRateLimitManager {
 
           if (llmService.isHealthy()) {
             clearRateLimit();
-            log.info("✅ Health check 성공 - Rate limit 해제됨");
+            log.info("Health check 성공 - Rate limit 해제됨");
           } else {
             log.debug("Health check 실패 - Rate limit 여전히 활성");
           }
@@ -76,12 +76,12 @@ public class LLMRateLimitManager {
 
   public void setRateLimitActive() {
     isRateLimited.getAndSet(true);
-    log.warn("⚠️ Rate limit 활성화 - Health check로 해제 확인 예정");
+    log.warn("Rate limit 활성화 - Health check로 해제 확인 예정");
   }
 
   public void clearRateLimit() {
     isRateLimited.getAndSet(false);
-    log.info("✅ Rate limit 해제됨");
+    log.info("Rate limit 해제됨");
   }
 
   public boolean isRateLimited() {

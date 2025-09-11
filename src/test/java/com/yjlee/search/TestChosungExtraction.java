@@ -1,31 +1,35 @@
 package com.yjlee.search;
 
 import com.yjlee.search.common.util.KoreanTextUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestChosungExtraction {
+  private static final Logger log = LoggerFactory.getLogger(TestChosungExtraction.class);
+
   public static void main(String[] args) {
     String[] testWords = {"파이어쿠다", "나이키", "아디다스", "test 이용재"};
 
-    System.out.println("=== 초성 추출 테스트 ===");
+    log.debug("=== 초성 추출 테스트 ===");
     for (String word : testWords) {
       String chosung = KoreanTextUtils.extractChosung(word);
-      System.out.printf("원본: %s -> 초성: %s%n", word, chosung);
+      log.debug("원본: {} -> 초성: {}", word, chosung);
     }
 
-    System.out.println("\n=== 자소 분해 테스트 ===");
+    log.debug("=== 자소 분해 테스트 ===");
     for (String word : testWords) {
       String jamo = KoreanTextUtils.decomposeHangul(word);
-      System.out.printf("원본: %s -> 자소: %s%n", word, jamo);
+      log.debug("원본: {} -> 자소: {}", word, jamo);
     }
 
-    System.out.println("\n=== 검색 시나리오 ===");
+    log.debug("=== 검색 시나리오 ===");
     String searchKeyword = "ㅍㅇㅇㅋㄷ";
     String productName = "파이어쿠다";
     String extractedChosung = KoreanTextUtils.extractChosung(productName);
 
-    System.out.printf("상품명: %s%n", productName);
-    System.out.printf("추출된 초성: %s%n", extractedChosung);
-    System.out.printf("검색어: %s%n", searchKeyword);
-    System.out.printf("매칭 여부: %s%n", extractedChosung.startsWith(searchKeyword));
+    log.debug("상품명: {}", productName);
+    log.debug("추출된 초성: {}", extractedChosung);
+    log.debug("검색어: {}", searchKeyword);
+    log.debug("매칭 여부: {}", extractedChosung.startsWith(searchKeyword));
   }
 }

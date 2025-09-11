@@ -134,7 +134,7 @@ public class SearchBasedGroundTruthService {
     // 모든 작업 완료 대기
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-    log.info("✅ {} 쿼리의 정답 후보군 생성 완료", processType);
+    log.info("{} 쿼리의 정답 후보군 생성 완료", processType);
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)

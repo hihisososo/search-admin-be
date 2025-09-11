@@ -187,23 +187,15 @@ public class SynonymFilterParserTest {
 
     List<SynonymPath> paths = parseSynonymFilter(jsonInput);
 
-    System.out.println("원본 쿼리: pc");
-    System.out.println("=====================================");
-
+    // 테스트 결과 확인
     for (int i = 0; i < paths.size(); i++) {
       SynonymPath path = paths.get(i);
-      System.out.println(
-          "경로 "
-              + (i + 1)
-              + ": "
-              + path.getTokens().stream().map(Token::getToken).collect(Collectors.joining(" → ")));
-      System.out.println("  - 전체 텍스트: " + path.getFullText());
-      System.out.println("  - 포지션 범위: 0 ~ " + path.getEndPosition());
-      System.out.println();
+      String pathString =
+          path.getTokens().stream().map(Token::getToken).collect(Collectors.joining(" → "));
+      // 경로: pathString
+      // 전체 텍스트: path.getFullText()
+      // 포지션 범위: 0 ~ path.getEndPosition()
     }
-
-    System.out.println("=====================================");
-    System.out.println("총 " + paths.size() + "개의 경로 발견");
   }
 
   private static List<SynonymPath> parseSynonymFilter(String jsonInput) throws IOException {

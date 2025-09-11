@@ -85,7 +85,7 @@ public class EvaluationReportPersistenceService {
     if (!docRows.isEmpty()) reportDocumentRepository.saveAll(docRows);
 
     log.info(
-        "✅ 평가 결과 저장 완료: 리포트 ID {}, 상세 {}개, 문서 {}개",
+        "평가 결과 저장 완료: 리포트 ID {}, 상세 {}개, 문서 {}개",
         report.getId(),
         detailRows.size(),
         docRows.size());
@@ -107,11 +107,11 @@ public class EvaluationReportPersistenceService {
               .build();
 
       EvaluationReport savedReport = evaluationReportRepository.save(report);
-      log.info("✅ 리포트 저장 완료: ID {}", savedReport.getId());
+      log.info("리포트 저장 완료: ID {}", savedReport.getId());
       return savedReport;
 
     } catch (Exception e) {
-      log.error("❌ 리포트 저장 실패", e);
+      log.error("리포트 저장 실패", e);
       throw new RuntimeException("리포트 저장 중 오류가 발생했습니다", e);
     }
   }

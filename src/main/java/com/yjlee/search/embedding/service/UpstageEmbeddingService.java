@@ -62,7 +62,7 @@ public class UpstageEmbeddingService implements EmbeddingService {
     List<float[]> allEmbeddings = new ArrayList<>();
 
     String modelName = getModelNameByType(type);
-    log.info("🚀 Upstage {} 임베딩 생성 시작: {}개 텍스트", modelName, texts.size());
+    log.info("Upstage {} 임베딩 생성 시작: {}개 텍스트", modelName, texts.size());
 
     for (int i = 0; i < texts.size(); i += CHUNK_SIZE) {
       int endIndex = Math.min(i + CHUNK_SIZE, texts.size());
@@ -77,14 +77,14 @@ public class UpstageEmbeddingService implements EmbeddingService {
         }
 
       } catch (Exception e) {
-        log.error("❌ 청크 처리 실패: {}-{}번째", i + 1, endIndex, e);
+        log.error("청크 처리 실패: {}-{}번째", i + 1, endIndex, e);
         for (int j = 0; j < chunk.size(); j++) {
           allEmbeddings.add(getEmptyEmbedding());
         }
       }
     }
 
-    log.info("✅ Upstage 임베딩 생성 완료: {}개", allEmbeddings.size());
+    log.info("Upstage 임베딩 생성 완료: {}개", allEmbeddings.size());
     return allEmbeddings;
   }
 
@@ -125,14 +125,14 @@ public class UpstageEmbeddingService implements EmbeddingService {
 
       } catch (HttpClientErrorException e) {
         if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-          log.warn("⚠️ Rate limit 도달 (429), 30초 대기 후 재시도");
+          log.warn("Rate limit 도달 (429), 30초 대기 후 재시도");
           Thread.sleep(30000);
         } else {
           throw e;
         }
       } catch (Exception e) {
         if (e.getMessage() != null && e.getMessage().contains("429")) {
-          log.warn("⚠️ Rate limit 도달, 30초 대기 후 재시도");
+          log.warn("Rate limit 도달, 30초 대기 후 재시도");
           Thread.sleep(30000);
         } else {
           throw e;

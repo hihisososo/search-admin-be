@@ -24,7 +24,7 @@ public class LLMCandidateEvaluationService {
 
     List<EvaluationQuery> queries = evaluationQueryRepository.findAll();
     if (queries.isEmpty()) {
-      log.warn("⚠️ 평가할 쿼리가 없습니다. 먼저 쿼리를 생성해주세요.");
+      log.warn("평가할 쿼리가 없습니다. 먼저 쿼리를 생성해주세요.");
       return;
     }
 

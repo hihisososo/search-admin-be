@@ -45,7 +45,7 @@ public class SimpleDeploymentService {
   /** 색인 실행 (비동기) */
   @Transactional
   public synchronized Long executeIndexing(IndexingRequest request) {
-    log.info("색인 시작: {}", request.getDescription());
+    log.debug("색인 시작: {}", request.getDescription());
 
     // 개발 환경 조회
     IndexEnvironment devEnv = getEnvironment(IndexEnvironment.EnvironmentType.DEV);
@@ -79,7 +79,7 @@ public class SimpleDeploymentService {
   /** 배포 실행 (DEV → PROD) */
   @Transactional
   public DeploymentOperationResponse executeDeployment(DeploymentRequest request) {
-    log.info("배포 시작: {}", request.getDescription());
+    log.debug("배포 시작: {}", request.getDescription());
 
     try {
       // 환경 조회

@@ -155,11 +155,11 @@ public class EvaluationReportService {
             synchronizedQueryDetails.add(detail);
           }
         } catch (Exception e) {
-          log.warn("⚠️ 쿼리 평가 결과 수집 실패", e);
+          log.warn("쿼리 평가 결과 수집 실패", e);
         }
       }
     } catch (Exception e) {
-      log.error("⚠️ 병렬 처리 완료 대기 실패", e);
+      log.error("병렬 처리 완료 대기 실패", e);
     }
 
     // 결과 수집 (동기화된 리스트에서)
@@ -195,7 +195,7 @@ public class EvaluationReportService {
             reportName, queries.size(), avgRecall300, avgPrecision20, queryDetails);
 
     log.info(
-        "✅ 평가 실행 완료: Recall@300={}, Precision@20={}",
+        "평가 실행 완료: Recall@300={}, Precision@20={}",
         String.format("%.3f", avgRecall300),
         String.format("%.3f", avgPrecision20));
 
@@ -368,7 +368,7 @@ public class EvaluationReportService {
   private Set<String> getRelevantDocuments(String query) {
     Optional<EvaluationQuery> evaluationQueryOpt = evaluationQueryService.findByQuery(query);
     if (evaluationQueryOpt.isEmpty()) {
-      log.warn("⚠️ 평가 쿼리를 찾을 수 없습니다: {}", query);
+      log.warn("평가 쿼리를 찾을 수 없습니다: {}", query);
       return Collections.emptySet();
     }
 
@@ -399,11 +399,11 @@ public class EvaluationReportService {
               .map(product -> product.getId())
               .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
 
-      log.info("✅ 검색 결과: {} 개 상품 조회", retrievedProductIds.size());
+      log.info("검색 결과: {} 개 상품 조회", retrievedProductIds.size());
       return retrievedProductIds;
 
     } catch (Exception e) {
-      log.error("❌ 검색 API 호출 실패: {}", query, e);
+      log.error("검색 API 호출 실패: {}", query, e);
       // 검색 실패 시 빈 셋 반환
       return new HashSet<>();
     }
@@ -441,11 +441,11 @@ public class EvaluationReportService {
       List<String> retrievedProductIds =
           searchResponse.getHits().getData().stream().map(product -> product.getId()).toList();
 
-      log.info("✅ 검색 결과(ordered): {} 개 상품 조회", retrievedProductIds.size());
+      log.info("검색 결과(ordered): {} 개 상품 조회", retrievedProductIds.size());
       return retrievedProductIds;
 
     } catch (Exception e) {
-      log.error("❌ 검색 API 호출 실패(ordered): {}", query, e);
+      log.error("검색 API 호출 실패(ordered): {}", query, e);
       return java.util.Collections.emptyList();
     }
   }

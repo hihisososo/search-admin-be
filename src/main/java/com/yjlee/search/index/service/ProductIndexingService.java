@@ -76,9 +76,9 @@ public class ProductIndexingService {
   private int indexProducts(String targetIndex, Integer maxDocuments) throws IOException {
     String indexName = targetIndex != null ? targetIndex : ESFields.PRODUCTS_INDEX_PREFIX;
     if (maxDocuments != null && maxDocuments > 0) {
-      log.info("상품 색인 시작: {} (최대 {}개)", indexName, maxDocuments);
+      log.debug("상품 색인 시작: {} (최대 {}개)", indexName, maxDocuments);
     } else {
-      log.info("상품 색인 시작: {} (전체)", indexName);
+      log.debug("상품 색인 시작: {} (전체)", indexName);
     }
 
     // 색인 시작 시 refresh_interval 비활성화
@@ -136,7 +136,7 @@ public class ProductIndexingService {
     progressMonitor.complete();
     refreshIndexes(targetIndex);
 
-    log.info("상품 색인 완료: {}개 색인됨", totalIndexed);
+    log.info("상품 색인 완료: {}개", totalIndexed);
     return totalIndexed;
   }
 

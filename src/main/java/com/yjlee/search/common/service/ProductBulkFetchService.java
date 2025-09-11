@@ -67,7 +67,7 @@ public class ProductBulkFetchService {
       return productMap;
 
     } catch (Exception e) {
-      log.error("⚠️ ES 벌크 조회 실패", e);
+      log.error("ES 벌크 조회 실패", e);
       log.warn("벌크 조회 실패, 개별 조회로 폴백 실행");
       return fetchIndividually(productIds, environmentType);
     }
@@ -110,7 +110,7 @@ public class ProductBulkFetchService {
       return response.found() ? response.source() : null;
 
     } catch (Exception e) {
-      log.warn("⚠️ ES에서 상품 {} 조회 실패", productId, e);
+      log.warn("ES에서 상품 {} 조회 실패", productId, e);
       return null;
     }
   }
