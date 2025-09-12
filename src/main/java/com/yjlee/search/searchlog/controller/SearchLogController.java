@@ -6,16 +6,12 @@ import com.yjlee.search.searchlog.dto.SearchLogResponse;
 import com.yjlee.search.searchlog.service.SearchLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Slf4j
 @Tag(name = "Search Log", description = "검색 로그 관리 API")
 @RestController
 @RequestMapping("/api/v1/search-logs")
@@ -25,48 +21,16 @@ public class SearchLogController {
   private final SearchLogService searchLogService;
 
   @Operation(summary = "검색 로그 조회", description = "다양한 조건으로 검색 로그를 조회합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-    @ApiResponse(responseCode = "500", description = "서버 오류")
-  })
   @GetMapping
   public ResponseEntity<SearchLogListResponse> getSearchLogs(
       @ParameterObject SearchLogListRequest request) {
-    log.info(
-        "검색 로그 조회 요청 - 페이지: {}, 크기: {}, 키워드: {}",
-        request.getPage(),
-        request.getSize(),
-        request.getKeyword());
-    SearchLogListResponse response = searchLogService.getSearchLogs(request);
-    log.info(
-        "검색 로그 조회 완료 - 실제 페이지: {}/{}, 크기: {}, 조회된 건수: {}, 총 건수: {}",
-        response.getCurrentPage(),
-        response.getTotalPages(),
-        response.getSize(),
-        response.getContent().size(),
-        response.getTotalElements());
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(searchLogService.getSearchLogs(request));
   }
 
   @Operation(summary = "검색 로그 상세 조회", description = "특정 검색 로그의 상세 정보를 조회합니다.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "성공"),
-    @ApiResponse(responseCode = "404", description = "로그를 찾을 수 없음"),
-    @ApiResponse(responseCode = "500", description = "서버 오류")
-  })
   @GetMapping("/{logId}")
   public ResponseEntity<SearchLogResponse> getSearchLogDetail(
       @Parameter(description = "검색 로그 ID", required = true) @PathVariable String logId) {
-    log.info("검색 로그 상세 조회 요청 - ID: {}", logId);
-    SearchLogResponse response = searchLogService.getSearchLogDetail(logId);
-
-    if (response == null) {
-      log.warn("검색 로그를 찾을 수 없음 - ID: {}", logId);
-      return ResponseEntity.notFound().build();
-    }
-
-    log.info("검색 로그 상세 조회 완료 - ID: {}", logId);
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(searchLogService.getSearchLogDetail(logId));
   }
 }

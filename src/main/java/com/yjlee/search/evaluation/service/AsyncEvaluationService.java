@@ -55,8 +55,9 @@ public class AsyncEvaluationService {
     self.generateCandidatesAsync(task.getId(), request);
     return task.getId();
   }
-  
-  public AsyncTaskStartResponse startCandidateGenerationWithResponse(GenerateCandidatesRequest request) {
+
+  public AsyncTaskStartResponse startCandidateGenerationWithResponse(
+      GenerateCandidatesRequest request) {
     Long taskId = startCandidateGeneration(request);
     return AsyncTaskStartResponse.builder()
         .taskId(taskId)
@@ -71,8 +72,9 @@ public class AsyncEvaluationService {
     self.executeEvaluationAsync(task.getId(), request);
     return task.getId();
   }
-  
-  public AsyncTaskStartResponse startEvaluationExecutionWithResponse(EvaluationExecuteAsyncRequest request) {
+
+  public AsyncTaskStartResponse startEvaluationExecutionWithResponse(
+      EvaluationExecuteAsyncRequest request) {
     Long taskId = startEvaluationExecution(request);
     return AsyncTaskStartResponse.builder()
         .taskId(taskId)
@@ -87,8 +89,9 @@ public class AsyncEvaluationService {
     self.evaluateLLMCandidatesAsync(task.getId(), request);
     return task.getId();
   }
-  
-  public AsyncTaskStartResponse startLLMCandidateEvaluationWithResponse(LLMEvaluationRequest request) {
+
+  public AsyncTaskStartResponse startLLMCandidateEvaluationWithResponse(
+      LLMEvaluationRequest request) {
     Long taskId = startLLMCandidateEvaluation(request);
     return AsyncTaskStartResponse.builder()
         .taskId(taskId)

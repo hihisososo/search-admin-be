@@ -212,11 +212,11 @@ public class TempIndexService {
 
   public TempIndexRefreshResponse refreshTempIndexWithResponse() {
     log.info("임시 인덱스 갱신 요청");
-    
+
     try {
       refreshTempIndex();
       log.info("임시 인덱스 갱신 완료");
-      
+
       return TempIndexRefreshResponse.builder()
           .status("success")
           .message("임시 인덱스가 성공적으로 갱신되었습니다")

@@ -41,16 +41,18 @@ public class ProductBulkFetchService {
     try {
 
       String indexName = indexResolver.resolveProductIndex(environmentType);
-      MgetRequest.Builder requestBuilder = new MgetRequest.Builder()
-          .index(indexName)
-          .sourceExcludes(VectorSearchConstants.getVectorFieldsToExclude());
+      MgetRequest.Builder requestBuilder =
+          new MgetRequest.Builder()
+              .index(indexName)
+              .sourceExcludes(VectorSearchConstants.getVectorFieldsToExclude());
 
       for (String productId : productIds) {
         requestBuilder.ids(productId);
       }
 
       MgetRequest request = requestBuilder.build();
-      MgetResponse<ProductDocument> response = elasticsearchClient.mget(request, ProductDocument.class);
+      MgetResponse<ProductDocument> response =
+          elasticsearchClient.mget(request, ProductDocument.class);
 
       Map<String, ProductDocument> productMap = new HashMap<>();
       for (MultiGetResponseItem<ProductDocument> item : response.docs()) {
@@ -94,12 +96,15 @@ public class ProductBulkFetchService {
     try {
       String indexName = indexResolver.resolveProductIndex(environmentType);
 
-      GetRequest request = GetRequest.of(
-          g -> g.index(indexName)
-              .id(productId)
-              .sourceExcludes(VectorSearchConstants.getVectorFieldsToExclude()));
+      GetRequest request =
+          GetRequest.of(
+              g ->
+                  g.index(indexName)
+                      .id(productId)
+                      .sourceExcludes(VectorSearchConstants.getVectorFieldsToExclude()));
 
-      GetResponse<ProductDocument> response = elasticsearchClient.get(request, ProductDocument.class);
+      GetResponse<ProductDocument> response =
+          elasticsearchClient.get(request, ProductDocument.class);
       return response.found() ? Optional.ofNullable(response.source()) : Optional.empty();
 
     } catch (Exception e) {

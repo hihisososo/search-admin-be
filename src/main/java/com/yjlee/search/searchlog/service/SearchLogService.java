@@ -1,32 +1,21 @@
 package com.yjlee.search.searchlog.service;
 
-import static com.yjlee.search.searchlog.dto.PopularKeywordDto.RankChangeStatus.*;
-
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
-import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
-import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
-import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
-import com.yjlee.search.searchlog.dto.PopularKeywordDto;
-import com.yjlee.search.searchlog.dto.PopularKeywordsResponse;
 import com.yjlee.search.searchlog.dto.SearchLogListRequest;
 import com.yjlee.search.searchlog.dto.SearchLogListResponse;
 import com.yjlee.search.searchlog.dto.SearchLogResponse;
-import com.yjlee.search.searchlog.dto.TrendingKeywordDto;
-import com.yjlee.search.searchlog.dto.TrendingKeywordsResponse;
+import com.yjlee.search.searchlog.exception.SearchLogNotFoundException;
 import com.yjlee.search.searchlog.model.SearchLogDocument;
-import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -69,296 +58,6 @@ public class SearchLogService {
     } catch (Exception e) {
       log.error("Failed to save search log: {}", e.getMessage(), e);
     }
-  }
-
-  /**
-   * 인기 검색어 조회
-   *
-   * @param fromDate 조회 시작 날짜
-   * @param toDate 조회 종료 날짜
-   * @param limit 결과 개수 제한
-   * @return 인기 검색어 응답
-   */
-  public PopularKeywordsResponse getPopularKeywords(
-      LocalDateTime fromDate, LocalDateTime toDate, int limit) {
-    log.info("인기 검색어 조회 요청 - 기간: {} ~ {}, 제한: {}", fromDate, toDate, limit);
-
-    try {
-      // 현재 기간의 인기 검색어 조회
-      List<PopularKeywordDto> currentKeywords = getPopularKeywordsList(fromDate, toDate, limit);
-
-      // 이전 기간 계산 (동일한 기간만큼 이전)
-      long periodDays = Duration.between(fromDate, toDate).toDays();
-      LocalDateTime previousFromDate = fromDate.minusDays(periodDays);
-      LocalDateTime previousToDate = fromDate;
-
-      // 이전 기간의 인기 검색어 조회
-      List<PopularKeywordDto> previousKeywords =
-          getPopularKeywordsList(previousFromDate, previousToDate, limit * 2);
-
-      // 변동폭 계산
-      List<PopularKeywordDto> keywordsWithRankChange =
-          calculateRankChanges(currentKeywords, previousKeywords);
-
-      log.info("인기 검색어 조회 완료 - 결과 수: {}", keywordsWithRankChange.size());
-
-      return PopularKeywordsResponse.builder()
-          .keywords(keywordsWithRankChange)
-          .fromDate(fromDate)
-          .toDate(toDate)
-          .totalCount(keywordsWithRankChange.size())
-          .lastUpdated(LocalDateTime.now(ZoneOffset.UTC))
-          .build();
-
-    } catch (Exception e) {
-      log.error("인기 검색어 조회 실패", e);
-      throw new RuntimeException("인기 검색어 조회 실패: " + e.getMessage(), e);
-    }
-  }
-
-  /** 특정 기간의 인기 검색어 목록 조회 (내부 메서드) */
-  private List<PopularKeywordDto> getPopularKeywordsList(
-      LocalDateTime fromDate, LocalDateTime toDate, int limit) {
-    try {
-      String indexPattern = generateIndexPattern(fromDate, toDate);
-
-      SearchRequest searchRequest =
-          SearchRequest.of(
-              s ->
-                  s.index(indexPattern)
-                      .size(0)
-                      .query(buildDateRangeQuery(fromDate, toDate))
-                      .aggregations(
-                          "popular_keywords",
-                          Aggregation.of(
-                              a ->
-                                  a.terms(
-                                      t ->
-                                          t.field("searchKeyword.keyword")
-                                              .size(limit)
-                                              .minDocCount(1)))));
-
-      SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
-
-      List<PopularKeywordDto> popularKeywords = new ArrayList<>();
-      if (response.aggregations() != null
-          && response.aggregations().get("popular_keywords") != null) {
-        StringTermsAggregate termsAgg = response.aggregations().get("popular_keywords").sterms();
-        int rank = 1;
-        for (StringTermsBucket bucket : termsAgg.buckets().array()) {
-          popularKeywords.add(
-              PopularKeywordDto.builder()
-                  .keyword(bucket.key().stringValue())
-                  .searchCount(bucket.docCount())
-                  .rank(rank++)
-                  .build());
-        }
-      }
-
-      return popularKeywords;
-    } catch (Exception e) {
-      log.warn("인기 검색어 조회 실패 (기간: {} ~ {}): {}", fromDate, toDate, e.getMessage());
-      return new ArrayList<>();
-    }
-  }
-
-  /** 순위 변동 계산 */
-  private List<PopularKeywordDto> calculateRankChanges(
-      List<PopularKeywordDto> currentKeywords, List<PopularKeywordDto> previousKeywords) {
-
-    // 이전 기간 키워드 순위 맵 생성
-    Map<String, Integer> previousRankMap =
-        previousKeywords.stream()
-            .collect(
-                Collectors.toMap(
-                    PopularKeywordDto::getKeyword,
-                    PopularKeywordDto::getRank,
-                    (existing, replacement) -> existing));
-
-    return currentKeywords.stream()
-        .map(
-            current -> {
-              Integer previousRank = previousRankMap.get(current.getKeyword());
-              Integer rankChange = null;
-              PopularKeywordDto.RankChangeStatus changeStatus = null;
-
-              if (previousRank == null) {
-                // 신규 진입
-                changeStatus = NEW;
-              } else {
-                // 순위 변동 계산 (이전 순위 - 현재 순위, 양수면 상승)
-                rankChange = previousRank - current.getRank();
-
-                if (rankChange > 0) {
-                  changeStatus = UP;
-                } else if (rankChange < 0) {
-                  changeStatus = DOWN;
-                } else {
-                  changeStatus = SAME;
-                }
-              }
-
-              return PopularKeywordDto.builder()
-                  .keyword(current.getKeyword())
-                  .searchCount(current.getSearchCount())
-                  .rank(current.getRank())
-                  .previousRank(previousRank)
-                  .rankChange(rankChange)
-                  .changeStatus(changeStatus)
-                  .build();
-            })
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * 급등 검색어 조회
-   *
-   * @param currentFromDate 현재 기간 시작
-   * @param currentToDate 현재 기간 종료
-   * @param previousFromDate 비교 기간 시작
-   * @param previousToDate 비교 기간 종료
-   * @param limit 결과 개수 제한
-   * @return 급등 검색어 응답
-   */
-  public TrendingKeywordsResponse getTrendingKeywords(
-      LocalDateTime currentFromDate,
-      LocalDateTime currentToDate,
-      LocalDateTime previousFromDate,
-      LocalDateTime previousToDate,
-      int limit) {
-
-    log.info(
-        "급등 검색어 조회 요청 - 현재: {} ~ {}, 이전: {} ~ {}, 제한: {}",
-        currentFromDate,
-        currentToDate,
-        previousFromDate,
-        previousToDate,
-        limit);
-
-    try {
-      Map<String, Long> currentCounts = getKeywordCounts(currentFromDate, currentToDate, limit * 3);
-      Map<String, Long> previousCounts =
-          getKeywordCounts(previousFromDate, previousToDate, limit * 3);
-
-      List<TrendingKeywordDto> trendingKeywords = new ArrayList<>();
-
-      for (Map.Entry<String, Long> entry : currentCounts.entrySet()) {
-        String keyword = entry.getKey();
-        Long currentCount = entry.getValue();
-        Long previousCount = previousCounts.getOrDefault(keyword, 0L);
-
-        if (currentCount >= 5) {
-          double growthRate =
-              previousCount == 0
-                  ? currentCount * 100.0
-                  : ((double) (currentCount - previousCount) / previousCount) * 100.0;
-
-          if (growthRate > 50.0) {
-            trendingKeywords.add(
-                TrendingKeywordDto.builder()
-                    .keyword(keyword)
-                    .currentCount(currentCount)
-                    .previousCount(previousCount)
-                    .growthRate(Math.round(growthRate * 10.0) / 10.0)
-                    .build());
-          }
-        }
-      }
-
-      trendingKeywords.sort((a, b) -> b.getGrowthRate().compareTo(a.getGrowthRate()));
-
-      int rank = 1;
-      for (int i = 0; i < Math.min(limit, trendingKeywords.size()); i++) {
-        TrendingKeywordDto keyword = trendingKeywords.get(i);
-        trendingKeywords.set(
-            i,
-            TrendingKeywordDto.builder()
-                .keyword(keyword.getKeyword())
-                .currentCount(keyword.getCurrentCount())
-                .previousCount(keyword.getPreviousCount())
-                .growthRate(keyword.getGrowthRate())
-                .rank(rank++)
-                .build());
-      }
-
-      List<TrendingKeywordDto> finalResult =
-          trendingKeywords.subList(0, Math.min(limit, trendingKeywords.size()));
-
-      log.info("급등 검색어 조회 완료 - 결과 수: {}", finalResult.size());
-
-      return TrendingKeywordsResponse.builder()
-          .keywords(finalResult)
-          .currentFromDate(currentFromDate)
-          .currentToDate(currentToDate)
-          .previousFromDate(previousFromDate)
-          .previousToDate(previousToDate)
-          .totalCount(finalResult.size())
-          .lastUpdated(LocalDateTime.now(ZoneOffset.UTC))
-          .build();
-
-    } catch (Exception e) {
-      log.error("급등 검색어 조회 실패", e);
-      throw new RuntimeException("급등 검색어 조회 실패: " + e.getMessage(), e);
-    }
-  }
-
-  private Map<String, Long> getKeywordCounts(
-      LocalDateTime fromDate, LocalDateTime toDate, int limit) {
-    try {
-      String indexPattern = generateIndexPattern(fromDate, toDate);
-
-      SearchRequest searchRequest =
-          SearchRequest.of(
-              s ->
-                  s.index(indexPattern)
-                      .size(0)
-                      .query(buildDateRangeQuery(fromDate, toDate))
-                      .aggregations(
-                          "keyword_counts",
-                          Aggregation.of(
-                              a ->
-                                  a.terms(
-                                      t ->
-                                          t.field("searchKeyword.keyword")
-                                              .size(limit)
-                                              .minDocCount(1)))));
-
-      SearchResponse<JsonNode> response = elasticsearchClient.search(searchRequest, JsonNode.class);
-
-      Map<String, Long> keywordCounts = new HashMap<>();
-      if (response.aggregations() != null
-          && response.aggregations().get("keyword_counts") != null) {
-        StringTermsAggregate termsAgg = response.aggregations().get("keyword_counts").sterms();
-        for (StringTermsBucket bucket : termsAgg.buckets().array()) {
-          keywordCounts.put(bucket.key().stringValue(), bucket.docCount());
-        }
-      }
-
-      return keywordCounts;
-    } catch (Exception e) {
-      log.error("키워드 카운트 조회 실패", e);
-      return new HashMap<>();
-    }
-  }
-
-  private Query buildDateRangeQuery(LocalDateTime fromDate, LocalDateTime toDate) {
-    return Query.of(
-        q ->
-            q.bool(
-                BoolQuery.of(
-                    b ->
-                        b.filter(Query.of(f -> f.term(t -> t.field("isError").value(false))))
-                            .filter(Query.of(f -> f.exists(e -> e.field("searchKeyword"))))
-                            .filter(
-                                Query.of(
-                                    f ->
-                                        f.range(
-                                            r ->
-                                                r.date(
-                                                    d ->
-                                                        d.field("timestamp")
-                                                            .gte(fromDate.toString())
-                                                            .lte(toDate.toString()))))))));
   }
 
   private String generateIndexPattern(LocalDateTime fromDate, LocalDateTime toDate) {
@@ -433,6 +132,12 @@ public class SearchLogService {
     int page = Math.max(0, request.getPage() != null ? request.getPage() : 0);
     int size = Math.max(1, Math.min(100, request.getSize() != null ? request.getSize() : 10));
 
+    log.info(
+        "검색 로그 조회 요청 - 페이지: {}, 크기: {}, 키워드: {}",
+        request.getPage(),
+        request.getSize(),
+        request.getKeyword());
+
     try {
 
       String indexPattern = generateIndexPattern(request.getStartDate(), request.getEndDate());
@@ -497,15 +202,26 @@ public class SearchLogService {
         log.warn("요청한 페이지({})가 총 페이지({})를 초과함. 총 건수: {}", page, totalPages, totalElements);
       }
 
-      return SearchLogListResponse.builder()
-          .content(content)
-          .totalElements(totalElements)
-          .totalPages(totalPages)
-          .currentPage(page)
-          .size(size)
-          .hasNext(page < totalPages - 1)
-          .hasPrevious(page > 0)
-          .build();
+      SearchLogListResponse result =
+          SearchLogListResponse.builder()
+              .content(content)
+              .totalElements(totalElements)
+              .totalPages(totalPages)
+              .currentPage(page)
+              .size(size)
+              .hasNext(page < totalPages - 1)
+              .hasPrevious(page > 0)
+              .build();
+
+      log.info(
+          "검색 로그 조회 완료 - 실제 페이지: {}/{}, 크기: {}, 조회된 건수: {}, 총 건수: {}",
+          result.getCurrentPage(),
+          result.getTotalPages(),
+          result.getSize(),
+          result.getContent().size(),
+          result.getTotalElements());
+
+      return result;
 
     } catch (Exception e) {
       log.error(
@@ -651,7 +367,7 @@ public class SearchLogService {
 
       if (response.hits().hits().isEmpty()) {
         log.warn("검색 로그를 찾을 수 없음 - ID: {}", logId);
-        return null;
+        throw new SearchLogNotFoundException(logId);
       }
 
       return convertToResponse(response.hits().hits().get(0));

@@ -471,19 +471,21 @@ public class EvaluationReportService {
     return evaluationReportRepository.findByReportNameContainingIgnoreCaseOrderByCreatedAtDesc(
         keyword.trim());
   }
-  
+
   @Transactional(readOnly = true)
   public List<EvaluationReportSummaryResponse> getReportSummariesByKeyword(String keyword) {
     List<EvaluationReport> reports = getReportsByKeyword(keyword);
     return reports.stream()
-        .map(r -> EvaluationReportSummaryResponse.builder()
-            .id(r.getId())
-            .reportName(r.getReportName())
-            .totalQueries(r.getTotalQueries())
-            .averagePrecision20(r.getAveragePrecision20())
-            .averageRecall300(r.getAverageRecall300())
-            .createdAt(r.getCreatedAt())
-            .build())
+        .map(
+            r ->
+                EvaluationReportSummaryResponse.builder()
+                    .id(r.getId())
+                    .reportName(r.getReportName())
+                    .totalQueries(r.getTotalQueries())
+                    .averagePrecision20(r.getAveragePrecision20())
+                    .averageRecall300(r.getAverageRecall300())
+                    .createdAt(r.getCreatedAt())
+                    .build())
         .toList();
   }
 
@@ -494,18 +496,17 @@ public class EvaluationReportService {
 
   @Transactional(readOnly = true)
   public EvaluationReportDetailResponse getReportDetail(Long reportId) {
-    EvaluationReport report = evaluationReportRepository.findById(reportId)
-        .orElseThrow(() -> new ReportNotFoundException(reportId));
+    EvaluationReport report =
+        evaluationReportRepository
+            .findById(reportId)
+            .orElseThrow(() -> new ReportNotFoundException(reportId));
 
     // 상세/문서 테이블에서 조회
-    List<EvaluationReportDetail> rows =
-        reportDetailRepository.findByReport(report);
+    List<EvaluationReportDetail> rows = reportDetailRepository.findByReport(report);
     List<EvaluationReportDocument> miss =
-        reportDocumentRepository.findByReportAndDocType(
-            report, ReportDocumentType.MISSING);
+        reportDocumentRepository.findByReportAndDocType(report, ReportDocumentType.MISSING);
     List<EvaluationReportDocument> wrong =
-        reportDocumentRepository.findByReportAndDocType(
-            report, ReportDocumentType.WRONG);
+        reportDocumentRepository.findByReportAndDocType(report, ReportDocumentType.WRONG);
 
     Map<String, List<EvaluationReportDetailResponse.DocumentInfo>> missingByQuery = new HashMap<>();
     for (var d : miss) {

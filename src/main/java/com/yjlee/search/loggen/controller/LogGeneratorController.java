@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/log-generator")
 @RequiredArgsConstructor
 public class LogGeneratorController {
-  
+
   private final LogGeneratorService logGeneratorService;
 
   @Operation(summary = "로그 생성기 활성화")

@@ -46,7 +46,7 @@ public class BulkLogGeneratorService {
       DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
   private final Random random = new Random();
-  
+
   public Map<String, Object> generateBulkLogsWithResponse(BulkLogGenerationRequest request) {
     log.info(
         "대량 로그 생성 요청 - 기간: {} ~ {}, 일별: {}개, 클릭률: {}%",
@@ -54,10 +54,10 @@ public class BulkLogGeneratorService {
         request.getEndDate(),
         request.getLogsPerDay(),
         request.getClickRate() * 100);
-    
+
     try {
       generateBulkLogs(request);
-      
+
       return Map.of(
           "status", "success",
           "message", "대량 로그 생성이 완료되었습니다.",

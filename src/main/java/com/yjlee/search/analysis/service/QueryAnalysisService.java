@@ -1,12 +1,12 @@
 package com.yjlee.search.analysis.service;
 
+import com.yjlee.search.analysis.dto.QueryAnalysisRequest;
+import com.yjlee.search.analysis.dto.QueryAnalysisResponse;
+import com.yjlee.search.analysis.model.TokenGraph;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.analysis.dto.QueryAnalysisRequest;
-import com.yjlee.search.analysis.dto.QueryAnalysisResponse;
-import com.yjlee.search.analysis.model.TokenGraph;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;

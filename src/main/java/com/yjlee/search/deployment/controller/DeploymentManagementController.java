@@ -83,7 +83,8 @@ public class DeploymentManagementController {
               example = "true")
           @RequestParam(required = false, defaultValue = "false")
           boolean confirmDelete) {
-    DeleteUnusedIndicesResponse response = deploymentService.deleteUnusedIndicesWithConfirmation(confirmDelete);
+    DeleteUnusedIndicesResponse response =
+        deploymentService.deleteUnusedIndicesWithConfirmation(confirmDelete);
     if (confirmDelete && !response.isSuccess()) {
       return ResponseEntity.ok(response);
     } else if (!confirmDelete) {

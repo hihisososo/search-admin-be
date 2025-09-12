@@ -28,7 +28,9 @@ public class QueryAnalysisController {
   private final TempIndexService tempIndexService;
   private final IndexAnalysisService indexAnalysisService;
 
-  @Operation(summary = "쿼리 분석", description = "입력된 쿼리를 분석하여 형태소 분석, 동의어 확장, 단위 추출, 모델명 추출 결과를 반환합니다.")
+  @Operation(
+      summary = "쿼리 분석",
+      description = "입력된 쿼리를 분석하여 형태소 분석, 동의어 확장, 단위 추출, 모델명 추출 결과를 반환합니다.")
   @PostMapping("/query-analysis")
   public ResponseEntity<QueryAnalysisResponse> analyzeQuery(
       @RequestBody @Valid QueryAnalysisRequest request) {

@@ -2,7 +2,6 @@ package com.yjlee.search.common.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.yjlee.search.common.util.KoreanTextUtils;
 import org.junit.jupiter.api.Test;
 
 class KoreanTextUtilsTest {

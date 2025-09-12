@@ -83,9 +83,10 @@ public class AsyncTaskService {
   public Optional<AsyncTaskResponse> getTask(Long taskId) {
     return asyncTaskRepository.findById(taskId).map(this::convertToResponse);
   }
-  
+
   public AsyncTaskResponse getTaskOrThrow(Long taskId) {
-    return asyncTaskRepository.findById(taskId)
+    return asyncTaskRepository
+        .findById(taskId)
         .map(this::convertToResponse)
         .orElseThrow(() -> new TaskNotFoundException(taskId));
   }

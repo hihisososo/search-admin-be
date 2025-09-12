@@ -171,7 +171,8 @@ public class EvaluationSetController {
   @Operation(summary = "LLM 자동 후보군 평가 (비동기)")
   public ResponseEntity<AsyncTaskStartResponse> evaluateLLMCandidatesAsync(
       @Valid @RequestBody LLMEvaluationRequest request) {
-    return ResponseEntity.ok(asyncEvaluationService.startLLMCandidateEvaluationWithResponse(request));
+    return ResponseEntity.ok(
+        asyncEvaluationService.startLLMCandidateEvaluationWithResponse(request));
   }
 
   @PostMapping("/queries")

@@ -90,16 +90,10 @@ public class SimpleDeploymentService {
   public IndexingStartResponse executeIndexingWithResponse(IndexingRequest request) {
     try {
       Long taskId = executeIndexing(request);
-      return IndexingStartResponse.builder()
-          .taskId(taskId)
-          .message("색인 작업이 시작되었습니다")
-          .build();
+      return IndexingStartResponse.builder().taskId(taskId).message("색인 작업이 시작되었습니다").build();
     } catch (IllegalStateException e) {
       log.error("색인 실행 실패: {}", e.getMessage());
-      return IndexingStartResponse.builder()
-          .taskId(null)
-          .message(e.getMessage())
-          .build();
+      return IndexingStartResponse.builder().taskId(null).message(e.getMessage()).build();
     }
   }
 
@@ -263,12 +257,13 @@ public class SimpleDeploymentService {
   public DeleteUnusedIndicesResponse deleteUnusedIndicesWithConfirmation(boolean confirmDelete) {
     if (!confirmDelete) {
       log.warn("미사용 인덱스 삭제 요청 거부 - confirmDelete=false");
-      return DeleteUnusedIndicesResponse.of(new ArrayList<>(), new ArrayList<>(), 0, new ArrayList<>(), new ArrayList<>(), 0);
+      return DeleteUnusedIndicesResponse.of(
+          new ArrayList<>(), new ArrayList<>(), 0, new ArrayList<>(), new ArrayList<>(), 0);
     }
-    
+
     log.info("미사용 인덱스 삭제 요청 - confirmDelete=true");
     DeleteUnusedIndicesResponse response = deleteUnusedIndices();
-    
+
     if (response.isSuccess()) {
       log.info("미사용 인덱스 삭제 완료 - {}개 삭제", response.getDeletedCount());
     } else {
@@ -277,7 +272,7 @@ public class SimpleDeploymentService {
           response.getDeletedCount(),
           response.getFailedCount());
     }
-    
+
     return response;
   }
 
