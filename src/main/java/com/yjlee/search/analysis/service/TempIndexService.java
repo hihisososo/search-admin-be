@@ -1,4 +1,4 @@
-package com.yjlee.search.search.analysis.service;
+package com.yjlee.search.analysis.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
 import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
+import com.yjlee.search.analysis.dto.TempIndexRefreshResponse;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.constant.DeploymentConstants;
 import com.yjlee.search.deployment.service.EC2DeploymentService;
@@ -206,6 +207,24 @@ public class TempIndexService {
     } catch (IOException e) {
       log.error("임시 인덱스 존재 확인 실패", e);
       return false;
+    }
+  }
+
+  public TempIndexRefreshResponse refreshTempIndexWithResponse() {
+    log.info("임시 인덱스 갱신 요청");
+    
+    try {
+      refreshTempIndex();
+      log.info("임시 인덱스 갱신 완료");
+      
+      return TempIndexRefreshResponse.builder()
+          .status("success")
+          .message("임시 인덱스가 성공적으로 갱신되었습니다")
+          .indexName(getTempIndexName())
+          .build();
+    } catch (IOException e) {
+      log.error("임시 인덱스 갱신 실패", e);
+      throw new RuntimeException("임시 인덱스 갱신 중 오류가 발생했습니다: " + e.getMessage());
     }
   }
 }

@@ -9,11 +9,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Slf4j
 @Tag(name = "Click Log", description = "클릭 로그 API")
 @RestController
 @RequestMapping("/api/v1/click-logs")
@@ -30,11 +28,6 @@ public class ClickLogController {
   })
   @PostMapping
   public ResponseEntity<ClickLogResponse> logClick(@Valid @RequestBody ClickLogRequest request) {
-
-    log.debug(
-        "클릭 로그 요청 - 키워드: {}, 상품: {}", request.getSearchKeyword(), request.getClickedProductId());
-
-    ClickLogResponse response = clickLogService.logClick(request);
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(clickLogService.logClick(request));
   }
 }

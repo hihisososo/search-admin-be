@@ -85,6 +85,24 @@ public class SimpleDeploymentService {
     }
   }
 
+  /** 색인 실행 (비동기) - Response 포함 */
+  @Transactional
+  public IndexingStartResponse executeIndexingWithResponse(IndexingRequest request) {
+    try {
+      Long taskId = executeIndexing(request);
+      return IndexingStartResponse.builder()
+          .taskId(taskId)
+          .message("색인 작업이 시작되었습니다")
+          .build();
+    } catch (IllegalStateException e) {
+      log.error("색인 실행 실패: {}", e.getMessage());
+      return IndexingStartResponse.builder()
+          .taskId(null)
+          .message(e.getMessage())
+          .build();
+    }
+  }
+
   /** 배포 실행 (DEV → PROD) */
   @Transactional
   public DeploymentOperationResponse executeDeployment(DeploymentRequest request) {
@@ -238,6 +256,29 @@ public class SimpleDeploymentService {
       log.error("미사용 인덱스 조회 실패", e);
       throw new RuntimeException("미사용 인덱스 조회 실패", e);
     }
+  }
+
+  /** 미사용 인덱스 삭제 - 확인 플래그 포함 */
+  @Transactional
+  public DeleteUnusedIndicesResponse deleteUnusedIndicesWithConfirmation(boolean confirmDelete) {
+    if (!confirmDelete) {
+      log.warn("미사용 인덱스 삭제 요청 거부 - confirmDelete=false");
+      return DeleteUnusedIndicesResponse.of(new ArrayList<>(), new ArrayList<>(), 0, new ArrayList<>(), new ArrayList<>(), 0);
+    }
+    
+    log.info("미사용 인덱스 삭제 요청 - confirmDelete=true");
+    DeleteUnusedIndicesResponse response = deleteUnusedIndices();
+    
+    if (response.isSuccess()) {
+      log.info("미사용 인덱스 삭제 완료 - {}개 삭제", response.getDeletedCount());
+    } else {
+      log.warn(
+          "미사용 인덱스 삭제 부분 실패 - 성공: {}, 실패: {}",
+          response.getDeletedCount(),
+          response.getFailedCount());
+    }
+    
+    return response;
   }
 
   /** 미사용 인덱스 삭제 */

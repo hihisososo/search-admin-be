@@ -5,12 +5,6 @@ import com.yjlee.search.deployment.model.IndexEnvironment;
 
 public class EnvironmentTypeConverter {
 
-  /**
-   * IndexEnvironment.EnvironmentType을 DictionaryEnvironmentType으로 변환
-   *
-   * @param indexEnvType 인덱스 환경 타입
-   * @return 사전 환경 타입
-   */
   public static DictionaryEnvironmentType toDictionaryEnvironmentType(
       IndexEnvironment.EnvironmentType indexEnvType) {
     if (indexEnvType == null) {
@@ -23,12 +17,6 @@ public class EnvironmentTypeConverter {
     };
   }
 
-  /**
-   * DictionaryEnvironmentType을 IndexEnvironment.EnvironmentType으로 변환
-   *
-   * @param dictEnvType 사전 환경 타입
-   * @return 인덱스 환경 타입 (CURRENT는 PROD로 매핑)
-   */
   public static IndexEnvironment.EnvironmentType toIndexEnvironmentType(
       DictionaryEnvironmentType dictEnvType) {
     if (dictEnvType == null) {

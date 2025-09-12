@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -45,6 +46,30 @@ public class BulkLogGeneratorService {
       DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
   private final Random random = new Random();
+  
+  public Map<String, Object> generateBulkLogsWithResponse(BulkLogGenerationRequest request) {
+    log.info(
+        "대량 로그 생성 요청 - 기간: {} ~ {}, 일별: {}개, 클릭률: {}%",
+        request.getStartDate(),
+        request.getEndDate(),
+        request.getLogsPerDay(),
+        request.getClickRate() * 100);
+    
+    try {
+      generateBulkLogs(request);
+      
+      return Map.of(
+          "status", "success",
+          "message", "대량 로그 생성이 완료되었습니다.",
+          "startDate", request.getStartDate(),
+          "endDate", request.getEndDate(),
+          "logsPerDay", request.getLogsPerDay(),
+          "clickRate", request.getClickRate());
+    } catch (Exception e) {
+      log.error("대량 로그 생성 실패", e);
+      throw new RuntimeException("대량 로그 생성 중 오류가 발생했습니다: " + e.getMessage(), e);
+    }
+  }
 
   public void generateBulkLogs(BulkLogGenerationRequest request) {
     LocalDate startDate = request.getStartDate();

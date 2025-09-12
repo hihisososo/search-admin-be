@@ -10,6 +10,7 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.yjlee.search.stats.domain.KeywordStats;
 import com.yjlee.search.stats.domain.SearchStats;
 import com.yjlee.search.stats.domain.TrendData;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -46,7 +47,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   public List<KeywordStats> getPopularKeywords(LocalDateTime from, LocalDateTime to, int limit) {
     try {
       // 이전 주기 계산
-      long periodDays = java.time.Duration.between(from, to).toDays();
+      long periodDays = Duration.between(from, to).toDays();
       LocalDateTime previousFrom = from.minusDays(periodDays);
       LocalDateTime previousTo = from;
 

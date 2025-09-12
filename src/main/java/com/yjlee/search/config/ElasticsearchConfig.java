@@ -25,14 +25,9 @@ public class ElasticsearchConfig {
 
   @Bean
   public JacksonJsonpMapper jsonpMapper() {
-    // JSR310 모듈이 등록된 ObjectMapper 생성
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new JavaTimeModule());
-
-    // 날짜를 배열이 아닌 문자열로 직렬화하도록 설정
     objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
-    // 커스텀 ObjectMapper를 사용하는 JacksonJsonpMapper 생성
     return new JacksonJsonpMapper(objectMapper);
   }
 

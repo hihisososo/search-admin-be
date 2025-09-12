@@ -1,9 +1,9 @@
 package com.yjlee.search.common.enums;
 
 public enum DictionaryEnvironmentType {
-  CURRENT("현재"), // 현재 편집 중인 사전
-  DEV("개발"), // 개발 환경 사전
-  PROD("운영"); // 운영 환경 사전
+  CURRENT("현재"),
+  DEV("개발"),
+  PROD("운영");
 
   private final String description;
 

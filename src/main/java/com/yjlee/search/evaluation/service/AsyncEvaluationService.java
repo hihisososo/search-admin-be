@@ -1,8 +1,11 @@
 package com.yjlee.search.evaluation.service;
 
+import com.yjlee.search.async.dto.AsyncTaskStartResponse;
 import com.yjlee.search.async.model.AsyncTask;
 import com.yjlee.search.async.model.AsyncTaskType;
+import com.yjlee.search.async.service.AsyncTaskService;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteAsyncRequest;
+import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
 import com.yjlee.search.evaluation.dto.LLMEvaluationRequest;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
@@ -20,7 +23,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class AsyncEvaluationService {
 
-  private final com.yjlee.search.async.service.AsyncTaskService asyncTaskService;
+  private final AsyncTaskService asyncTaskService;
   private final SearchBasedGroundTruthService groundTruthService;
   private final EvaluationQueryService evaluationQueryService;
   private final EvaluationReportService evaluationReportService;
@@ -29,7 +32,7 @@ public class AsyncEvaluationService {
   private final VectorSearchService vectorSearchService;
 
   public AsyncEvaluationService(
-      com.yjlee.search.async.service.AsyncTaskService asyncTaskService,
+      AsyncTaskService asyncTaskService,
       SearchBasedGroundTruthService groundTruthService,
       EvaluationQueryService evaluationQueryService,
       EvaluationReportService evaluationReportService,
@@ -52,6 +55,14 @@ public class AsyncEvaluationService {
     self.generateCandidatesAsync(task.getId(), request);
     return task.getId();
   }
+  
+  public AsyncTaskStartResponse startCandidateGenerationWithResponse(GenerateCandidatesRequest request) {
+    Long taskId = startCandidateGeneration(request);
+    return AsyncTaskStartResponse.builder()
+        .taskId(taskId)
+        .message("후보군 생성 작업이 시작되었습니다. 작업 ID: " + taskId)
+        .build();
+  }
 
   public Long startEvaluationExecution(EvaluationExecuteAsyncRequest request) {
     AsyncTask task =
@@ -60,6 +71,14 @@ public class AsyncEvaluationService {
     self.executeEvaluationAsync(task.getId(), request);
     return task.getId();
   }
+  
+  public AsyncTaskStartResponse startEvaluationExecutionWithResponse(EvaluationExecuteAsyncRequest request) {
+    Long taskId = startEvaluationExecution(request);
+    return AsyncTaskStartResponse.builder()
+        .taskId(taskId)
+        .message("평가 실행 작업이 시작되었습니다. 작업 ID: " + taskId)
+        .build();
+  }
 
   public Long startLLMCandidateEvaluation(LLMEvaluationRequest request) {
     AsyncTask task =
@@ -67,6 +86,14 @@ public class AsyncEvaluationService {
 
     self.evaluateLLMCandidatesAsync(task.getId(), request);
     return task.getId();
+  }
+  
+  public AsyncTaskStartResponse startLLMCandidateEvaluationWithResponse(LLMEvaluationRequest request) {
+    Long taskId = startLLMCandidateEvaluation(request);
+    return AsyncTaskStartResponse.builder()
+        .taskId(taskId)
+        .message("LLM 평가 작업이 시작되었습니다. 작업 ID: " + taskId)
+        .build();
   }
 
   @Async("evaluationTaskExecutor")
@@ -147,7 +174,7 @@ public class AsyncEvaluationService {
             asyncTaskService.updateProgress(taskId, adjustedProgress, message);
           };
 
-      com.yjlee.search.evaluation.dto.EvaluationExecuteResponse response =
+      EvaluationExecuteResponse response =
           evaluationReportService.executeEvaluation(
               request.getReportName(),
               request.getSearchMode(),

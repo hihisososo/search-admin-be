@@ -5,11 +5,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Slf4j
 @Tag(name = "SearchQueryPool", description = "검색어 풀 관리 API")
 @RestController
 @RequestMapping("/api/v1/admin/query-pool")
@@ -22,10 +20,7 @@ public class SearchQueryPoolController {
   @PostMapping("/generate")
   public ResponseEntity<?> generateQueries(
       @RequestParam(defaultValue = "20") int queriesPerCategory) {
-
-    log.info("카테고리별 검색어 풀 생성 요청: 각 {}개", queriesPerCategory);
     int saved = poolService.generateAndSaveQueries(queriesPerCategory);
-
     return ResponseEntity.ok(
         Map.of(
             "queriesPerCategory", queriesPerCategory,

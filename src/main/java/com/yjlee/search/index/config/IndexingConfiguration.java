@@ -27,7 +27,6 @@ public class IndexingConfiguration {
     private int embeddingPoolSize = 2;
     private int embeddingMaxPoolSize = 4;
 
-    // Getters and setters
     public int getCacheSize() {
       return cacheSize;
     }

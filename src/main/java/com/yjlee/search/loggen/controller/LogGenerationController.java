@@ -8,11 +8,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Slf4j
 @Tag(name = "Log Generation", description = "로그 생성 관리 API")
 @RestController
 @RequestMapping("/api/v1/admin/logs")
@@ -40,29 +38,11 @@ public class LogGenerationController {
   @PostMapping("/generate-bulk")
   public ResponseEntity<Map<String, Object>> generateBulkLogs(
       @Valid @RequestBody BulkLogGenerationRequest request) {
-    log.info(
-        "대량 로그 생성 요청 - 기간: {} ~ {}, 일별: {}개, 클릭률: {}%",
-        request.getStartDate(),
-        request.getEndDate(),
-        request.getLogsPerDay(),
-        request.getClickRate() * 100);
-
     try {
-      bulkLogGeneratorService.generateBulkLogs(request);
-
-      return ResponseEntity.ok(
-          Map.of(
-              "status", "success",
-              "message", "대량 로그 생성이 완료되었습니다.",
-              "startDate", request.getStartDate(),
-              "endDate", request.getEndDate(),
-              "logsPerDay", request.getLogsPerDay(),
-              "clickRate", request.getClickRate()));
-
+      return ResponseEntity.ok(bulkLogGeneratorService.generateBulkLogsWithResponse(request));
     } catch (Exception e) {
-      log.error("대량 로그 생성 실패", e);
       return ResponseEntity.internalServerError()
-          .body(Map.of("status", "error", "message", "대량 로그 생성 중 오류가 발생했습니다: " + e.getMessage()));
+          .body(Map.of("status", "error", "message", e.getMessage()));
     }
   }
 

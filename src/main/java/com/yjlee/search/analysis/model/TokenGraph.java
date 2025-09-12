@@ -1,4 +1,4 @@
-package com.yjlee.search.search.analysis.model;
+package com.yjlee.search.analysis.model;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -126,7 +126,6 @@ public class TokenGraph {
 
     // 재매핑된 Position 노드들을 표시
     for (Map.Entry<Integer, Integer> entry : positionMapping.entrySet()) {
-      int originalPos = entry.getKey();
       int remappedPos = entry.getValue();
       String nodeName;
       String nodeClass;

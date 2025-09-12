@@ -43,8 +43,7 @@ public class WebConfig implements WebMvcConfigurer {
 
       response.setHeader("X-Trace-ID", traceId);
 
-      // 요청 정보 로깅
-      log.info(
+      log.debug(
           "Request started - Method: {}, URI: {}, RemoteAddr: {}, UserAgent: {}",
           request.getMethod(),
           request.getRequestURI(),
@@ -62,8 +61,7 @@ public class WebConfig implements WebMvcConfigurer {
         long startTime = (Long) request.getAttribute("startTime");
         long duration = System.currentTimeMillis() - startTime;
 
-        // 응답 정보 로깅
-        log.info(
+        log.debug(
             "Request completed - Status: {}, Duration: {}ms, ContentType: {}",
             response.getStatus(),
             duration,

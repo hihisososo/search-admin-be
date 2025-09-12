@@ -1,12 +1,12 @@
-package com.yjlee.search.search.analysis.service;
+package com.yjlee.search.analysis.service;
 
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.search.analysis.dto.IndexAnalysisRequest;
-import com.yjlee.search.search.analysis.dto.IndexAnalysisResponse;
-import com.yjlee.search.search.analysis.model.TokenGraph;
+import com.yjlee.search.analysis.dto.QueryAnalysisRequest;
+import com.yjlee.search.analysis.dto.QueryAnalysisResponse;
+import com.yjlee.search.analysis.model.TokenGraph;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,53 +17,46 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class IndexAnalysisService {
+public class QueryAnalysisService {
 
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final TempIndexService tempIndexService;
   private final TokenAnalysisService tokenAnalysisService;
 
-  public IndexAnalysisResponse analyzeForIndexing(IndexAnalysisRequest request) {
+  public QueryAnalysisResponse analyzeQuery(QueryAnalysisRequest request) {
     String query = request.getQuery();
     DictionaryEnvironmentType environment = request.getEnvironment();
 
-    log.debug("색인 분석 시작 - 쿼리: {}, 환경: {}", query, environment);
+    log.info("쿼리 분석 요청 - 쿼리: {}, 환경: {}", query, environment);
 
     try {
       // 전처리 수행
       String preprocessedQuery = TextPreprocessor.preprocess(query);
 
-      // Token Graph 분석 (색인 analyzer 사용)
-      TokenGraph tokenGraph =
-          tokenAnalysisService.analyzeWithTokenGraph(query, environment, "nori_index_analyzer");
+      // Token Graph 분석
+      TokenGraph tokenGraph = tokenAnalysisService.analyzeWithTokenGraph(query, environment);
 
-      // 일반 토큰 추출 (type != "additional")
+      // 토큰 리스트 추출 (동의어 제외, 원본 토큰만)
       List<String> tokens =
           tokenGraph.getEdges().stream()
-              .filter(edge -> !"additional".equals(edge.getType()))
+              .filter(edge -> !edge.isSynonym())
               .map(edge -> edge.getToken())
-              .distinct()
               .collect(Collectors.toList());
 
-      // 추가 색인어 추출 (type = "additional")
-      List<String> additionalTokens =
-          tokenGraph.getEdges().stream()
-              .filter(edge -> "additional".equals(edge.getType()))
-              .map(edge -> edge.getToken())
-              .distinct()
-              .collect(Collectors.toList());
+      // Mermaid 다이어그램 생성
+      String mermaidGraph = tokenGraph.generateMermaidDiagram();
 
-      return IndexAnalysisResponse.builder()
+      return QueryAnalysisResponse.builder()
           .environment(environment.name())
           .originalQuery(query)
           .preprocessedQuery(preprocessedQuery)
           .tokens(tokens)
-          .additionalTokens(additionalTokens)
+          .mermaidGraph(mermaidGraph)
           .build();
 
     } catch (Exception e) {
-      log.error("색인 분석 중 오류 발생 - 쿼리: {}, 환경: {}", query, environment, e);
-      throw new RuntimeException("색인 분석 실패: " + e.getMessage(), e);
+      log.error("쿼리 분석 중 오류 발생 - 쿼리: {}, 환경: {}", query, environment, e);
+      throw new RuntimeException("쿼리 분석 실패: " + e.getMessage(), e);
     }
   }
 

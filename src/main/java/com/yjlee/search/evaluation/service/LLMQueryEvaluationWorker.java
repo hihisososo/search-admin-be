@@ -53,7 +53,7 @@ public class LLMQueryEvaluationWorker {
       }
 
       // productId -> evaluation 매핑 생성 (순서에 의존하지 않도록)
-      java.util.Map<String, JsonNode> idToEval = new java.util.HashMap<>();
+      Map<String, JsonNode> idToEval = new HashMap<>();
       for (JsonNode node : jsonArray) {
         String pid = node.path("productId").asText(null);
         if (pid != null && !pid.isBlank()) {

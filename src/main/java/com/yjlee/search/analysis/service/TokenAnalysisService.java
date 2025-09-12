@@ -1,4 +1,4 @@
-package com.yjlee.search.search.analysis.service;
+package com.yjlee.search.analysis.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.enums.DictionaryEnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.search.analysis.model.TokenGraph;
+import com.yjlee.search.analysis.model.TokenGraph;
 import java.io.IOException;
 import java.util.*;
 import lombok.RequiredArgsConstructor;

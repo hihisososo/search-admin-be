@@ -20,6 +20,7 @@ import com.yjlee.search.common.util.EnvironmentTypeConverter;
 import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.converter.ProductDtoConverter;
+import com.yjlee.search.search.dto.AggregationBucketDto;
 import com.yjlee.search.search.dto.PriceRangeDto;
 import com.yjlee.search.search.dto.ProductDto;
 import com.yjlee.search.search.dto.ProductFiltersDto;
@@ -34,6 +35,7 @@ import com.yjlee.search.search.dto.SearchSimulationRequest;
 import com.yjlee.search.search.service.builder.QueryBuilder;
 import com.yjlee.search.search.service.builder.QueryResponseBuilder;
 import com.yjlee.search.search.service.builder.SearchRequestBuilder;
+import com.yjlee.search.search.service.builder.query.FilterQueryBuilder;
 import com.yjlee.search.search.utils.AggregationUtils;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -60,7 +62,7 @@ public class HybridSearchService {
   private final RRFScorer rrfScorer;
   private final ObjectMapper objectMapper;
   private final ProductDtoConverter productDtoConverter;
-  private final com.yjlee.search.search.service.builder.query.FilterQueryBuilder filterQueryBuilder;
+  private final FilterQueryBuilder filterQueryBuilder;
 
   /** 하이브리드 검색 실행 (BM25 + Vector with RRF) */
   public SearchExecuteResponse hybridSearch(
@@ -297,7 +299,7 @@ public class HybridSearchService {
         applyPostFiltering(sortedResults, request.getFilters());
 
     // 3. 전체 결과에서 Aggregation 계산 (필터링된 결과 기준)
-    Map<String, List<com.yjlee.search.search.dto.AggregationBucketDto>> aggregations =
+    Map<String, List<AggregationBucketDto>> aggregations =
         AggregationUtils.calculateFromRRFResults(filteredResults);
 
     // 4. 페이징 처리

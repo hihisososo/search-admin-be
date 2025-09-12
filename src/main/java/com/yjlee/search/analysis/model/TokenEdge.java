@@ -1,4 +1,4 @@
-package com.yjlee.search.search.analysis.model;
+package com.yjlee.search.analysis.model;
 
 import lombok.Builder;
 import lombok.Getter;

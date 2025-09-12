@@ -5,6 +5,7 @@ import com.yjlee.search.stats.domain.SearchStats;
 import com.yjlee.search.stats.domain.TrendData;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public interface StatsRepository {
 
@@ -20,9 +21,9 @@ public interface StatsRepository {
 
   long getClickCountForKeyword(String keyword, LocalDateTime from, LocalDateTime to);
 
-  java.util.Map<String, Long> getClickCountsForKeywords(
+  Map<String, Long> getClickCountsForKeywords(
       List<String> keywords, LocalDateTime from, LocalDateTime to);
 
-  java.util.Map<String, Long> getSearchesWithClicksForKeywords(
+  Map<String, Long> getSearchesWithClicksForKeywords(
       List<String> keywords, LocalDateTime from, LocalDateTime to);
 }

@@ -34,12 +34,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/v1/evaluation")
 @RequiredArgsConstructor
@@ -166,24 +164,14 @@ public class EvaluationSetController {
   @Operation(summary = "후보군 생성 (비동기)")
   public ResponseEntity<AsyncTaskStartResponse> generateCandidatesAsync(
       @Valid @RequestBody GenerateCandidatesRequest request) {
-    Long taskId = asyncEvaluationService.startCandidateGeneration(request);
-    return ResponseEntity.ok(
-        AsyncTaskStartResponse.builder()
-            .taskId(taskId)
-            .message("후보군 생성 작업이 시작되었습니다. 작업 ID: " + taskId)
-            .build());
+    return ResponseEntity.ok(asyncEvaluationService.startCandidateGenerationWithResponse(request));
   }
 
   @PostMapping("/candidates/evaluate-llm-async")
   @Operation(summary = "LLM 자동 후보군 평가 (비동기)")
   public ResponseEntity<AsyncTaskStartResponse> evaluateLLMCandidatesAsync(
       @Valid @RequestBody LLMEvaluationRequest request) {
-    Long taskId = asyncEvaluationService.startLLMCandidateEvaluation(request);
-    return ResponseEntity.ok(
-        AsyncTaskStartResponse.builder()
-            .taskId(taskId)
-            .message("LLM 평가 작업이 시작되었습니다. 작업 ID: " + taskId)
-            .build());
+    return ResponseEntity.ok(asyncEvaluationService.startLLMCandidateEvaluationWithResponse(request));
   }
 
   @PostMapping("/queries")

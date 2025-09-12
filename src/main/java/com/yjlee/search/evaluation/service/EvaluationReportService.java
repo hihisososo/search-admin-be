@@ -5,9 +5,16 @@ import com.yjlee.search.common.service.ProductBulkFetchService;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
+import com.yjlee.search.evaluation.dto.EvaluationReportSummaryResponse;
+import com.yjlee.search.evaluation.exception.ReportNotFoundException;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.EvaluationReport;
+import com.yjlee.search.evaluation.model.EvaluationReportDetail;
+import com.yjlee.search.evaluation.model.EvaluationReportDocument;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
+import com.yjlee.search.evaluation.model.ReportDocumentType;
+import com.yjlee.search.evaluation.repository.EvaluationReportDetailRepository;
+import com.yjlee.search.evaluation.repository.EvaluationReportDocumentRepository;
 import com.yjlee.search.evaluation.repository.EvaluationReportRepository;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
@@ -21,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,10 +54,8 @@ public class EvaluationReportService {
   private final EvaluationQueryService evaluationQueryService;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final EvaluationReportRepository evaluationReportRepository;
-  private final com.yjlee.search.evaluation.repository.EvaluationReportDetailRepository
-      reportDetailRepository;
-  private final com.yjlee.search.evaluation.repository.EvaluationReportDocumentRepository
-      reportDocumentRepository;
+  private final EvaluationReportDetailRepository reportDetailRepository;
+  private final EvaluationReportDocumentRepository reportDocumentRepository;
   private final SearchService searchService;
   private final ElasticsearchClient elasticsearchClient;
   private final IndexResolver indexResolver;
@@ -65,10 +71,8 @@ public class EvaluationReportService {
       EvaluationQueryService evaluationQueryService,
       QueryProductMappingRepository queryProductMappingRepository,
       EvaluationReportRepository evaluationReportRepository,
-      com.yjlee.search.evaluation.repository.EvaluationReportDetailRepository
-          reportDetailRepository,
-      com.yjlee.search.evaluation.repository.EvaluationReportDocumentRepository
-          reportDocumentRepository,
+      EvaluationReportDetailRepository reportDetailRepository,
+      EvaluationReportDocumentRepository reportDocumentRepository,
       SearchService searchService,
       ElasticsearchClient elasticsearchClient,
       IndexResolver indexResolver,
@@ -222,7 +226,7 @@ public class EvaluationReportService {
     int searchSize = 300;
     List<String> retrievedDocs =
         getRetrievedDocumentsOrdered(query, searchMode, rrfK, hybridTopK, searchSize); // 순서 유지
-    Set<String> retrievedSet = new java.util.LinkedHashSet<>(retrievedDocs);
+    Set<String> retrievedSet = new LinkedHashSet<>(retrievedDocs);
     Set<String> correctDocs = getIntersection(relevantDocs, retrievedSet);
 
     List<String> missingIds =
@@ -341,7 +345,7 @@ public class EvaluationReportService {
     int numRelevant = relevantSet.size();
     int numIdealOnes = Math.min(k, numRelevant);
 
-    java.util.List<Integer> ideal = new java.util.ArrayList<>();
+    List<Integer> ideal = new ArrayList<>();
     // 상위 numIdealOnes개는 1로 채움
     for (int i = 0; i < numIdealOnes; i++) {
       ideal.add(1);
@@ -395,7 +399,7 @@ public class EvaluationReportService {
       Set<String> retrievedProductIds =
           searchResponse.getHits().getData().stream()
               .map(product -> product.getId())
-              .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+              .collect(Collectors.toCollection(LinkedHashSet::new));
 
       log.info("검색 결과: {} 개 상품 조회", retrievedProductIds.size());
       return retrievedProductIds;
@@ -444,7 +448,7 @@ public class EvaluationReportService {
 
     } catch (Exception e) {
       log.error("검색 API 호출 실패(ordered): {}", query, e);
-      return java.util.Collections.emptyList();
+      return Collections.emptyList();
     }
   }
 
@@ -467,6 +471,21 @@ public class EvaluationReportService {
     return evaluationReportRepository.findByReportNameContainingIgnoreCaseOrderByCreatedAtDesc(
         keyword.trim());
   }
+  
+  @Transactional(readOnly = true)
+  public List<EvaluationReportSummaryResponse> getReportSummariesByKeyword(String keyword) {
+    List<EvaluationReport> reports = getReportsByKeyword(keyword);
+    return reports.stream()
+        .map(r -> EvaluationReportSummaryResponse.builder()
+            .id(r.getId())
+            .reportName(r.getReportName())
+            .totalQueries(r.getTotalQueries())
+            .averagePrecision20(r.getAveragePrecision20())
+            .averageRecall300(r.getAverageRecall300())
+            .createdAt(r.getCreatedAt())
+            .build())
+        .toList();
+  }
 
   @Transactional(readOnly = true)
   public EvaluationReport getReportById(Long reportId) {
@@ -475,18 +494,18 @@ public class EvaluationReportService {
 
   @Transactional(readOnly = true)
   public EvaluationReportDetailResponse getReportDetail(Long reportId) {
-    EvaluationReport report = evaluationReportRepository.findById(reportId).orElse(null);
-    if (report == null) return null;
+    EvaluationReport report = evaluationReportRepository.findById(reportId)
+        .orElseThrow(() -> new ReportNotFoundException(reportId));
 
     // 상세/문서 테이블에서 조회
-    List<com.yjlee.search.evaluation.model.EvaluationReportDetail> rows =
+    List<EvaluationReportDetail> rows =
         reportDetailRepository.findByReport(report);
-    List<com.yjlee.search.evaluation.model.EvaluationReportDocument> miss =
+    List<EvaluationReportDocument> miss =
         reportDocumentRepository.findByReportAndDocType(
-            report, com.yjlee.search.evaluation.model.ReportDocumentType.MISSING);
-    List<com.yjlee.search.evaluation.model.EvaluationReportDocument> wrong =
+            report, ReportDocumentType.MISSING);
+    List<EvaluationReportDocument> wrong =
         reportDocumentRepository.findByReportAndDocType(
-            report, com.yjlee.search.evaluation.model.ReportDocumentType.WRONG);
+            report, ReportDocumentType.WRONG);
 
     Map<String, List<EvaluationReportDetailResponse.DocumentInfo>> missingByQuery = new HashMap<>();
     for (var d : miss) {
@@ -541,9 +560,9 @@ public class EvaluationReportService {
   }
 
   @Transactional
-  public boolean deleteReport(Long reportId) {
+  public void deleteReport(Long reportId) {
     if (!evaluationReportRepository.existsById(reportId)) {
-      return false;
+      throw new ReportNotFoundException(reportId);
     }
     try {
       log.info("평가 리포트 삭제 시작: reportId={}", reportId);
@@ -564,7 +583,6 @@ public class EvaluationReportService {
       log.error("리포트 삭제 실패: {}", reportId, e);
       throw e;
     }
-    return true;
   }
 
   // 저장용 상세 생성: 상품명/스펙 포함

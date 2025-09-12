@@ -3,6 +3,7 @@ package com.yjlee.search.async.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.async.dto.AsyncTaskListResponse;
 import com.yjlee.search.async.dto.AsyncTaskResponse;
+import com.yjlee.search.async.exception.TaskNotFoundException;
 import com.yjlee.search.async.model.AsyncTask;
 import com.yjlee.search.async.model.AsyncTaskStatus;
 import com.yjlee.search.async.model.AsyncTaskType;
@@ -81,6 +82,12 @@ public class AsyncTaskService {
 
   public Optional<AsyncTaskResponse> getTask(Long taskId) {
     return asyncTaskRepository.findById(taskId).map(this::convertToResponse);
+  }
+  
+  public AsyncTaskResponse getTaskOrThrow(Long taskId) {
+    return asyncTaskRepository.findById(taskId)
+        .map(this::convertToResponse)
+        .orElseThrow(() -> new TaskNotFoundException(taskId));
   }
 
   public AsyncTaskListResponse getRecentTasks(int page, int size) {
