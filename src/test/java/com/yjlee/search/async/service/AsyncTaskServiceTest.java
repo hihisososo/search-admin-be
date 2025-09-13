@@ -57,7 +57,7 @@ class AsyncTaskServiceTest {
   }
 
   @Test
-  @DisplayName("존재하지 않는 작업 업데이트 - 무시")
+  @DisplayName("존재하지 않는 작업 업데이트")
   void updateProgressTaskNotFound() {
     asyncTaskService.updateProgress(999L, 50, "50% 완료");
     assertThat(asyncTaskRepository.count()).isEqualTo(0);
@@ -82,11 +82,11 @@ class AsyncTaskServiceTest {
   @DisplayName("JSON 변환 가능한 객체 완료")
   void completeTaskWithComplexObject() {
     AsyncTask task = asyncTaskService.createTask(AsyncTaskType.LLM_EVALUATION, "LLM 평가");
-    Map<String, Object> complexResult = Map.of(
-        "queries", List.of("검색어1", "검색어2"),
-        "scores", Map.of("precision", 0.85, "recall", 0.92),
-        "totalTime", 1234
-    );
+    Map<String, Object> complexResult =
+        Map.of(
+            "queries", List.of("검색어1", "검색어2"),
+            "scores", Map.of("precision", 0.85, "recall", 0.92),
+            "totalTime", 1234);
     asyncTaskService.completeTask(task.getId(), complexResult);
 
     AsyncTask completedTask = asyncTaskRepository.findById(task.getId()).orElseThrow();
@@ -121,7 +121,7 @@ class AsyncTaskServiceTest {
   }
 
   @Test
-  @DisplayName("작업 없음 - 예외 발생")
+  @DisplayName("작업 없음 예외")
   void getTaskOrThrowNotFound() {
     assertThatThrownBy(() -> asyncTaskService.getTaskOrThrow(999L))
         .isInstanceOf(NoSuchElementException.class)
@@ -131,19 +131,15 @@ class AsyncTaskServiceTest {
   @Test
   @DisplayName("실행중 작업 필터링")
   void getRunningTasksSuccess() {
-    AsyncTask pendingTask = asyncTaskService.createTask(
-        AsyncTaskType.INDEXING, "대기중");
+    AsyncTask pendingTask = asyncTaskService.createTask(AsyncTaskType.INDEXING, "대기중");
 
-    AsyncTask inProgressTask = asyncTaskService.createTask(
-        AsyncTaskType.LLM_EVALUATION, "진행중");
+    AsyncTask inProgressTask = asyncTaskService.createTask(AsyncTaskType.LLM_EVALUATION, "진행중");
     asyncTaskService.updateProgress(inProgressTask.getId(), 50, "처리중");
 
-    AsyncTask completedTask = asyncTaskService.createTask(
-        AsyncTaskType.EVALUATION_EXECUTION, "완료");
+    AsyncTask completedTask = asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "완료");
     asyncTaskService.completeTask(completedTask.getId(), Map.of("done", true));
 
-    AsyncTask failedTask = asyncTaskService.createTask(
-        AsyncTaskType.CANDIDATE_GENERATION, "실패");
+    AsyncTask failedTask = asyncTaskService.createTask(AsyncTaskType.CANDIDATE_GENERATION, "실패");
     asyncTaskService.failTask(failedTask.getId(), "에러");
 
     List<AsyncTaskResponse> runningTasks = asyncTaskService.getRunningTasks();
@@ -158,7 +154,7 @@ class AsyncTaskServiceTest {
   }
 
   @Test
-  @DisplayName("동일 타입 실행중 - true")
+  @DisplayName("동일 타입 실행중")
   void hasRunningTaskReturnsTrue() {
     asyncTaskService.createTask(AsyncTaskType.INDEXING, "색인 작업");
     boolean result = asyncTaskService.hasRunningTask(AsyncTaskType.INDEXING);
@@ -166,7 +162,7 @@ class AsyncTaskServiceTest {
   }
 
   @Test
-  @DisplayName("동일 타입 실행중 없음 - false")
+  @DisplayName("동일 타입 미실행")
   void hasRunningTaskReturnsFalse() {
     AsyncTask task = asyncTaskService.createTask(AsyncTaskType.INDEXING, "색인 작업");
     asyncTaskService.completeTask(task.getId(), Map.of("done", true));
@@ -175,13 +171,10 @@ class AsyncTaskServiceTest {
   }
 
   @Test
-  @DisplayName("최근 작업 조회 - 페이징")
+  @DisplayName("페이징 조회")
   void getRecentTasksWithPaging() {
     for (int i = 0; i < 15; i++) {
-      AsyncTask task = asyncTaskService.createTask(
-          AsyncTaskType.values()[i % 4],
-          "작업 " + (i + 1)
-      );
+      AsyncTask task = asyncTaskService.createTask(AsyncTaskType.values()[i % 4], "작업 " + (i + 1));
       if (i % 3 == 0) {
         asyncTaskService.updateProgress(task.getId(), 50, "진행중");
       }
@@ -213,10 +206,9 @@ class AsyncTaskServiceTest {
   }
 
   @Test
-  @DisplayName("시나리오: 작업 생성 → 진행 → 완료")
+  @DisplayName("시나리오: 작업 생성 진행 완료")
   void scenarioCreateUpdateComplete() {
-    AsyncTask task = asyncTaskService.createTask(
-        AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비");
+    AsyncTask task = asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비");
 
     assertThat(task.getStatus()).isEqualTo(AsyncTaskStatus.PENDING);
     assertThat(task.getProgress()).isEqualTo(0);
@@ -232,11 +224,11 @@ class AsyncTaskServiceTest {
     AsyncTask progressTask2 = asyncTaskRepository.findById(task.getId()).orElseThrow();
     assertThat(progressTask2.getProgress()).isEqualTo(70);
 
-    Map<String, Object> result = Map.of(
-        "totalQueries", 100,
-        "successCount", 95,
-        "failCount", 5
-    );
+    Map<String, Object> result =
+        Map.of(
+            "totalQueries", 100,
+            "successCount", 95,
+            "failCount", 5);
 
     asyncTaskService.completeTask(task.getId(), result);
 
@@ -247,10 +239,9 @@ class AsyncTaskServiceTest {
   }
 
   @Test
-  @DisplayName("시나리오: 작업 생성 → 진행 → 실패")
+  @DisplayName("시나리오: 작업 생성 진행 실패")
   void scenarioCreateAndFail() {
-    AsyncTask task = asyncTaskService.createTask(
-        AsyncTaskType.CANDIDATE_GENERATION, "후보군 생성 시작");
+    AsyncTask task = asyncTaskService.createTask(AsyncTaskType.CANDIDATE_GENERATION, "후보군 생성 시작");
 
     asyncTaskService.updateProgress(task.getId(), 40, "검색 쿼리 처리 중...");
 
@@ -268,19 +259,17 @@ class AsyncTaskServiceTest {
   @Test
   @DisplayName("시나리오: 여러 작업 실행중 필터")
   void scenarioMultipleTasksFilterRunning() {
-    AsyncTask completedTask = asyncTaskService.createTask(
-        AsyncTaskType.INDEXING, "완료된 작업");
+    AsyncTask completedTask = asyncTaskService.createTask(AsyncTaskType.INDEXING, "완료된 작업");
     asyncTaskService.completeTask(completedTask.getId(), Map.of("done", true));
 
-    AsyncTask pendingTask = asyncTaskService.createTask(
-        AsyncTaskType.LLM_EVALUATION, "대기중 작업");
+    AsyncTask pendingTask = asyncTaskService.createTask(AsyncTaskType.LLM_EVALUATION, "대기중 작업");
 
-    AsyncTask inProgressTask = asyncTaskService.createTask(
-        AsyncTaskType.EVALUATION_EXECUTION, "진행중 작업");
+    AsyncTask inProgressTask =
+        asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "진행중 작업");
     asyncTaskService.updateProgress(inProgressTask.getId(), 60, "처리중");
 
-    AsyncTask failedTask = asyncTaskService.createTask(
-        AsyncTaskType.CANDIDATE_GENERATION, "실패한 작업");
+    AsyncTask failedTask =
+        asyncTaskService.createTask(AsyncTaskType.CANDIDATE_GENERATION, "실패한 작업");
     asyncTaskService.failTask(failedTask.getId(), "에러 발생");
 
     List<AsyncTaskResponse> runningTasks = asyncTaskService.getRunningTasks();

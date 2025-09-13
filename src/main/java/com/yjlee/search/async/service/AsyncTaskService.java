@@ -31,12 +31,13 @@ public class AsyncTaskService {
 
   @Transactional
   public AsyncTask createTask(AsyncTaskType taskType, String initialMessage) {
-    AsyncTask task = AsyncTask.builder()
-        .taskType(taskType)
-        .status(AsyncTaskStatus.PENDING)
-        .progress(0)
-        .message(initialMessage)
-        .build();
+    AsyncTask task =
+        AsyncTask.builder()
+            .taskType(taskType)
+            .status(AsyncTaskStatus.PENDING)
+            .progress(0)
+            .message(initialMessage)
+            .build();
 
     AsyncTask savedTask = asyncTaskRepository.save(task);
     log.info("비동기 작업 생성: ID={}, 타입={}", savedTask.getId(), taskType);
@@ -45,38 +46,47 @@ public class AsyncTaskService {
 
   @Transactional
   public void updateProgress(Long taskId, int progress, String message) {
-    executeOnTask(taskId, task -> {
-      task.updateProgress(progress, message);
-      log.debug("작업 진행률 업데이트: ID={}, 진행률={}%, 메시지={}", taskId, progress, message);
-    });
+    executeOnTask(
+        taskId,
+        task -> {
+          task.updateProgress(progress, message);
+          log.debug("작업 진행률 업데이트: ID={}, 진행률={}%, 메시지={}", taskId, progress, message);
+        });
   }
 
   @Transactional
   public void completeTask(Long taskId, Object result) {
-    executeOnTask(taskId, task -> {
-      try {
-        String resultJson = objectMapper.writeValueAsString(result);
-        task.complete(resultJson);
-      } catch (Exception e) {
-        task.complete(result.toString());
-      }
-      log.info("작업 완료: ID={}, 타입={}", taskId, task.getTaskType());
-    });
+    executeOnTask(
+        taskId,
+        task -> {
+          try {
+            String resultJson = objectMapper.writeValueAsString(result);
+            task.complete(resultJson);
+          } catch (Exception e) {
+            task.complete(result.toString());
+          }
+          log.info("작업 완료: ID={}, 타입={}", taskId, task.getTaskType());
+        });
   }
 
   @Transactional
   public void failTask(Long taskId, String errorMessage) {
-    executeOnTask(taskId, task -> {
-      task.fail(errorMessage);
-      log.error("작업 실패: ID={}, 타입={}, 에러={}", taskId, task.getTaskType(), errorMessage);
-    });
+    executeOnTask(
+        taskId,
+        task -> {
+          task.fail(errorMessage);
+          log.error("작업 실패: ID={}, 타입={}, 에러={}", taskId, task.getTaskType(), errorMessage);
+        });
   }
 
   private void executeOnTask(Long taskId, Consumer<AsyncTask> action) {
-    asyncTaskRepository.findById(taskId).ifPresent(task -> {
-      action.accept(task);
-      asyncTaskRepository.save(task);
-    });
+    asyncTaskRepository
+        .findById(taskId)
+        .ifPresent(
+            task -> {
+              action.accept(task);
+              asyncTaskRepository.save(task);
+            });
   }
 
   public AsyncTaskResponse getTaskOrThrow(Long taskId) {
@@ -87,15 +97,15 @@ public class AsyncTaskService {
   }
 
   public AsyncTaskListResponse getRecentTasks(int page, int size) {
-    List<AsyncTask> allTasks = asyncTaskRepository
-        .findByCreatedAtAfterOrderByCreatedAtDesc(LocalDateTime.now().minusDays(7));
+    List<AsyncTask> allTasks =
+        asyncTaskRepository.findByCreatedAtAfterOrderByCreatedAtDesc(
+            LocalDateTime.now().minusDays(7));
 
     PaginationUtils.PagedResult<AsyncTask> pagedResult =
         PaginationUtils.paginate(allTasks, page, size);
 
-    List<AsyncTaskResponse> taskResponses = pagedResult.getContent().stream()
-        .map(this::convertToResponse)
-        .toList();
+    List<AsyncTaskResponse> taskResponses =
+        pagedResult.getContent().stream().map(this::convertToResponse).toList();
 
     return AsyncTaskListResponse.builder()
         .tasks(taskResponses)
@@ -109,8 +119,7 @@ public class AsyncTaskService {
   }
 
   public List<AsyncTaskResponse> getRunningTasks() {
-    return asyncTaskRepository.findByStatusInOrderByCreatedAtDesc(RUNNING_STATUSES)
-        .stream()
+    return asyncTaskRepository.findByStatusInOrderByCreatedAtDesc(RUNNING_STATUSES).stream()
         .map(this::convertToResponse)
         .toList();
   }

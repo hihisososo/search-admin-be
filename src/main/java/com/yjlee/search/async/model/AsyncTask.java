@@ -61,11 +61,9 @@ public class AsyncTask {
   @Column(nullable = false)
   private LocalDateTime updatedAt;
 
-  @Column
-  private LocalDateTime startedAt;
+  @Column private LocalDateTime startedAt;
 
-  @Column
-  private LocalDateTime completedAt;
+  @Column private LocalDateTime completedAt;
 
   public void updateProgress(int progress, String message) {
     this.progress = progress;

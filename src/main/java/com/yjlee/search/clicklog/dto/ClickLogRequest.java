@@ -4,10 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Data
+@Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,6 +26,9 @@ public class ClickLogRequest {
   @Schema(description = "검색 인덱스명", example = "products")
   private String indexName;
 
-  @Schema(description = "검색 세션 ID", example = "550e8400-e29b-41d4-a716-446655440000")
+  @Schema(
+      description = "검색 세션 ID (선택)",
+      example = "550e8400-e29b-41d4-a716-446655440000",
+      required = false)
   private String sessionId;
 }

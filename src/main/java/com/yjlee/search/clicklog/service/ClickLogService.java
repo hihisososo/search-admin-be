@@ -53,12 +53,7 @@ public class ClickLogService {
           .build();
 
     } catch (Exception e) {
-      log.error("클릭 로그 저장 실패: {}", e.getMessage(), e);
-      return ClickLogResponse.builder()
-          .success(false)
-          .message("클릭 로그 저장 중 오류가 발생했습니다: " + e.getMessage())
-          .timestamp(LocalDateTime.now(ZoneOffset.UTC))
-          .build();
+      throw new RuntimeException("클릭 로그 저장 실패", e);
     }
   }
 }
