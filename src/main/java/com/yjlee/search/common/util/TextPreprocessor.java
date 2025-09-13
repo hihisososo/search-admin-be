@@ -22,16 +22,11 @@ public class TextPreprocessor {
     if (text == null || text.isBlank()) {
       return "";
     }
-
-    // 1. 천단위 구분자 제거
     text = removeThousandSeparators(text);
-
-    // 2. 기존 전처리 (특수문자 제거, 소문자 변환, 유니코드 정규화)
     return normalizeUnicode(toLowerCase(cleanSpecialChars(text)));
   }
 
   private static String cleanSpecialChars(String text) {
-    // 특수문자 제거 후 연속된 공백 정리
     return SPECIAL_CHARS_PATTERN
         .matcher(text.trim())
         .replaceAll(" ")
@@ -48,7 +43,6 @@ public class TextPreprocessor {
   }
 
   private static String removeThousandSeparators(String text) {
-    // 여러 번 적용해서 모든 콤마 제거
     String result = text;
     String prev;
     do {

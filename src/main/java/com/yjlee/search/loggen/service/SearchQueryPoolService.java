@@ -2,7 +2,7 @@ package com.yjlee.search.loggen.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.evaluation.service.CategoryService;
 import com.yjlee.search.evaluation.service.LLMService;
 import com.yjlee.search.loggen.model.SearchQueryPool;
@@ -49,7 +49,7 @@ public class SearchQueryPoolService {
       // 1. 모든 카테고리 목록 조회
       List<String> categories =
           categoryService
-              .listCategoriesForEnvironment(IndexEnvironment.EnvironmentType.PROD, 0)
+              .listCategoriesForEnvironment(EnvironmentType.PROD, 0)
               .getCategories()
               .stream()
               .map(c -> c.getName())

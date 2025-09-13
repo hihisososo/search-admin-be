@@ -3,7 +3,7 @@ package com.yjlee.search.deployment.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.synonyms.PutSynonymRequest;
 import co.elastic.clients.elasticsearch.synonyms.SynonymRule;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.synonym.model.SynonymDictionary;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
 import java.io.IOException;
@@ -22,7 +22,7 @@ public class ElasticsearchSynonymService {
   private final ElasticsearchClient elasticsearchClient;
   private final SynonymDictionaryRepository synonymDictionaryRepository;
 
-  public void createOrUpdateSynonymSet(String setName, DictionaryEnvironmentType environmentType) {
+  public void createOrUpdateSynonymSet(String setName, EnvironmentType environmentType) {
     try {
       List<String> synonymRules = getSynonymRules(environmentType);
       updateElasticsearchSynonymSet(setName, synonymRules);
@@ -81,7 +81,7 @@ public class ElasticsearchSynonymService {
   }
 
   /** 환경별 동의어 규칙 조회 */
-  private List<String> getSynonymRules(DictionaryEnvironmentType environmentType) {
+  private List<String> getSynonymRules(EnvironmentType environmentType) {
     try {
       // Repository에서 직접 데이터 조회
       List<SynonymDictionary> dictionaries =

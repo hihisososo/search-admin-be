@@ -5,7 +5,7 @@ import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.yjlee.search.common.constants.ESFields;
-import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
@@ -38,7 +38,7 @@ public class CategoryService {
   }
 
   public CategoryListResponse listCategoriesForEnvironment(
-      IndexEnvironment.EnvironmentType environmentType, int size) {
+      EnvironmentType environmentType, int size) {
     // 특정 환경의 카테고리 조회
     try {
       String indexName = indexResolver.resolveProductIndex(environmentType);

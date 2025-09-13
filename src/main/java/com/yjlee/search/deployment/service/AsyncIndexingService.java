@@ -2,7 +2,7 @@ package com.yjlee.search.deployment.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.yjlee.search.async.service.AsyncTaskService;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -36,7 +36,6 @@ public class AsyncIndexingService {
   private final ElasticsearchClient elasticsearchClient;
   private final AsyncTaskService asyncTaskService;
 
-  /** 비동기 색인 실행 */
   @Async("deploymentTaskExecutor")
   public void executeIndexingAsync(Long envId, String version, Long historyId, Long taskId) {
     try {
@@ -48,8 +47,7 @@ public class AsyncIndexingService {
 
       // 2. 새 인덱스 생성
       asyncTaskService.updateProgress(taskId, 20, "인덱스 생성 중...");
-      String newIndexName =
-          elasticsearchIndexService.createNewIndex(version, DictionaryEnvironmentType.DEV);
+      String newIndexName = elasticsearchIndexService.createNewIndex(version, EnvironmentType.DEV);
 
       // 3. 상품 색인
       asyncTaskService.updateProgress(taskId, 30, "상품 색인 시작...");
@@ -108,7 +106,7 @@ public class AsyncIndexingService {
 
     // 실시간 동기화
     try {
-      dictionaryDeploymentService.realtimeSyncAll(DictionaryEnvironmentType.DEV);
+      dictionaryDeploymentService.realtimeSyncAll(EnvironmentType.DEV);
     } catch (Exception e) {
       log.warn("실시간 동기화 실패 (무시): {}", e.getMessage());
     }

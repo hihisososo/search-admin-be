@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.category.model;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.converter.CategoryMappingListConverter;
 import com.yjlee.search.dictionary.common.model.DictionaryEntity;
 import jakarta.persistence.*;
@@ -46,7 +46,7 @@ public class CategoryRankingDictionary implements DictionaryEntity {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   @Builder.Default
-  DictionaryEnvironmentType environmentType = DictionaryEnvironmentType.CURRENT;
+  EnvironmentType environmentType = EnvironmentType.CURRENT;
 
   @CreatedDate @Column LocalDateTime createdAt;
 
@@ -81,7 +81,7 @@ public class CategoryRankingDictionary implements DictionaryEntity {
       String keyword,
       List<CategoryMapping> mappings,
       String description,
-      DictionaryEnvironmentType environment) {
+      EnvironmentType environment) {
     return CategoryRankingDictionary.builder()
         .keyword(keyword)
         .categoryMappings(mappings)

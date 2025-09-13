@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.typo.controller;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.typo.dto.*;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.search.service.SearchService;
@@ -29,7 +29,7 @@ public class TypoCorrectionDictionaryController {
       @RequestParam(required = false) String search,
       @RequestParam(defaultValue = "updatedAt") String sortBy,
       @RequestParam(defaultValue = "desc") String sortDir,
-      @RequestParam(required = false) DictionaryEnvironmentType environment) {
+      @RequestParam(required = false) EnvironmentType environment) {
     return typoCorrectionDictionaryService.getTypoCorrectionDictionaries(
         page, size, search, sortBy, sortDir, environment);
   }
@@ -38,7 +38,7 @@ public class TypoCorrectionDictionaryController {
   @GetMapping("/{dictionaryId}")
   public TypoCorrectionDictionaryResponse getTypoCorrectionDictionaryDetail(
       @PathVariable Long dictionaryId,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return typoCorrectionDictionaryService.getTypoCorrectionDictionaryDetail(
         dictionaryId, environment);
   }
@@ -48,7 +48,7 @@ public class TypoCorrectionDictionaryController {
   @ResponseStatus(HttpStatus.CREATED)
   public TypoCorrectionDictionaryResponse createTypoCorrectionDictionary(
       @RequestBody @Valid TypoCorrectionDictionaryCreateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return typoCorrectionDictionaryService.createTypoCorrectionDictionary(request, environment);
   }
 
@@ -57,7 +57,7 @@ public class TypoCorrectionDictionaryController {
   public TypoCorrectionDictionaryResponse updateTypoCorrectionDictionary(
       @PathVariable Long dictionaryId,
       @RequestBody @Valid TypoCorrectionDictionaryUpdateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return typoCorrectionDictionaryService.updateTypoCorrectionDictionary(
         dictionaryId, request, environment);
   }
@@ -67,14 +67,13 @@ public class TypoCorrectionDictionaryController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deleteTypoCorrectionDictionary(
       @PathVariable Long dictionaryId,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     typoCorrectionDictionaryService.deleteTypoCorrectionDictionary(dictionaryId, environment);
   }
 
   @Operation(summary = "실시간 반영")
   @PostMapping("/realtime-sync")
-  public TypoSyncResponse syncTypoCorrectionDictionary(
-      @RequestParam DictionaryEnvironmentType environment) {
+  public TypoSyncResponse syncTypoCorrectionDictionary(@RequestParam EnvironmentType environment) {
     searchService.updateTypoCorrectionCacheRealtime(environment);
     return TypoSyncResponse.success(environment.getDescription());
   }

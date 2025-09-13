@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.typo.service;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryCreateRequest;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryListResponse;
@@ -35,7 +35,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
   /** 오타교정 사전 생성 */
   @Transactional
   public TypoCorrectionDictionaryResponse createTypoCorrectionDictionary(
-      TypoCorrectionDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+      TypoCorrectionDictionaryCreateRequest request, EnvironmentType environment) {
     log.info(
         "오타교정 사전 생성 요청: {} -> {} - 환경: {}",
         request.getKeyword(),
@@ -68,7 +68,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
       String search,
       String sortBy,
       String sortDir,
-      DictionaryEnvironmentType environmentType) {
+      EnvironmentType environmentType) {
 
     log.debug(
         "오타교정 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
@@ -97,7 +97,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
   /** 오타교정 사전 상세 조회 */
   @Transactional(readOnly = true)
   public TypoCorrectionDictionaryResponse getTypoCorrectionDictionaryDetail(
-      Long dictionaryId, DictionaryEnvironmentType environment) {
+      Long dictionaryId, EnvironmentType environment) {
     log.debug("오타교정 사전 상세 조회 요청: {} - 환경: {}", dictionaryId, environment);
 
     TypoCorrectionDictionary dictionary =
@@ -112,7 +112,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
   public TypoCorrectionDictionaryResponse updateTypoCorrectionDictionary(
       Long dictionaryId,
       TypoCorrectionDictionaryUpdateRequest request,
-      DictionaryEnvironmentType environment) {
+      EnvironmentType environment) {
     log.info("오타교정 사전 수정 요청: {} - 환경: {}", dictionaryId, environment);
 
     TypoCorrectionDictionary existing =
@@ -138,8 +138,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
 
   /** 오타교정 사전 삭제 */
   @Transactional
-  public void deleteTypoCorrectionDictionary(
-      Long dictionaryId, DictionaryEnvironmentType environment) {
+  public void deleteTypoCorrectionDictionary(Long dictionaryId, EnvironmentType environment) {
     log.info("오타교정 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
 
     if (!repository.existsById(dictionaryId)) {
@@ -156,14 +155,14 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
     log.info("개발 환경 오타교정 사전 배포 시작 - 버전: {}", version);
 
     List<TypoCorrectionDictionary> currentDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT);
+        repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.CURRENT);
     if (currentDictionaries.isEmpty()) {
       log.warn("배포할 오타교정 사전이 없습니다.");
       return;
     }
 
     // 기존 개발 환경 데이터 삭제
-    repository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    repository.deleteByEnvironmentType(EnvironmentType.DEV);
 
     // CURRENT 데이터를 DEV로 복사
     List<TypoCorrectionDictionary> devDictionaries =
@@ -171,7 +170,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
             .map(
                 dict ->
                     TypoCorrectionDictionary.builder()
-                        .environmentType(DictionaryEnvironmentType.DEV)
+                        .environmentType(EnvironmentType.DEV)
                         .keyword(dict.getKeyword())
                         .correctedWord(dict.getCorrectedWord())
                         .description(dict.getDescription())
@@ -188,13 +187,13 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
     log.info("운영 환경 오타교정 사전 배포 시작");
 
     List<TypoCorrectionDictionary> devDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.DEV);
+        repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.DEV);
     if (devDictionaries.isEmpty()) {
       throw new IllegalStateException("개발 환경에 배포된 오타교정 사전이 없습니다.");
     }
 
     // 기존 운영 환경 데이터 삭제
-    repository.deleteByEnvironmentType(DictionaryEnvironmentType.PROD);
+    repository.deleteByEnvironmentType(EnvironmentType.PROD);
 
     // DEV 데이터를 PROD로 복사
     List<TypoCorrectionDictionary> prodDictionaries =
@@ -202,7 +201,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
             .map(
                 dict ->
                     TypoCorrectionDictionary.builder()
-                        .environmentType(DictionaryEnvironmentType.PROD)
+                        .environmentType(EnvironmentType.PROD)
                         .keyword(dict.getKeyword())
                         .correctedWord(dict.getCorrectedWord())
                         .description(dict.getDescription())
@@ -267,7 +266,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
         .build();
   }
 
-  public String getDictionaryContent(DictionaryEnvironmentType environment) {
+  public String getDictionaryContent(EnvironmentType environment) {
     List<TypoCorrectionDictionary> dictionaries =
         repository.findByEnvironmentTypeOrderByKeywordAsc(environment);
     StringBuilder content = new StringBuilder();
@@ -284,7 +283,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
   }
 
   @Override
-  public void realtimeSync(DictionaryEnvironmentType environment) {
+  public void realtimeSync(EnvironmentType environment) {
     log.info("오타교정 사전 실시간 동기화 - 환경: {}", environment);
     typoCorrectionService.updateCacheRealtime(environment);
     log.info("오타교정 캐시 업데이트 완료 - 환경: {}", environment);
@@ -295,7 +294,7 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
   }
 
   @Transactional
-  public void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+  public void deleteByEnvironmentType(EnvironmentType environment) {
     log.info("오타교정 사전 환경별 삭제 시작 - 환경: {}", environment);
     repository.deleteByEnvironmentType(environment);
     log.info("오타교정 사전 환경별 삭제 완료 - 환경: {}", environment);

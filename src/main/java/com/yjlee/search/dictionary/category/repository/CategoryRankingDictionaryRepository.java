@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.category.repository;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -13,16 +13,15 @@ public interface CategoryRankingDictionaryRepository
     extends JpaRepository<CategoryRankingDictionary, Long> {
 
   Page<CategoryRankingDictionary> findByEnvironmentType(
-      DictionaryEnvironmentType environmentType, Pageable pageable);
+      EnvironmentType environmentType, Pageable pageable);
 
   List<CategoryRankingDictionary> findByEnvironmentTypeOrderByKeywordAsc(
-      DictionaryEnvironmentType environmentType);
+      EnvironmentType environmentType);
 
   Page<CategoryRankingDictionary> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
-      DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
+      EnvironmentType environmentType, String keyword, Pageable pageable);
 
-  boolean existsByKeywordAndEnvironmentType(
-      String keyword, DictionaryEnvironmentType environmentType);
+  boolean existsByKeywordAndEnvironmentType(String keyword, EnvironmentType environmentType);
 
-  void deleteByEnvironmentType(DictionaryEnvironmentType environmentType);
+  void deleteByEnvironmentType(EnvironmentType environmentType);
 }

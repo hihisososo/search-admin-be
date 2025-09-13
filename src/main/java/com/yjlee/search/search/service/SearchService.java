@@ -2,12 +2,10 @@ package com.yjlee.search.search.service;
 
 import co.elastic.apm.api.ElasticApm;
 import co.elastic.apm.api.Transaction;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.util.HttpRequestUtils;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.search.converter.SearchRequestMapper;
 import com.yjlee.search.search.dto.*;
-import com.yjlee.search.search.exception.SearchException;
 import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import com.yjlee.search.searchlog.service.SearchLogService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,14 +63,14 @@ public class SearchService {
   }
 
   public AutocompleteResponse getAutocompleteSuggestionsSimulation(
-      String keyword, IndexEnvironment.EnvironmentType environmentType) {
+      String keyword, EnvironmentType environmentType) {
 
     log.info("자동완성 시뮬레이션 요청 - 환경: {}, 키워드: {}", environmentType.getDescription(), keyword);
     String indexName = indexResolver.resolveAutocompleteIndexForSimulation(environmentType);
     return autocompleteSearchService.search(indexName, keyword);
   }
 
-  public void updateTypoCorrectionCacheRealtime(DictionaryEnvironmentType environmentType) {
+  public void updateTypoCorrectionCacheRealtime(EnvironmentType environmentType) {
     typoCorrectionService.updateCacheRealtime(environmentType);
   }
 
@@ -104,7 +102,7 @@ public class SearchService {
   }
 
   public com.fasterxml.jackson.databind.JsonNode getDocumentById(
-      String documentId, IndexEnvironment.EnvironmentType environmentType) {
+      String documentId, EnvironmentType environmentType) {
     String indexName =
         environmentType != null
             ? indexResolver.resolveProductIndexForSimulation(environmentType)
@@ -114,7 +112,7 @@ public class SearchService {
         response = searchQueryExecutor.getDocument(indexName, documentId);
 
     if (!response.found()) {
-      throw new SearchException("Document not found: " + documentId);
+      throw new RuntimeException("Document not found: " + documentId);
     }
 
     return response.source();

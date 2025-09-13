@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.category.service;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.dto.*;
 import com.yjlee.search.dictionary.category.mapper.CategoryRankingDictionaryMapper;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
@@ -32,7 +32,7 @@ public class CategoryRankingDictionaryService implements DictionaryService {
 
   @Transactional
   public CategoryRankingDictionaryResponse create(
-      CategoryRankingDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+      CategoryRankingDictionaryCreateRequest request, EnvironmentType environment) {
     if (repository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
       throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
     }
@@ -52,7 +52,7 @@ public class CategoryRankingDictionaryService implements DictionaryService {
       String search,
       String sortBy,
       String sortDir,
-      DictionaryEnvironmentType environmentType) {
+      EnvironmentType environmentType) {
     Pageable pageable = PageRequest.of(Math.max(0, page), size, createSort(sortBy, sortDir));
     Page<CategoryRankingDictionary> dictionaryPage =
         (search != null && !search.trim().isEmpty())
@@ -72,9 +72,7 @@ public class CategoryRankingDictionaryService implements DictionaryService {
 
   @Transactional
   public CategoryRankingDictionaryResponse update(
-      Long id,
-      CategoryRankingDictionaryUpdateRequest request,
-      DictionaryEnvironmentType environment) {
+      Long id, CategoryRankingDictionaryUpdateRequest request, EnvironmentType environment) {
     CategoryRankingDictionary existing =
         repository
             .findById(id)
@@ -103,7 +101,7 @@ public class CategoryRankingDictionaryService implements DictionaryService {
   }
 
   @Transactional(readOnly = true)
-  public CategoryListResponse getCategories(DictionaryEnvironmentType environment) {
+  public CategoryListResponse getCategories(EnvironmentType environment) {
     var categories = productRepository.findDistinctCategoryNames();
     categories.sort(String::compareTo);
     return CategoryListResponse.builder()
@@ -115,16 +113,16 @@ public class CategoryRankingDictionaryService implements DictionaryService {
   @Override
   @Transactional
   public void deployToDev(String version) {
-    deployToEnvironment(DictionaryEnvironmentType.CURRENT, DictionaryEnvironmentType.DEV);
+    deployToEnvironment(EnvironmentType.CURRENT, EnvironmentType.DEV);
   }
 
   @Override
   @Transactional
   public void deployToProd() {
-    deployToEnvironment(DictionaryEnvironmentType.DEV, DictionaryEnvironmentType.PROD);
+    deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
   }
 
-  private void deployToEnvironment(DictionaryEnvironmentType from, DictionaryEnvironmentType to) {
+  private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
     var sourceDictionaries = repository.findByEnvironmentTypeOrderByKeywordAsc(from);
     if (sourceDictionaries.isEmpty()) return;
 
@@ -143,12 +141,12 @@ public class CategoryRankingDictionaryService implements DictionaryService {
   }
 
   @Override
-  public void realtimeSync(DictionaryEnvironmentType environment) {
+  public void realtimeSync(EnvironmentType environment) {
     categoryRankingService.updateCacheRealtime(environment);
   }
 
   @Transactional
-  public void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+  public void deleteByEnvironmentType(EnvironmentType environment) {
     repository.deleteByEnvironmentType(environment);
   }
 }

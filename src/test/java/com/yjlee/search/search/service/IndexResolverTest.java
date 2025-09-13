@@ -6,8 +6,8 @@ import static org.mockito.Mockito.when;
 
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.config.IndexNameProvider;
+import com.yjlee.search.deployment.model.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment.IndexStatus;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.search.exception.InvalidEnvironmentException;

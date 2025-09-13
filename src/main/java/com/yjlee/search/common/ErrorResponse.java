@@ -16,6 +16,5 @@ public class ErrorResponse {
   private final int code;
   private final String message;
   @Default private final LocalDateTime timestamp = LocalDateTime.now(ZoneOffset.UTC);
-  private final String errorId;
   private final String path;
 }

@@ -1,6 +1,6 @@
 package com.yjlee.search.search.service.category;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService;
 import java.util.*;
@@ -18,12 +18,11 @@ public class CategoryRankingService {
 
   // 기본 환경(CURRENT)로 가중치 조회
   public Map<String, Integer> getCategoryWeights(String query) {
-    return getCategoryWeights(query, DictionaryEnvironmentType.CURRENT);
+    return getCategoryWeights(query, EnvironmentType.CURRENT);
   }
 
   // 환경별 가중치 조회
-  public Map<String, Integer> getCategoryWeights(
-      String query, DictionaryEnvironmentType environmentType) {
+  public Map<String, Integer> getCategoryWeights(String query, EnvironmentType environmentType) {
     if (query == null || query.trim().isEmpty()) {
       return Collections.emptyMap();
     }
@@ -85,7 +84,7 @@ public class CategoryRankingService {
     return categoryWeights;
   }
 
-  public void updateCacheRealtime(DictionaryEnvironmentType environmentType) {
+  public void updateCacheRealtime(EnvironmentType environmentType) {
     cacheLoader.evictCache(environmentType);
   }
 

@@ -14,7 +14,6 @@ import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
@@ -93,7 +92,7 @@ class CategoryServiceTest {
   void testListCategoriesForEnvironmentDev() throws Exception {
     // given
     String indexName = "products-dev";
-    IndexEnvironment.EnvironmentType envType = IndexEnvironment.EnvironmentType.DEV;
+    EnvironmentType envType = EnvironmentType.DEV;
     when(indexResolver.resolveProductIndex(envType)).thenReturn(indexName);
 
     mockSearchResponse();
@@ -114,7 +113,7 @@ class CategoryServiceTest {
   void testListCategoriesForEnvironmentProd() throws Exception {
     // given
     String indexName = "products-prod";
-    IndexEnvironment.EnvironmentType envType = IndexEnvironment.EnvironmentType.PROD;
+    EnvironmentType envType = EnvironmentType.PROD;
     when(indexResolver.resolveProductIndex(envType)).thenReturn(indexName);
 
     mockSearchResponse();
@@ -134,7 +133,7 @@ class CategoryServiceTest {
   @DisplayName("환경별 카테고리 목록 조회 - 예외 발생 시 빈 리스트 반환")
   void testListCategoriesForEnvironmentWithException() {
     // given
-    IndexEnvironment.EnvironmentType envType = IndexEnvironment.EnvironmentType.DEV;
+    EnvironmentType envType = EnvironmentType.DEV;
     when(indexResolver.resolveProductIndex(envType))
         .thenThrow(new RuntimeException("Environment not ready"));
 

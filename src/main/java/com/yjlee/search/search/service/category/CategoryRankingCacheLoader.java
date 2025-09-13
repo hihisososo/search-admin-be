@@ -1,6 +1,6 @@
 package com.yjlee.search.search.service.category;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.model.CategoryMapping;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
@@ -20,7 +20,7 @@ public class CategoryRankingCacheLoader {
   private final CategoryRankingDictionaryRepository categoryRankingDictionaryRepository;
 
   @Cacheable(value = "categoryRanking", key = "#environmentType")
-  public Map<String, List<CategoryWeight>> loadCache(DictionaryEnvironmentType environmentType) {
+  public Map<String, List<CategoryWeight>> loadCache(EnvironmentType environmentType) {
     log.info("카테고리 랭킹 사전 캐시 로딩 - 환경: {}", environmentType);
 
     List<CategoryRankingDictionary> dictionaries =
@@ -52,7 +52,7 @@ public class CategoryRankingCacheLoader {
   }
 
   @CacheEvict(value = "categoryRanking", key = "#environmentType")
-  public void evictCache(DictionaryEnvironmentType environmentType) {
+  public void evictCache(EnvironmentType environmentType) {
     log.info("카테고리 랭킹 캐시 클리어 - 환경: {}", environmentType);
   }
 

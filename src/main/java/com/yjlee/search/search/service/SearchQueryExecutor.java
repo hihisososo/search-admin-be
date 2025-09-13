@@ -6,7 +6,6 @@ import co.elastic.clients.elasticsearch.core.GetResponse;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yjlee.search.search.exception.SearchException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -24,7 +23,7 @@ public class SearchQueryExecutor {
       return esClient.search(request, JsonNode.class);
     } catch (Exception e) {
       log.error("Search execution failed", e);
-      throw new SearchException("Search execution failed: " + e.getMessage(), e);
+      throw new RuntimeException("Search execution failed: " + e.getMessage(), e);
     }
   }
 
@@ -36,7 +35,7 @@ public class SearchQueryExecutor {
     } catch (Exception e) {
       log.error(
           "Document retrieval failed for index: {}, documentId: {}", indexName, documentId, e);
-      throw new SearchException("Document retrieval failed: " + e.getMessage(), e);
+      throw new RuntimeException("Document retrieval failed: " + e.getMessage(), e);
     }
   }
 }

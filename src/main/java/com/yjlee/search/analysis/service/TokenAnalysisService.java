@@ -4,7 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.analysis.model.TokenGraph;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.analysis.model.TokenInfo;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import java.io.IOException;
@@ -28,13 +29,13 @@ public class TokenAnalysisService {
   private final RestClient restClient;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  public TokenGraph analyzeWithTokenGraph(String text, DictionaryEnvironmentType environment)
+  public TokenGraph analyzeWithTokenGraph(String text, EnvironmentType environment)
       throws IOException {
     return analyzeWithTokenGraph(text, environment, "nori_search_analyzer");
   }
 
-  public TokenGraph analyzeWithTokenGraph(
-      String text, DictionaryEnvironmentType environment, String analyzer) throws IOException {
+  public TokenGraph analyzeWithTokenGraph(String text, EnvironmentType environment, String analyzer)
+      throws IOException {
 
     String indexName = getIndexNameForAnalysis(environment);
 
@@ -57,13 +58,6 @@ public class TokenAnalysisService {
     }
 
     tokenGraph.generatePaths();
-
-    log.debug(
-        "Token graph analysis complete - {} nodes, {} edges, {} paths",
-        tokenGraph.getPositionNodes().size(),
-        tokenGraph.getEdges().size(),
-        tokenGraph.getPaths().size());
-
     return tokenGraph;
   }
 
@@ -110,8 +104,8 @@ public class TokenAnalysisService {
         positionLength = attributes.get("positionLength").asInt();
       }
 
-      TokenGraph.TokenInfo tokenInfo =
-          TokenGraph.TokenInfo.builder()
+      TokenInfo tokenInfo =
+          TokenInfo.builder()
               .token(tokenText)
               .type(type)
               .position(position)
@@ -124,19 +118,17 @@ public class TokenAnalysisService {
     }
   }
 
-  private String getIndexNameForAnalysis(DictionaryEnvironmentType environment) throws IOException {
-    if (environment == DictionaryEnvironmentType.CURRENT) {
+  private String getIndexNameForAnalysis(EnvironmentType environment) throws IOException {
+    if (environment == EnvironmentType.CURRENT) {
       if (!tempIndexService.isTempIndexExists()) {
-        log.info("임시 인덱스가 없어 새로 생성합니다");
+        log.info("임시 인덱스가 없어 새로 생성");
         tempIndexService.refreshTempIndex();
       }
       return tempIndexService.getTempIndexName();
     }
 
-    IndexEnvironment.EnvironmentType envType =
-        environment == DictionaryEnvironmentType.PROD
-            ? IndexEnvironment.EnvironmentType.PROD
-            : IndexEnvironment.EnvironmentType.DEV;
+    EnvironmentType envType =
+        environment == EnvironmentType.PROD ? EnvironmentType.PROD : EnvironmentType.DEV;
 
     return indexEnvironmentRepository
         .findByEnvironmentType(envType)

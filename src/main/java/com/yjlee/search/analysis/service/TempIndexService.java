@@ -7,7 +7,7 @@ import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import com.yjlee.search.analysis.dto.TempIndexRefreshResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.constant.DeploymentConstants;
 import com.yjlee.search.deployment.service.EC2DeploymentService;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
@@ -72,8 +72,7 @@ public class TempIndexService {
     }
 
     // 5. CURRENT 환경의 동의어 사전 생성/업데이트
-    elasticsearchSynonymService.createOrUpdateSynonymSet(
-        TEMP_SYNONYM_SET, DictionaryEnvironmentType.CURRENT);
+    elasticsearchSynonymService.createOrUpdateSynonymSet(TEMP_SYNONYM_SET, EnvironmentType.CURRENT);
     log.info("임시 동의어 세트 생성/업데이트 완료: {}", TEMP_SYNONYM_SET);
 
     // 6. 인덱스 설정 및 매핑 준비
@@ -144,8 +143,7 @@ public class TempIndexService {
 
   private String buildUserDictionaryContent() {
     List<UserDictionary> dictionaries =
-        userDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
-            DictionaryEnvironmentType.CURRENT);
+        userDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.CURRENT);
 
     // Nori 사용자 사전 형식: 단어만 한 줄에 하나씩
     // 추가 정보가 필요한 경우 확장 가능
@@ -158,7 +156,7 @@ public class TempIndexService {
       // 큰 페이지 크기로 전체 불용어 가져오기
       List<StopwordDictionary> dictionaries =
           stopwordDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
-              DictionaryEnvironmentType.CURRENT);
+              EnvironmentType.CURRENT);
 
       return dictionaries.stream()
           .map(StopwordDictionary::getKeyword)
@@ -171,8 +169,7 @@ public class TempIndexService {
 
   private String buildUnitDictionaryContent() {
     List<UnitDictionary> dictionaries =
-        unitDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
-            DictionaryEnvironmentType.CURRENT);
+        unitDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.CURRENT);
 
     // 단위 사전 형식: kg,킬로그램
     return dictionaries.stream().map(UnitDictionary::getKeyword).collect(Collectors.joining("\n"));

@@ -15,7 +15,6 @@ import co.elastic.clients.elasticsearch.core.MgetRequest;
 import co.elastic.clients.elasticsearch.core.MgetResponse;
 import co.elastic.clients.elasticsearch.core.get.GetResult;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
 import java.util.Arrays;
@@ -54,8 +53,7 @@ class ProductBulkFetchServiceTest {
     // given
     List<String> productIds = Arrays.asList("P001", "P002", "P003");
     String indexName = "products-dev";
-    when(indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndex(EnvironmentType.DEV)).thenReturn(indexName);
 
     ProductDocument doc1 = createProductDocument("P001", "상품1");
     ProductDocument doc2 = createProductDocument("P002", "상품2");
@@ -87,8 +85,7 @@ class ProductBulkFetchServiceTest {
     // given
     List<String> productIds = Arrays.asList("P001", "P002", "P003");
     String indexName = "products-dev";
-    when(indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndex(EnvironmentType.DEV)).thenReturn(indexName);
 
     ProductDocument doc1 = createProductDocument("P001", "상품1");
     ProductDocument doc3 = createProductDocument("P003", "상품3");
@@ -141,8 +138,7 @@ class ProductBulkFetchServiceTest {
     // given
     List<String> productIds = Arrays.asList("P001", "P002");
     String indexName = "products-dev";
-    when(indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndex(EnvironmentType.DEV)).thenReturn(indexName);
 
     // 벌크 조회 실패
     when(elasticsearchClient.mget(any(MgetRequest.class), eq(ProductDocument.class)))
@@ -179,8 +175,7 @@ class ProductBulkFetchServiceTest {
     // given
     String productId = "P001";
     String indexName = "products-dev";
-    when(indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndex(EnvironmentType.DEV)).thenReturn(indexName);
 
     ProductDocument doc = createProductDocument("P001", "상품1");
     when(getResponse.found()).thenReturn(true);
@@ -202,8 +197,7 @@ class ProductBulkFetchServiceTest {
     // given
     String productId = "P999";
     String indexName = "products-dev";
-    when(indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndex(EnvironmentType.DEV)).thenReturn(indexName);
 
     when(getResponse.found()).thenReturn(false);
     when(elasticsearchClient.get(any(GetRequest.class), eq(ProductDocument.class)))
@@ -222,8 +216,7 @@ class ProductBulkFetchServiceTest {
     // given
     String productId = "P001";
     String indexName = "products-dev";
-    when(indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndex(EnvironmentType.DEV)).thenReturn(indexName);
 
     when(elasticsearchClient.get(any(GetRequest.class), eq(ProductDocument.class)))
         .thenThrow(new RuntimeException("ES 오류"));
@@ -241,7 +234,7 @@ class ProductBulkFetchServiceTest {
     // given
     List<String> productIds = Arrays.asList("P001");
     String indexName = "products-prod";
-    IndexEnvironment.EnvironmentType envType = IndexEnvironment.EnvironmentType.PROD;
+    EnvironmentType envType = EnvironmentType.PROD;
 
     when(indexResolver.resolveProductIndex(envType)).thenReturn(indexName);
 
@@ -267,7 +260,7 @@ class ProductBulkFetchServiceTest {
     // given
     String productId = "P001";
     String indexName = "products-dev";
-    IndexEnvironment.EnvironmentType envType = IndexEnvironment.EnvironmentType.DEV;
+    EnvironmentType envType = EnvironmentType.DEV;
 
     when(indexResolver.resolveProductIndex(envType)).thenReturn(indexName);
 
@@ -291,8 +284,7 @@ class ProductBulkFetchServiceTest {
     // given
     List<String> productIds = Arrays.asList("P001", "P002");
     String indexName = "products-dev";
-    when(indexResolver.resolveProductIndex(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndex(EnvironmentType.DEV)).thenReturn(indexName);
 
     ProductDocument doc1 = createProductDocument("P001", "상품1");
 

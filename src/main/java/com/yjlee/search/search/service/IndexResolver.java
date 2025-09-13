@@ -1,12 +1,11 @@
 package com.yjlee.search.search.service;
 
 import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.config.IndexNameProvider;
 import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.model.IndexEnvironment.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment.IndexStatus;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.search.exception.InvalidEnvironmentException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -65,16 +64,16 @@ public class IndexResolver {
             .findByEnvironmentType(environmentType)
             .orElseThrow(
                 () ->
-                    new InvalidEnvironmentException(
+                    new IllegalArgumentException(
                         environmentType.getDescription() + " 환경을 찾을 수 없습니다."));
 
     if (environment.getIndexName() == null || environment.getIndexName().isEmpty()) {
-      throw new InvalidEnvironmentException(
+      throw new IllegalArgumentException(
           environmentType.getDescription() + " 환경의 인덱스가 설정되지 않았습니다.");
     }
 
     if (!allowIndexing && environment.getIndexStatus() != IndexStatus.ACTIVE) {
-      throw new InvalidEnvironmentException(
+      throw new IllegalArgumentException(
           environmentType.getDescription() + " 환경의 인덱스가 활성 상태가 아닙니다.");
     }
 

@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.typo.model;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.common.model.DictionaryEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -41,7 +41,7 @@ public class TypoCorrectionDictionary implements DictionaryEntity {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   @Builder.Default
-  DictionaryEnvironmentType environmentType = DictionaryEnvironmentType.CURRENT;
+  EnvironmentType environmentType = EnvironmentType.CURRENT;
 
   @CreatedDate @Column LocalDateTime createdAt;
 

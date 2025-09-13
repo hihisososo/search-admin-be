@@ -2,11 +2,14 @@ package com.yjlee.search;
 
 import com.yjlee.search.common.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.UUID;
+import java.io.IOException;
+import java.util.NoSuchElementException;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -15,91 +18,55 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-  @ExceptionHandler(MethodArgumentNotValidException.class)
-  @ResponseStatus(HttpStatus.BAD_REQUEST)
-  public ErrorResponse handleValidation(
-      MethodArgumentNotValidException ex, HttpServletRequest request) {
-    String errorId = generateErrorId();
-    String msg =
-        ex.getBindingResult().getFieldErrors().stream()
-            .map(e -> e.getField() + ": " + e.getDefaultMessage())
-            .findFirst()
-            .orElse("잘못된 요청입니다");
-
-    log.warn(
-        "Validation failed. ErrorId: {}, Path: {}, Message: {}",
-        errorId,
-        request.getRequestURI(),
-        msg);
-
-    return ErrorResponse.builder()
-        .code(400)
-        .message(msg)
-        .errorId(errorId)
-        .path(request.getRequestURI())
-        .build();
+  @ExceptionHandler(NoSuchElementException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleNotFoundException(Exception ex, HttpServletRequest request) {
+    return buildErrorResponse(request, ex, HttpStatus.NOT_FOUND);
   }
 
-  @ExceptionHandler(IllegalArgumentException.class)
+  @ExceptionHandler({
+    IllegalArgumentException.class,
+    MethodArgumentNotValidException.class,
+    HttpMessageNotReadableException.class,
+    MissingServletRequestParameterException.class
+  })
   @ResponseStatus(HttpStatus.BAD_REQUEST)
-  public ErrorResponse handleIllegalArgument(
-      IllegalArgumentException ex, HttpServletRequest request) {
-    String errorId = generateErrorId();
-
-    log.warn(
-        "Illegal argument. ErrorId: {}, Path: {}, Message: {}",
-        errorId,
-        request.getRequestURI(),
-        ex.getMessage());
-
-    return ErrorResponse.builder()
-        .code(400)
-        .message(ex.getMessage())
-        .errorId(errorId)
-        .path(request.getRequestURI())
-        .build();
+  public ErrorResponse handleBadRequest(Exception ex, HttpServletRequest request) {
+    return buildErrorResponse(request, ex, HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler(IllegalStateException.class)
   @ResponseStatus(HttpStatus.CONFLICT)
   public ErrorResponse handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
-    String errorId = generateErrorId();
+    return buildErrorResponse(request, ex, HttpStatus.CONFLICT);
+  }
 
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+  public ErrorResponse handleHttpRequestMethodNotSupported(
+      HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
     log.warn(
-        "Illegal state. ErrorId: {}, Path: {}, Message: {}",
-        errorId,
+        "{}: Path: {}, Method: {}",
+        ex.getClass().getSimpleName(),
         request.getRequestURI(),
-        ex.getMessage());
-
-    return ErrorResponse.builder()
-        .code(409)
-        .message(ex.getMessage())
-        .errorId(errorId)
-        .path(request.getRequestURI())
-        .build();
+        ex.getMethod());
+    return buildErrorResponse(request, ex, HttpStatus.METHOD_NOT_ALLOWED);
   }
 
-  @ExceptionHandler(Exception.class)
+  @ExceptionHandler({IOException.class, RuntimeException.class, Exception.class})
   @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-  public ErrorResponse handleEtc(Exception ex, HttpServletRequest request) {
-    String errorId = generateErrorId();
-
-    MDC.put("errorId", errorId);
-
-    log.error(
-        "Unexpected error occurred. ErrorId: {}, Path: {}", errorId, request.getRequestURI(), ex);
-
-    MDC.remove("errorId");
-
-    return ErrorResponse.builder()
-        .code(500)
-        .message("서버 내부 오류가 발생했습니다.")
-        .errorId(errorId)
-        .path(request.getRequestURI())
-        .build();
+  public ErrorResponse handleServerError(Exception ex, HttpServletRequest request) {
+    return buildErrorResponse(request, ex, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
-  private String generateErrorId() {
-    return UUID.randomUUID().toString().substring(0, 8);
+  private ErrorResponse buildErrorResponse(
+      HttpServletRequest request, Exception ex, HttpStatus status) {
+    log.error("{}: Path: {}", ex.getClass().getSimpleName(), request.getRequestURI(), ex);
+
+    return ErrorResponse.builder()
+        .code(status.value())
+        .message(ex.getMessage())
+        .path(request.getRequestURI())
+        .build();
   }
 }

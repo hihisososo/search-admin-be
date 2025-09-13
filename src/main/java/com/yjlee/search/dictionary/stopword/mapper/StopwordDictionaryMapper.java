@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.stopword.mapper;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryCreateRequest;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryListResponse;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryResponse;
@@ -21,8 +21,7 @@ public interface StopwordDictionaryMapper {
   @Mapping(target = "environmentType", source = "environment")
   @Mapping(target = "description", source = "request.description")
   @Mapping(target = "keyword", source = "request.keyword")
-  StopwordDictionary toEntity(
-      StopwordDictionaryCreateRequest request, DictionaryEnvironmentType environment);
+  StopwordDictionary toEntity(StopwordDictionaryCreateRequest request, EnvironmentType environment);
 
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "createdAt", ignore = true)
@@ -31,5 +30,5 @@ public interface StopwordDictionaryMapper {
   @Mapping(target = "keyword", source = "source.keyword")
   @Mapping(target = "description", source = "source.description")
   StopwordDictionary copyWithEnvironment(
-      StopwordDictionary source, DictionaryEnvironmentType targetEnvironment);
+      StopwordDictionary source, EnvironmentType targetEnvironment);
 }

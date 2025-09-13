@@ -2,9 +2,6 @@ package com.yjlee.search.common.util;
 
 public class KoreanTextUtils {
 
-  private static final int CHOSUNG_BASE = 0x1100;
-  private static final int JUNGSUNG_BASE = 0x1161;
-  private static final int JONGSUNG_BASE = 0x11A7;
   private static final int HANGUL_BASE = 0xAC00;
   private static final int HANGUL_END = 0xD7A3;
 
@@ -23,7 +20,6 @@ public class KoreanTextUtils {
     'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
   };
 
-  /** 한글 텍스트를 자소 분해 */
   public static String decomposeHangul(String text) {
     if (text == null) {
       return null;
@@ -51,7 +47,6 @@ public class KoreanTextUtils {
     return result.toString();
   }
 
-  /** 한글 텍스트에서 초성만 추출 (한글이 아닌 문자는 그대로 유지) */
   public static String extractChosung(String text) {
     if (text == null) {
       return null;

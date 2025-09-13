@@ -7,13 +7,14 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import com.yjlee.search.common.constants.IndexNameConstants;
+import com.yjlee.search.common.constants.SearchLimits;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.searchlog.dto.SearchLogListRequest;
 import com.yjlee.search.searchlog.dto.SearchLogListResponse;
 import com.yjlee.search.searchlog.dto.SearchLogResponse;
-import com.yjlee.search.searchlog.exception.SearchLogNotFoundException;
 import com.yjlee.search.searchlog.model.SearchLogDocument;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -32,9 +33,8 @@ public class SearchLogService {
   private final ElasticsearchClient elasticsearchClient;
   private final ProductRepository productRepository;
 
-  private static final String INDEX_PREFIX = "search-logs-";
   private static final DateTimeFormatter INDEX_DATE_FORMAT =
-      DateTimeFormatter.ofPattern("yyyy.MM.dd");
+      DateTimeFormatter.ofPattern(IndexNameConstants.INDEX_DATE_FORMAT);
 
   /**
    * 검색 로그를 Elasticsearch에 저장
@@ -63,7 +63,7 @@ public class SearchLogService {
   private String generateIndexPattern(LocalDateTime fromDate, LocalDateTime toDate) {
     // 날짜가 없으면 모든 인덱스 조회
     if (fromDate == null || toDate == null) {
-      return INDEX_PREFIX + "*";
+      return IndexNameConstants.SEARCH_LOG_PATTERN;
     }
 
     // 같은 날짜이면 해당 날짜의 인덱스만 조회
@@ -72,17 +72,11 @@ public class SearchLogService {
     }
 
     // 다른 날짜이면 모든 인덱스 조회 (추후 날짜 범위별 인덱스 패턴 구현 가능)
-    return INDEX_PREFIX + "*";
+    return IndexNameConstants.SEARCH_LOG_PATTERN;
   }
 
-  /**
-   * 로그 인덱스명 생성 패턴: search-logs-yyyy.MM.dd
-   *
-   * @param timestamp 로그 생성 시간
-   * @return 생성된 인덱스명
-   */
   private String generateIndexName(LocalDateTime timestamp) {
-    return INDEX_PREFIX + timestamp.format(INDEX_DATE_FORMAT);
+    return IndexNameConstants.SEARCH_LOG_PREFIX + timestamp.format(INDEX_DATE_FORMAT);
   }
 
   /** 일반 검색 로그 수집 */
@@ -130,7 +124,12 @@ public class SearchLogService {
 
   public SearchLogListResponse getSearchLogs(SearchLogListRequest request) {
     int page = Math.max(0, request.getPage() != null ? request.getPage() : 0);
-    int size = Math.max(1, Math.min(100, request.getSize() != null ? request.getSize() : 10));
+    int size =
+        Math.max(
+            SearchLimits.MIN_PAGE_SIZE,
+            Math.min(
+                SearchLimits.MAX_PAGE_SIZE,
+                request.getSize() != null ? request.getSize() : SearchLimits.DEFAULT_PAGE_SIZE));
 
     log.info(
         "검색 로그 조회 요청 - 페이지: {}, 크기: {}, 키워드: {}",
@@ -147,12 +146,13 @@ public class SearchLogService {
       int from = page * size;
 
       // Elasticsearch from + size 제한 확인 (기본 10,000)
-      if (from + size > 10000) {
+      if (from + size > SearchLimits.ELASTICSEARCH_MAX_WINDOW) {
         log.warn(
-            "Elasticsearch from + size 제한 초과: from={}, size={}, 합계={} (최대 10,000)",
+            "Elasticsearch from + size 제한 초과: from={}, size={}, 합계={} (최대 {})",
             from,
             size,
-            from + size);
+            from + size,
+            SearchLimits.ELASTICSEARCH_MAX_WINDOW);
       }
 
       String sortParam = request.getSort();
@@ -356,7 +356,7 @@ public class SearchLogService {
     log.info("검색 로그 상세 조회 - ID: {}", logId);
 
     try {
-      String indexPattern = INDEX_PREFIX + "*";
+      String indexPattern = IndexNameConstants.SEARCH_LOG_PATTERN;
 
       SearchRequest searchRequest =
           SearchRequest.of(
@@ -367,7 +367,7 @@ public class SearchLogService {
 
       if (response.hits().hits().isEmpty()) {
         log.warn("검색 로그를 찾을 수 없음 - ID: {}", logId);
-        throw new SearchLogNotFoundException(logId);
+        throw new NoSuchElementException("Search log not found: " + logId);
       }
 
       return convertToResponse(response.hits().hits().get(0));

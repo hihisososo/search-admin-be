@@ -2,7 +2,7 @@ package com.yjlee.search.deployment.service;
 
 import com.yjlee.search.async.model.AsyncTaskType;
 import com.yjlee.search.async.service.AsyncTaskService;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.dto.*;
 import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
@@ -53,7 +53,7 @@ public class SimpleDeploymentService {
       log.debug("색인 시작: {}", request.getDescription());
 
       // 개발 환경 조회
-      IndexEnvironment devEnv = getEnvironment(IndexEnvironment.EnvironmentType.DEV);
+      IndexEnvironment devEnv = getEnvironment(EnvironmentType.DEV);
 
       // 색인 중복 실행 방지
       if (asyncTaskService.hasRunningTask(AsyncTaskType.INDEXING)) {
@@ -104,8 +104,8 @@ public class SimpleDeploymentService {
 
     try {
       // 환경 조회
-      IndexEnvironment devEnv = getEnvironment(IndexEnvironment.EnvironmentType.DEV);
-      IndexEnvironment prodEnv = getEnvironment(IndexEnvironment.EnvironmentType.PROD);
+      IndexEnvironment devEnv = getEnvironment(EnvironmentType.DEV);
+      IndexEnvironment prodEnv = getEnvironment(EnvironmentType.PROD);
 
       // 배포 가능 검증
       validateDeployment(devEnv, prodEnv);
@@ -175,13 +175,13 @@ public class SimpleDeploymentService {
       environmentRepository.save(devEnv);
 
       // 6. 개발 사전 데이터 초기화
-      dictionaryDeploymentService.deleteAllByEnvironment(DictionaryEnvironmentType.DEV);
+      dictionaryDeploymentService.deleteAllByEnvironment(EnvironmentType.DEV);
 
       // 7. 배포 이력 완료
       completeHistory(historyId, devEnv.getDocumentCount());
 
       // 8. 실시간 동기화
-      dictionaryDeploymentService.realtimeSyncAll(DictionaryEnvironmentType.PROD);
+      dictionaryDeploymentService.realtimeSyncAll(EnvironmentType.PROD);
 
       log.info("배포 완료: {}", prodEnv.getIndexName());
 
@@ -333,7 +333,7 @@ public class SimpleDeploymentService {
 
   // === Private Helper Methods ===
 
-  private IndexEnvironment getEnvironment(IndexEnvironment.EnvironmentType type) {
+  private IndexEnvironment getEnvironment(EnvironmentType type) {
     return environmentRepository
         .findByEnvironmentType(type)
         .orElseThrow(() -> new IllegalStateException("환경 설정이 없습니다: " + type));

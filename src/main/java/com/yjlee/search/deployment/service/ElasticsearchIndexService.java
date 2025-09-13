@@ -15,7 +15,7 @@ import co.elastic.clients.elasticsearch.indices.PutAliasRequest;
 import co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
 import com.yjlee.search.common.constants.ESFields;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,11 +39,10 @@ public class ElasticsearchIndexService {
 
   public String createNewIndex(String version) throws IOException {
     // 개발 환경 색인으로 간주
-    return createNewIndex(version, DictionaryEnvironmentType.DEV);
+    return createNewIndex(version, EnvironmentType.DEV);
   }
 
-  public String createNewIndex(String version, DictionaryEnvironmentType environmentType)
-      throws IOException {
+  public String createNewIndex(String version, EnvironmentType environmentType) throws IOException {
     String productIndexName = generateProductIndexName(version);
     String autocompleteIndexName = generateAutocompleteIndexName(version);
     String versionedSynonymSet = "synonyms-nori-" + version;
@@ -57,8 +56,7 @@ public class ElasticsearchIndexService {
       throw new IOException("인덱스가 이미 존재합니다: " + productIndexName);
     }
 
-    elasticsearchSynonymService.createOrUpdateSynonymSet(
-        versionedSynonymSet, DictionaryEnvironmentType.DEV);
+    elasticsearchSynonymService.createOrUpdateSynonymSet(versionedSynonymSet, EnvironmentType.DEV);
 
     String productMappingJson = createProductIndexMapping();
     String productSettingsJson = createProductIndexSettings(version, versionedSynonymSet);

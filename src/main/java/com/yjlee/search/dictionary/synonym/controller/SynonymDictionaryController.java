@@ -1,8 +1,7 @@
 package com.yjlee.search.dictionary.synonym.controller;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.synonym.dto.*;
@@ -32,7 +31,7 @@ public class SynonymDictionaryController {
       @RequestParam(required = false) String search,
       @RequestParam(defaultValue = "updatedAt") String sortBy,
       @RequestParam(defaultValue = "desc") String sortDir,
-      @RequestParam(required = false) DictionaryEnvironmentType environment) {
+      @RequestParam(required = false) EnvironmentType environment) {
     return synonymDictionaryService.getList(page, size, sortBy, sortDir, search, environment);
   }
 
@@ -40,7 +39,7 @@ public class SynonymDictionaryController {
   @GetMapping("/{dictionaryId}")
   public SynonymDictionaryResponse getSynonymDictionaryDetail(
       @PathVariable Long dictionaryId,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return synonymDictionaryService.get(dictionaryId, environment);
   }
 
@@ -49,7 +48,7 @@ public class SynonymDictionaryController {
   @ResponseStatus(HttpStatus.CREATED)
   public SynonymDictionaryResponse createSynonymDictionary(
       @RequestBody @Valid SynonymDictionaryCreateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return synonymDictionaryService.create(request, environment);
   }
 
@@ -58,7 +57,7 @@ public class SynonymDictionaryController {
   public SynonymDictionaryResponse updateSynonymDictionary(
       @PathVariable Long dictionaryId,
       @RequestBody @Valid SynonymDictionaryUpdateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return synonymDictionaryService.update(dictionaryId, request, environment);
   }
 
@@ -67,22 +66,19 @@ public class SynonymDictionaryController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deleteSynonymDictionary(
       @PathVariable Long dictionaryId,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     synonymDictionaryService.delete(dictionaryId, environment);
   }
 
   @Operation(summary = "실시간 반영")
   @PostMapping("/realtime-sync")
-  public SynonymSyncResponse syncSynonymDictionary(
-      @RequestParam DictionaryEnvironmentType environment) {
+  public SynonymSyncResponse syncSynonymDictionary(@RequestParam EnvironmentType environment) {
     try {
       String synonymSetName = getSynonymSetName(environment);
 
-      if (environment != DictionaryEnvironmentType.CURRENT) {
-        IndexEnvironment.EnvironmentType envType =
-            environment == DictionaryEnvironmentType.DEV
-                ? IndexEnvironment.EnvironmentType.DEV
-                : IndexEnvironment.EnvironmentType.PROD;
+      if (environment != EnvironmentType.CURRENT) {
+        EnvironmentType envType =
+            environment == EnvironmentType.DEV ? EnvironmentType.DEV : EnvironmentType.PROD;
 
         indexEnvironmentRepository
             .findByEnvironmentType(envType)
@@ -100,15 +96,13 @@ public class SynonymDictionaryController {
     }
   }
 
-  private String getSynonymSetName(DictionaryEnvironmentType environment) {
-    if (environment == DictionaryEnvironmentType.CURRENT) {
+  private String getSynonymSetName(EnvironmentType environment) {
+    if (environment == EnvironmentType.CURRENT) {
       return "synonyms-nori-current";
     }
 
-    IndexEnvironment.EnvironmentType envType =
-        environment == DictionaryEnvironmentType.DEV
-            ? IndexEnvironment.EnvironmentType.DEV
-            : IndexEnvironment.EnvironmentType.PROD;
+    EnvironmentType envType =
+        environment == EnvironmentType.DEV ? EnvironmentType.DEV : EnvironmentType.PROD;
 
     return indexEnvironmentRepository
         .findByEnvironmentType(envType)

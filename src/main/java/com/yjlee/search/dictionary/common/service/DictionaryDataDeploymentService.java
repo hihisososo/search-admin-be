@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.common.service;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +55,7 @@ public class DictionaryDataDeploymentService {
   }
 
   @Transactional
-  public void realtimeSyncAll(DictionaryEnvironmentType environment) {
+  public void realtimeSyncAll(EnvironmentType environment) {
     log.info("모든 사전을 {} 환경에서 실시간 동기화 시작", environment);
 
     for (DictionaryService dictionaryService : dictionaryServices) {
@@ -73,8 +73,8 @@ public class DictionaryDataDeploymentService {
   }
 
   @Transactional
-  public void deleteAllByEnvironment(DictionaryEnvironmentType environment) {
-    if (environment == DictionaryEnvironmentType.CURRENT) {
+  public void deleteAllByEnvironment(EnvironmentType environment) {
+    if (environment == EnvironmentType.CURRENT) {
       throw new IllegalArgumentException("CURRENT 환경의 사전은 삭제할 수 없습니다");
     }
 

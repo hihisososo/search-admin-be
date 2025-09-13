@@ -1,40 +1,35 @@
 package com.yjlee.search.analysis.service;
 
-import com.yjlee.search.analysis.dto.QueryAnalysisRequest;
+import com.yjlee.search.analysis.dto.AnalysisRequest;
 import com.yjlee.search.analysis.dto.QueryAnalysisResponse;
 import com.yjlee.search.analysis.model.TokenGraph;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.common.util.TextPreprocessor;
-import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
-public class QueryAnalysisService {
+public class QueryAnalysisService extends BaseAnalysisService {
 
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
-  private final TempIndexService tempIndexService;
-  private final TokenAnalysisService tokenAnalysisService;
+  public QueryAnalysisService(
+      IndexEnvironmentRepository indexEnvironmentRepository,
+      TempIndexService tempIndexService,
+      TokenAnalysisService tokenAnalysisService) {
+    super(indexEnvironmentRepository, tempIndexService, tokenAnalysisService);
+  }
 
-  public QueryAnalysisResponse analyzeQuery(QueryAnalysisRequest request) {
+  public QueryAnalysisResponse analyzeQuery(AnalysisRequest request) {
     String query = request.getQuery();
-    DictionaryEnvironmentType environment = request.getEnvironment();
+    EnvironmentType environment = request.getEnvironment();
 
     log.info("쿼리 분석 요청 - 쿼리: {}, 환경: {}", query, environment);
 
     try {
-      // 전처리 수행
-      String preprocessedQuery = TextPreprocessor.preprocess(query);
-
-      // Token Graph 분석
-      TokenGraph tokenGraph = tokenAnalysisService.analyzeWithTokenGraph(query, environment);
+      String preprocessedQuery = preprocess(query);
+      TokenGraph tokenGraph = analyzeTokenGraph(query, environment);
 
       // 토큰 리스트 추출 (동의어 제외, 원본 토큰만)
       List<String> tokens =
@@ -47,7 +42,6 @@ public class QueryAnalysisService {
       String mermaidGraph = tokenGraph.generateMermaidDiagram();
 
       return QueryAnalysisResponse.builder()
-          .environment(environment.name())
           .originalQuery(query)
           .preprocessedQuery(preprocessedQuery)
           .tokens(tokens)
@@ -58,28 +52,5 @@ public class QueryAnalysisService {
       log.error("쿼리 분석 중 오류 발생 - 쿼리: {}, 환경: {}", query, environment, e);
       throw new RuntimeException("쿼리 분석 실패: " + e.getMessage(), e);
     }
-  }
-
-  private String getIndexNameForAnalysis(DictionaryEnvironmentType environment) throws IOException {
-    if (environment == DictionaryEnvironmentType.CURRENT) {
-      // CURRENT 환경은 임시 인덱스 사용
-      if (!tempIndexService.isTempIndexExists()) {
-        log.info("임시 인덱스가 없어 새로 생성합니다");
-        tempIndexService.refreshTempIndex();
-      }
-      return tempIndexService.getTempIndexName();
-    }
-
-    // DEV/PROD 환경은 기존 인덱스 사용
-    IndexEnvironment.EnvironmentType envType =
-        environment == DictionaryEnvironmentType.PROD
-            ? IndexEnvironment.EnvironmentType.PROD
-            : IndexEnvironment.EnvironmentType.DEV;
-
-    return indexEnvironmentRepository
-        .findByEnvironmentType(envType)
-        .map(IndexEnvironment::getIndexName)
-        .orElseThrow(
-            () -> new RuntimeException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."));
   }
 }

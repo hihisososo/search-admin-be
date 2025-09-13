@@ -1,6 +1,6 @@
 package com.yjlee.search.search.service.typo;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.typo.model.TypoCorrectionDictionary;
 import com.yjlee.search.dictionary.typo.repository.TypoCorrectionDictionaryRepository;
 import java.util.*;
@@ -18,7 +18,7 @@ public class TypoCorrectionCacheLoader {
   private final TypoCorrectionDictionaryRepository typoCorrectionDictionaryRepository;
 
   @Cacheable(value = "typoCorrection", key = "#environmentType")
-  public Map<String, String> loadCache(DictionaryEnvironmentType environmentType) {
+  public Map<String, String> loadCache(EnvironmentType environmentType) {
     log.info("오타교정 사전 캐시 로딩 - 환경: {}", environmentType);
 
     List<TypoCorrectionDictionary> dictionaries =
@@ -36,7 +36,7 @@ public class TypoCorrectionCacheLoader {
   }
 
   @CacheEvict(value = "typoCorrection", key = "#environmentType")
-  public void evictCache(DictionaryEnvironmentType environmentType) {
+  public void evictCache(EnvironmentType environmentType) {
     log.info("오타교정 캐시 클리어 - 환경: {}", environmentType);
   }
 

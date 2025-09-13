@@ -9,9 +9,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-  output:
-    ansi:
-      enabled: never
 
 app:
   elasticsearch:

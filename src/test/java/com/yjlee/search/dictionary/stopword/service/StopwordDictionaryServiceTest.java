@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryCreateRequest;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryListResponse;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryResponse;
@@ -53,7 +53,7 @@ class StopwordDictionaryServiceTest {
         .thenReturn(testDictionary);
 
     StopwordDictionaryResponse response =
-        stopwordDictionaryService.create(request, DictionaryEnvironmentType.CURRENT);
+        stopwordDictionaryService.create(request, EnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     assertThat(response.getKeyword()).isEqualTo("테스트");
@@ -82,7 +82,7 @@ class StopwordDictionaryServiceTest {
     when(stopwordDictionaryRepository.findById(1L)).thenReturn(Optional.of(testDictionary));
 
     StopwordDictionaryResponse response =
-        stopwordDictionaryService.get(1L, DictionaryEnvironmentType.CURRENT);
+        stopwordDictionaryService.get(1L, EnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     assertThat(response.getKeyword()).isEqualTo("테스트");
@@ -93,7 +93,7 @@ class StopwordDictionaryServiceTest {
   void getStopwordDictionaryDetail_NotFound() {
     when(stopwordDictionaryRepository.findById(999L)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> stopwordDictionaryService.get(999L, DictionaryEnvironmentType.CURRENT))
+    assertThatThrownBy(() -> stopwordDictionaryService.get(999L, EnvironmentType.CURRENT))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("존재하지 않는");
   }
@@ -109,7 +109,7 @@ class StopwordDictionaryServiceTest {
         .thenReturn(testDictionary);
 
     StopwordDictionaryResponse response =
-        stopwordDictionaryService.update(1L, request, DictionaryEnvironmentType.CURRENT);
+        stopwordDictionaryService.update(1L, request, EnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     verify(stopwordDictionaryRepository, times(1)).save(any(StopwordDictionary.class));
@@ -120,7 +120,7 @@ class StopwordDictionaryServiceTest {
   void deleteStopwordDictionary_Success() {
     when(stopwordDictionaryRepository.findById(1L)).thenReturn(Optional.of(testDictionary));
 
-    stopwordDictionaryService.delete(1L, DictionaryEnvironmentType.CURRENT);
+    stopwordDictionaryService.delete(1L, EnvironmentType.CURRENT);
 
     verify(stopwordDictionaryRepository, times(1)).deleteById(1L);
   }
@@ -130,13 +130,12 @@ class StopwordDictionaryServiceTest {
   void deployToDev_Success() {
     List<StopwordDictionary> dictionaries = Arrays.asList(testDictionary);
     when(stopwordDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(
-            DictionaryEnvironmentType.CURRENT))
+            EnvironmentType.CURRENT))
         .thenReturn(dictionaries);
 
     stopwordDictionaryService.deployToDev("test-version");
 
-    verify(stopwordDictionaryRepository, times(1))
-        .deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    verify(stopwordDictionaryRepository, times(1)).deleteByEnvironmentType(EnvironmentType.DEV);
     verify(stopwordDictionaryRepository, times(1)).saveAll(anyList());
   }
 }

@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.unit.controller;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryCreateRequest;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryListResponse;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryResponse;
@@ -31,7 +31,7 @@ public class UnitDictionaryController {
       @RequestParam(required = false) String search,
       @RequestParam(defaultValue = "updatedAt") String sortBy,
       @RequestParam(defaultValue = "desc") String sortDir,
-      @RequestParam(required = false) DictionaryEnvironmentType environment) {
+      @RequestParam(required = false) EnvironmentType environment) {
     return unitDictionaryService.getList(page, size, sortBy, sortDir, search, environment);
   }
 
@@ -39,7 +39,7 @@ public class UnitDictionaryController {
   @GetMapping("/{dictionaryId}")
   public UnitDictionaryResponse getUnitDictionaryDetail(
       @PathVariable Long dictionaryId,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return unitDictionaryService.get(dictionaryId, environment);
   }
 
@@ -48,7 +48,7 @@ public class UnitDictionaryController {
   @ResponseStatus(HttpStatus.CREATED)
   public UnitDictionaryResponse createUnitDictionary(
       @RequestBody @Valid UnitDictionaryCreateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return unitDictionaryService.create(request, environment);
   }
 
@@ -57,7 +57,7 @@ public class UnitDictionaryController {
   public UnitDictionaryResponse updateUnitDictionary(
       @PathVariable Long dictionaryId,
       @RequestBody @Valid UnitDictionaryUpdateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return unitDictionaryService.update(dictionaryId, request, environment);
   }
 
@@ -66,14 +66,14 @@ public class UnitDictionaryController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deleteUnitDictionary(
       @PathVariable Long dictionaryId,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     unitDictionaryService.delete(dictionaryId, environment);
   }
 
   @Operation(summary = "실시간 반영 불가")
   @PostMapping("/realtime-sync")
   @ResponseStatus(HttpStatus.BAD_REQUEST)
-  public UnitSyncResponse syncUnitDictionary(@RequestParam DictionaryEnvironmentType environment) {
+  public UnitSyncResponse syncUnitDictionary(@RequestParam EnvironmentType environment) {
     return UnitSyncResponse.error(environment.getDescription());
   }
 }

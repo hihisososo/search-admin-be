@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.stopword.repository;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.stopword.model.StopwordDictionary;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -11,16 +11,14 @@ public interface StopwordDictionaryRepository extends JpaRepository<StopwordDict
 
   // environment_type 기반 조회
   Page<StopwordDictionary> findByEnvironmentType(
-      DictionaryEnvironmentType environmentType, Pageable pageable);
+      EnvironmentType environmentType, Pageable pageable);
 
-  List<StopwordDictionary> findByEnvironmentTypeOrderByKeywordAsc(
-      DictionaryEnvironmentType environmentType);
+  List<StopwordDictionary> findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType environmentType);
 
   Page<StopwordDictionary> findByEnvironmentTypeAndKeywordContainingIgnoreCase(
-      DictionaryEnvironmentType environmentType, String keyword, Pageable pageable);
+      EnvironmentType environmentType, String keyword, Pageable pageable);
 
-  boolean existsByKeywordAndEnvironmentType(
-      String keyword, DictionaryEnvironmentType environmentType);
+  boolean existsByKeywordAndEnvironmentType(String keyword, EnvironmentType environmentType);
 
-  void deleteByEnvironmentType(DictionaryEnvironmentType environmentType);
+  void deleteByEnvironmentType(EnvironmentType environmentType);
 }

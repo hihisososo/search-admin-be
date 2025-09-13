@@ -15,8 +15,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.yjlee.search.common.constants.ESFields;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.common.util.EnvironmentTypeConverter;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.converter.ProductDtoConverter;
@@ -77,11 +76,9 @@ public class HybridSearchService {
         request.getVectorMinScore());
 
     // 환경 타입 결정 - 시뮬레이션이면 해당 환경, 아니면 PROD
-    DictionaryEnvironmentType environment = DictionaryEnvironmentType.PROD;
+    EnvironmentType environment = EnvironmentType.PROD;
     if (request instanceof SearchSimulationRequest simulationRequest) {
-      environment =
-          EnvironmentTypeConverter.toDictionaryEnvironmentType(
-              simulationRequest.getEnvironmentType());
+      environment = simulationRequest.getEnvironmentType();
       log.debug("Hybrid simulation search - using environment: {}", environment);
     }
 
@@ -153,7 +150,7 @@ public class HybridSearchService {
   private MsearchResponse<JsonNode> executeMultiSearch(
       String indexName,
       SearchExecuteRequest request,
-      DictionaryEnvironmentType environment,
+      EnvironmentType environment,
       int topK,
       Double vectorMinScore)
       throws IOException {
@@ -193,7 +190,7 @@ public class HybridSearchService {
   private SearchExecuteResponse executeKeywordSearch(
       String indexName,
       SearchExecuteRequest request,
-      DictionaryEnvironmentType environment,
+      EnvironmentType environment,
       boolean withExplain) {
 
     BoolQuery boolQuery = queryBuilder.buildBoolQuery(request, environment);

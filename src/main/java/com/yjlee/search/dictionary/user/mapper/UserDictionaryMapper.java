@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.user.mapper;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
@@ -21,8 +21,7 @@ public interface UserDictionaryMapper {
   @Mapping(target = "environmentType", source = "environment")
   @Mapping(target = "description", source = "request.description")
   @Mapping(target = "keyword", source = "request.keyword")
-  UserDictionary toEntity(
-      UserDictionaryCreateRequest request, DictionaryEnvironmentType environment);
+  UserDictionary toEntity(UserDictionaryCreateRequest request, EnvironmentType environment);
 
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "createdAt", ignore = true)
@@ -30,6 +29,5 @@ public interface UserDictionaryMapper {
   @Mapping(target = "environmentType", source = "targetEnvironment")
   @Mapping(target = "keyword", source = "source.keyword")
   @Mapping(target = "description", source = "source.description")
-  UserDictionary copyWithEnvironment(
-      UserDictionary source, DictionaryEnvironmentType targetEnvironment);
+  UserDictionary copyWithEnvironment(UserDictionary source, EnvironmentType targetEnvironment);
 }

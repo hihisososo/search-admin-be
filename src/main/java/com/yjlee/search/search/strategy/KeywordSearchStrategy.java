@@ -5,8 +5,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.common.util.EnvironmentTypeConverter;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchMode;
@@ -38,11 +37,9 @@ public class KeywordSearchStrategy implements SearchStrategy {
     long startTime = System.currentTimeMillis();
 
     // 환경 타입 결정 - 시뮬레이션이면 해당 환경, 아니면 PROD
-    DictionaryEnvironmentType environment = DictionaryEnvironmentType.PROD;
+    EnvironmentType environment = EnvironmentType.PROD;
     if (request instanceof SearchSimulationRequest simulationRequest) {
-      environment =
-          EnvironmentTypeConverter.toDictionaryEnvironmentType(
-              simulationRequest.getEnvironmentType());
+      environment = simulationRequest.getEnvironmentType();
       log.debug("Simulation search - using environment: {}", environment);
     }
 

@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.stopword.service;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.constant.DeploymentConstants;
 import com.yjlee.search.deployment.service.EC2DeploymentService;
 import com.yjlee.search.dictionary.common.enums.DictionarySortField;
@@ -35,7 +35,7 @@ public class StopwordDictionaryService implements DictionaryService {
   private final StopwordDictionaryMapper mapper;
 
   public StopwordDictionaryResponse create(
-      StopwordDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+      StopwordDictionaryCreateRequest request, EnvironmentType environment) {
     StopwordDictionary entity =
         StopwordDictionary.of(request.getKeyword(), request.getDescription(), environment);
     StopwordDictionary saved = stopwordDictionaryRepository.save(entity);
@@ -48,7 +48,7 @@ public class StopwordDictionaryService implements DictionaryService {
       String sortBy,
       String sortDir,
       String keyword,
-      DictionaryEnvironmentType environment) {
+      EnvironmentType environment) {
 
     Sort sort = createSort(sortBy, sortDir);
     Pageable pageable = PageRequest.of(page, size, sort);
@@ -62,7 +62,7 @@ public class StopwordDictionaryService implements DictionaryService {
     return PageResponse.from(resultPage);
   }
 
-  public StopwordDictionaryResponse get(Long id, DictionaryEnvironmentType environment) {
+  public StopwordDictionaryResponse get(Long id, EnvironmentType environment) {
 
     StopwordDictionary entity =
         stopwordDictionaryRepository
@@ -72,7 +72,7 @@ public class StopwordDictionaryService implements DictionaryService {
   }
 
   public StopwordDictionaryResponse update(
-      Long id, StopwordDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
+      Long id, StopwordDictionaryUpdateRequest request, EnvironmentType environment) {
 
     StopwordDictionary entity =
         stopwordDictionaryRepository
@@ -85,7 +85,7 @@ public class StopwordDictionaryService implements DictionaryService {
     return mapper.toResponse(updated);
   }
 
-  public void delete(Long id, DictionaryEnvironmentType environment) {
+  public void delete(Long id, EnvironmentType environment) {
 
     if (!stopwordDictionaryRepository.existsById(id)) {
       throw new EntityNotFoundException("불용어 사전을 찾을 수 없습니다: " + id);
@@ -94,30 +94,30 @@ public class StopwordDictionaryService implements DictionaryService {
     stopwordDictionaryRepository.deleteById(id);
   }
 
-  private List<StopwordDictionary> findByEnvironmentType(DictionaryEnvironmentType environment) {
+  private List<StopwordDictionary> findByEnvironmentType(EnvironmentType environment) {
     return stopwordDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
   }
 
   private Page<StopwordDictionary> findByEnvironmentType(
-      DictionaryEnvironmentType environment, Pageable pageable) {
+      EnvironmentType environment, Pageable pageable) {
     return stopwordDictionaryRepository.findByEnvironmentType(environment, pageable);
   }
 
   @Override
   public void deployToDev(String version) {
-    deployToEnvironment(DictionaryEnvironmentType.CURRENT, DictionaryEnvironmentType.DEV);
+    deployToEnvironment(EnvironmentType.CURRENT, EnvironmentType.DEV);
     deployToEC2(version);
   }
 
   @Override
   public void deployToProd() {
-    deployToEnvironment(DictionaryEnvironmentType.DEV, DictionaryEnvironmentType.PROD);
+    deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
   }
 
-  private void deployToEnvironment(DictionaryEnvironmentType from, DictionaryEnvironmentType to) {
+  private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
     List<StopwordDictionary> sourceDictionaries = findByEnvironmentType(from);
 
-    if (sourceDictionaries.isEmpty() && to == DictionaryEnvironmentType.PROD) {
+    if (sourceDictionaries.isEmpty() && to == EnvironmentType.PROD) {
       throw new IllegalStateException("개발 환경에 배포된 불용어 사전이 없습니다.");
     }
 
@@ -131,7 +131,7 @@ public class StopwordDictionaryService implements DictionaryService {
   }
 
   @Override
-  public void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+  public void deleteByEnvironmentType(EnvironmentType environment) {
     stopwordDictionaryRepository.deleteByEnvironmentType(environment);
   }
 
@@ -139,7 +139,7 @@ public class StopwordDictionaryService implements DictionaryService {
     log.info("불용어사전 EC2 배포 시작 - 버전: {}", version);
 
     try {
-      String content = getDictionaryContent(DictionaryEnvironmentType.DEV);
+      String content = getDictionaryContent(EnvironmentType.DEV);
 
       EC2DeploymentService.EC2DeploymentResult result =
           ec2DeploymentService.deployFile(
@@ -157,7 +157,7 @@ public class StopwordDictionaryService implements DictionaryService {
     }
   }
 
-  private String getDictionaryContent(DictionaryEnvironmentType environment) {
+  private String getDictionaryContent(EnvironmentType environment) {
     List<StopwordDictionary> dictionaries = findByEnvironmentType(environment);
     StringBuilder content = new StringBuilder();
 
@@ -179,7 +179,7 @@ public class StopwordDictionaryService implements DictionaryService {
   }
 
   private Page<StopwordDictionary> searchInRepository(
-      DictionaryEnvironmentType environmentType, String keyword, Pageable pageable) {
+      EnvironmentType environmentType, String keyword, Pageable pageable) {
     return stopwordDictionaryRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
         environmentType, keyword, pageable);
   }

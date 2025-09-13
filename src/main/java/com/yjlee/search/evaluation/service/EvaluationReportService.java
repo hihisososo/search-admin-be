@@ -1,12 +1,11 @@
 package com.yjlee.search.evaluation.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.service.ProductBulkFetchService;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportSummaryResponse;
-import com.yjlee.search.evaluation.exception.ReportNotFoundException;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.EvaluationReport;
 import com.yjlee.search.evaluation.model.EvaluationReportDetail;
@@ -31,6 +30,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -386,7 +386,7 @@ public class EvaluationReportService {
 
       // DEV 환경 시뮬레이션 검색 요청 생성
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
-      searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
+      searchRequest.setEnvironmentType(EnvironmentType.DEV);
       searchRequest.setQuery(query);
       searchRequest.setPage(0);
       searchRequest.setSize(DEFAULT_RETRIEVAL_SIZE); // 고정 300개 조회
@@ -429,7 +429,7 @@ public class EvaluationReportService {
       log.info("DEV 환경 검색 API 호출(ordered): {}, 검색 결과 개수: {}", query, size);
 
       SearchSimulationRequest searchRequest = new SearchSimulationRequest();
-      searchRequest.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
+      searchRequest.setEnvironmentType(EnvironmentType.DEV);
       searchRequest.setQuery(query);
       searchRequest.setPage(0);
       searchRequest.setSize(size);
@@ -499,7 +499,7 @@ public class EvaluationReportService {
     EvaluationReport report =
         evaluationReportRepository
             .findById(reportId)
-            .orElseThrow(() -> new ReportNotFoundException(reportId));
+            .orElseThrow(() -> new NoSuchElementException("Report not found: " + reportId));
 
     // 상세/문서 테이블에서 조회
     List<EvaluationReportDetail> rows = reportDetailRepository.findByReport(report);
@@ -563,7 +563,7 @@ public class EvaluationReportService {
   @Transactional
   public void deleteReport(Long reportId) {
     if (!evaluationReportRepository.existsById(reportId)) {
-      throw new ReportNotFoundException(reportId);
+      throw new NoSuchElementException("Report not found: " + reportId);
     }
     try {
       log.info("평가 리포트 삭제 시작: reportId={}", reportId);
@@ -672,7 +672,7 @@ public class EvaluationReportService {
     if (productIds == null || productIds.isEmpty()) {
       return new HashMap<>();
     }
-    return productBulkFetchService.fetchBulk(productIds, IndexEnvironment.EnvironmentType.DEV);
+    return productBulkFetchService.fetchBulk(productIds, EnvironmentType.DEV);
   }
 
   @Getter

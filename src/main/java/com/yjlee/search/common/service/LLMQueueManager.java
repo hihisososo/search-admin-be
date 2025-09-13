@@ -77,14 +77,12 @@ public class LLMQueueManager {
     log.debug("LLM Worker {} 시작", workerId);
     while (running.get()) {
       try {
-        // Rate limit 체크
         boolean isLimited = rateLimitManager.isRateLimited();
         if (isLimited) {
           rateLimitManager.waitIfRateLimited();
           continue;
         }
 
-        // 큐에서 작업 가져오기
         LLMTask<?> task = taskQueue.poll(1, TimeUnit.SECONDS);
         if (task == null) {
           continue;
@@ -94,19 +92,15 @@ public class LLMQueueManager {
         log.debug("Worker {} - LLM 작업 처리 시작: {}", workerId, task.description);
 
         try {
-          // LLM API 호출
           String response = llmService.callLLMAPI(task.prompt, task.temperature);
 
-          // 결과 처리 및 완료
           processTaskResult(task, response);
-
           log.debug("Worker {} - LLM 작업 완료: {}", workerId, task.description);
 
         } catch (Exception e) {
           if (e.getMessage() != null && e.getMessage().contains("429")) {
             log.warn("Rate limit 감지 - 모든 작업 중단");
             rateLimitManager.setRateLimitActive();
-            // 실패한 작업 다시 큐에 넣기
             try {
               taskQueue.put(task);
             } catch (InterruptedException ie) {
@@ -130,7 +124,6 @@ public class LLMQueueManager {
     log.debug("LLM Worker {} 종료", workerId);
   }
 
-  /** LLM API 호출을 큐에 추가하고 CompletableFuture 반환 */
   public <T> CompletableFuture<T> submitTask(
       String prompt,
       Double temperature,
@@ -150,12 +143,10 @@ public class LLMQueueManager {
     return future;
   }
 
-  /** 간단한 텍스트 응답을 위한 편의 메서드 */
   public CompletableFuture<String> submitSimpleTask(String prompt, String description) {
     return submitTask(prompt, null, response -> response, description);
   }
 
-  /** 타입 안전한 결과 처리 메서드 */
   @SuppressWarnings("unchecked")
   private <T> void processTaskResult(LLMTask<?> task, String response) {
     LLMTask<T> typedTask = (LLMTask<T>) task;
@@ -163,17 +154,14 @@ public class LLMQueueManager {
     typedTask.future.complete(result);
   }
 
-  /** Health check 시작 (평가 작업 시작 시) */
   public void startHealthCheck() {
     rateLimitManager.startHealthCheck();
   }
 
-  /** Health check 중지 (평가 작업 완료 시) */
   public void stopHealthCheck() {
     rateLimitManager.stopHealthCheck();
   }
 
-  /** 큐 상태 조회 */
   public int getQueueSize() {
     return taskQueue.size();
   }
@@ -182,25 +170,12 @@ public class LLMQueueManager {
     return activeWorkers.get();
   }
 
-  /** LLM 작업 데이터 클래스 */
+  @RequiredArgsConstructor
   private static class LLMTask<T> {
     final String prompt;
     final Double temperature;
     final Function<String, T> responseProcessor;
     final CompletableFuture<T> future;
     final String description;
-
-    LLMTask(
-        String prompt,
-        Double temperature,
-        Function<String, T> responseProcessor,
-        CompletableFuture<T> future,
-        String description) {
-      this.prompt = prompt;
-      this.temperature = temperature;
-      this.responseProcessor = responseProcessor;
-      this.future = future;
-      this.description = description;
-    }
   }
 }

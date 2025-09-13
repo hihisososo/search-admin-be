@@ -6,7 +6,7 @@ import co.elastic.clients.elasticsearch.core.GetResponse;
 import co.elastic.clients.elasticsearch.core.MgetRequest;
 import co.elastic.clients.elasticsearch.core.MgetResponse;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
-import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.service.IndexResolver;
@@ -28,11 +28,11 @@ public class ProductBulkFetchService {
   private final IndexResolver indexResolver;
 
   public Map<String, ProductDocument> fetchBulk(List<String> productIds) {
-    return fetchBulk(productIds, IndexEnvironment.EnvironmentType.DEV);
+    return fetchBulk(productIds, EnvironmentType.DEV);
   }
 
   public Map<String, ProductDocument> fetchBulk(
-      List<String> productIds, IndexEnvironment.EnvironmentType environmentType) {
+      List<String> productIds, EnvironmentType environmentType) {
 
     if (ObjectUtils.isEmpty(productIds)) {
       return new HashMap<>();
@@ -74,7 +74,7 @@ public class ProductBulkFetchService {
   }
 
   private Map<String, ProductDocument> fetchIndividually(
-      List<String> productIds, IndexEnvironment.EnvironmentType environmentType) {
+      List<String> productIds, EnvironmentType environmentType) {
 
     Map<String, ProductDocument> productMap = new HashMap<>();
 
@@ -87,11 +87,10 @@ public class ProductBulkFetchService {
   }
 
   public Optional<ProductDocument> fetchSingle(String productId) {
-    return fetchSingle(productId, IndexEnvironment.EnvironmentType.DEV);
+    return fetchSingle(productId, EnvironmentType.DEV);
   }
 
-  public Optional<ProductDocument> fetchSingle(
-      String productId, IndexEnvironment.EnvironmentType environmentType) {
+  public Optional<ProductDocument> fetchSingle(String productId, EnvironmentType environmentType) {
 
     try {
       String indexName = indexResolver.resolveProductIndex(environmentType);

@@ -202,48 +202,4 @@ public class TokenGraph {
 
     return mermaid.toString();
   }
-
-  public String generateAsciiDiagram() {
-    StringBuilder ascii = new StringBuilder();
-
-    List<Integer> positions = new ArrayList<>(positionNodes.keySet());
-    if (positions.isEmpty()) {
-      return "";
-    }
-
-    ascii.append("Position: ");
-    for (int i = 0; i < positions.size(); i++) {
-      ascii.append(String.format("[%d]", positions.get(i)));
-      if (i < positions.size() - 1) {
-        ascii.append(" ─── ");
-      }
-    }
-    ascii.append("\n");
-
-    Map<String, List<TokenEdge>> edgesByOffset =
-        edges.stream()
-            .collect(Collectors.groupingBy(e -> e.getStartOffset() + "-" + e.getEndOffset()));
-
-    for (Map.Entry<String, List<TokenEdge>> entry : edgesByOffset.entrySet()) {
-      ascii.append("          ");
-      for (TokenEdge edge : entry.getValue()) {
-        String arrow = "SYNONYM".equals(edge.getType()) ? "┈→" : "─→";
-        ascii.append(String.format("%s %s ", edge.getToken(), arrow));
-      }
-      ascii.append("\n");
-    }
-
-    return ascii.toString();
-  }
-
-  @Getter
-  @Builder
-  public static class TokenInfo {
-    private String token;
-    private String type;
-    private int position;
-    private int positionLength;
-    private int startOffset;
-    private int endOffset;
-  }
 }

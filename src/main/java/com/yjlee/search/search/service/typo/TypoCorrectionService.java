@@ -1,6 +1,6 @@
 package com.yjlee.search.search.service.typo;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,11 +15,11 @@ public class TypoCorrectionService {
 
   // 기본 환경(CURRENT)로 오타 교정
   public String applyTypoCorrection(String query) {
-    return applyTypoCorrection(query, DictionaryEnvironmentType.CURRENT);
+    return applyTypoCorrection(query, EnvironmentType.CURRENT);
   }
 
   // 환경별 오타 교정
-  public String applyTypoCorrection(String query, DictionaryEnvironmentType environmentType) {
+  public String applyTypoCorrection(String query, EnvironmentType environmentType) {
     if (query == null || query.trim().isEmpty()) {
       return query;
     }
@@ -39,7 +39,7 @@ public class TypoCorrectionService {
     return result.toString();
   }
 
-  public void updateCacheRealtime(DictionaryEnvironmentType environmentType) {
+  public void updateCacheRealtime(EnvironmentType environmentType) {
     cacheLoader.evictCache(environmentType);
   }
 

@@ -7,14 +7,14 @@ import lombok.Getter;
 @Getter
 public class PositionNode {
   private final int position;
-  private final List<TokenGraph.TokenInfo> tokens;
+  private final List<TokenInfo> tokens;
 
   public PositionNode(int position) {
     this.position = position;
     this.tokens = new ArrayList<>();
   }
 
-  public void addToken(TokenGraph.TokenInfo token) {
+  public void addToken(TokenInfo token) {
     tokens.add(token);
   }
 

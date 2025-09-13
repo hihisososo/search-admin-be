@@ -17,9 +17,6 @@ import lombok.experimental.FieldDefaults;
 @Schema(description = "쿼리 분석 응답")
 public class QueryAnalysisResponse {
 
-  @Schema(description = "분석 환경", example = "CURRENT")
-  String environment;
-
   @Schema(description = "원본 쿼리", example = "삼성전자 노트북 1kg")
   String originalQuery;
 

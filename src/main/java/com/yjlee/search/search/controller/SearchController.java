@@ -1,7 +1,7 @@
 package com.yjlee.search.search.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.search.dto.AutocompleteResponse;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchParams;
@@ -52,7 +52,7 @@ public class SearchController {
   @GetMapping("/autocomplete/simulation")
   public ResponseEntity<AutocompleteResponse> autocompleteSimulation(
       @RequestParam @NotBlank @Size(min = 1, max = 100) String keyword,
-      @RequestParam IndexEnvironment.EnvironmentType environmentType) {
+      @RequestParam EnvironmentType environmentType) {
     return ResponseEntity.ok(
         searchService.getAutocompleteSuggestionsSimulation(keyword, environmentType));
   }
@@ -61,7 +61,7 @@ public class SearchController {
   @GetMapping("/document/{documentId}")
   public ResponseEntity<JsonNode> getDocument(
       @PathVariable String documentId,
-      @RequestParam(required = false) IndexEnvironment.EnvironmentType environmentType) {
+      @RequestParam(required = false) EnvironmentType environmentType) {
     return ResponseEntity.ok(searchService.getDocumentById(documentId, environmentType));
   }
 }

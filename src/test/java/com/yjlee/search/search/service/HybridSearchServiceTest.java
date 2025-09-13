@@ -21,7 +21,6 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.search.converter.ProductDtoConverter;
 import com.yjlee.search.search.dto.ProductDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
@@ -148,7 +147,7 @@ class HybridSearchServiceTest {
     SearchSimulationRequest request = new SearchSimulationRequest();
     request.setQuery("태블릿");
     request.setSearchMode(SearchMode.HYBRID_RRF);
-    request.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
+    request.setEnvironmentType(EnvironmentType.DEV);
     request.setRrfK(60);
     request.setHybridTopK(50);
     request.setVectorMinScore(0.65);

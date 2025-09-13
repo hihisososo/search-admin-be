@@ -16,9 +16,8 @@ import static org.mockito.Mockito.when;
 import co.elastic.clients.elasticsearch.core.GetResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.util.HttpRequestUtils;
-import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.search.converter.SearchRequestMapper;
 import com.yjlee.search.search.dto.AutocompleteResponse;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
@@ -168,14 +167,13 @@ class SearchServiceTest {
     // given
     SearchSimulationRequest request = new SearchSimulationRequest();
     request.setQuery("노트북");
-    request.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
+    request.setEnvironmentType(EnvironmentType.DEV);
     request.setExplain(true);
 
     String indexName = "products-dev";
     SearchExecuteResponse expectedResponse = SearchExecuteResponse.builder().build();
 
-    when(indexResolver.resolveProductIndexForSimulation(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndexForSimulation(EnvironmentType.DEV)).thenReturn(indexName);
     when(productSearchService.search(indexName, request, true)).thenReturn(expectedResponse);
 
     // when
@@ -192,7 +190,7 @@ class SearchServiceTest {
   void testGetAutocompleteSuggestionsSimulation() {
     // given
     String keyword = "노트북";
-    IndexEnvironment.EnvironmentType envType = IndexEnvironment.EnvironmentType.DEV;
+    EnvironmentType envType = EnvironmentType.DEV;
     String indexName = "autocomplete-dev";
     AutocompleteResponse expectedResponse =
         AutocompleteResponse.builder().suggestions(new ArrayList<>()).count(0).build();
@@ -213,7 +211,7 @@ class SearchServiceTest {
   @DisplayName("오타 교정 캐시 업데이트")
   void testUpdateTypoCorrectionCacheRealtime() {
     // given
-    DictionaryEnvironmentType envType = DictionaryEnvironmentType.DEV;
+    EnvironmentType envType = EnvironmentType.DEV;
 
     // when
     searchService.updateTypoCorrectionCacheRealtime(envType);
@@ -276,14 +274,13 @@ class SearchServiceTest {
     SearchSimulationParams params = new SearchSimulationParams();
     SearchSimulationRequest request = new SearchSimulationRequest();
     request.setQuery("노트북");
-    request.setEnvironmentType(IndexEnvironment.EnvironmentType.DEV);
+    request.setEnvironmentType(EnvironmentType.DEV);
 
     String indexName = "products-dev";
     SearchExecuteResponse expectedResponse = SearchExecuteResponse.builder().build();
 
     when(searchRequestMapper.toSearchSimulationRequest(params)).thenReturn(request);
-    when(indexResolver.resolveProductIndexForSimulation(IndexEnvironment.EnvironmentType.DEV))
-        .thenReturn(indexName);
+    when(indexResolver.resolveProductIndexForSimulation(EnvironmentType.DEV)).thenReturn(indexName);
     when(productSearchService.search(indexName, request, false)).thenReturn(expectedResponse);
 
     // when
@@ -299,7 +296,7 @@ class SearchServiceTest {
   void testGetDocumentById() {
     // given
     String documentId = "P001";
-    IndexEnvironment.EnvironmentType envType = IndexEnvironment.EnvironmentType.DEV;
+    EnvironmentType envType = EnvironmentType.DEV;
     String indexName = "products-dev";
 
     JsonNode expectedNode = objectMapper.createObjectNode().put("id", documentId);
@@ -347,7 +344,7 @@ class SearchServiceTest {
   void testGetDocumentByIdNotFound() {
     // given
     String documentId = "P999";
-    IndexEnvironment.EnvironmentType envType = IndexEnvironment.EnvironmentType.DEV;
+    EnvironmentType envType = EnvironmentType.DEV;
     String indexName = "products-dev";
 
     @SuppressWarnings("unchecked")

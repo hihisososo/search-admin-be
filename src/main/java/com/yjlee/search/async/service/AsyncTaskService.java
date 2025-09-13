@@ -3,7 +3,6 @@ package com.yjlee.search.async.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.async.dto.AsyncTaskListResponse;
 import com.yjlee.search.async.dto.AsyncTaskResponse;
-import com.yjlee.search.async.exception.TaskNotFoundException;
 import com.yjlee.search.async.model.AsyncTask;
 import com.yjlee.search.async.model.AsyncTaskStatus;
 import com.yjlee.search.async.model.AsyncTaskType;
@@ -11,6 +10,7 @@ import com.yjlee.search.async.repository.AsyncTaskRepository;
 import com.yjlee.search.evaluation.util.PaginationUtils;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -88,7 +88,7 @@ public class AsyncTaskService {
     return asyncTaskRepository
         .findById(taskId)
         .map(this::convertToResponse)
-        .orElseThrow(() -> new TaskNotFoundException(taskId));
+        .orElseThrow(() -> new NoSuchElementException("Task not found: " + taskId));
   }
 
   public AsyncTaskListResponse getRecentTasks(int page, int size) {

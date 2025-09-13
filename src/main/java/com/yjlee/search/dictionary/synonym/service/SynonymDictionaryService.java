@@ -1,8 +1,7 @@
 package com.yjlee.search.dictionary.synonym.service;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.common.util.EnvironmentTypeConverter;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
@@ -38,7 +37,7 @@ public class SynonymDictionaryService implements DictionaryService {
 
   @Transactional
   public SynonymDictionaryResponse create(
-      SynonymDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+      SynonymDictionaryCreateRequest request, EnvironmentType environment) {
     log.info("동의어 사전 생성 요청: {} - 환경: {}", request.getKeyword(), environment);
 
     if (repository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
@@ -65,7 +64,7 @@ public class SynonymDictionaryService implements DictionaryService {
       String sortBy,
       String sortDir,
       String search,
-      DictionaryEnvironmentType environmentType) {
+      EnvironmentType environmentType) {
 
     log.debug(
         "동의어 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
@@ -92,7 +91,7 @@ public class SynonymDictionaryService implements DictionaryService {
   }
 
   @Transactional(readOnly = true)
-  public SynonymDictionaryResponse get(Long id, DictionaryEnvironmentType environment) {
+  public SynonymDictionaryResponse get(Long id, EnvironmentType environment) {
     log.debug("동의어 사전 상세 조회 - ID: {}, 환경: {}", id, environment);
 
     SynonymDictionary dictionary =
@@ -104,7 +103,7 @@ public class SynonymDictionaryService implements DictionaryService {
 
   @Transactional
   public SynonymDictionaryResponse update(
-      Long id, SynonymDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
+      Long id, SynonymDictionaryUpdateRequest request, EnvironmentType environment) {
     log.info("동의어 사전 수정 요청: {} - 환경: {}", id, environment);
 
     SynonymDictionary existing =
@@ -126,7 +125,7 @@ public class SynonymDictionaryService implements DictionaryService {
   }
 
   @Transactional
-  public void delete(Long id, DictionaryEnvironmentType environment) {
+  public void delete(Long id, EnvironmentType environment) {
     log.info("동의어 사전 삭제 요청: {} - 환경: {}", id, environment);
 
     if (!repository.existsById(id)) {
@@ -143,14 +142,14 @@ public class SynonymDictionaryService implements DictionaryService {
     log.info("개발 환경 동의어 사전 배포 시작 - 버전: {}", version);
 
     List<SynonymDictionary> currentDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.CURRENT);
+        repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.CURRENT);
     if (currentDictionaries.isEmpty()) {
       log.warn("배포할 동의어 사전이 없습니다.");
       return;
     }
 
     // 기존 개발 환경 데이터 삭제
-    repository.deleteByEnvironmentType(DictionaryEnvironmentType.DEV);
+    repository.deleteByEnvironmentType(EnvironmentType.DEV);
 
     // CURRENT 데이터를 DEV로 복사
     List<SynonymDictionary> devDictionaries =
@@ -158,7 +157,7 @@ public class SynonymDictionaryService implements DictionaryService {
             .map(
                 dict ->
                     SynonymDictionary.builder()
-                        .environmentType(DictionaryEnvironmentType.DEV)
+                        .environmentType(EnvironmentType.DEV)
                         .keyword(dict.getKeyword())
                         .description(dict.getDescription())
                         .build())
@@ -169,7 +168,7 @@ public class SynonymDictionaryService implements DictionaryService {
   }
 
   @Transactional
-  public void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+  public void deleteByEnvironmentType(EnvironmentType environment) {
     log.info("동의어 사전 환경별 삭제 시작 - 환경: {}", environment);
     repository.deleteByEnvironmentType(environment);
     log.info("동의어 사전 환경별 삭제 완료 - 환경: {}", environment);
@@ -181,13 +180,13 @@ public class SynonymDictionaryService implements DictionaryService {
     log.info("운영 환경 동의어 사전 배포 시작");
 
     List<SynonymDictionary> devDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(DictionaryEnvironmentType.DEV);
+        repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.DEV);
     if (devDictionaries.isEmpty()) {
       throw new IllegalStateException("개발 환경에 배포된 동의어 사전이 없습니다.");
     }
 
     // 기존 운영 환경 데이터 삭제
-    repository.deleteByEnvironmentType(DictionaryEnvironmentType.PROD);
+    repository.deleteByEnvironmentType(EnvironmentType.PROD);
 
     // DEV 데이터를 PROD로 복사
     List<SynonymDictionary> prodDictionaries =
@@ -195,7 +194,7 @@ public class SynonymDictionaryService implements DictionaryService {
             .map(
                 dict ->
                     SynonymDictionary.builder()
-                        .environmentType(DictionaryEnvironmentType.PROD)
+                        .environmentType(EnvironmentType.PROD)
                         .keyword(dict.getKeyword())
                         .description(dict.getDescription())
                         .build())
@@ -215,7 +214,7 @@ public class SynonymDictionaryService implements DictionaryService {
         .build();
   }
 
-  public String getDictionaryContent(DictionaryEnvironmentType environment) {
+  public String getDictionaryContent(EnvironmentType environment) {
     List<SynonymDictionary> dictionaries =
         repository.findByEnvironmentTypeOrderByKeywordAsc(environment);
     StringBuilder content = new StringBuilder();
@@ -232,21 +231,19 @@ public class SynonymDictionaryService implements DictionaryService {
   }
 
   @Override
-  public void realtimeSync(DictionaryEnvironmentType environment) {
+  public void realtimeSync(EnvironmentType environment) {
     log.info("동의어 사전 실시간 동기화 - 환경: {}", environment);
 
     try {
       String synonymSetName;
 
-      if (environment == DictionaryEnvironmentType.CURRENT) {
+      if (environment == EnvironmentType.CURRENT) {
         // CURRENT 환경은 synonyms-nori-current 사용
         synonymSetName = "synonyms-nori-current";
       } else {
         // DEV/PROD 환경은 현재 인덱스 버전에 맞는 synonym set 사용
         try {
-          String indexName =
-              indexResolver.resolveProductIndex(
-                  EnvironmentTypeConverter.toIndexEnvironmentType(environment));
+          String indexName = indexResolver.resolveProductIndex(environment);
 
           // 인덱스 이름에서 버전 추출 (예: products_v15 -> v15)
           String version = indexName.substring(indexName.lastIndexOf("_v") + 1);

@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryListResponse;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryResponse;
@@ -51,7 +51,7 @@ class SynonymDictionaryServiceTest {
     when(synonymDictionaryRepository.save(any(SynonymDictionary.class))).thenReturn(testDictionary);
 
     SynonymDictionaryResponse response =
-        synonymDictionaryService.create(request, DictionaryEnvironmentType.CURRENT);
+        synonymDictionaryService.create(request, EnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     assertThat(response.getKeyword()).isEqualTo("노트북,랩탑");
@@ -87,7 +87,7 @@ class SynonymDictionaryServiceTest {
     when(synonymDictionaryRepository.save(any(SynonymDictionary.class))).thenReturn(testDictionary);
 
     SynonymDictionaryResponse response =
-        synonymDictionaryService.update(1L, request, DictionaryEnvironmentType.CURRENT);
+        synonymDictionaryService.update(1L, request, EnvironmentType.CURRENT);
 
     assertThat(response).isNotNull();
     verify(synonymDictionaryRepository, times(1)).save(any(SynonymDictionary.class));
@@ -98,7 +98,7 @@ class SynonymDictionaryServiceTest {
   void deleteSynonymDictionary_Success() {
     when(synonymDictionaryRepository.findById(1L)).thenReturn(Optional.of(testDictionary));
 
-    synonymDictionaryService.delete(1L, DictionaryEnvironmentType.CURRENT);
+    synonymDictionaryService.delete(1L, EnvironmentType.CURRENT);
 
     verify(synonymDictionaryRepository, times(1)).deleteById(1L);
   }

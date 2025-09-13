@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.unit.service;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.constant.DeploymentConstants;
 import com.yjlee.search.deployment.service.EC2DeploymentService;
 import com.yjlee.search.dictionary.common.enums.DictionarySortField;
@@ -35,7 +35,7 @@ public class UnitDictionaryService implements DictionaryService {
   private final UnitDictionaryMapper mapper;
 
   public UnitDictionaryResponse create(
-      UnitDictionaryCreateRequest request, DictionaryEnvironmentType environment) {
+      UnitDictionaryCreateRequest request, EnvironmentType environment) {
     UnitDictionary entity = UnitDictionary.of(request.getKeyword(), environment);
     UnitDictionary saved = unitDictionaryRepository.save(entity);
     return mapper.toResponse(saved);
@@ -47,7 +47,7 @@ public class UnitDictionaryService implements DictionaryService {
       String sortBy,
       String sortDir,
       String keyword,
-      DictionaryEnvironmentType environment) {
+      EnvironmentType environment) {
 
     Sort sort = createSort(sortBy, sortDir);
     Pageable pageable = PageRequest.of(page, size, sort);
@@ -61,7 +61,7 @@ public class UnitDictionaryService implements DictionaryService {
     return PageResponse.from(resultPage);
   }
 
-  public UnitDictionaryResponse get(Long id, DictionaryEnvironmentType environment) {
+  public UnitDictionaryResponse get(Long id, EnvironmentType environment) {
 
     UnitDictionary entity =
         unitDictionaryRepository
@@ -71,7 +71,7 @@ public class UnitDictionaryService implements DictionaryService {
   }
 
   public UnitDictionaryResponse update(
-      Long id, UnitDictionaryUpdateRequest request, DictionaryEnvironmentType environment) {
+      Long id, UnitDictionaryUpdateRequest request, EnvironmentType environment) {
 
     UnitDictionary entity =
         unitDictionaryRepository
@@ -84,7 +84,7 @@ public class UnitDictionaryService implements DictionaryService {
     return mapper.toResponse(updated);
   }
 
-  public void delete(Long id, DictionaryEnvironmentType environment) {
+  public void delete(Long id, EnvironmentType environment) {
 
     if (!unitDictionaryRepository.existsById(id)) {
       throw new EntityNotFoundException("단위 사전을 찾을 수 없습니다: " + id);
@@ -93,30 +93,30 @@ public class UnitDictionaryService implements DictionaryService {
     unitDictionaryRepository.deleteById(id);
   }
 
-  private List<UnitDictionary> findByEnvironmentType(DictionaryEnvironmentType environment) {
+  private List<UnitDictionary> findByEnvironmentType(EnvironmentType environment) {
     return unitDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
   }
 
   private Page<UnitDictionary> findByEnvironmentType(
-      DictionaryEnvironmentType environment, Pageable pageable) {
+      EnvironmentType environment, Pageable pageable) {
     return unitDictionaryRepository.findByEnvironmentType(environment, pageable);
   }
 
   @Override
   public void deployToDev(String version) {
-    deployToEnvironment(DictionaryEnvironmentType.CURRENT, DictionaryEnvironmentType.DEV);
+    deployToEnvironment(EnvironmentType.CURRENT, EnvironmentType.DEV);
     deployToEC2(version);
   }
 
   @Override
   public void deployToProd() {
-    deployToEnvironment(DictionaryEnvironmentType.DEV, DictionaryEnvironmentType.PROD);
+    deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
   }
 
-  private void deployToEnvironment(DictionaryEnvironmentType from, DictionaryEnvironmentType to) {
+  private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
     List<UnitDictionary> sourceDictionaries = findByEnvironmentType(from);
 
-    if (sourceDictionaries.isEmpty() && to == DictionaryEnvironmentType.PROD) {
+    if (sourceDictionaries.isEmpty() && to == EnvironmentType.PROD) {
       throw new IllegalStateException("개발 환경에 배포된 단위 사전이 없습니다.");
     }
 
@@ -130,7 +130,7 @@ public class UnitDictionaryService implements DictionaryService {
   }
 
   @Override
-  public void deleteByEnvironmentType(DictionaryEnvironmentType environment) {
+  public void deleteByEnvironmentType(EnvironmentType environment) {
     unitDictionaryRepository.deleteByEnvironmentType(environment);
   }
 
@@ -138,7 +138,7 @@ public class UnitDictionaryService implements DictionaryService {
     log.info("단위사전 EC2 배포 시작 - 버전: {}", version);
 
     try {
-      String content = getDictionaryContent(DictionaryEnvironmentType.DEV);
+      String content = getDictionaryContent(EnvironmentType.DEV);
 
       if (content == null || content.trim().isEmpty()) {
         log.warn("단위사전 내용이 비어있음 - 버전: {}", version);
@@ -161,7 +161,7 @@ public class UnitDictionaryService implements DictionaryService {
     }
   }
 
-  private String getDictionaryContent(DictionaryEnvironmentType environment) {
+  private String getDictionaryContent(EnvironmentType environment) {
     List<UnitDictionary> dictionaries = findByEnvironmentType(environment);
     StringBuilder content = new StringBuilder();
 
@@ -179,7 +179,7 @@ public class UnitDictionaryService implements DictionaryService {
   }
 
   private Page<UnitDictionary> searchInRepository(
-      DictionaryEnvironmentType environmentType, String keyword, Pageable pageable) {
+      EnvironmentType environmentType, String keyword, Pageable pageable) {
     return unitDictionaryRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
         environmentType, keyword, pageable);
   }

@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.user.controller;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
@@ -30,7 +30,7 @@ public class UserDictionaryController {
       @RequestParam(required = false) String search,
       @RequestParam(defaultValue = "updatedAt") String sortBy,
       @RequestParam(defaultValue = "desc") String sortDir,
-      @RequestParam(required = false) DictionaryEnvironmentType environment) {
+      @RequestParam(required = false) EnvironmentType environment) {
     return userDictionaryService.getList(page, size, sortBy, sortDir, search, environment);
   }
 
@@ -38,7 +38,7 @@ public class UserDictionaryController {
   @GetMapping("/{dictionaryId}")
   public UserDictionaryResponse getUserDictionaryDetail(
       @PathVariable Long dictionaryId,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return userDictionaryService.get(dictionaryId, environment);
   }
 
@@ -47,7 +47,7 @@ public class UserDictionaryController {
   @ResponseStatus(HttpStatus.CREATED)
   public UserDictionaryResponse createUserDictionary(
       @RequestBody @Valid UserDictionaryCreateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return userDictionaryService.create(request, environment);
   }
 
@@ -56,7 +56,7 @@ public class UserDictionaryController {
   public UserDictionaryResponse updateUserDictionary(
       @PathVariable Long dictionaryId,
       @RequestBody @Valid UserDictionaryUpdateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return userDictionaryService.update(dictionaryId, request, environment);
   }
 
@@ -65,7 +65,7 @@ public class UserDictionaryController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deleteUserDictionary(
       @PathVariable Long dictionaryId,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     userDictionaryService.delete(dictionaryId, environment);
   }
 }

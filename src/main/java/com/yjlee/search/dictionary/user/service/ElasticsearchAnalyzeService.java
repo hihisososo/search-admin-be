@@ -5,8 +5,7 @@ import co.elastic.clients.elasticsearch.indices.AnalyzeRequest;
 import co.elastic.clients.elasticsearch.indices.AnalyzeResponse;
 import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
-import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import com.yjlee.search.search.service.IndexResolver;
 import java.io.IOException;
@@ -29,8 +28,7 @@ public class ElasticsearchAnalyzeService {
   private final IndexResolver indexResolver;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  public List<AnalyzeTextResponse.TokenInfo> analyzeText(
-      String text, DictionaryEnvironmentType environment) {
+  public List<AnalyzeTextResponse.TokenInfo> analyzeText(String text, EnvironmentType environment) {
     try {
       String indexName = getIndexName(environment);
 
@@ -149,7 +147,7 @@ public class ElasticsearchAnalyzeService {
     return null;
   }
 
-  public Set<String> getExpandedSynonyms(String text, DictionaryEnvironmentType environment) {
+  public Set<String> getExpandedSynonyms(String text, EnvironmentType environment) {
     try {
       String indexName = getIndexName(environment);
 
@@ -194,7 +192,7 @@ public class ElasticsearchAnalyzeService {
 
   /** 토큰별 동의어 매핑을 반환합니다. 예: "삼성전자" -> {"삼성": ["samsung"], "전자": ["electronics"]} */
   public Map<String, List<String>> getTokenSynonymsMapping(
-      String text, DictionaryEnvironmentType environment) {
+      String text, EnvironmentType environment) {
     Map<String, List<String>> tokenSynonymMap = new HashMap<>();
 
     try {
@@ -259,17 +257,15 @@ public class ElasticsearchAnalyzeService {
     }
   }
 
-  private String getIndexName(DictionaryEnvironmentType environment) {
+  private String getIndexName(EnvironmentType environment) {
     // CURRENT 환경일 때는 현재 운영 중인 alias 사용
-    if (environment == DictionaryEnvironmentType.CURRENT) {
+    if (environment == EnvironmentType.CURRENT) {
       return indexResolver.resolveProductIndex();
     }
 
     // DEV/PROD 환경일 때는 해당 환경의 인덱스 사용
-    IndexEnvironment.EnvironmentType envType =
-        environment == DictionaryEnvironmentType.PROD
-            ? IndexEnvironment.EnvironmentType.PROD
-            : IndexEnvironment.EnvironmentType.DEV;
+    EnvironmentType envType =
+        environment == EnvironmentType.PROD ? EnvironmentType.PROD : EnvironmentType.DEV;
 
     return indexResolver.resolveProductIndex(envType);
   }

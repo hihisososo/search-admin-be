@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.core.IndexRequest;
 import com.yjlee.search.clicklog.dto.ClickLogRequest;
 import com.yjlee.search.clicklog.dto.ClickLogResponse;
 import com.yjlee.search.clicklog.model.ClickLogDocument;
+import com.yjlee.search.common.constants.IndexNameConstants;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -18,14 +19,13 @@ import org.springframework.stereotype.Service;
 public class ClickLogService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private static final String CLICK_LOG_INDEX_PREFIX = "click-logs-";
   private static final DateTimeFormatter INDEX_DATE_FORMATTER =
-      DateTimeFormatter.ofPattern("yyyy.MM.dd");
+      DateTimeFormatter.ofPattern(IndexNameConstants.INDEX_DATE_FORMAT);
 
   public ClickLogResponse logClick(ClickLogRequest request) {
     try {
       LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-      String indexName = CLICK_LOG_INDEX_PREFIX + now.format(INDEX_DATE_FORMATTER);
+      String indexName = IndexNameConstants.CLICK_LOG_PREFIX + now.format(INDEX_DATE_FORMATTER);
 
       ClickLogDocument document =
           ClickLogDocument.builder()

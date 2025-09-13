@@ -1,5 +1,6 @@
 package com.yjlee.search.deployment.model;
 
+import com.yjlee.search.common.enums.EnvironmentType;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -51,21 +52,6 @@ public class IndexEnvironment {
   @UpdateTimestamp
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
-
-  public enum EnvironmentType {
-    DEV("개발"),
-    PROD("운영");
-
-    private final String description;
-
-    EnvironmentType(String description) {
-      this.description = description;
-    }
-
-    public String getDescription() {
-      return description;
-    }
-  }
 
   public enum IndexStatus {
     ACTIVE("활성"),

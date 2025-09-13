@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.category.mapper;
 
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.dto.CategoryMappingDto;
 import com.yjlee.search.dictionary.category.dto.CategoryRankingDictionaryListResponse;
 import com.yjlee.search.dictionary.category.dto.CategoryRankingDictionaryResponse;
@@ -37,5 +37,5 @@ public interface CategoryRankingDictionaryMapper {
   @Mapping(target = "categoryMappings", source = "source.categoryMappings")
   @Mapping(target = "description", source = "source.description")
   CategoryRankingDictionary copyWithEnvironment(
-      CategoryRankingDictionary source, DictionaryEnvironmentType targetEnvironment);
+      CategoryRankingDictionary source, EnvironmentType targetEnvironment);
 }

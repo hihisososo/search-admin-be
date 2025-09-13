@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import com.yjlee.search.clicklog.model.ClickLogDocument;
+import com.yjlee.search.common.constants.IndexNameConstants;
 import com.yjlee.search.loggen.dto.BulkLogGenerationRequest;
 import com.yjlee.search.loggen.model.SearchQueryPool;
 import com.yjlee.search.loggen.repository.SearchQueryPoolRepository;
@@ -40,10 +41,8 @@ public class BulkLogGeneratorService {
   private final SearchQueryPoolRepository queryPoolRepository;
   private final SearchService searchService;
 
-  private static final String SEARCH_LOG_INDEX_PREFIX = "search-logs-";
-  private static final String CLICK_LOG_INDEX_PREFIX = "click-logs-";
   private static final DateTimeFormatter INDEX_DATE_FORMAT =
-      DateTimeFormatter.ofPattern("yyyy.MM.dd");
+      DateTimeFormatter.ofPattern(IndexNameConstants.INDEX_DATE_FORMAT);
 
   private final Random random = new Random();
 
@@ -241,8 +240,9 @@ public class BulkLogGeneratorService {
   private void saveBulkLogs(
       LocalDate date, List<SearchLogDocument> searchLogs, List<ClickLogDocument> clickLogs) {
     try {
-      String searchIndexName = SEARCH_LOG_INDEX_PREFIX + date.format(INDEX_DATE_FORMAT);
-      String clickIndexName = CLICK_LOG_INDEX_PREFIX + date.format(INDEX_DATE_FORMAT);
+      String searchIndexName =
+          IndexNameConstants.SEARCH_LOG_PREFIX + date.format(INDEX_DATE_FORMAT);
+      String clickIndexName = IndexNameConstants.CLICK_LOG_PREFIX + date.format(INDEX_DATE_FORMAT);
 
       BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
 

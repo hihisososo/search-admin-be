@@ -1,6 +1,5 @@
 package com.yjlee.search.deployment.service;
 
-import com.yjlee.search.deployment.exception.DeploymentException;
 import java.util.Collections;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -68,7 +67,7 @@ public class SsmCommandService {
         Thread.sleep(waitTime);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
-        throw new DeploymentException("명령 실행 대기 중 인터럽트 발생", e);
+        throw new RuntimeException("명령 실행 대기 중 인터럽트 발생", e);
       }
 
       GetCommandInvocationRequest invocationRequest =
@@ -101,7 +100,7 @@ public class SsmCommandService {
       }
     }
 
-    throw new DeploymentException(String.format("SSM 명령 실행 타임아웃. CommandId: %s", commandId));
+    throw new RuntimeException(String.format("SSM 명령 실행 타임아웃. CommandId: %s", commandId));
   }
 
   public static class SsmCommandResult {

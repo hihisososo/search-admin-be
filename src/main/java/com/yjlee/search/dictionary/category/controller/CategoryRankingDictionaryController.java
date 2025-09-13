@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.category.controller;
 
 import com.yjlee.search.common.PageResponse;
-import com.yjlee.search.common.enums.DictionaryEnvironmentType;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.dto.*;
 import com.yjlee.search.dictionary.category.service.CategoryRankingDictionaryService;
 import com.yjlee.search.search.service.category.CategoryRankingService;
@@ -31,7 +31,7 @@ public class CategoryRankingDictionaryController {
       @RequestParam(required = false) String search,
       @RequestParam(defaultValue = "updatedAt") String sortBy,
       @RequestParam(defaultValue = "desc") String sortDir,
-      @RequestParam(required = false) DictionaryEnvironmentType environment) {
+      @RequestParam(required = false) EnvironmentType environment) {
     return service.getList(page, size, search, sortBy, sortDir, environment);
   }
 
@@ -46,7 +46,7 @@ public class CategoryRankingDictionaryController {
   @ResponseStatus(HttpStatus.CREATED)
   public CategoryRankingDictionaryResponse create(
       @RequestBody @Valid CategoryRankingDictionaryCreateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return service.create(request, environment);
   }
 
@@ -55,7 +55,7 @@ public class CategoryRankingDictionaryController {
   public CategoryRankingDictionaryResponse update(
       @PathVariable Long id,
       @RequestBody @Valid CategoryRankingDictionaryUpdateRequest request,
-      @RequestParam(defaultValue = "CURRENT") DictionaryEnvironmentType environment) {
+      @RequestParam(defaultValue = "CURRENT") EnvironmentType environment) {
     return service.update(id, request, environment);
   }
 
@@ -69,7 +69,7 @@ public class CategoryRankingDictionaryController {
   @Operation(summary = "카테고리 목록")
   @GetMapping("/categories")
   public CategoryListResponse getCategories(
-      @RequestParam(required = false) DictionaryEnvironmentType environment) {
+      @RequestParam(required = false) EnvironmentType environment) {
     return service.getCategories(environment);
   }
 
@@ -77,7 +77,7 @@ public class CategoryRankingDictionaryController {
   @PostMapping("/realtime-sync")
   @ResponseStatus(HttpStatus.OK)
   public Map<String, Object> syncCategoryRankingDictionary(
-      @RequestParam DictionaryEnvironmentType environment) {
+      @RequestParam EnvironmentType environment) {
     categoryRankingService.updateCacheRealtime(environment);
     Map<String, Object> response = new HashMap<>();
     response.put("success", true);
