@@ -204,6 +204,23 @@ public class SynonymDictionaryService implements DictionaryService {
     log.info("운영 환경 동의어 사전 배포 완료: {}개", prodDictionaries.size());
   }
 
+  @Override
+  public void deployToTemp() {
+    log.info("동의어 사전 임시 환경 배포 시작");
+
+    try {
+      // 임시 동의어 세트 생성/업데이트
+      String tempSynonymSetName = "synonyms-temp-current";
+      elasticsearchSynonymService.createOrUpdateSynonymSet(
+          tempSynonymSetName, EnvironmentType.CURRENT);
+      log.info("동의어 사전 임시 환경 Elasticsearch 동기화 완료 - synonymSet: {}", tempSynonymSetName);
+
+    } catch (Exception e) {
+      log.error("동의어 사전 임시 환경 배포 실패", e);
+      throw new RuntimeException("동의어 사전 임시 환경 배포 실패", e);
+    }
+  }
+
   private SynonymDictionaryResponse convertToResponse(SynonymDictionary entity) {
     return SynonymDictionaryResponse.builder()
         .id(entity.getId())

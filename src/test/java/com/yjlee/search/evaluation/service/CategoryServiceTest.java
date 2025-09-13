@@ -14,6 +14,7 @@ import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;

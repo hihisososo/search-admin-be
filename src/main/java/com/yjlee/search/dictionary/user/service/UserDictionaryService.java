@@ -114,6 +114,34 @@ public class UserDictionaryService implements DictionaryService {
     deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
   }
 
+  @Override
+  public void deployToTemp() {
+    log.info("사용자사전 임시 환경 배포 시작");
+
+    try {
+      String content = getDictionaryContent(EnvironmentType.CURRENT);
+
+      if (content == null || content.trim().isEmpty()) {
+        log.warn("사용자사전 내용이 비어있음 - 임시 환경");
+        return;
+      }
+
+      EC2DeploymentService.EC2DeploymentResult result =
+          ec2DeploymentService.deployFile(
+              "temp-current.txt", DeploymentConstants.EC2Paths.USER_DICT, content, "temp-current");
+
+      if (!result.isSuccess()) {
+        throw new RuntimeException("사용자사전 임시 환경 EC2 업로드 실패: " + result.getMessage());
+      }
+
+      log.info("사용자사전 임시 환경 EC2 업로드 완료 - 내용 길이: {}", content.length());
+
+    } catch (Exception e) {
+      log.error("사용자사전 임시 환경 EC2 업로드 실패", e);
+      throw new RuntimeException("사용자사전 임시 환경 배포 실패", e);
+    }
+  }
+
   private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
     List<UserDictionary> sourceDictionaries = findByEnvironmentType(from);
 
@@ -162,7 +190,7 @@ public class UserDictionaryService implements DictionaryService {
     }
   }
 
-  private String getDictionaryContent(EnvironmentType environment) {
+  public String getDictionaryContent(EnvironmentType environment) {
     List<UserDictionary> dictionaries = findByEnvironmentType(environment);
     StringBuilder content = new StringBuilder();
 

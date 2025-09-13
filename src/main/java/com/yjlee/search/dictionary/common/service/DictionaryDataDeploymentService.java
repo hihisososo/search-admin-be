@@ -55,6 +55,26 @@ public class DictionaryDataDeploymentService {
   }
 
   @Transactional
+  public void deployAllToTemp() {
+    log.info("모든 사전을 임시 환경으로 배포 시작");
+
+    for (DictionaryService dictionaryService : dictionaryServices) {
+      try {
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.info("{} 사전을 임시 환경으로 배포 중", serviceName);
+        dictionaryService.deployToTemp();
+        log.info("{} 사전 임시 환경 배포 완료", serviceName);
+      } catch (Exception e) {
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.error("{} 사전 임시 환경 배포 실패", serviceName, e);
+        throw new RuntimeException(serviceName + " 사전 임시 환경 배포 실패", e);
+      }
+    }
+
+    log.info("모든 사전 임시 환경 배포 완료");
+  }
+
+  @Transactional
   public void realtimeSyncAll(EnvironmentType environment) {
     log.info("모든 사전을 {} 환경에서 실시간 동기화 시작", environment);
 

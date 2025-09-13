@@ -72,8 +72,7 @@ public class TestSsmCommandService extends SsmCommandService {
     // 타임아웃 시뮬레이션
     if (simulateTimeout) {
       log.info("[TEST] 명령 실행 타임아웃 시뮬레이션");
-      throw new com.yjlee.search.deployment.exception.DeploymentException(
-          "Test simulated timeout for command: " + commandId);
+      throw new RuntimeException("Test simulated timeout for command: " + commandId);
     }
 
     // 성공 응답

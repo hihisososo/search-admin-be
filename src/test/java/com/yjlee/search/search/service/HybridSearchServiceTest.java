@@ -21,6 +21,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.search.converter.ProductDtoConverter;
 import com.yjlee.search.search.dto.ProductDto;
 import com.yjlee.search.search.dto.SearchExecuteRequest;

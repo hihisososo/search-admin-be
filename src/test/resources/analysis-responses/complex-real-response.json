@@ -1,0 +1,61 @@
+{
+  "detail": {
+    "custom_analyzer": true,
+    "charfilters": [],
+    "tokenizer": {
+      "name": "nori_tokenizer",
+      "tokens": []
+    },
+    "tokenfilters": [
+      {
+        "name": "lowercase",
+        "tokens": []
+      },
+      {
+        "name": "search_synonym_filter",
+        "tokens": [
+          {
+            "token": "sk하이닉스",
+            "position": 0,
+            "positionLength": 2,
+            "type": "word",
+            "start_offset": 0,
+            "end_offset": 6
+          },
+          {
+            "token": "sk",
+            "position": 0,
+            "positionLength": 1,
+            "type": "word",
+            "start_offset": 0,
+            "end_offset": 2
+          },
+          {
+            "token": "하이닉스",
+            "position": 1,
+            "positionLength": 1,
+            "type": "word",
+            "start_offset": 2,
+            "end_offset": 6
+          },
+          {
+            "token": "hynix",
+            "position": 1,
+            "positionLength": 1,
+            "type": "SYNONYM",
+            "start_offset": 2,
+            "end_offset": 6
+          },
+          {
+            "token": "ddr5",
+            "position": 2,
+            "positionLength": 1,
+            "type": "word",
+            "start_offset": 7,
+            "end_offset": 11
+          }
+        ]
+      }
+    ]
+  }
+}

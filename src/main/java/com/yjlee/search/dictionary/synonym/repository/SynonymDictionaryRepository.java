@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SynonymDictionaryRepository extends JpaRepository<SynonymDictionary, Long> {
 
-  // environment_type 기반 조회
   Page<SynonymDictionary> findByEnvironmentType(EnvironmentType environmentType, Pageable pageable);
 
   List<SynonymDictionary> findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType environmentType);

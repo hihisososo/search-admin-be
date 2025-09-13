@@ -1,0 +1,35 @@
+{
+  "detail": {
+    "tokenfilters": [
+      {
+        "name": "search_synonym_filter",
+        "tokens": [
+          {
+            "token": "삼성",
+            "position": 0,
+            "positionLength": 1,
+            "type": "word",
+            "start_offset": 0,
+            "end_offset": 2
+          },
+          {
+            "token": "samsung",
+            "position": 0,
+            "positionLength": 1,
+            "type": "SYNONYM",
+            "start_offset": 0,
+            "end_offset": 2
+          },
+          {
+            "token": "전자",
+            "position": 1,
+            "positionLength": 1,
+            "type": "word",
+            "start_offset": 2,
+            "end_offset": 4
+          }
+        ]
+      }
+    ]
+  }
+}

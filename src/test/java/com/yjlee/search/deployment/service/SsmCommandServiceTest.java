@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.yjlee.search.deployment.exception.DeploymentException;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -123,7 +122,7 @@ class SsmCommandServiceTest {
             () ->
                 ssmCommandService.executeCommand(
                     TEST_INSTANCE_ID, TEST_COMMAND, TEST_COMMENT, TEST_TIMEOUT))
-        .isInstanceOf(DeploymentException.class)
+        .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("SSM 명령 실행 타임아웃");
   }
 

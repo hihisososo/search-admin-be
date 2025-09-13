@@ -212,6 +212,12 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
     log.info("운영 환경 오타교정 사전 배포 완료: {}개", prodDictionaries.size());
   }
 
+  @Override
+  public void deployToTemp() {
+    // 오타교정 사전은 캐시 기반으로 동작하므로 임시 환경 배포 불필요
+    log.debug("오타교정 사전 임시 환경 배포 건너뛰기 - 캐시 기반 동작");
+  }
+
   /** 정렬 조건 생성 */
   private Sort createSort(String sortBy, String sortDir) {
     if (sortBy == null || sortBy.trim().isEmpty()) {

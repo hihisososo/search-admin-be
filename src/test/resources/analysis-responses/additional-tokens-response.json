@@ -1,0 +1,35 @@
+{
+  "detail": {
+    "tokenfilters": [
+      {
+        "name": "stopword_filter",
+        "tokens": [
+          {
+            "token": "갤럭시",
+            "position": 0,
+            "positionLength": 1,
+            "type": "word",
+            "start_offset": 0,
+            "end_offset": 3
+          },
+          {
+            "token": "galaxy",
+            "position": 0,
+            "positionLength": 1,
+            "type": "additional",
+            "start_offset": 0,
+            "end_offset": 3
+          },
+          {
+            "token": "notebook",
+            "position": 1,
+            "positionLength": 1,
+            "type": "additional",
+            "start_offset": 3,
+            "end_offset": 4
+          }
+        ]
+      }
+    ]
+  }
+}

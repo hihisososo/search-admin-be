@@ -1,0 +1,35 @@
+{
+  "detail": {
+    "tokenfilters": [
+      {
+        "name": "search_synonym_filter",
+        "tokens": [
+          {
+            "token": "갤럭시북",
+            "position": 0,
+            "positionLength": 2,
+            "type": "word",
+            "start_offset": 0,
+            "end_offset": 4
+          },
+          {
+            "token": "갤럭시",
+            "position": 0,
+            "positionLength": 1,
+            "type": "word",
+            "start_offset": 0,
+            "end_offset": 3
+          },
+          {
+            "token": "북",
+            "position": 1,
+            "positionLength": 1,
+            "type": "word",
+            "start_offset": 3,
+            "end_offset": 4
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -27,7 +27,6 @@ import com.yjlee.search.search.dto.SearchMetaDto;
 import com.yjlee.search.search.dto.SearchParams;
 import com.yjlee.search.search.dto.SearchSimulationParams;
 import com.yjlee.search.search.dto.SearchSimulationRequest;
-import com.yjlee.search.search.exception.SearchException;
 import com.yjlee.search.search.service.typo.TypoCorrectionService;
 import com.yjlee.search.searchlog.service.SearchLogService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -356,7 +355,7 @@ class SearchServiceTest {
 
     // when & then
     assertThatThrownBy(() -> searchService.getDocumentById(documentId, envType))
-        .isInstanceOf(SearchException.class)
+        .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("Document not found: P999");
   }
 

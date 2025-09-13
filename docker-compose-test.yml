@@ -1,0 +1,26 @@
+services:
+  elasticsearch-test:
+    image: hihisososo/elasticsearch-nori:8.18.3
+    container_name: es-test
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - cluster.name=test-cluster
+      - node.name=test-node
+    ports:
+      - "9201:9200"
+      - "9301:9300"
+    volumes:
+      - es-test-data:/usr/share/elasticsearch/data
+      - ./test-dictionaries:/usr/share/elasticsearch/config/analysis
+    networks:
+      - es-test-network
+
+volumes:
+  es-test-data:
+    driver: local
+
+networks:
+  es-test-network:
+    driver: bridge

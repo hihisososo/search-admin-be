@@ -37,11 +37,6 @@ public class ElasticsearchIndexService {
   private final ResourceLoader resourceLoader;
   private final ElasticsearchSynonymService elasticsearchSynonymService;
 
-  public String createNewIndex(String version) throws IOException {
-    // 개발 환경 색인으로 간주
-    return createNewIndex(version, EnvironmentType.DEV);
-  }
-
   public String createNewIndex(String version, EnvironmentType environmentType) throws IOException {
     String productIndexName = generateProductIndexName(version);
     String autocompleteIndexName = generateAutocompleteIndexName(version);

@@ -15,6 +15,7 @@ import co.elastic.clients.elasticsearch.core.MgetRequest;
 import co.elastic.clients.elasticsearch.core.MgetResponse;
 import co.elastic.clients.elasticsearch.core.get.GetResult;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.service.IndexResolver;
 import java.util.Arrays;

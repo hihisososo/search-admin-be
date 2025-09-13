@@ -12,11 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 public class TokenGraph {
 
   @Builder.Default private Map<Integer, PositionNode> positionNodes = new TreeMap<>();
-
   @Builder.Default private List<TokenEdge> edges = new ArrayList<>();
-
   @Builder.Default private List<TokenPath> paths = new ArrayList<>();
-
   private String originalQuery;
 
   public void addToken(TokenInfo tokenInfo) {
@@ -56,8 +53,6 @@ public class TokenGraph {
     Set<String> visitedPaths = new HashSet<>();
 
     explorePaths(startPosition, endPosition, currentPath, visitedPaths);
-
-    log.debug("Generated {} paths from token graph", paths.size());
   }
 
   private void explorePaths(
@@ -86,8 +81,6 @@ public class TokenGraph {
   public String generateMermaidDiagram() {
     StringBuilder mermaid = new StringBuilder();
     mermaid.append("graph LR\n");
-
-    // 스타일 정의
     mermaid.append("    classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:3px\n");
     mermaid.append("    classDef andNode fill:#fff3e0,stroke:#e65100,stroke-width:2px\n");
     mermaid.append("    classDef original stroke:#2e7d32,stroke-width:3px,color:#1b5e20\n");
@@ -95,25 +88,19 @@ public class TokenGraph {
         "    classDef synonym stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:#4a148c\n");
     mermaid.append("\n");
 
-    // 나가는 edge가 있는 position 찾기
     Set<Integer> hasOutgoingEdge =
         edges.stream().map(TokenEdge::getFromPosition).collect(Collectors.toSet());
-
-    // 실제 사용되는 모든 position
     Set<Integer> allPositions = new HashSet<>();
     for (TokenEdge edge : edges) {
       allPositions.add(edge.getFromPosition());
       allPositions.add(edge.getToPosition());
     }
-
-    // position 재매핑 (끊긴 노드는 다음 노드와 merge)
     Map<Integer, Integer> positionMapping = new HashMap<>();
     TreeSet<Integer> sortedPositions = new TreeSet<>(allPositions);
     int mappedPos = 0;
 
     for (Integer pos : sortedPositions) {
       positionMapping.put(pos, mappedPos);
-
       // 나가는 edge가 있거나 마지막 노드면 다음 번호로
       if (hasOutgoingEdge.contains(pos)) {
         mappedPos++;

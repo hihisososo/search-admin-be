@@ -5,12 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import com.yjlee.search.common.constants.ESFields;
+import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.config.IndexNameProvider;
-import com.yjlee.search.deployment.model.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.model.IndexEnvironment.IndexStatus;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.search.exception.InvalidEnvironmentException;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -150,7 +149,7 @@ class IndexResolverTest {
 
     // when & then
     assertThatThrownBy(() -> indexResolver.resolveProductIndex(EnvironmentType.DEV))
-        .isInstanceOf(InvalidEnvironmentException.class)
+        .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("개발 환경을 찾을 수 없습니다.");
   }
 
@@ -164,7 +163,7 @@ class IndexResolverTest {
 
     // when & then
     assertThatThrownBy(() -> indexResolver.resolveProductIndex(EnvironmentType.DEV))
-        .isInstanceOf(InvalidEnvironmentException.class)
+        .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("개발 환경의 인덱스가 설정되지 않았습니다.");
   }
 
@@ -178,7 +177,7 @@ class IndexResolverTest {
 
     // when & then
     assertThatThrownBy(() -> indexResolver.resolveProductIndex(EnvironmentType.DEV))
-        .isInstanceOf(InvalidEnvironmentException.class)
+        .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("개발 환경의 인덱스가 설정되지 않았습니다.");
   }
 
@@ -193,7 +192,7 @@ class IndexResolverTest {
 
     // when & then
     assertThatThrownBy(() -> indexResolver.resolveProductIndex(EnvironmentType.DEV))
-        .isInstanceOf(InvalidEnvironmentException.class)
+        .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("개발 환경의 인덱스가 활성 상태가 아닙니다.");
   }
 

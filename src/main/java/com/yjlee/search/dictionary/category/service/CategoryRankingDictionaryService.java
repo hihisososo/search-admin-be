@@ -122,6 +122,12 @@ public class CategoryRankingDictionaryService implements DictionaryService {
     deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
   }
 
+  @Override
+  public void deployToTemp() {
+    // 카테고리 랭킹 사전은 캐시 기반으로 동작하므로 임시 환경 배포 불필요
+    log.debug("카테고리 랭킹 사전 임시 환경 배포 건너뛰기 - 캐시 기반 동작");
+  }
+
   private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
     var sourceDictionaries = repository.findByEnvironmentTypeOrderByKeywordAsc(from);
     if (sourceDictionaries.isEmpty()) return;
