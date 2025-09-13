@@ -72,7 +72,7 @@ class SynonymDictionaryControllerTest {
 
   @Test
   @DisplayName("GET /api/v1/dictionaries/synonym - 검색어 포함 조회")
-  void getSynonymDictionaries_WithSearch() throws Exception {
+  void getSynonymDictionariesWithSearch() throws Exception {
     mockMvc
         .perform(get("/api/v1/dictionaries/synonym").param("search", "폰"))
         .andDo(print())
@@ -173,7 +173,7 @@ class SynonymDictionaryControllerTest {
 
   @Test
   @DisplayName("GET /api/v1/dictionaries/synonym - 페이징 테스트")
-  void getSynonymDictionaries_Paging() throws Exception {
+  void getSynonymDictionariesPaging() throws Exception {
     // 추가 데이터 생성
     for (int i = 1; i <= 10; i++) {
       SynonymDictionary dict =

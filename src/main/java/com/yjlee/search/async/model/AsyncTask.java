@@ -10,13 +10,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.experimental.FieldDefaults;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -25,50 +22,50 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Table(name = "async_tasks")
 @EntityListeners(AuditingEntityListener.class)
 @Getter
-@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE)
 public class AsyncTask {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
-  Long id;
+  private Long id;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 50)
-  AsyncTaskType taskType;
+  private AsyncTaskType taskType;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   @Builder.Default
-  AsyncTaskStatus status = AsyncTaskStatus.PENDING;
+  private AsyncTaskStatus status = AsyncTaskStatus.PENDING;
 
   @Column(nullable = false)
   @Builder.Default
-  Integer progress = 0; // 0-100
+  private Integer progress = 0;
 
   @Column(length = 1000)
-  String message;
+  private String message;
 
   @Column(columnDefinition = "TEXT")
-  String errorMessage;
+  private String errorMessage;
 
   @Column(columnDefinition = "TEXT")
-  String result; // JSON 형태로 결과 저장
+  private String result;
 
   @CreatedDate
   @Column(nullable = false, updatable = false)
-  LocalDateTime createdAt;
+  private LocalDateTime createdAt;
 
   @LastModifiedDate
   @Column(nullable = false)
-  LocalDateTime updatedAt;
+  private LocalDateTime updatedAt;
 
-  @Column LocalDateTime startedAt;
+  @Column
+  private LocalDateTime startedAt;
 
-  @Column LocalDateTime completedAt;
+  @Column
+  private LocalDateTime completedAt;
 
   public void updateProgress(int progress, String message) {
     this.progress = progress;
