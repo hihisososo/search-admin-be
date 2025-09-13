@@ -17,7 +17,6 @@ import co.elastic.clients.elasticsearch.core.GetResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.common.util.HttpRequestUtils;
 import com.yjlee.search.search.converter.SearchRequestMapper;
 import com.yjlee.search.search.dto.AutocompleteResponse;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
@@ -54,8 +53,6 @@ class SearchServiceTest {
 
   @Mock private SearchLogService searchLogService;
 
-  @Mock private HttpRequestUtils httpRequestUtils;
-
   @Mock private SearchRequestMapper searchRequestMapper;
 
   @Mock private SearchQueryExecutor searchQueryExecutor;
@@ -74,7 +71,6 @@ class SearchServiceTest {
             autocompleteSearchService,
             typoCorrectionService,
             searchLogService,
-            httpRequestUtils,
             searchRequestMapper,
             searchQueryExecutor);
     objectMapper = new ObjectMapper();
@@ -245,8 +241,10 @@ class SearchServiceTest {
     when(searchRequestMapper.toSearchExecuteRequest(params)).thenReturn(request);
     when(indexResolver.resolveProductIndex()).thenReturn(indexName);
     when(productSearchService.search(indexName, request, false)).thenReturn(expectedResponse);
-    when(httpRequestUtils.getClientIp(httpServletRequest)).thenReturn("127.0.0.1");
-    when(httpRequestUtils.getUserAgent(httpServletRequest)).thenReturn("TestBrowser/1.0");
+    when(httpServletRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+    when(httpServletRequest.getHeader("X-Real-IP")).thenReturn(null);
+    when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+    when(httpServletRequest.getHeader("User-Agent")).thenReturn("TestBrowser/1.0");
 
     // when
     SearchExecuteResponse response = searchService.executeSearch(params, httpServletRequest);
@@ -396,8 +394,10 @@ class SearchServiceTest {
     when(searchRequestMapper.toSearchExecuteRequest(params)).thenReturn(request);
     when(indexResolver.resolveProductIndex()).thenReturn(indexName);
     when(productSearchService.search(indexName, request, false)).thenReturn(expectedResponse);
-    when(httpRequestUtils.getClientIp(httpServletRequest)).thenReturn("127.0.0.1");
-    when(httpRequestUtils.getUserAgent(httpServletRequest)).thenReturn("TestBrowser/1.0");
+    when(httpServletRequest.getHeader("X-Forwarded-For")).thenReturn(null);
+    when(httpServletRequest.getHeader("X-Real-IP")).thenReturn(null);
+    when(httpServletRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+    when(httpServletRequest.getHeader("User-Agent")).thenReturn("TestBrowser/1.0");
     doThrow(new RuntimeException("로깅 실패"))
         .when(searchLogService)
         .collectSearchLog(any(), any(), any(), any(), anyLong(), any(), anyBoolean(), any(), any());

@@ -2,6 +2,7 @@ package com.yjlee.search.config;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -47,5 +48,16 @@ public class JacksonConfig {
       builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
       builder.timeZone(TimeZone.getTimeZone("UTC"));
     };
+  }
+
+  @Bean
+  public ObjectMapper objectMapper() {
+    ObjectMapper objectMapper = new ObjectMapper();
+    JavaTimeModule javaTimeModule = new JavaTimeModule();
+    javaTimeModule.addSerializer(LocalDateTime.class, new UtcLocalDateTimeSerializer());
+    objectMapper.registerModule(javaTimeModule);
+    objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    objectMapper.setTimeZone(TimeZone.getTimeZone("UTC"));
+    return objectMapper;
   }
 }

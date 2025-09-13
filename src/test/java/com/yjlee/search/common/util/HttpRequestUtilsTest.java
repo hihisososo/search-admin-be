@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,13 +16,6 @@ class HttpRequestUtilsTest {
 
   @Mock private HttpServletRequest request;
 
-  private HttpRequestUtils httpRequestUtils;
-
-  @BeforeEach
-  void setUp() {
-    httpRequestUtils = new HttpRequestUtils();
-  }
-
   @Test
   @DisplayName("X-Forwarded-For 헤더에서 클라이언트 IP 추출")
   void testGetClientIpFromXForwardedFor() {
@@ -31,7 +23,7 @@ class HttpRequestUtilsTest {
     when(request.getHeader("X-Forwarded-For")).thenReturn("192.168.1.1, 10.0.0.1, 172.16.0.1");
 
     // when
-    String clientIp = httpRequestUtils.getClientIp(request);
+    String clientIp = HttpRequestUtils.getClientIp(request);
 
     // then
     assertThat(clientIp).isEqualTo("192.168.1.1");
@@ -45,7 +37,7 @@ class HttpRequestUtilsTest {
     when(request.getHeader("X-Real-IP")).thenReturn("192.168.1.2");
 
     // when
-    String clientIp = httpRequestUtils.getClientIp(request);
+    String clientIp = HttpRequestUtils.getClientIp(request);
 
     // then
     assertThat(clientIp).isEqualTo("192.168.1.2");
@@ -60,7 +52,7 @@ class HttpRequestUtilsTest {
     when(request.getRemoteAddr()).thenReturn("192.168.1.3");
 
     // when
-    String clientIp = httpRequestUtils.getClientIp(request);
+    String clientIp = HttpRequestUtils.getClientIp(request);
 
     // then
     assertThat(clientIp).isEqualTo("192.168.1.3");
@@ -74,7 +66,7 @@ class HttpRequestUtilsTest {
     when(request.getHeader("X-Real-IP")).thenReturn("192.168.1.4");
 
     // when
-    String clientIp = httpRequestUtils.getClientIp(request);
+    String clientIp = HttpRequestUtils.getClientIp(request);
 
     // then
     assertThat(clientIp).isEqualTo("192.168.1.4");
@@ -87,7 +79,7 @@ class HttpRequestUtilsTest {
     when(request.getHeader("X-Forwarded-For")).thenReturn("  192.168.1.5  , 10.0.0.2");
 
     // when
-    String clientIp = httpRequestUtils.getClientIp(request);
+    String clientIp = HttpRequestUtils.getClientIp(request);
 
     // then
     assertThat(clientIp).isEqualTo("192.168.1.5");
@@ -101,7 +93,7 @@ class HttpRequestUtilsTest {
     when(request.getHeader("User-Agent")).thenReturn(userAgent);
 
     // when
-    String result = httpRequestUtils.getUserAgent(request);
+    String result = HttpRequestUtils.getUserAgent(request);
 
     // then
     assertThat(result).isEqualTo(userAgent);
@@ -114,7 +106,7 @@ class HttpRequestUtilsTest {
     when(request.getHeader("User-Agent")).thenReturn(null);
 
     // when
-    String result = httpRequestUtils.getUserAgent(request);
+    String result = HttpRequestUtils.getUserAgent(request);
 
     // then
     assertThat(result).isEqualTo("unknown");
@@ -127,7 +119,7 @@ class HttpRequestUtilsTest {
     when(request.getHeader("User-Agent")).thenReturn("");
 
     // when
-    String result = httpRequestUtils.getUserAgent(request);
+    String result = HttpRequestUtils.getUserAgent(request);
 
     // then
     assertThat(result).isEqualTo("");

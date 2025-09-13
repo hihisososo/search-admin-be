@@ -1,10 +1,12 @@
 package com.yjlee.search.common;
 
 import java.util.List;
+import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Page;
 
 @Getter
+@Builder
 public class PageResponse<T> {
   private final List<T> content;
   private final int page;
@@ -12,20 +14,13 @@ public class PageResponse<T> {
   private final long totalElements;
   private final int totalPages;
 
-  public PageResponse(List<T> content, int page, int size, long totalElements, int totalPages) {
-    this.content = content;
-    this.page = page;
-    this.size = size;
-    this.totalElements = totalElements;
-    this.totalPages = totalPages;
-  }
-
   public static <T> PageResponse<T> from(Page<T> page) {
-    return new PageResponse<>(
-        page.getContent(),
-        page.getNumber(),
-        page.getSize(),
-        page.getTotalElements(),
-        page.getTotalPages());
+    return PageResponse.<T>builder()
+        .content(page.getContent())
+        .page(page.getNumber())
+        .size(page.getSize())
+        .totalElements(page.getTotalElements())
+        .totalPages(page.getTotalPages())
+        .build();
   }
 }

@@ -66,13 +66,4 @@ public class KoreanTextUtils {
 
     return result.toString();
   }
-
-  private static boolean isChosung(char ch) {
-    for (char chosung : CHOSUNG_LIST) {
-      if (ch == chosung) {
-        return true;
-      }
-    }
-    return false;
-  }
 }

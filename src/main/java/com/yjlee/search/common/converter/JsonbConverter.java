@@ -9,7 +9,7 @@ import java.util.Map;
 @Converter
 public class JsonbConverter implements AttributeConverter<Map<String, Object>, String> {
 
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   @Override
   public String convertToDatabaseColumn(Map<String, Object> attribute) {

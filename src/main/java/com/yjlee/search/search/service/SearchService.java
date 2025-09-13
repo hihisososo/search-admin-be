@@ -27,7 +27,6 @@ public class SearchService {
   private final AutocompleteSearchService autocompleteSearchService;
   private final TypoCorrectionService typoCorrectionService;
   private final SearchLogService searchLogService;
-  private final HttpRequestUtils httpRequestUtils;
   private final SearchRequestMapper searchRequestMapper;
   private final SearchQueryExecutor searchQueryExecutor;
 
@@ -161,8 +160,8 @@ public class SearchService {
         request.getSearchSessionId() != null
             ? request.getSearchSessionId()
             : UUID.randomUUID().toString();
-    String clientIp = httpRequestUtils.getClientIp(httpRequest);
-    String userAgent = httpRequestUtils.getUserAgent(httpRequest);
+    String clientIp = HttpRequestUtils.getClientIp(httpRequest);
+    String userAgent = HttpRequestUtils.getUserAgent(httpRequest);
 
     Transaction txn = ElasticApm.currentTransaction();
     if (txn != null) {

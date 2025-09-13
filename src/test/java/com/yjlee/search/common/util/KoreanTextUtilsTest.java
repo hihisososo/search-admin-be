@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 class KoreanTextUtilsTest {
 
   @Test
-  void 한글_자소_분해_테스트() {
+  void decomposeHangulTest() {
     assertThat(KoreanTextUtils.decomposeHangul("안녕하세요")).isEqualTo("ㅇㅏㄴㄴㅕㅇㅎㅏㅅㅔㅇㅛ");
 
     assertThat(KoreanTextUtils.decomposeHangul("테스트")).isEqualTo("ㅌㅔㅅㅡㅌㅡ");
@@ -22,7 +22,7 @@ class KoreanTextUtilsTest {
   }
 
   @Test
-  void 한글_초성_추출_테스트() {
+  void extractChosungTest() {
     assertThat(KoreanTextUtils.extractChosung("안녕하세요")).isEqualTo("ㅇㄴㅎㅅㅇ");
 
     assertThat(KoreanTextUtils.extractChosung("테스트")).isEqualTo("ㅌㅅㅌ");
@@ -39,28 +39,28 @@ class KoreanTextUtilsTest {
   }
 
   @Test
-  void 특수문자_포함_테스트() {
+  void specialCharacterTest() {
     assertThat(KoreanTextUtils.extractChosung("나이키@에어맥스")).isEqualTo("ㄴㅇㅋ@ㅇㅇㅁㅅ");
 
     assertThat(KoreanTextUtils.decomposeHangul("나이키@에어맥스")).isEqualTo("ㄴㅏㅇㅣㅋㅣ@ㅇㅔㅇㅓㅁㅐㄱㅅㅡ");
   }
 
   @Test
-  void 공백_처리_테스트() {
+  void whitespaceHandlingTest() {
     assertThat(KoreanTextUtils.extractChosung("나이키 에어 맥스")).isEqualTo("ㄴㅇㅋ ㅇㅇ ㅁㅅ");
 
     assertThat(KoreanTextUtils.decomposeHangul("나이키 에어 맥스")).isEqualTo("ㄴㅏㅇㅣㅋㅣ ㅇㅔㅇㅓ ㅁㅐㄱㅅㅡ");
   }
 
   @Test
-  void 빈_문자열_테스트() {
+  void emptyStringTest() {
     assertThat(KoreanTextUtils.extractChosung("")).isEqualTo("");
 
     assertThat(KoreanTextUtils.decomposeHangul("")).isEqualTo("");
   }
 
   @Test
-  void 종성_있는_글자_테스트() {
+  void withJongsungTest() {
     assertThat(KoreanTextUtils.decomposeHangul("강")).isEqualTo("ㄱㅏㅇ");
 
     assertThat(KoreanTextUtils.decomposeHangul("힘")).isEqualTo("ㅎㅣㅁ");

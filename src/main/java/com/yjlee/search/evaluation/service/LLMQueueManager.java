@@ -1,7 +1,5 @@
-package com.yjlee.search.common.service;
+package com.yjlee.search.evaluation.service;
 
-import com.yjlee.search.evaluation.service.LLMRateLimitManager;
-import com.yjlee.search.evaluation.service.LLMService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.concurrent.BlockingQueue;

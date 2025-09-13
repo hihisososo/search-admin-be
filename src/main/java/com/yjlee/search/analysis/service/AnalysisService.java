@@ -1,6 +1,6 @@
 package com.yjlee.search.analysis.service;
 
-import static com.yjlee.search.common.constants.ElasticsearchFields.*;
+import static com.yjlee.search.common.constants.ESFields.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

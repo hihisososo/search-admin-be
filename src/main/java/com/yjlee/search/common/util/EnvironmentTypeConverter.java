@@ -4,19 +4,15 @@ import com.yjlee.search.common.enums.EnvironmentType;
 
 public class EnvironmentTypeConverter {
 
+  private static final EnvironmentType DEFAULT_ENVIRONMENT = EnvironmentType.PROD;
+
   public static EnvironmentType toEnvironmentType(EnvironmentType type) {
-    if (type == null) {
-      return EnvironmentType.CURRENT;
-    }
-    return type;
+    return type != null ? type : DEFAULT_ENVIRONMENT;
   }
 
   public static EnvironmentType toIndexEnvironmentType(EnvironmentType type) {
-    if (type == null) {
-      return EnvironmentType.PROD;
-    }
-    if (type == EnvironmentType.CURRENT) {
-      return EnvironmentType.PROD;
+    if (type == null || type == EnvironmentType.CURRENT) {
+      return DEFAULT_ENVIRONMENT;
     }
     return type;
   }
