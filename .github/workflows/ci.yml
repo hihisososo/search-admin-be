@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -94,5 +94,5 @@ jobs:
             sleep 5
           done
 
-          echo "❌ Deployment timeout (15 minutes)"
+          echo "Deployment timeout (15 minutes)"
           exit 1
