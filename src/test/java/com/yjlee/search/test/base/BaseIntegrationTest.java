@@ -5,6 +5,8 @@ import co.elastic.clients.elasticsearch._types.mapping.TypeMapping;
 import co.elastic.clients.elasticsearch.indices.CreateIndexRequest;
 import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
+import co.elastic.clients.elasticsearch.indices.GetIndexRequest;
+import co.elastic.clients.elasticsearch.indices.GetIndexResponse;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.service.CommandService;
@@ -63,10 +65,24 @@ public abstract class BaseIntegrationTest {
   }
 
   protected void deleteAllTestIndices() throws Exception {
-    String[] patterns = {TestIndexNameProvider.TEST_PREFIX + "*"};
-    for (String pattern : patterns) {
-      DeleteIndexRequest request = DeleteIndexRequest.of(d -> d.index(pattern));
-      elasticsearchClient.indices().delete(request);
+    try {
+      // Get all indices
+      GetIndexRequest getRequest = GetIndexRequest.of(i -> i.index("*"));
+      GetIndexResponse getResponse = elasticsearchClient.indices().get(getRequest);
+
+      // Delete test indices one by one
+      getResponse.result().keySet().forEach(indexName -> {
+        if (indexName.startsWith(TestIndexNameProvider.TEST_PREFIX)) {
+          try {
+            DeleteIndexRequest deleteRequest = DeleteIndexRequest.of(d -> d.index(indexName));
+            elasticsearchClient.indices().delete(deleteRequest);
+          } catch (Exception e) {
+            // Ignore if index doesn't exist or already deleted
+          }
+        }
+      });
+    } catch (Exception e) {
+      // Ignore if no indices exist
     }
   }
 

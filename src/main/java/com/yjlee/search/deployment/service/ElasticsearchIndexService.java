@@ -13,12 +13,10 @@ import co.elastic.clients.elasticsearch.indices.PutAliasRequest;
 import co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.index.provider.IndexNameProvider;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -40,18 +38,14 @@ public class ElasticsearchIndexService {
 
   private final ElasticsearchClient elasticsearchClient;
   private final ResourceLoader resourceLoader;
-  private final SynonymDictionaryService synonymDictionaryService;
   private final IndexNameProvider indexNameProvider;
 
   public String createNewIndex(String version, EnvironmentType environmentType) throws IOException {
     String productIndexName = indexNameProvider.getProductIndexName(version);
     String autocompleteIndexName = indexNameProvider.getAutocompleteIndexName(version);
-    String versionedSynonymSet = indexNameProvider.getSynonymSetName(version);
+    String synonymSetName = indexNameProvider.getSynonymSetName(version);
 
-    // 상품 인덱스 생성
-    createProductIndex(productIndexName, version, versionedSynonymSet);
-
-    // 자동완성 인덱스 생성
+    createProductIndex(productIndexName, version, synonymSetName);
     createAutocompleteIndex(autocompleteIndexName, version);
 
     return productIndexName;
@@ -65,7 +59,6 @@ public class ElasticsearchIndexService {
     String settingsJson = createProductIndexSettings(version, synonymSetName);
 
     createIndex(indexName, mappingJson, settingsJson);
-    log.info("상품 인덱스 생성 완료: {}", indexName);
   }
 
   private void createAutocompleteIndex(String indexName, String version) throws IOException {
@@ -75,7 +68,6 @@ public class ElasticsearchIndexService {
     String settingsJson = createAutocompleteIndexSettings(version);
 
     createIndex(indexName, mappingJson, settingsJson);
-    log.info("자동완성 인덱스 생성 완료: {}", indexName);
   }
 
   private void createIndex(String indexName, String mappingJson, String settingsJson)
@@ -119,7 +111,6 @@ public class ElasticsearchIndexService {
       for (String existingIndex : aliasResponse.result().keySet()) {
         if (!existingIndex.equals(newIndexName)) {
           actions.add(Action.of(a -> a.remove(r -> r.index(existingIndex).alias(aliasName))));
-          log.info("기존 alias 제거 예정: {} -> {}", existingIndex, aliasName);
         }
       }
 
@@ -128,9 +119,6 @@ public class ElasticsearchIndexService {
       if (!actions.isEmpty()) {
         UpdateAliasesRequest updateRequest = UpdateAliasesRequest.of(u -> u.actions(actions));
         elasticsearchClient.indices().updateAliases(updateRequest);
-        log.info("{} alias 업데이트 완료: {}", aliasName, newIndexName);
-      } else {
-        log.info("alias 업데이트 불필요: {} 이미 연결됨", newIndexName);
       }
 
     } catch (ElasticsearchException e) {
@@ -138,7 +126,6 @@ public class ElasticsearchIndexService {
         PutAliasRequest putAliasRequest =
             PutAliasRequest.of(a -> a.index(newIndexName).name(aliasName));
         elasticsearchClient.indices().putAlias(putAliasRequest);
-        log.info("{} alias 신규 생성 완료: {}", aliasName, newIndexName);
       } else {
         throw e;
       }
@@ -150,49 +137,15 @@ public class ElasticsearchIndexService {
     return elasticsearchClient.indices().exists(request).value();
   }
 
-  public Set<String> getCurrentAliasIndices() throws IOException {
-    try {
-      GetAliasRequest getAliasRequest =
-          GetAliasRequest.of(a -> a.name(indexNameProvider.getProductsSearchAlias()));
-      GetAliasResponse aliasResponse = elasticsearchClient.indices().getAlias(getAliasRequest);
-      Set<String> indices = aliasResponse.result().keySet();
-      log.info("현재 {} alias가 연결된 인덱스들: {}", indexNameProvider.getProductsSearchAlias(), indices);
-      return indices;
-    } catch (ElasticsearchException e) {
-      if (e.response().status() == HTTP_NOT_FOUND) {
-        log.info("{} alias가 존재하지 않음", indexNameProvider.getProductsSearchAlias());
-        return Set.of();
-      } else {
-        throw e;
-      }
-    }
-  }
-
   private void deleteIndex(String indexName) throws IOException {
     DeleteIndexRequest request = DeleteIndexRequest.of(d -> d.index(indexName));
     elasticsearchClient.indices().delete(request);
-    log.info("인덱스 삭제 완료: {}", indexName);
-    deleteSynonymSetIfProductIndex(indexName);
-  }
-
-  private void deleteSynonymSetIfProductIndex(String indexName) {
-    try {
-      String versionedSynonymSet = "";
-      synonymDictionaryService.deleteSynonymSet(versionedSynonymSet);
-    } catch (Exception e) {
-      log.debug("동의어 세트 삭제 연동 실패(무시): {}", e.getMessage());
-    }
   }
 
   private String loadResourceFile(String path) throws IOException {
-    try {
-      Resource resource = resourceLoader.getResource(path);
-      return StreamUtils.copyToString(
-          resource.getInputStream(), java.nio.charset.StandardCharsets.UTF_8);
-    } catch (IOException e) {
-      log.error("파일 읽기 실패: {}", path);
-      throw e;
-    }
+    Resource resource = resourceLoader.getResource(path);
+    return StreamUtils.copyToString(
+        resource.getInputStream(), java.nio.charset.StandardCharsets.UTF_8);
   }
 
   private String createProductIndexSettings(String version, String synonymSetName)

@@ -102,12 +102,8 @@ public class DeploymentService {
     // 7. 실시간 동기화
     dictionaryDeploymentService.realtimeSyncAll(EnvironmentType.PROD);
 
-    // 8. Alias 업데이트 (DEV 인덱스를 PROD alias로 전환)
+    // 8. Alias 업데이트
     log.info("Alias 업데이트 시작 - 인덱스: {}", prodEnv.getIndexName());
-    if (!elasticsearchIndexService.indexExists(prodEnv.getIndexName())) {
-      log.error("인덱스가 존재하지 않음: {}", prodEnv.getIndexName());
-      throw new IllegalStateException("배포할 인덱스가 존재하지 않습니다: " + prodEnv.getIndexName());
-    }
     elasticsearchIndexService.updateProductsSearchAlias(prodEnv.getIndexName());
     elasticsearchIndexService.updateAutocompleteSearchAlias(prodEnv.getAutocompleteIndexName());
 
