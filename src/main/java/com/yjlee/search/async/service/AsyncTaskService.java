@@ -93,7 +93,7 @@ public class AsyncTaskService {
     return asyncTaskRepository
         .findById(taskId)
         .map(this::convertToResponse)
-        .orElseThrow(() -> new NoSuchElementException("Task not found: " + taskId));
+        .orElseThrow(() -> new NoSuchElementException("Task 를 찾을 수 없습니다: " + taskId));
   }
 
   public AsyncTaskListResponse getRecentTasks(int page, int size) {

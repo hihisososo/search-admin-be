@@ -2,14 +2,12 @@ package com.yjlee.search.analysis.service;
 
 import static com.yjlee.search.common.constants.ESFields.*;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.analysis.dto.AnalysisRequest;
 import com.yjlee.search.analysis.dto.IndexAnalysisResponse;
 import com.yjlee.search.analysis.dto.QueryAnalysisResponse;
 import com.yjlee.search.analysis.enums.AnalysisType;
 import com.yjlee.search.analysis.model.TokenGraph;
-import com.yjlee.search.analysis.model.TokenInfo;
+import com.yjlee.search.analysis.parser.TokenGraphParser;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -32,13 +30,13 @@ public class AnalysisService {
   private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final TempIndexManager tempIndexManager;
   private final RestClient restClient;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final TokenGraphParser tokenGraphParser;
 
   public QueryAnalysisResponse analyzeQuery(AnalysisRequest request) {
     String query = request.getQuery();
     EnvironmentType environment = request.getEnvironment();
 
-    log.info("쿼리 분석 요청 - 쿼리: {}, 환경: {}", query, environment);
+    log.debug("쿼리 분석 요청 - 쿼리: {}, 환경: {}", query, environment);
 
     try {
       String preprocessedQuery = TextPreprocessor.preprocess(query);
@@ -107,7 +105,7 @@ public class AnalysisService {
     Response response = executeAnalyzeRequest(indexName, text, analysisType.getAnalyzer());
     String jsonResponse = EntityUtils.toString(response.getEntity());
 
-    return parseAnalyzeResponse(jsonResponse, text, analysisType.getTargetFilter());
+    return tokenGraphParser.parse(jsonResponse, text, analysisType.getTargetFilter());
   }
 
   private Response executeAnalyzeRequest(String indexName, String text, String analyzer)
@@ -118,61 +116,6 @@ public class AnalysisService {
             "{\"%s\":\"%s\",\"%s\":\"%s\",\"%s\":true}",
             ANALYZER, analyzer, TEXT, text.replace("\"", "\\\""), EXPLAIN));
     return restClient.performRequest(request);
-  }
-
-  public TokenGraph parseAnalyzeResponse(
-      String jsonResponse, String originalQuery, String targetFilter) {
-    try {
-      JsonNode root = objectMapper.readTree(jsonResponse);
-      TokenGraph tokenGraph = TokenGraph.builder().originalQuery(originalQuery).build();
-
-      JsonNode detail = root.get(DETAIL);
-      if (detail == null) {
-        tokenGraph.generatePaths();
-        return tokenGraph;
-      }
-
-      JsonNode tokenFilters = detail.get(TOKEN_FILTERS);
-      if (tokenFilters == null) {
-        tokenGraph.generatePaths();
-        return tokenGraph;
-      }
-
-      tokenFilters.forEach(
-          filter -> {
-            if (targetFilter.equals(filter.get(NAME).asText())) {
-              JsonNode tokens = filter.get(TOKENS);
-              if (tokens != null) {
-                tokens.forEach(token -> tokenGraph.addToken(createTokenInfo(token)));
-              }
-            }
-          });
-
-      tokenGraph.generatePaths();
-      return tokenGraph;
-    } catch (IOException e) {
-      log.error("ES analyze 응답 파싱 실패: {}", e.getMessage());
-      throw new RuntimeException("ES analyze 응답 파싱 실패", e);
-    }
-  }
-
-  private TokenInfo createTokenInfo(JsonNode token) {
-    JsonNode attributes = token.get(ATTRIBUTES);
-    int positionLength =
-        token.has(POSITION_LENGTH)
-            ? token.get(POSITION_LENGTH).asInt()
-            : (attributes != null && attributes.has(POSITION_LENGTH)
-                ? attributes.get(POSITION_LENGTH).asInt()
-                : 1);
-
-    return TokenInfo.builder()
-        .token(token.get(TOKEN).asText())
-        .type(token.has(TYPE) ? token.get(TYPE).asText() : "word")
-        .position(token.get(POSITION).asInt())
-        .positionLength(positionLength)
-        .startOffset(token.get(START_OFFSET).asInt())
-        .endOffset(token.get(END_OFFSET).asInt())
-        .build();
   }
 
   private String getIndexName(EnvironmentType environment) throws IOException {

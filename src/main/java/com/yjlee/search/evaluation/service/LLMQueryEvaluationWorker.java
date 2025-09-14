@@ -4,7 +4,6 @@ import static com.yjlee.search.evaluation.constants.EvaluationConstants.EVALUATI
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yjlee.search.common.service.ProductBulkFetchService;
 import com.yjlee.search.common.util.PromptTemplateLoader;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;

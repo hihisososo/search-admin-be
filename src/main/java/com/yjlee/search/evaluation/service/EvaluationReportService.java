@@ -2,7 +2,6 @@ package com.yjlee.search.evaluation.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.common.service.ProductBulkFetchService;
 import com.yjlee.search.evaluation.dto.EvaluationExecuteResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportDetailResponse;
 import com.yjlee.search.evaluation.dto.EvaluationReportSummaryResponse;

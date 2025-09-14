@@ -3,7 +3,6 @@ package com.yjlee.search.evaluation.service;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.EVALUATION_SOURCE_USER;
 
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.common.service.ProductBulkFetchService;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;

@@ -9,62 +9,46 @@ class KoreanTextUtilsTest {
   @Test
   void decomposeHangulTest() {
     assertThat(KoreanTextUtils.decomposeHangul("안녕하세요")).isEqualTo("ㅇㅏㄴㄴㅕㅇㅎㅏㅅㅔㅇㅛ");
-
     assertThat(KoreanTextUtils.decomposeHangul("테스트")).isEqualTo("ㅌㅔㅅㅡㅌㅡ");
-
     assertThat(KoreanTextUtils.decomposeHangul("나이키")).isEqualTo("ㄴㅏㅇㅣㅋㅣ");
-
     assertThat(KoreanTextUtils.decomposeHangul("test 한글")).isEqualTo("test ㅎㅏㄴㄱㅡㄹ");
-
     assertThat(KoreanTextUtils.decomposeHangul("ABC123")).isEqualTo("ABC123");
-
     assertThat(KoreanTextUtils.decomposeHangul(null)).isNull();
   }
 
   @Test
   void extractChosungTest() {
     assertThat(KoreanTextUtils.extractChosung("안녕하세요")).isEqualTo("ㅇㄴㅎㅅㅇ");
-
     assertThat(KoreanTextUtils.extractChosung("테스트")).isEqualTo("ㅌㅅㅌ");
-
     assertThat(KoreanTextUtils.extractChosung("나이키")).isEqualTo("ㄴㅇㅋ");
-
     assertThat(KoreanTextUtils.extractChosung("test 나이키")).isEqualTo("test ㄴㅇㅋ");
-
     assertThat(KoreanTextUtils.extractChosung("ABC 가나다")).isEqualTo("ABC ㄱㄴㄷ");
-
     assertThat(KoreanTextUtils.extractChosung("123 라마바")).isEqualTo("123 ㄹㅁㅂ");
-
     assertThat(KoreanTextUtils.extractChosung(null)).isNull();
   }
 
   @Test
   void specialCharacterTest() {
     assertThat(KoreanTextUtils.extractChosung("나이키@에어맥스")).isEqualTo("ㄴㅇㅋ@ㅇㅇㅁㅅ");
-
     assertThat(KoreanTextUtils.decomposeHangul("나이키@에어맥스")).isEqualTo("ㄴㅏㅇㅣㅋㅣ@ㅇㅔㅇㅓㅁㅐㄱㅅㅡ");
   }
 
   @Test
   void whitespaceHandlingTest() {
     assertThat(KoreanTextUtils.extractChosung("나이키 에어 맥스")).isEqualTo("ㄴㅇㅋ ㅇㅇ ㅁㅅ");
-
     assertThat(KoreanTextUtils.decomposeHangul("나이키 에어 맥스")).isEqualTo("ㄴㅏㅇㅣㅋㅣ ㅇㅔㅇㅓ ㅁㅐㄱㅅㅡ");
   }
 
   @Test
   void emptyStringTest() {
     assertThat(KoreanTextUtils.extractChosung("")).isEqualTo("");
-
     assertThat(KoreanTextUtils.decomposeHangul("")).isEqualTo("");
   }
 
   @Test
   void withJongsungTest() {
     assertThat(KoreanTextUtils.decomposeHangul("강")).isEqualTo("ㄱㅏㅇ");
-
     assertThat(KoreanTextUtils.decomposeHangul("힘")).isEqualTo("ㅎㅣㅁ");
-
     assertThat(KoreanTextUtils.extractChosung("강남역")).isEqualTo("ㄱㄴㅇ");
   }
 }
