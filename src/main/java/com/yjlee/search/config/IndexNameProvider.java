@@ -8,4 +8,6 @@ public interface IndexNameProvider {
   String getSearchLogsIndex();
 
   String getProductsIndexPrefix();
+
+  String getTempAnalysisIndex();
 }

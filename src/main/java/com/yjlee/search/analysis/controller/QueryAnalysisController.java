@@ -5,7 +5,7 @@ import com.yjlee.search.analysis.dto.IndexAnalysisResponse;
 import com.yjlee.search.analysis.dto.QueryAnalysisResponse;
 import com.yjlee.search.analysis.dto.TempIndexRefreshResponse;
 import com.yjlee.search.analysis.service.AnalysisService;
-import com.yjlee.search.analysis.service.TempIndexManager;
+import com.yjlee.search.analysis.service.TempIndexService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class QueryAnalysisController {
 
   private final AnalysisService analysisService;
-  private final TempIndexManager tempIndexManager;
+  private final TempIndexService tempIndexManager;
 
   @Operation(summary = "검색용 형태소 분석", description = "형태소 분석, 동의어 확장, 단위 추출, 모델명 추출 결과를 반환")
   @PostMapping("/search")

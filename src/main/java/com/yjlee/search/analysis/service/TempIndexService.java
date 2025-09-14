@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import com.yjlee.search.analysis.dto.TempIndexRefreshResponse;
+import com.yjlee.search.config.IndexNameProvider;
 import com.yjlee.search.dictionary.common.service.DictionaryDataDeploymentService;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -20,9 +21,8 @@ import org.springframework.util.StreamUtils;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TempIndexManager {
+public class TempIndexService {
 
-  private static final String TEMP_INDEX_NAME = "temp-analysis-current";
   private static final String TEMP_SYNONYM_SET = "synonyms-temp-current";
   private static final String TEMP_USER_DICT_PATH =
       "/usr/share/elasticsearch/config/analysis/user/temp-current.txt";
@@ -34,22 +34,24 @@ public class TempIndexManager {
   private final ElasticsearchClient elasticsearchClient;
   private final ResourceLoader resourceLoader;
   private final DictionaryDataDeploymentService dictionaryDataDeploymentService;
+  private final IndexNameProvider indexNameProvider;
 
   protected ResourceLoader getResourceLoader() {
     return resourceLoader;
   }
 
   public void refreshTempIndex() throws IOException {
-    log.info("임시 인덱스 갱신 시작: {}", TEMP_INDEX_NAME);
+    String tempIndexName = indexNameProvider.getTempAnalysisIndex();
+    log.info("임시 인덱스 갱신 시작: {}", tempIndexName);
 
     // 1. 모든 사전을 임시 환경으로 배포
     deployTempDictionaries();
     log.info("모든 사전 임시 환경 배포 완료");
 
     // 2. 기존 인덱스 삭제 (있으면)
-    if (indexExists(TEMP_INDEX_NAME)) {
-      deleteIndex(TEMP_INDEX_NAME);
-      log.info("기존 임시 인덱스 삭제 완료: {}", TEMP_INDEX_NAME);
+    if (indexExists(tempIndexName)) {
+      deleteIndex(tempIndexName);
+      log.info("기존 임시 인덱스 삭제 완료: {}", tempIndexName);
     }
 
     // 3. 인덱스 설정 및 매핑 준비
@@ -60,7 +62,7 @@ public class TempIndexManager {
     CreateIndexRequest request =
         CreateIndexRequest.of(
             i ->
-                i.index(TEMP_INDEX_NAME)
+                i.index(tempIndexName)
                     .mappings(
                         TypeMapping.of(
                             m -> m.withJson(new ByteArrayInputStream(mappingJson.getBytes()))))
@@ -69,7 +71,7 @@ public class TempIndexManager {
                             s -> s.withJson(new ByteArrayInputStream(settingsJson.getBytes())))));
 
     elasticsearchClient.indices().create(request);
-    log.info("임시 인덱스 생성 완료: {}", TEMP_INDEX_NAME);
+    log.info("임시 인덱스 생성 완료: {}", tempIndexName);
   }
 
   private boolean indexExists(String indexName) throws IOException {
@@ -106,12 +108,12 @@ public class TempIndexManager {
   }
 
   public String getTempIndexName() {
-    return TEMP_INDEX_NAME;
+    return indexNameProvider.getTempAnalysisIndex();
   }
 
   public boolean isTempIndexExists() {
     try {
-      return indexExists(TEMP_INDEX_NAME);
+      return indexExists(indexNameProvider.getTempAnalysisIndex());
     } catch (IOException e) {
       log.error("임시 인덱스 존재 확인 실패", e);
       return false;

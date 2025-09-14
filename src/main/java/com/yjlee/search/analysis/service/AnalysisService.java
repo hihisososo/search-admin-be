@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 public class AnalysisService {
 
   private final IndexEnvironmentRepository indexEnvironmentRepository;
-  private final TempIndexManager tempIndexManager;
+  private final TempIndexService tempIndexManager;
   private final RestClient restClient;
   private final TokenGraphParser tokenGraphParser;
 

@@ -7,6 +7,8 @@ import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yjlee.search.test.config.TestIndexNameProvider;
+
 import java.io.ByteArrayInputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +60,7 @@ public abstract class BaseIntegrationTest {
   }
 
   private void deleteAllTestIndices() throws Exception {
-    String[] patterns = {"*"};
+    String[] patterns = {TestIndexNameProvider.TEST_PREFIX + "*"};
     for (String pattern : patterns) {
       try {
         DeleteIndexRequest request = DeleteIndexRequest.of(d -> d.index(pattern));

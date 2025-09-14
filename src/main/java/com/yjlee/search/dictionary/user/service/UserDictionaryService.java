@@ -123,7 +123,7 @@ public class UserDictionaryService implements DictionaryService {
 
       if (content == null || content.trim().isEmpty()) {
         log.warn("사용자사전 내용이 비어있음 - 임시 환경");
-        return;
+        content = "";
       }
 
       EC2DeploymentService.EC2DeploymentResult result =

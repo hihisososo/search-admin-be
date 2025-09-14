@@ -1,11 +1,8 @@
 package com.yjlee.search.loggen.controller;
 
-import com.yjlee.search.loggen.dto.BulkLogGenerationRequest;
 import com.yjlee.search.loggen.service.AutoLogGeneratorService;
-import com.yjlee.search.loggen.service.BulkLogGeneratorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 public class LogGenerationController {
 
   private final AutoLogGeneratorService autoLogGeneratorService;
-  private final BulkLogGeneratorService bulkLogGeneratorService;
 
   @Operation(summary = "자동 로그 생성 시작", description = "자동으로 검색 및 클릭 로그를 생성합니다.")
   @PostMapping("/generate/start")
@@ -32,18 +28,6 @@ public class LogGenerationController {
   public ResponseEntity<Map<String, String>> stopAutoGeneration() {
     autoLogGeneratorService.stopGeneration();
     return ResponseEntity.ok(Map.of("status", "stopped", "message", "자동 로그 생성이 중지되었습니다."));
-  }
-
-  @Operation(summary = "대량 로그 생성", description = "지정된 기간 동안의 검색 및 클릭 로그를 대량으로 생성합니다.")
-  @PostMapping("/generate-bulk")
-  public ResponseEntity<Map<String, Object>> generateBulkLogs(
-      @Valid @RequestBody BulkLogGenerationRequest request) {
-    try {
-      return ResponseEntity.ok(bulkLogGeneratorService.generateBulkLogsWithResponse(request));
-    } catch (Exception e) {
-      return ResponseEntity.internalServerError()
-          .body(Map.of("status", "error", "message", e.getMessage()));
-    }
   }
 
   @Operation(summary = "자동 로그 생성 상태 조회", description = "자동 로그 생성 상태를 조회합니다.")

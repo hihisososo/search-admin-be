@@ -54,6 +54,7 @@ public class ESFields {
   public static final String AUTOCOMPLETE_INDEX_PREFIX = "autocomplete";
   public static final String PRODUCTS_INDEX_PREFIX = "products";
   public static final String SEARCH_LOGS_INDEX = "search-logs";
+  public static final String TEMP_ANALYSIS_INDEX = "temp-analysis-current";
 
   // 추가 필드
   public static final String SCORE = "score";

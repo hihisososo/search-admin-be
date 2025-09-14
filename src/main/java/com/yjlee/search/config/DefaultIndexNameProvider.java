@@ -27,4 +27,9 @@ public class DefaultIndexNameProvider implements IndexNameProvider {
   public String getProductsIndexPrefix() {
     return ESFields.PRODUCTS_INDEX_PREFIX;
   }
+
+  @Override
+  public String getTempAnalysisIndex() {
+    return ESFields.TEMP_ANALYSIS_INDEX;
+  }
 }
