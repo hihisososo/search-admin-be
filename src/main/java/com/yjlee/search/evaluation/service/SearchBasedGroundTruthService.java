@@ -10,6 +10,8 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.enums.EnvironmentType;
+import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
@@ -17,7 +19,6 @@ import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
-import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.VectorSearchService;
 import com.yjlee.search.search.service.builder.QueryBuilder;
 import jakarta.annotation.PreDestroy;
@@ -40,7 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SearchBasedGroundTruthService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexResolver indexResolver;
+  private final IndexEnvironmentRepository indexEnvironmentRepository;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final VectorSearchService vectorSearchService;
@@ -207,13 +208,13 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  private List<String> searchByBM25(String query) {
-    return searchByBM25(query, FIXED_PER_STRATEGY);
-  }
-
   private List<String> searchByBM25(String query, int size) {
     try {
-      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
+      IndexEnvironment indexEnvironment =
+          indexEnvironmentRepository
+              .findByEnvironmentType(EnvironmentType.DEV)
+              .orElseThrow(() -> new RuntimeException("DEV 환경 인덱스가 설정되지 않았습니다."));
+      String indexName = indexEnvironment.getIndexName();
 
       // SearchExecuteRequest 생성 (실제 검색과 동일한 쿼리 생성을 위해)
       SearchExecuteRequest searchRequest = new SearchExecuteRequest();
@@ -244,13 +245,13 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  private List<String> searchByVector(String query) {
-    return searchByVector(query, FIXED_PER_STRATEGY);
-  }
-
   private List<String> searchByVector(String query, int size) {
     try {
-      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
+      IndexEnvironment indexEnvironment =
+          indexEnvironmentRepository
+              .findByEnvironmentType(EnvironmentType.DEV)
+              .orElseThrow(() -> new RuntimeException("DEV 환경 인덱스가 설정되지 않았습니다."));
+      String indexName = indexEnvironment.getIndexName();
 
       SearchResponse<JsonNode> response =
           vectorSearchService.multiFieldVectorSearch(indexName, query, size);
@@ -268,13 +269,13 @@ public class SearchBasedGroundTruthService {
     }
   }
 
-  private List<String> searchByCrossField(String query, String[] fields) {
-    return searchByCrossField(query, fields, FIXED_PER_STRATEGY);
-  }
-
   private List<String> searchByCrossField(String query, String[] fields, int size) {
     try {
-      String indexName = indexResolver.resolveProductIndex(EnvironmentType.DEV);
+      IndexEnvironment indexEnvironment =
+          indexEnvironmentRepository
+              .findByEnvironmentType(EnvironmentType.DEV)
+              .orElseThrow(() -> new RuntimeException("DEV 환경 인덱스가 설정되지 않았습니다."));
+      String indexName = indexEnvironment.getIndexName();
       SearchRequest request =
           SearchRequest.of(
               s ->

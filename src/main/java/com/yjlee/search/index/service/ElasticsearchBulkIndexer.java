@@ -4,7 +4,6 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
-import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import java.io.IOException;
@@ -19,67 +18,11 @@ import org.springframework.stereotype.Component;
 public class ElasticsearchBulkIndexer {
 
   private static final int MAX_RETRIES = 5;
-  private static final long INITIAL_RETRY_DELAY = 1000; // 1초
+  private static final long INITIAL_RETRY_DELAY = 1000;
 
   private final ElasticsearchClient elasticsearchClient;
 
-  public int indexProducts(List<ProductDocument> documents) throws IOException {
-    if (documents.isEmpty()) return 0;
-
-    BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
-
-    for (ProductDocument document : documents) {
-      bulkBuilder.operations(
-          op ->
-              op.index(
-                  idx ->
-                      idx.index(ESFields.PRODUCTS_INDEX_PREFIX)
-                          .id(document.getId())
-                          .document(document)));
-    }
-
-    BulkResponse response = executeBulkWithRetry(bulkBuilder.refresh(Refresh.False).build());
-    logErrors(response, "상품");
-
-    return documents.size();
-  }
-
-  public BulkResponse bulkIndex(String indexName, List<?> documents) {
-    try {
-      if (documents.isEmpty()) return null;
-
-      BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
-
-      for (int i = 0; i < documents.size(); i++) {
-        Object document = documents.get(i);
-        String docId = null;
-
-        if (document instanceof ProductDocument) {
-          docId = ((ProductDocument) document).getId();
-        } else if (document instanceof AutocompleteDocument) {
-          docId = String.valueOf(System.currentTimeMillis() + i);
-        }
-
-        if (docId != null) {
-          final String finalDocId = docId;
-          final Object finalDoc = document;
-          bulkBuilder.operations(
-              op -> op.index(idx -> idx.index(indexName).id(finalDocId).document(finalDoc)));
-        }
-      }
-
-      BulkResponse response = executeBulkWithRetry(bulkBuilder.refresh(Refresh.False).build());
-      logErrors(response, indexName);
-
-      return response;
-    } catch (IOException e) {
-      log.error("벌크 색인 실패 - 인덱스: {}", indexName, e);
-      return null;
-    }
-  }
-
-  public int indexProductsToSpecific(List<ProductDocument> documents, String indexName)
-      throws IOException {
+  public int indexProducts(List<ProductDocument> documents, String indexName) throws IOException {
     if (documents.isEmpty()) return 0;
 
     BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
@@ -95,27 +38,7 @@ public class ElasticsearchBulkIndexer {
     return documents.size();
   }
 
-  public int indexAutocomplete(List<AutocompleteDocument> documents) throws IOException {
-    if (documents.isEmpty()) return 0;
-
-    BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
-
-    for (int i = 0; i < documents.size(); i++) {
-      AutocompleteDocument document = documents.get(i);
-      String docId = String.valueOf(System.currentTimeMillis() + i);
-
-      bulkBuilder.operations(
-          op ->
-              op.index(idx -> idx.index(ESFields.AUTOCOMPLETE_INDEX).id(docId).document(document)));
-    }
-
-    BulkResponse response = executeBulkWithRetry(bulkBuilder.refresh(Refresh.False).build());
-    logErrors(response, "자동완성");
-
-    return documents.size();
-  }
-
-  public int indexAutocompleteToSpecific(List<AutocompleteDocument> documents, String indexName)
+  public int indexAutocomplete(List<AutocompleteDocument> documents, String indexName)
       throws IOException {
     if (documents.isEmpty()) return 0;
 
@@ -152,7 +75,7 @@ public class ElasticsearchBulkIndexer {
                 "Elasticsearch 429 에러 발생. {}ms 후 재시도 (시도 {}/{})", delay, attempt + 1, MAX_RETRIES);
             try {
               Thread.sleep(delay);
-              delay *= 2; // exponential backoff
+              delay *= 2;
             } catch (InterruptedException ie) {
               Thread.currentThread().interrupt();
               throw new IOException("재시도 중 인터럽트 발생", e);
@@ -161,12 +84,10 @@ public class ElasticsearchBulkIndexer {
             log.error("Elasticsearch 429 에러 - 최대 재시도 횟수 초과");
           }
         } else {
-          // 429가 아닌 다른 에러는 즉시 throw
           throw e;
         }
       }
     }
-
     throw new IOException("Elasticsearch bulk 요청 실패 - 최대 재시도 횟수 초과", lastException);
   }
 

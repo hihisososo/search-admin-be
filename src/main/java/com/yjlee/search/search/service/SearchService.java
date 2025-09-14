@@ -2,8 +2,12 @@ package com.yjlee.search.search.service;
 
 import co.elastic.apm.api.ElasticApm;
 import co.elastic.apm.api.Transaction;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.util.HttpRequestUtils;
+import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.index.provider.IndexNameProvider;
 import com.yjlee.search.search.converter.SearchRequestMapper;
 import com.yjlee.search.search.dto.*;
 import com.yjlee.search.search.service.typo.TypoCorrectionService;
@@ -22,7 +26,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class SearchService {
 
-  private final IndexResolver indexResolver;
+  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexNameProvider indexNameProvider;
   private final ProductSearchService productSearchService;
   private final AutocompleteSearchService autocompleteSearchService;
   private final TypoCorrectionService typoCorrectionService;
@@ -31,12 +36,12 @@ public class SearchService {
   private final SearchQueryExecutor searchQueryExecutor;
 
   public AutocompleteResponse getAutocompleteSuggestions(String keyword) {
-    String indexName = indexResolver.resolveAutocompleteIndex();
+    String indexName = indexNameProvider.getAutocompleteSearchAlias();
     return autocompleteSearchService.search(indexName, keyword);
   }
 
   public SearchExecuteResponse searchProducts(SearchExecuteRequest request) {
-    String indexName = indexResolver.resolveProductIndex();
+    String indexName = indexNameProvider.getProductsSearchAlias();
 
     // 검색 실행
     long startTime = System.currentTimeMillis();
@@ -55,8 +60,15 @@ public class SearchService {
         request.getEnvironmentType().getDescription(),
         request.getQuery());
 
-    String indexName = indexResolver.resolveProductIndexForSimulation(request.getEnvironmentType());
-    // 시뮬레이션은 검색만 하고 로깅 없음
+    IndexEnvironment environment =
+        indexEnvironmentRepository
+            .findByEnvironmentType(request.getEnvironmentType())
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        request.getEnvironmentType().getDescription() + " 환경을 찾을 수 없습니다."));
+    String indexName = environment.getIndexName();
+
     return productSearchService.search(
         indexName, (SearchExecuteRequest) request, request.isExplain());
   }
@@ -65,7 +77,14 @@ public class SearchService {
       String keyword, EnvironmentType environmentType) {
 
     log.info("자동완성 시뮬레이션 요청 - 환경: {}, 키워드: {}", environmentType.getDescription(), keyword);
-    String indexName = indexResolver.resolveAutocompleteIndexForSimulation(environmentType);
+    IndexEnvironment environment =
+        indexEnvironmentRepository
+            .findByEnvironmentType(environmentType)
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        environmentType.getDescription() + " 환경을 찾을 수 없습니다."));
+    String indexName = environment.getAutocompleteIndexName();
     return autocompleteSearchService.search(indexName, keyword);
   }
 
@@ -82,7 +101,7 @@ public class SearchService {
     SearchExecuteRequest request = searchRequestMapper.toSearchExecuteRequest(params);
 
     // HTTP 요청 정보와 함께 검색 실행
-    String indexName = indexResolver.resolveProductIndex();
+    String indexName = indexNameProvider.getProductsSearchAlias();
 
     long startTime = System.currentTimeMillis();
     SearchExecuteResponse response = productSearchService.search(indexName, request, false);
@@ -100,12 +119,20 @@ public class SearchService {
     return searchProductsSimulation(request);
   }
 
-  public com.fasterxml.jackson.databind.JsonNode getDocumentById(
-      String documentId, EnvironmentType environmentType) {
-    String indexName =
-        environmentType != null
-            ? indexResolver.resolveProductIndexForSimulation(environmentType)
-            : indexResolver.resolveProductIndex();
+  public JsonNode getDocumentById(String documentId, EnvironmentType environmentType) {
+    String indexName;
+    if (environmentType != null) {
+      IndexEnvironment environment =
+          indexEnvironmentRepository
+              .findByEnvironmentType(environmentType)
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          environmentType.getDescription() + " 환경을 찾을 수 없습니다."));
+      indexName = environment.getIndexName();
+    } else {
+      indexName = indexNameProvider.getProductsSearchAlias();
+    }
 
     co.elastic.clients.elasticsearch.core.GetResponse<com.fasterxml.jackson.databind.JsonNode>
         response = searchQueryExecutor.getDocument(indexName, documentId);

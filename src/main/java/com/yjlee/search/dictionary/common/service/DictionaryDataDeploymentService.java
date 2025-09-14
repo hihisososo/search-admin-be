@@ -15,43 +15,83 @@ public class DictionaryDataDeploymentService {
   private final List<DictionaryService> dictionaryServices;
 
   @Transactional
-  public void deployAllToDev(String version) {
-    log.info("모든 사전을 개발 환경으로 배포 시작 - 버전: {}", version);
+  public void preIndexingAll() {
+    log.info("색인 전 사전 준비작업 시작");
 
     for (DictionaryService dictionaryService : dictionaryServices) {
       try {
         String serviceName = dictionaryService.getClass().getSimpleName();
-        log.info("{} 사전을 개발 환경으로 배포 중 - 버전: {}", serviceName, version);
-        dictionaryService.deployToDev(version);
-        log.info("{} 사전 개발 환경 배포 완료", serviceName);
+        log.info("{} 사전 색인 전 준비 중", serviceName);
+        dictionaryService.preIndexing();
+        log.info("{} preIndexing 완료", serviceName);
       } catch (Exception e) {
         String serviceName = dictionaryService.getClass().getSimpleName();
-        log.error("{} 사전 개발 환경 배포 실패", serviceName, e);
-        throw new RuntimeException(serviceName + " 사전 개발 환경 배포 실패", e);
+        log.error("{} 사전 색인 전 준비 실패", serviceName, e);
+        throw new RuntimeException(serviceName + " 사전 색인 준비 실패", e);
       }
     }
 
-    log.info("모든 사전 개발 환경 배포 완료 - 버전: {}", version);
+    log.info("색인 전 사전 준비작업 완료");
   }
 
   @Transactional
-  public void deployAllToProd() {
-    log.info("모든 사전을 운영 환경으로 배포 시작");
+  public void postIndexingAll() {
+    log.info("색인 후 사전 정리작업 시작");
 
     for (DictionaryService dictionaryService : dictionaryServices) {
       try {
         String serviceName = dictionaryService.getClass().getSimpleName();
-        log.info("{} 사전을 운영 환경으로 배포 중", serviceName);
-        dictionaryService.deployToProd();
-        log.info("{} 사전 운영 환경 배포 완료", serviceName);
+        log.debug("{} 사전 색인 후 정리 중", serviceName);
+        dictionaryService.postIndexing();
+        log.info("{} postIndexing 완료", serviceName);
       } catch (Exception e) {
         String serviceName = dictionaryService.getClass().getSimpleName();
-        log.error("{} 사전 운영 환경 배포 실패", serviceName, e);
-        throw new RuntimeException(serviceName + " 사전 운영 환경 배포 실패", e);
+        log.error("{} 사전 색인 후 정리 실패", serviceName, e);
+        throw new RuntimeException(serviceName + " 사전 색인 후 정리 실패", e);
       }
     }
 
-    log.info("모든 사전 운영 환경 배포 완료");
+    log.info("색인 후 사전 정리작업 완료");
+  }
+
+  @Transactional
+  public void preDeployAll() {
+    log.info("배포 전 사전 준비작업 시작");
+
+    for (DictionaryService dictionaryService : dictionaryServices) {
+      try {
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.info("{} 사전 배포 전 준비 중", serviceName);
+        dictionaryService.preDeploy();
+        log.info("{} preDeploy 완료", serviceName);
+      } catch (Exception e) {
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.error("{} 사전 배포 전 준비 실패", serviceName, e);
+        throw new RuntimeException(serviceName + " 사전 배포 준비 실패", e);
+      }
+    }
+
+    log.info("배포 전 사전 준비작업 완료");
+  }
+
+  @Transactional
+  public void postDeployAll() {
+    log.info("배포 후 사전 정리작업 시작");
+
+    for (DictionaryService dictionaryService : dictionaryServices) {
+      try {
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.debug("{} 사전 배포 후 정리 중", serviceName);
+        dictionaryService.postDeploy();
+        log.info("{} postDeploy 완료", serviceName);
+      } catch (Exception e) {
+        String serviceName = dictionaryService.getClass().getSimpleName();
+        log.error("{} 사전 배포 후 정리 실패", serviceName, e);
+        throw new RuntimeException(serviceName + " 사전 배포 후 정리 실패", e);
+      }
+    }
+
+    log.info("배포 후 사전 정리작업 완료");
   }
 
   @Transactional
@@ -84,8 +124,7 @@ public class DictionaryDataDeploymentService {
         log.debug("{} 사전 실시간 동기화 중", serviceName);
         dictionaryService.realtimeSync(environment);
       } catch (Exception e) {
-        String serviceName = dictionaryService.getClass().getSimpleName();
-        log.warn("{} 사전 실시간 동기화 실패 (무시하고 계속)", serviceName, e);
+        throw new RuntimeException("사전 실시간 동기화 실패", e);
       }
     }
 

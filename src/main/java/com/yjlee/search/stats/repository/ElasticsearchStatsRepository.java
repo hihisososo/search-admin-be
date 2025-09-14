@@ -3,6 +3,10 @@ package com.yjlee.search.stats.repository;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch._types.aggregations.DateHistogramAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.DateHistogramBucket;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -139,7 +143,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
 
-      var cardinalityAgg = response.aggregations().get("unique_sessions");
+      Aggregate cardinalityAgg = response.aggregations().get("unique_sessions");
       if (cardinalityAgg != null && cardinalityAgg.isCardinality()) {
         return (long) cardinalityAgg.cardinality().value();
       }
@@ -222,7 +226,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
 
-      var cardinalityAgg = response.aggregations().get("unique_sessions");
+      Aggregate cardinalityAgg = response.aggregations().get("unique_sessions");
       if (cardinalityAgg != null && cardinalityAgg.isCardinality()) {
         return (long) cardinalityAgg.cardinality().value();
       }
@@ -284,13 +288,13 @@ public class ElasticsearchStatsRepository implements StatsRepository {
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
 
       Map<String, Long> clickCounts = new HashMap<>();
-      var keywordsAgg = response.aggregations().get("keywords");
+      Aggregate keywordsAgg = response.aggregations().get("keywords");
 
       if (keywordsAgg != null && keywordsAgg._kind().jsonValue().equals("sterms")) {
-        var termsAgg = keywordsAgg.sterms();
-        var buckets = termsAgg.buckets().array();
+        StringTermsAggregate termsAgg = keywordsAgg.sterms();
+        List<StringTermsBucket> buckets = termsAgg.buckets().array();
 
-        for (var bucket : buckets) {
+        for (StringTermsBucket bucket : buckets) {
           String keyword = bucket.key().stringValue();
           long count = bucket.docCount();
           clickCounts.put(keyword, count);
@@ -371,15 +375,15 @@ public class ElasticsearchStatsRepository implements StatsRepository {
       SearchResponse<Void> response = elasticsearchClient.search(searchRequest, Void.class);
 
       Map<String, Long> searchesWithClicks = new HashMap<>();
-      var keywordsAgg = response.aggregations().get("keywords");
+      Aggregate keywordsAgg = response.aggregations().get("keywords");
 
       if (keywordsAgg != null && keywordsAgg._kind().jsonValue().equals("sterms")) {
-        var termsAgg = keywordsAgg.sterms();
-        var buckets = termsAgg.buckets().array();
+        StringTermsAggregate termsAgg = keywordsAgg.sterms();
+        List<StringTermsBucket> buckets = termsAgg.buckets().array();
 
-        for (var bucket : buckets) {
+        for (StringTermsBucket bucket : buckets) {
           String keyword = bucket.key().stringValue();
-          var cardinalityAgg = bucket.aggregations().get("unique_sessions");
+          Aggregate cardinalityAgg = bucket.aggregations().get("unique_sessions");
           if (cardinalityAgg != null && cardinalityAgg.isCardinality()) {
             long count = (long) cardinalityAgg.cardinality().value();
             searchesWithClicks.put(keyword, count);
@@ -574,7 +578,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
   private SearchStats parseStatsResponse(
       SearchResponse<Void> response, long clickCount, long searchesWithClicks) {
-    var aggs = response.aggregations();
+    Map<String, Aggregate> aggs = response.aggregations();
 
     long totalSearches = extractLongValue(aggs, "total_searches", "value");
     long totalDocuments = extractLongValue(aggs, "total_documents", "value");
@@ -604,19 +608,19 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
   private List<KeywordStats> parsePopularKeywordsResponse(
       SearchResponse<Void> response, int limit) {
-    var aggs = response.aggregations();
+    Map<String, Aggregate> aggs = response.aggregations();
 
     // 현재 주기 데이터 추출
-    var currentPeriodAgg = aggs.get("current_period");
+    Aggregate currentPeriodAgg = aggs.get("current_period");
     Map<String, Long> currentPeriodData = new HashMap<>();
 
     if (currentPeriodAgg != null && currentPeriodAgg.isFilter()) {
-      var currentKeywordsAgg = currentPeriodAgg.filter().aggregations().get("keywords");
+      Aggregate currentKeywordsAgg = currentPeriodAgg.filter().aggregations().get("keywords");
       if (currentKeywordsAgg != null && currentKeywordsAgg._kind().jsonValue().equals("sterms")) {
         var termsAgg = currentKeywordsAgg.sterms();
-        var buckets = termsAgg.buckets().array();
+        List<StringTermsBucket> buckets = termsAgg.buckets().array();
 
-        for (var bucket : buckets) {
+        for (StringTermsBucket bucket : buckets) {
           currentPeriodData.put(bucket.key().stringValue(), bucket.docCount());
         }
       }
@@ -624,9 +628,9 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
     // 이전 주기 순위 맵 생성
     Map<String, Integer> previousRanks = new HashMap<>();
-    var previousPeriodAgg = aggs.get("previous_period");
+    Aggregate previousPeriodAgg = aggs.get("previous_period");
     if (previousPeriodAgg != null && previousPeriodAgg.isFilter()) {
-      var previousKeywordsAgg = previousPeriodAgg.filter().aggregations().get("keywords");
+      Aggregate previousKeywordsAgg = previousPeriodAgg.filter().aggregations().get("keywords");
       if (previousKeywordsAgg != null && previousKeywordsAgg._kind().jsonValue().equals("sterms")) {
         var termsAgg = previousKeywordsAgg.sterms();
         var buckets = termsAgg.buckets().array();
@@ -691,18 +695,18 @@ public class ElasticsearchStatsRepository implements StatsRepository {
   }
 
   private List<TrendData> parseTrendsResponse(SearchResponse<Void> response, String interval) {
-    var aggs = response.aggregations();
-    var timeBucketsAgg = aggs.get("time_buckets");
+    Map<String, Aggregate> aggs = response.aggregations();
+    Aggregate timeBucketsAgg = aggs.get("time_buckets");
 
     List<TrendData> trendData = new ArrayList<>();
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     if (timeBucketsAgg != null && timeBucketsAgg._kind().jsonValue().equals("date_histogram")) {
       try {
-        var dateHistAgg = timeBucketsAgg.dateHistogram();
-        var buckets = dateHistAgg.buckets().array();
+        DateHistogramAggregate dateHistAgg = timeBucketsAgg.dateHistogram();
+        List<DateHistogramBucket> buckets = dateHistAgg.buckets().array();
 
-        for (var bucket : buckets) {
+        for (DateHistogramBucket bucket : buckets) {
           String keyAsString = bucket.keyAsString();
           if (keyAsString == null) {
             continue;
@@ -739,7 +743,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
   private long extractLongValue(Map<String, Aggregate> aggs, String aggName, String field) {
     try {
-      var aggResult = aggs.get(aggName);
+      Aggregate aggResult = aggs.get(aggName);
       if (aggResult == null) return 0L;
 
       if ("value".equals(field)) {
@@ -762,7 +766,7 @@ public class ElasticsearchStatsRepository implements StatsRepository {
 
   private double extractDoubleValue(Map<String, Aggregate> aggs, String aggName, String field) {
     try {
-      var aggResult = aggs.get(aggName);
+      Aggregate aggResult = aggs.get(aggName);
       if (aggResult == null) return 0.0;
 
       if ("value".equals(field) && aggResult.isAvg()) {

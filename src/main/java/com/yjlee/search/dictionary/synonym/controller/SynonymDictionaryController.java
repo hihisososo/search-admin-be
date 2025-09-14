@@ -3,7 +3,6 @@ package com.yjlee.search.dictionary.synonym.controller;
 import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.deployment.service.ElasticsearchSynonymService;
 import com.yjlee.search.dictionary.synonym.dto.*;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 public class SynonymDictionaryController {
 
   private final SynonymDictionaryService synonymDictionaryService;
-  private final ElasticsearchSynonymService elasticsearchSynonymService;
   private final IndexEnvironmentRepository indexEnvironmentRepository;
 
   @Operation(summary = "사전 목록")
@@ -89,7 +87,7 @@ public class SynonymDictionaryController {
                         environment.getDescription() + " 환경에 인덱스가 없습니다. 먼저 인덱스를 생성하고 배포해주세요."));
       }
 
-      elasticsearchSynonymService.createOrUpdateSynonymSet(synonymSetName, environment);
+      synonymDictionaryService.createOrUpdateSynonymSet(synonymSetName, environment);
       return SynonymSyncResponse.success(environment.getDescription());
     } catch (Exception e) {
       return SynonymSyncResponse.error(environment.getDescription(), e.getMessage());

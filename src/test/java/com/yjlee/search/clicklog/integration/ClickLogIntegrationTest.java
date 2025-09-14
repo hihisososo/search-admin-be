@@ -97,9 +97,7 @@ class ClickLogApiIntegrationTest extends BaseIntegrationTest {
 
     mockMvc
         .perform(
-            post("/api/v1/click-logs")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(invalidJson))
+            post("/api/v1/click-logs").contentType(MediaType.APPLICATION_JSON).content(invalidJson))
         .andExpect(status().isBadRequest());
   }
 

@@ -32,6 +32,9 @@ public class IndexEnvironment {
   @Column(name = "autocomplete_index_name")
   private String autocompleteIndexName;
 
+  @Column(name = "synonym_set_name")
+  private String synonymSetName;
+
   @Column(name = "document_count")
   private Long documentCount;
 
@@ -83,8 +86,17 @@ public class IndexEnvironment {
     this.indexStatus = IndexStatus.INACTIVE;
     this.indexName = null;
     this.autocompleteIndexName = null;
+    this.synonymSetName = null;
     this.documentCount = 0L;
     this.version = null;
     this.indexDate = null;
+  }
+
+  public void updatePrepareIndexing(
+      String indexName, String autoCompleteIndexname, String synonymSetName, String version) {
+    this.indexName = indexName;
+    this.autocompleteIndexName = autoCompleteIndexname;
+    this.synonymSetName = synonymSetName;
+    this.version = version;
   }
 }

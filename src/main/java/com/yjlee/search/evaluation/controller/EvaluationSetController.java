@@ -65,7 +65,7 @@ public class EvaluationSetController {
     PaginationUtils.PagedResult<EvaluationQueryDto> pagedResult =
         PaginationUtils.paginate(queriesWithStats, page, size);
 
-    var response =
+    EvaluationQueryListResponse response =
         EvaluationQueryListResponse.builder()
             .queries(pagedResult.getContent())
             .totalCount(pagedResult.getTotalCount())
@@ -121,7 +121,7 @@ public class EvaluationSetController {
                         .build())
             .collect(Collectors.toList());
 
-    var response =
+    QueryDocumentMappingResponse response =
         QueryDocumentMappingResponse.builder()
             .query(query.getQuery())
             .documents(documents)

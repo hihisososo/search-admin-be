@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class QueryAnalysisController {
 
   private final AnalysisService analysisService;
-  private final TempIndexService tempIndexManager;
+  private final TempIndexService tempIndexService;
 
   @Operation(summary = "검색용 형태소 분석", description = "형태소 분석, 동의어 확장, 단위 추출, 모델명 추출 결과를 반환")
   @PostMapping("/search")
@@ -42,6 +42,6 @@ public class QueryAnalysisController {
   @Operation(summary = "임시 인덱스 갱신", description = "CURRENT 환경의 사전 데이터로 임시 분석 인덱스를 재생성")
   @PostMapping("/temp-index-refresh")
   public ResponseEntity<TempIndexRefreshResponse> refreshTempIndex() {
-    return ResponseEntity.ok(tempIndexManager.refreshTempIndexWithResponse());
+    return ResponseEntity.ok(tempIndexService.refreshTempIndexWithResponse());
   }
 }

@@ -23,9 +23,8 @@ public class AwsConfig {
 
   @Bean
   public AwsCredentialsProvider awsCredentialsProvider() {
-    log.info("AWS 자격 증명 제공자 초기화 중...");
-    return StaticCredentialsProvider.create(
-        AwsBasicCredentials.create(accessKey, secretKey));
+    log.info("AWS 자격 증명 제공자 초기화");
+    return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
   }
 
   @Bean

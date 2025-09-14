@@ -67,7 +67,6 @@ public class WebConfig implements WebMvcConfigurer {
             duration,
             response.getContentType());
 
-        // 에러가 있었다면 추가 로깅
         if (ex != null) {
           log.error("Request failed with exception", ex);
         }

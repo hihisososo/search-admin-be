@@ -7,31 +7,34 @@ import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yjlee.search.test.config.TestIndexNameProvider;
-
+import com.yjlee.search.common.service.CommandService;
+import com.yjlee.search.common.service.FileUploadService;
+import com.yjlee.search.index.provider.IndexNameProvider;
+import com.yjlee.search.test.mock.TestDockerFileUploadService;
+import com.yjlee.search.test.mock.TestIndexNameProvider;
+import com.yjlee.search.test.mock.TestSsmCommandService;
 import java.io.ByteArrayInputStream;
-import org.junit.jupiter.api.BeforeEach;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.services.ssm.SsmClient;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Transactional
+@Import(BaseIntegrationTest.TestConfig.class)
 public abstract class BaseIntegrationTest {
 
   @Autowired protected MockMvc mockMvc;
   @Autowired protected ObjectMapper objectMapper;
   @Autowired protected ElasticsearchClient elasticsearchClient;
-
-  @BeforeEach
-  void cleanupIndices() throws Exception {
-    deleteAllTestIndices();
-  }
 
   protected void createIndex(String indexName, String settings, String mappings) throws Exception {
     CreateIndexRequest request =
@@ -59,14 +62,39 @@ public abstract class BaseIntegrationTest {
     return elasticsearchClient.indices().exists(request).value();
   }
 
-  private void deleteAllTestIndices() throws Exception {
+  protected void deleteAllTestIndices() throws Exception {
     String[] patterns = {TestIndexNameProvider.TEST_PREFIX + "*"};
     for (String pattern : patterns) {
-      try {
-        DeleteIndexRequest request = DeleteIndexRequest.of(d -> d.index(pattern));
-        elasticsearchClient.indices().delete(request);
-      } catch (Exception e) {
-      }
+      DeleteIndexRequest request = DeleteIndexRequest.of(d -> d.index(pattern));
+      elasticsearchClient.indices().delete(request);
+    }
+  }
+
+  @TestConfiguration
+  public static class TestConfig {
+
+    @Bean
+    @Primary
+    public SsmClient ssmClient() {
+      return Mockito.mock(SsmClient.class);
+    }
+
+    @Bean
+    @Primary
+    public IndexNameProvider testIndexNameProvider() {
+      return new TestIndexNameProvider();
+    }
+
+    @Bean
+    @Primary
+    public CommandService commandService() {
+      return new TestSsmCommandService();
+    }
+
+    @Bean
+    @Primary
+    public FileUploadService fileUploadService() {
+      return new TestDockerFileUploadService();
     }
   }
 }

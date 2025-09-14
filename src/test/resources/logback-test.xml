@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+    </root>
+
+    <!-- 우리 애플리케이션 로그는 DEBUG 레벨로 -->
+    <logger name="com.yjlee.search" level="DEBUG" />
+
+    <!-- 비동기 작업 관련 로그 -->
+    <logger name="com.yjlee.search.deployment" level="DEBUG" />
+    <logger name="com.yjlee.search.async" level="DEBUG" />
+
+    <!-- Spring 트랜잭션 로그 -->
+    <logger name="org.springframework.transaction" level="DEBUG" />
+    <logger name="org.springframework.jdbc" level="DEBUG" />
+
+    <!-- Hibernate SQL 로그는 줄이기 -->
+    <logger name="org.hibernate.SQL" level="WARN" />
+    <logger name="org.hibernate.type" level="WARN" />
+</configuration>

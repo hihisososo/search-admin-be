@@ -1,10 +1,10 @@
 package com.yjlee.search.index.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.index.dto.AutocompleteDocument;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.index.model.Product;
+import com.yjlee.search.index.provider.IndexNameProvider;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.index.service.monitor.IndexProgressMonitor;
 import jakarta.annotation.PostConstruct;
@@ -42,6 +42,7 @@ public class ProductIndexingService {
   private final ElasticsearchBulkIndexer bulkIndexer;
   private final IndexProgressMonitor progressMonitor;
   private final ElasticsearchClient elasticsearchClient;
+  private final IndexNameProvider indexNameProvider;
 
   private IndexingProgressCallback progressCallback;
   private Semaphore batchSemaphore;
@@ -51,82 +52,32 @@ public class ProductIndexingService {
   public void init() {
     this.batchSemaphore = new Semaphore(maxConcurrentBatches);
     this.indexingExecutor = Executors.newFixedThreadPool(maxConcurrentBatches);
-    log.info(
-        "ProductIndexingService initialized - batchSize: {}, maxConcurrentBatches: {}",
-        batchSize,
-        maxConcurrentBatches);
   }
 
-  public int indexAllProducts() throws IOException {
-    return indexAllProducts(null);
-  }
-
-  public int indexAllProducts(Integer maxDocuments) throws IOException {
-    return indexProducts(null, maxDocuments);
-  }
-
-  public int indexProductsToIndex(String targetIndex) throws IOException {
-    return indexProducts(targetIndex, null);
-  }
-
-  public int indexProductsToIndex(String targetIndex, Integer maxDocuments) throws IOException {
-    return indexProducts(targetIndex, maxDocuments);
-  }
-
-  private int indexProducts(String targetIndex, Integer maxDocuments) throws IOException {
-    String indexName = targetIndex != null ? targetIndex : ESFields.PRODUCTS_INDEX_PREFIX;
-    if (maxDocuments != null && maxDocuments > 0) {
-      log.debug("상품 색인 시작: {} (최대 {}개)", indexName, maxDocuments);
-    } else {
-      log.debug("상품 색인 시작: {} (전체)", indexName);
-    }
+  public int indexProducts(String version) throws IOException {
+    String productIndexName = indexNameProvider.getProductIndexName(version);
+    String autocompleteIndexName = indexNameProvider.getAutocompleteIndexName(version);
+    log.debug("상품 색인 시작: {}", productIndexName);
 
     // 색인 시작 시 refresh_interval 비활성화
-    disableRefresh(indexName);
-    if (targetIndex != null && targetIndex.startsWith("products-v")) {
-      String version = targetIndex.substring("products-v".length());
-      String autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-v" + version;
-      disableRefresh(autocompleteIndex);
-    } else if (targetIndex == null) {
-      disableRefresh(ESFields.AUTOCOMPLETE_INDEX);
-    }
+    disableRefresh(productIndexName);
+    disableRefresh(autocompleteIndexName);
 
     long totalProducts = productRepository.count();
-    long effectiveTotal =
-        (maxDocuments != null && maxDocuments > 0)
-            ? Math.min(maxDocuments, totalProducts)
-            : totalProducts;
-    int totalBatches = (int) Math.ceil((double) effectiveTotal / batchSize);
+    int totalBatches = (int) Math.ceil((double) totalProducts / batchSize);
 
-    progressMonitor.start(effectiveTotal);
+    progressMonitor.start(totalProducts);
     setupProgressCallback();
 
-    if (targetIndex == null) {
-      clearExistingIndexes();
-    }
-
-    if (maxDocuments != null && maxDocuments > 0) {
-      log.info("총 {}개 상품 중 {}개를 {}개 배치로 처리", totalProducts, effectiveTotal, totalBatches);
-    } else {
-      log.info("총 {}개 상품을 {}개 배치로 처리", totalProducts, totalBatches);
-    }
+    log.info("총 {}개 상품을 {}개 배치로 처리", totalProducts, totalBatches);
 
     List<CompletableFuture<Integer>> futures = new ArrayList<>();
 
-    int processedCount = 0;
     for (int batchNumber = 0; batchNumber < totalBatches; batchNumber++) {
       final int currentBatch = batchNumber;
-      final int remainingDocs =
-          (maxDocuments != null && maxDocuments > 0)
-              ? maxDocuments - processedCount
-              : Integer.MAX_VALUE;
-
-      if (remainingDocs <= 0) break;
-
-      final int batchLimit = Math.min(batchSize, remainingDocs);
-      CompletableFuture<Integer> future = processBatchAsync(currentBatch, targetIndex, batchLimit);
+      CompletableFuture<Integer> future =
+          processBatchAsync(currentBatch, productIndexName, autocompleteIndexName, batchSize);
       futures.add(future);
-      processedCount += batchLimit;
     }
 
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
@@ -134,23 +85,22 @@ public class ProductIndexingService {
     int totalIndexed = futures.stream().mapToInt(CompletableFuture::join).sum();
 
     progressMonitor.complete();
-    refreshIndexes(targetIndex);
+    refreshIndexes(productIndexName, autocompleteIndexName);
 
     log.info("상품 색인 완료: {}개", totalIndexed);
     return totalIndexed;
   }
 
   private CompletableFuture<Integer> processBatchAsync(
-      int batchNumber, String targetIndex, int batchLimit) {
+      int batchNumber, String productIndexName, String autocompleteIndexName, int batchSize) {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
             batchSemaphore.acquire();
-            log.debug("배치 {} 처리 시작 (최대 {}개)", batchNumber, batchLimit);
+            log.debug("배치 {} 처리 시작", batchNumber);
 
             Page<Product> productPage =
-                productRepository.findAll(
-                    PageRequest.of(batchNumber, Math.min(batchLimit, batchSize)));
+                productRepository.findAll(PageRequest.of(batchNumber, batchSize));
 
             if (productPage.isEmpty()) {
               return 0;
@@ -158,14 +108,7 @@ public class ProductIndexingService {
 
             List<Product> products = productPage.getContent();
 
-            // batchLimit이 더 작은 경우 제한
-            if (products.size() > batchLimit) {
-              products = products.subList(0, batchLimit);
-            }
-
-            List<ProductDocument> documents = enrichAndConvertProducts(products);
-
-            int indexedCount = indexDocuments(documents, targetIndex);
+            int indexedCount = indexDocuments(products, productIndexName, autocompleteIndexName);
 
             progressMonitor.updateProgress(indexedCount);
             log.debug("배치 {} 처리 완료: {}개 색인", batchNumber, indexedCount);
@@ -191,40 +134,19 @@ public class ProductIndexingService {
     }
   }
 
-  private int indexDocuments(List<ProductDocument> documents, String targetIndex) {
+  private int indexDocuments(
+      List<Product> products, String productIndex, String autocompleteIndex) {
     try {
-      int indexedCount;
 
-      if (targetIndex != null) {
-        indexedCount = bulkIndexer.indexProductsToSpecific(documents, targetIndex);
-
-        String version = targetIndex.replace(ESFields.PRODUCTS_INDEX_PREFIX + "-", "");
-        String autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-" + version;
-        indexAutocompleteDocuments(documents, autocompleteIndex);
-      } else {
-        indexedCount = bulkIndexer.indexProducts(documents);
-        indexAutocompleteDocuments(documents, null);
-      }
-
-      return indexedCount;
-    } catch (IOException e) {
-      log.error("색인 중 오류 발생", e);
-      return 0;
-    }
-  }
-
-  private void indexAutocompleteDocuments(List<ProductDocument> documents, String targetIndex) {
-    try {
+      List<ProductDocument> documents = enrichAndConvertProducts(products);
       List<AutocompleteDocument> autocompleteDocuments =
           documents.stream().map(autocompleteFactory::createFromProductDocument).toList();
 
-      if (targetIndex != null) {
-        bulkIndexer.indexAutocompleteToSpecific(autocompleteDocuments, targetIndex);
-      } else {
-        bulkIndexer.indexAutocomplete(autocompleteDocuments);
-      }
+      bulkIndexer.indexAutocomplete(autocompleteDocuments, autocompleteIndex);
+      return bulkIndexer.indexProducts(documents, productIndex);
     } catch (IOException e) {
-      log.error("자동완성 색인 실패", e);
+      log.error("색인 중 오류 발생", e);
+      return 0;
     }
   }
 
@@ -240,58 +162,9 @@ public class ProductIndexingService {
     }
   }
 
-  public void indexProducts() {
-    try {
-      log.info("상품 색인 작업 시작");
-      indexAllProducts();
-    } catch (IOException e) {
-      log.error("상품 색인 실패", e);
-    }
-  }
-
-  private void clearExistingIndexes() throws IOException {
-    log.info("기존 인덱스 데이터 삭제 중");
-
-    try {
-      elasticsearchClient.deleteByQuery(
-          d -> d.index(ESFields.PRODUCTS_INDEX_PREFIX).query(q -> q.matchAll(m -> m)));
-      log.info("상품 인덱스 데이터 삭제 완료");
-    } catch (Exception e) {
-      log.warn("상품 인덱스 삭제 실패: {}", e.getMessage());
-    }
-
-    try {
-      elasticsearchClient.deleteByQuery(
-          d -> d.index(ESFields.AUTOCOMPLETE_INDEX).query(q -> q.matchAll(m -> m)));
-      log.info("자동완성 인덱스 데이터 삭제 완료");
-    } catch (Exception e) {
-      log.warn("자동완성 인덱스 삭제 실패: {}", e.getMessage());
-    }
-  }
-
-  private void refreshIndexes(String targetIndex) {
-    try {
-      if (targetIndex != null) {
-        // refresh_interval 복원
-        enableRefresh(targetIndex);
-        elasticsearchClient.indices().refresh(r -> r.index(targetIndex));
-        log.info("인덱스 새로고침 완료: {}", targetIndex);
-
-        String version = targetIndex.replace(ESFields.PRODUCTS_INDEX_PREFIX + "-", "");
-        String autocompleteIndex = ESFields.AUTOCOMPLETE_INDEX_PREFIX + "-" + version;
-        enableRefresh(autocompleteIndex);
-        elasticsearchClient.indices().refresh(r -> r.index(autocompleteIndex));
-        log.info("자동완성 인덱스 새로고침 완료: {}", autocompleteIndex);
-      } else {
-        enableRefresh(ESFields.PRODUCTS_INDEX_PREFIX);
-        enableRefresh(ESFields.AUTOCOMPLETE_INDEX);
-        elasticsearchClient.indices().refresh(r -> r.index(ESFields.PRODUCTS_INDEX_PREFIX));
-        elasticsearchClient.indices().refresh(r -> r.index(ESFields.AUTOCOMPLETE_INDEX));
-        log.info("인덱스 새로고침 완료");
-      }
-    } catch (Exception e) {
-      log.warn("인덱스 새로고침 실패, 백그라운드에서 처리됨", e);
-    }
+  private void refreshIndexes(String productIndex, String autocompleteIndex) {
+    enableRefresh(productIndex);
+    enableRefresh(autocompleteIndex);
   }
 
   private void disableRefresh(String indexName) {

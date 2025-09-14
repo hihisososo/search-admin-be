@@ -9,16 +9,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ProductDocumentFactory {
 
-  private String formatRegisteredMonth(String regMonth) {
-    if (regMonth == null || regMonth.isEmpty()) {
-      return "";
-    }
-    String formatted = regMonth.replace(".", "-");
-    return formatted.substring(0, Math.min(7, formatted.length()));
-  }
-
   public ProductDocument create(Product product) {
-    // name 필드는 전체 상품명 전처리 (normalizeUnits 포함)
     String preprocessedName = TextPreprocessor.preprocess(product.getName());
 
     return ProductDocument.builder()
@@ -30,7 +21,7 @@ public class ProductDocumentFactory {
         .price(product.getPrice() != null ? product.getPrice().intValue() : null)
         .registeredMonth(formatRegisteredMonth(product.getRegMonth()))
         .rating(product.getRating())
-        .reviewCount(product.getReviewCount() != null ? product.getReviewCount() : 0)
+        .reviewCount(product.getReviewCount())
         .categoryName(product.getCategoryName())
         .category(
             TextPreprocessor.preprocess(
@@ -40,7 +31,11 @@ public class ProductDocumentFactory {
         .build();
   }
 
-  public ProductDocument createProductDocument(Product product) {
-    return create(product);
+  private String formatRegisteredMonth(String regMonth) {
+    if (regMonth == null || regMonth.isEmpty()) {
+      return null;
+    }
+    String formatted = regMonth.replace(".", "-");
+    return formatted.substring(0, Math.min(7, formatted.length()));
   }
 }

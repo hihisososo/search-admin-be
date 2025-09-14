@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -100,24 +101,17 @@ public class IndexProgressMonitor {
   }
 
   @Getter
+  @RequiredArgsConstructor
   public static class ProgressUpdate {
     private final long indexed;
     private final long total;
     private final double percentage;
     private final double rate;
     private final Duration elapsed;
-
-    public ProgressUpdate(
-        long indexed, long total, double percentage, double rate, Duration elapsed) {
-      this.indexed = indexed;
-      this.total = total;
-      this.percentage = percentage;
-      this.rate = rate;
-      this.elapsed = elapsed;
-    }
   }
 
   @Getter
+  @RequiredArgsConstructor
   public static class IndexingStatistics {
     private final long totalProducts;
     private final long indexedProducts;
@@ -125,21 +119,6 @@ public class IndexProgressMonitor {
     private final int failedBatches;
     private final Duration totalDuration;
     private final double averageRate;
-
-    public IndexingStatistics(
-        long totalProducts,
-        long indexedProducts,
-        int successfulBatches,
-        int failedBatches,
-        Duration totalDuration,
-        double averageRate) {
-      this.totalProducts = totalProducts;
-      this.indexedProducts = indexedProducts;
-      this.successfulBatches = successfulBatches;
-      this.failedBatches = failedBatches;
-      this.totalDuration = totalDuration;
-      this.averageRate = averageRate;
-    }
 
     public double getSuccessRate() {
       int totalBatches = successfulBatches + failedBatches;

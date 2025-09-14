@@ -15,6 +15,7 @@ import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -29,7 +30,7 @@ public class AsyncTaskService {
   private final AsyncTaskRepository asyncTaskRepository;
   private final ObjectMapper objectMapper;
 
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public AsyncTask createTask(AsyncTaskType taskType, String initialMessage) {
     AsyncTask task =
         AsyncTask.builder()
@@ -44,7 +45,7 @@ public class AsyncTaskService {
     return savedTask;
   }
 
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void updateProgress(Long taskId, int progress, String message) {
     executeOnTask(
         taskId,
@@ -54,7 +55,7 @@ public class AsyncTaskService {
         });
   }
 
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void completeTask(Long taskId, Object result) {
     executeOnTask(
         taskId,
@@ -69,7 +70,7 @@ public class AsyncTaskService {
         });
   }
 
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void failTask(Long taskId, String errorMessage) {
     executeOnTask(
         taskId,

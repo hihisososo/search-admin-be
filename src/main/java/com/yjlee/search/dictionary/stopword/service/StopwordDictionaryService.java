@@ -1,9 +1,11 @@
 package com.yjlee.search.dictionary.stopword.service;
 
 import com.yjlee.search.common.PageResponse;
+import com.yjlee.search.common.domain.FileUploadResult;
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.deployment.constant.DeploymentConstants;
-import com.yjlee.search.deployment.service.EC2DeploymentService;
+import com.yjlee.search.common.service.FileUploadService;
+import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.common.enums.DictionarySortField;
 import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryCreateRequest;
@@ -30,9 +32,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class StopwordDictionaryService implements DictionaryService {
 
+  private static final String EC2_STOPWORD_DICT_PATH =
+      "/home/ec2-user/elasticsearch/config/analysis/stopword";
+
   private final StopwordDictionaryRepository stopwordDictionaryRepository;
-  private final EC2DeploymentService ec2DeploymentService;
+  private final FileUploadService fileUploadService;
   private final StopwordDictionaryMapper mapper;
+  private final IndexEnvironmentRepository indexEnvironmentRepository;
 
   public StopwordDictionaryResponse create(
       StopwordDictionaryCreateRequest request, EnvironmentType environment) {
@@ -104,13 +110,24 @@ public class StopwordDictionaryService implements DictionaryService {
   }
 
   @Override
-  public void deployToDev(String version) {
+  public void preIndexing() {
     deployToEnvironment(EnvironmentType.CURRENT, EnvironmentType.DEV);
+
+    // 버전 정보 DB에서 조회
+    IndexEnvironment devEnv =
+        indexEnvironmentRepository
+            .findByEnvironmentType(EnvironmentType.DEV)
+            .orElseThrow(() -> new IllegalStateException("DEV 환경이 없습니다"));
+    String version = devEnv.getVersion();
+    if (version == null) {
+      throw new IllegalStateException("DEV 환경에 버전이 설정되지 않았습니다");
+    }
+
     deployToEC2(version);
   }
 
   @Override
-  public void deployToProd() {
+  public void preDeploy() {
     deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
   }
 
@@ -126,12 +143,9 @@ public class StopwordDictionaryService implements DictionaryService {
         content = "";
       }
 
-      EC2DeploymentService.EC2DeploymentResult result =
-          ec2DeploymentService.deployFile(
-              "temp-current.txt",
-              DeploymentConstants.EC2Paths.STOPWORD_DICT,
-              content,
-              "temp-current");
+      FileUploadResult result =
+          fileUploadService.uploadFile(
+              "temp-current.txt", EC2_STOPWORD_DICT_PATH, content, "temp-current");
 
       if (!result.isSuccess()) {
         throw new RuntimeException("불용어사전 임시 환경 EC2 업로드 실패: " + result.getMessage());
@@ -148,8 +162,9 @@ public class StopwordDictionaryService implements DictionaryService {
   private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
     List<StopwordDictionary> sourceDictionaries = findByEnvironmentType(from);
 
-    if (sourceDictionaries.isEmpty() && to == EnvironmentType.PROD) {
-      throw new IllegalStateException("개발 환경에 배포된 불용어 사전이 없습니다.");
+    // PROD 배포시 소스가 비어있어도 허용 (빈 사전도 유효함)
+    if (sourceDictionaries.isEmpty()) {
+      log.warn("{} 환경에서 {} 환경으로 배포할 불용어 사전이 없음 - 빈 사전으로 처리", from, to);
     }
 
     deleteByEnvironmentType(to);
@@ -166,15 +181,24 @@ public class StopwordDictionaryService implements DictionaryService {
     stopwordDictionaryRepository.deleteByEnvironmentType(environment);
   }
 
-  public void deployToEC2(String version) {
+  @Override
+  public void realtimeSync(EnvironmentType environment) {
+    log.info("불용어사전 실시간 동기화는 지원하지 않음 - 환경: {}", environment);
+  }
+
+  private void deployToEC2(String version) {
     log.info("불용어사전 EC2 배포 시작 - 버전: {}", version);
 
     try {
       String content = getDictionaryContent(EnvironmentType.DEV);
 
-      EC2DeploymentService.EC2DeploymentResult result =
-          ec2DeploymentService.deployFile(
-              version + ".txt", DeploymentConstants.EC2Paths.STOPWORD_DICT, content, version);
+      if (content == null || content.trim().isEmpty()) {
+        log.warn("불용어사전 내용이 비어있음 - 빈 파일 생성 - 버전: {}", version);
+        content = "";
+      }
+
+      FileUploadResult result =
+          fileUploadService.uploadFile(version + ".txt", EC2_STOPWORD_DICT_PATH, content, version);
 
       if (!result.isSuccess()) {
         throw new RuntimeException("불용어사전 EC2 업로드 실패: " + result.getMessage());

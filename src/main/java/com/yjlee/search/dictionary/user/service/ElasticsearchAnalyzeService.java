@@ -3,11 +3,17 @@ package com.yjlee.search.dictionary.user.service;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.indices.AnalyzeRequest;
 import co.elastic.clients.elasticsearch.indices.AnalyzeResponse;
+import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeDetail;
 import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
+import co.elastic.clients.elasticsearch.indices.analyze.ExplainAnalyzeToken;
+import co.elastic.clients.elasticsearch.indices.analyze.TokenDetail;
+import co.elastic.clients.json.JsonData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.enums.EnvironmentType;
+import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
-import com.yjlee.search.search.service.IndexResolver;
+import com.yjlee.search.index.provider.IndexNameProvider;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,7 +31,8 @@ import org.springframework.stereotype.Service;
 public class ElasticsearchAnalyzeService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexResolver indexResolver;
+  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexNameProvider indexNameProvider;
   private final ObjectMapper objectMapper = new ObjectMapper();
 
   public List<AnalyzeTextResponse.TokenInfo> analyzeText(String text, EnvironmentType environment) {
@@ -68,12 +75,12 @@ public class ElasticsearchAnalyzeService {
     }
 
     // detail에서 stopword_filter의 토큰 추출
-    var detail = response.detail();
+    AnalyzeDetail detail = response.detail();
     if (detail.tokenfilters() != null) {
-      for (var filter : detail.tokenfilters()) {
+      for (TokenDetail filter : detail.tokenfilters()) {
         if ("stopword_filter".equals(filter.name())) {
           if (filter.tokens() != null) {
-            for (var token : filter.tokens()) {
+            for (ExplainAnalyzeToken token : filter.tokens()) {
               // ExplainAnalyzeToken에서 직접 필드 접근
               tokens.add(
                   AnalyzeTextResponse.TokenInfo.builder()
@@ -119,7 +126,7 @@ public class ElasticsearchAnalyzeService {
       String attributeName) {
     // ExplainAnalyzeToken의 attributes 맵에서 값 추출
     if (token.attributes() != null && token.attributes().containsKey(attributeName)) {
-      var attr = token.attributes().get(attributeName);
+      JsonData attr = token.attributes().get(attributeName);
       if (attr != null) {
         // JsonData를 String으로 변환
         return attr.toString().replaceAll("^\"|\"$", ""); // 따옴표 제거
@@ -133,7 +140,7 @@ public class ElasticsearchAnalyzeService {
       String attributeName) {
     // ExplainAnalyzeToken의 attributes 맵에서 값 추출
     if (token.attributes() != null && token.attributes().containsKey(attributeName)) {
-      var attr = token.attributes().get(attributeName);
+      JsonData attr = token.attributes().get(attributeName);
       if (attr != null) {
         try {
           // JsonData를 Integer로 변환
@@ -260,13 +267,18 @@ public class ElasticsearchAnalyzeService {
   private String getIndexName(EnvironmentType environment) {
     // CURRENT 환경일 때는 현재 운영 중인 alias 사용
     if (environment == EnvironmentType.CURRENT) {
-      return indexResolver.resolveProductIndex();
+      return indexNameProvider.getProductsSearchAlias();
     }
 
     // DEV/PROD 환경일 때는 해당 환경의 인덱스 사용
     EnvironmentType envType =
         environment == EnvironmentType.PROD ? EnvironmentType.PROD : EnvironmentType.DEV;
 
-    return indexResolver.resolveProductIndex(envType);
+    IndexEnvironment indexEnvironment =
+        indexEnvironmentRepository
+            .findByEnvironmentType(envType)
+            .orElseThrow(
+                () -> new RuntimeException(envType.getDescription() + " 환경 인덱스가 설정되지 않았습니다."));
+    return indexEnvironment.getIndexName();
   }
 }

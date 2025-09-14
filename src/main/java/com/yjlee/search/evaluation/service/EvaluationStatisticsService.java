@@ -13,6 +13,7 @@ import com.yjlee.search.evaluation.dto.EvaluationQueryListResponse;
 import com.yjlee.search.evaluation.dto.QueryStatsDto;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.repository.QueryProductMappingRepository;
+import com.yjlee.search.evaluation.repository.projection.QueryStatsProjection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +36,7 @@ public class EvaluationStatisticsService {
       String sortBy, String sortDirection, String queryFilter) {
     log.info("쿼리 통계 조회: 정렬={} {}, 필터={}", sortBy, sortDirection, queryFilter);
 
-    var statsData = queryProductMappingRepository.findQueryStats();
+    List<QueryStatsProjection> statsData = queryProductMappingRepository.findQueryStats();
     Map<String, QueryStatsDto> statsMap =
         statsData.stream()
             .map(

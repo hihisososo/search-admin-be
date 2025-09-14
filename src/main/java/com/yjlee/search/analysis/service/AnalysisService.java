@@ -2,12 +2,12 @@ package com.yjlee.search.analysis.service;
 
 import static com.yjlee.search.common.constants.ESFields.*;
 
+import com.yjlee.search.analysis.domain.TokenGraph;
+import com.yjlee.search.analysis.domain.TokenGraphParser;
 import com.yjlee.search.analysis.dto.AnalysisRequest;
 import com.yjlee.search.analysis.dto.IndexAnalysisResponse;
 import com.yjlee.search.analysis.dto.QueryAnalysisResponse;
 import com.yjlee.search.analysis.enums.AnalysisType;
-import com.yjlee.search.analysis.model.TokenGraph;
-import com.yjlee.search.analysis.parser.TokenGraphParser;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 public class AnalysisService {
 
   private final IndexEnvironmentRepository indexEnvironmentRepository;
-  private final TempIndexService tempIndexManager;
+  private final TempIndexService tempIndexService;
   private final RestClient restClient;
   private final TokenGraphParser tokenGraphParser;
 
@@ -120,10 +120,10 @@ public class AnalysisService {
 
   private String getIndexName(EnvironmentType environment) throws IOException {
     if (environment == EnvironmentType.CURRENT) {
-      if (!tempIndexManager.isTempIndexExists()) {
+      if (!tempIndexService.isTempIndexExists()) {
         throw new RuntimeException("임시 인덱스가 존재하지 않습니다. 먼저 임시 인덱스를 생성해주세요.");
       }
-      return tempIndexManager.getTempIndexName();
+      return tempIndexService.getTempIndexName();
     }
 
     return indexEnvironmentRepository

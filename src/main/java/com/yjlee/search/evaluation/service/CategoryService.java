@@ -2,13 +2,17 @@ package com.yjlee.search.evaluation.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.enums.EnvironmentType;
+import com.yjlee.search.deployment.model.IndexEnvironment;
+import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.evaluation.dto.CategoryListResponse;
 import com.yjlee.search.index.dto.ProductDocument;
-import com.yjlee.search.search.service.IndexResolver;
+import com.yjlee.search.index.provider.IndexNameProvider;
 import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,12 +28,13 @@ import org.springframework.stereotype.Service;
 public class CategoryService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexResolver indexResolver;
+  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexNameProvider indexNameProvider;
 
   public CategoryListResponse listCategories(int size) {
     // 기본값으로 현재 운영 중인 alias 사용
     try {
-      String indexName = indexResolver.resolveProductIndex();
+      String indexName = indexNameProvider.getProductsSearchAlias();
       return listCategoriesFromIndex(indexName, size);
     } catch (Exception e) {
       log.error("카테고리 리스트 조회 실패", e);
@@ -41,7 +46,14 @@ public class CategoryService {
       EnvironmentType environmentType, int size) {
     // 특정 환경의 카테고리 조회
     try {
-      String indexName = indexResolver.resolveProductIndex(environmentType);
+      IndexEnvironment indexEnvironment =
+          indexEnvironmentRepository
+              .findByEnvironmentType(environmentType)
+              .orElseThrow(
+                  () ->
+                      new RuntimeException(
+                          environmentType.getDescription() + " 환경 인덱스가 설정되지 않았습니다."));
+      String indexName = indexEnvironment.getIndexName();
       return listCategoriesFromIndex(indexName, size);
     } catch (Exception e) {
       log.error("카테고리 리스트 조회 실패 - 환경: {}", environmentType, e);
@@ -68,10 +80,10 @@ public class CategoryService {
     SearchResponse<ProductDocument> response =
         elasticsearchClient.search(request, ProductDocument.class);
 
-    var terms = response.aggregations().get("categories").sterms();
+    StringTermsAggregate terms = response.aggregations().get("categories").sterms();
     List<CategoryListResponse.CategoryItem> items = new ArrayList<>();
     if (terms != null) {
-      for (var b : terms.buckets().array()) {
+      for (StringTermsBucket b : terms.buckets().array()) {
         Long count = b.docCount();
         items.add(
             CategoryListResponse.CategoryItem.builder()

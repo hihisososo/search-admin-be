@@ -151,8 +151,8 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
 
   @Override
   @Transactional
-  public void deployToDev(String version) {
-    log.info("개발 환경 오타교정 사전 배포 시작 - 버전: {}", version);
+  public void preIndexing() {
+    log.info("개발 환경 오타교정 사전 배포 시작");
 
     List<TypoCorrectionDictionary> currentDictionaries =
         repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.CURRENT);
@@ -183,13 +183,15 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
 
   @Override
   @Transactional
-  public void deployToProd() {
+  public void preDeploy() {
     log.info("운영 환경 오타교정 사전 배포 시작");
 
     List<TypoCorrectionDictionary> devDictionaries =
         repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.DEV);
+
+    // PROD 배포시 소스가 비어있어도 허용 (빈 사전도 유효함)
     if (devDictionaries.isEmpty()) {
-      throw new IllegalStateException("개발 환경에 배포된 오타교정 사전이 없습니다.");
+      log.warn("DEV 환경에서 PROD 환경으로 배포할 오타교정 사전이 없음 - 빈 사전으로 처리");
     }
 
     // 기존 운영 환경 데이터 삭제

@@ -19,7 +19,6 @@ import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
 import com.yjlee.search.search.dto.SearchMode;
 import com.yjlee.search.search.dto.SearchSimulationRequest;
-import com.yjlee.search.search.service.IndexResolver;
 import com.yjlee.search.search.service.SearchService;
 import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
@@ -57,7 +56,6 @@ public class EvaluationReportService {
   private final EvaluationReportDocumentRepository reportDocumentRepository;
   private final SearchService searchService;
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexResolver indexResolver;
   private final EvaluationReportPersistenceService persistenceService;
   private final ProductBulkFetchService productBulkFetchService;
 
@@ -74,7 +72,6 @@ public class EvaluationReportService {
       EvaluationReportDocumentRepository reportDocumentRepository,
       SearchService searchService,
       ElasticsearchClient elasticsearchClient,
-      IndexResolver indexResolver,
       EvaluationReportPersistenceService persistenceService,
       ProductBulkFetchService productBulkFetchService) {
     this.evaluationQueryService = evaluationQueryService;
@@ -84,7 +81,6 @@ public class EvaluationReportService {
     this.reportDocumentRepository = reportDocumentRepository;
     this.searchService = searchService;
     this.elasticsearchClient = elasticsearchClient;
-    this.indexResolver = indexResolver;
     this.persistenceService = persistenceService;
     this.productBulkFetchService = productBulkFetchService;
   }
@@ -508,7 +504,7 @@ public class EvaluationReportService {
         reportDocumentRepository.findByReportAndDocType(report, ReportDocumentType.WRONG);
 
     Map<String, List<EvaluationReportDetailResponse.DocumentInfo>> missingByQuery = new HashMap<>();
-    for (var d : miss) {
+    for (EvaluationReportDocument d : miss) {
       missingByQuery
           .computeIfAbsent(d.getQuery(), k -> new ArrayList<>())
           .add(
@@ -519,7 +515,7 @@ public class EvaluationReportService {
                   .build());
     }
     Map<String, List<EvaluationReportDetailResponse.DocumentInfo>> wrongByQuery = new HashMap<>();
-    for (var d : wrong) {
+    for (EvaluationReportDocument d : wrong) {
       wrongByQuery
           .computeIfAbsent(d.getQuery(), k -> new ArrayList<>())
           .add(
@@ -531,7 +527,7 @@ public class EvaluationReportService {
     }
 
     List<EvaluationReportDetailResponse.QueryDetail> details = new ArrayList<>();
-    for (var r : rows) {
+    for (EvaluationReportDetail r : rows) {
       EvaluationReportDetailResponse.QueryDetail qd =
           EvaluationReportDetailResponse.QueryDetail.builder()
               .query(r.getQuery())

@@ -93,9 +93,14 @@ task integrationTest(type: Test) {
 	include '**/*IntegrationTest.class'
 	dependsOn startTestES
 	finalizedBy stopTestES
-	
+
 	testLogging {
-		events "passed", "skipped", "failed"
+		events "passed", "skipped", "failed", "standardOut", "standardError"
+		showStandardStreams = true
+		exceptionFormat = "full"
+		showCauses = true
+		showExceptions = true
+		showStackTraces = true
 	}
 }
 

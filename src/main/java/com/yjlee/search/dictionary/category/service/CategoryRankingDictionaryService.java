@@ -11,6 +11,7 @@ import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.search.service.category.CategoryRankingService;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -102,7 +103,7 @@ public class CategoryRankingDictionaryService implements DictionaryService {
 
   @Transactional(readOnly = true)
   public CategoryListResponse getCategories(EnvironmentType environment) {
-    var categories = productRepository.findDistinctCategoryNames();
+    List<String> categories = productRepository.findDistinctCategoryNames();
     categories.sort(String::compareTo);
     return CategoryListResponse.builder()
         .totalCount(categories.size())
@@ -112,29 +113,29 @@ public class CategoryRankingDictionaryService implements DictionaryService {
 
   @Override
   @Transactional
-  public void deployToDev(String version) {
+  public void preIndexing() {
     deployToEnvironment(EnvironmentType.CURRENT, EnvironmentType.DEV);
   }
 
   @Override
   @Transactional
-  public void deployToProd() {
+  public void preDeploy() {
     deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
   }
 
   @Override
   public void deployToTemp() {
-    // 카테고리 랭킹 사전은 캐시 기반으로 동작하므로 임시 환경 배포 불필요
     log.debug("카테고리 랭킹 사전 임시 환경 배포 건너뛰기 - 캐시 기반 동작");
   }
 
   private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
-    var sourceDictionaries = repository.findByEnvironmentTypeOrderByKeywordAsc(from);
+    List<CategoryRankingDictionary> sourceDictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(from);
     if (sourceDictionaries.isEmpty()) return;
 
     repository.deleteByEnvironmentType(to);
 
-    var targetDictionaries =
+    List<CategoryRankingDictionary> targetDictionaries =
         sourceDictionaries.stream().map(dict -> mapper.copyWithEnvironment(dict, to)).toList();
     repository.saveAll(targetDictionaries);
     log.info("{} 환경 카테고리 랭킹 사전 배포 완료: {}개", to, targetDictionaries.size());

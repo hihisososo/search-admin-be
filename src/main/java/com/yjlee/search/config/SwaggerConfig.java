@@ -12,7 +12,6 @@ public class SwaggerConfig {
 
   @Bean
   public OpenAPI openAPI() {
-    log.info("Initializing Swagger OpenAPI documentation");
     return new OpenAPI()
         .info(
             new Info()

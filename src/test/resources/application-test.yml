@@ -51,3 +51,19 @@ test:
 
 indexing:
   max-documents:
+
+upstage:
+  api:
+    key: test-api-key
+    embedding:
+      url: https://api.upstage.ai/v1/solar/embeddings
+  embedding:
+    query-model: solar-embedding-1-large-query
+    document-model: solar-embedding-1-large-passage
+    dimension: 4096
+
+logging:
+  level:
+    com.yjlee.search: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.transaction: DEBUG

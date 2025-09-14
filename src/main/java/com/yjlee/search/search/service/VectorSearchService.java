@@ -1,6 +1,7 @@
 package com.yjlee.search.search.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.KnnSearch;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -100,7 +101,7 @@ public class VectorSearchService {
               .minScore(minScore)
               .knn(
                   k -> {
-                    var knnBuilder =
+                    KnnSearch.Builder knnBuilder =
                         k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
                             .queryVector(queryVectorList)
                             .k(topK)
@@ -115,7 +116,7 @@ public class VectorSearchService {
                   })
               .knn(
                   k -> {
-                    var knnBuilder =
+                    KnnSearch.Builder knnBuilder =
                         k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
                             .queryVector(queryVectorList)
                             .k(topK)
@@ -175,7 +176,7 @@ public class VectorSearchService {
               .minScore(minScore)
               .knn(
                   k -> {
-                    var knnBuilder =
+                    KnnSearch.Builder knnBuilder =
                         k.field(VectorSearchConstants.NAME_VECTOR_FIELD)
                             .queryVector(queryVectorList)
                             .k(topK)
@@ -190,7 +191,7 @@ public class VectorSearchService {
                   })
               .knn(
                   k -> {
-                    var knnBuilder =
+                    KnnSearch.Builder knnBuilder =
                         k.field(VectorSearchConstants.SPECS_VECTOR_FIELD)
                             .queryVector(queryVectorList)
                             .k(topK)
