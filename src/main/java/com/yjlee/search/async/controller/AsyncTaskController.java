@@ -27,7 +27,7 @@ public class AsyncTaskController {
   @GetMapping
   @Operation(summary = "비동기 작업 리스트 조회", description = "최근 7일간의 비동기 작업 목록을 조회합니다")
   public ResponseEntity<AsyncTaskListResponse> getTasks(
-      @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "20") int size) {
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
     return ResponseEntity.ok(asyncTaskService.getRecentTasks(page, size));
   }
 

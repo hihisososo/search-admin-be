@@ -1,11 +1,12 @@
 package com.yjlee.search.deployment.dto;
 
-import com.yjlee.search.common.PageResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import lombok.Builder;
 import lombok.Data;
 import org.springframework.data.domain.Page;
+
+import com.yjlee.search.common.dto.PageResponse;
 
 @Data
 @Builder

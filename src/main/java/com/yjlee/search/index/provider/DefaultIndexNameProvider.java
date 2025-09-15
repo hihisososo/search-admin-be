@@ -1,11 +1,9 @@
 package com.yjlee.search.index.provider;
 
 import com.yjlee.search.common.constants.ESFields;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("!test")
 public class DefaultIndexNameProvider implements IndexNameProvider {
 
   private static final String DICT_BASE_PATH = "/usr/share/elasticsearch/config/analysis";

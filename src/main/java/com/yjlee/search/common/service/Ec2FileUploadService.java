@@ -6,14 +6,16 @@ import java.util.Collections;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@Profile("prod")
 @RequiredArgsConstructor
 public class Ec2FileUploadService implements FileUploadService {
 
-  private final CommandService commandService;
+  private final SsmCommandService commandService;
 
   @Value("${app.aws.dictionary.ec2-instance-ids}")
   private String[] instanceIds;

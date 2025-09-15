@@ -15,8 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -28,7 +26,6 @@ public class AsyncEvaluationService {
   private final EvaluationQueryService evaluationQueryService;
   private final EvaluationReportService evaluationReportService;
   private final LLMCandidateEvaluationService llmCandidateEvaluationService;
-  private final AsyncEvaluationService self;
   private final VectorSearchService vectorSearchService;
 
   public AsyncEvaluationService(
@@ -37,22 +34,18 @@ public class AsyncEvaluationService {
       EvaluationQueryService evaluationQueryService,
       EvaluationReportService evaluationReportService,
       LLMCandidateEvaluationService llmCandidateEvaluationService,
-      VectorSearchService vectorSearchService,
-      @Lazy AsyncEvaluationService self) {
+      VectorSearchService vectorSearchService) {
     this.asyncTaskService = asyncTaskService;
     this.groundTruthService = groundTruthService;
     this.evaluationQueryService = evaluationQueryService;
     this.evaluationReportService = evaluationReportService;
     this.llmCandidateEvaluationService = llmCandidateEvaluationService;
     this.vectorSearchService = vectorSearchService;
-    this.self = self;
   }
 
   public Long startCandidateGeneration(GenerateCandidatesRequest request) {
     AsyncTask task =
-        asyncTaskService.createTask(AsyncTaskType.CANDIDATE_GENERATION, "후보군 생성 준비 중...");
-
-    self.generateCandidatesAsync(task.getId(), request);
+        asyncTaskService.createTask(AsyncTaskType.CANDIDATE_GENERATION, "후보군 생성 준비 중...", request);
     return task.getId();
   }
 
@@ -67,9 +60,7 @@ public class AsyncEvaluationService {
 
   public Long startEvaluationExecution(EvaluationExecuteAsyncRequest request) {
     AsyncTask task =
-        asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비 중...");
-
-    self.executeEvaluationAsync(task.getId(), request);
+        asyncTaskService.createTask(AsyncTaskType.EVALUATION_EXECUTION, "평가 실행 준비 중...", request);
     return task.getId();
   }
 
@@ -84,9 +75,7 @@ public class AsyncEvaluationService {
 
   public Long startLLMCandidateEvaluation(LLMEvaluationRequest request) {
     AsyncTask task =
-        asyncTaskService.createTask(AsyncTaskType.LLM_EVALUATION, "LLM 후보군 평가 준비 중...");
-
-    self.evaluateLLMCandidatesAsync(task.getId(), request);
+        asyncTaskService.createTask(AsyncTaskType.LLM_EVALUATION, "LLM 후보군 평가 준비 중...", request);
     return task.getId();
   }
 
@@ -99,8 +88,7 @@ public class AsyncEvaluationService {
         .build();
   }
 
-  @Async("evaluationTaskExecutor")
-  public void generateCandidatesAsync(Long taskId, GenerateCandidatesRequest request) {
+  public void executeCandidateGeneration(Long taskId, GenerateCandidatesRequest request) {
     try {
       log.info("비동기 후보군 생성 시작: taskId={}", taskId);
 
@@ -146,8 +134,7 @@ public class AsyncEvaluationService {
     }
   }
 
-  @Async("evaluationTaskExecutor")
-  public void executeEvaluationAsync(Long taskId, EvaluationExecuteAsyncRequest request) {
+  public void executeEvaluationTask(Long taskId, EvaluationExecuteAsyncRequest request) {
     try {
       log.info(
           "비동기 평가 실행 시작: taskId={}, reportName={}, searchMode={}",
@@ -205,8 +192,7 @@ public class AsyncEvaluationService {
     }
   }
 
-  @Async("evaluationTaskExecutor")
-  public void evaluateLLMCandidatesAsync(Long taskId, LLMEvaluationRequest request) {
+  public void executeLLMEvaluation(Long taskId, LLMEvaluationRequest request) {
     try {
       log.info("비동기 LLM 후보군 평가 시작: taskId={}", taskId);
 

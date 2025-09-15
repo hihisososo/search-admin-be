@@ -4,7 +4,8 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.synonyms.DeleteSynonymRequest;
 import co.elastic.clients.elasticsearch.synonyms.PutSynonymRequest;
 import co.elastic.clients.elasticsearch.synonyms.SynonymRule;
-import com.yjlee.search.common.PageResponse;
+
+import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;

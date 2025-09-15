@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.typo.service;
 
-import com.yjlee.search.common.PageResponse;
+import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryCreateRequest;

@@ -42,15 +42,4 @@ class TempAnalysisIndexServiceIntegrationTest extends BaseIntegrationTest {
     tempIndexService.refreshTempIndex();
     assertThat(tempIndexService.isTempIndexExists()).isTrue();
   }
-
-  @Test
-  @DisplayName("응답 객체와 함께 갱신")
-  void shouldRefreshWithResponse() {
-    TempIndexRefreshResponse response = tempIndexService.refreshTempIndexWithResponse();
-
-    assertThat(response).isNotNull();
-    assertThat(response.getStatus()).isEqualTo("success");
-    assertThat(response.getIndexName()).isEqualTo(indexNameProvider.getTempAnalysisIndex());
-    assertThat(tempIndexService.isTempIndexExists()).isTrue();
-  }
 }

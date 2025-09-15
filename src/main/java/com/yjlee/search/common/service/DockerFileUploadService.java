@@ -1,13 +1,17 @@
-package com.yjlee.search.test.mock;
+package com.yjlee.search.common.service;
 
 import com.yjlee.search.common.domain.FileUploadResult;
-import com.yjlee.search.common.service.FileUploadService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class TestDockerFileUploadService implements FileUploadService {
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
+
+@Service
+@Profile("!prod")
+public class DockerFileUploadService implements FileUploadService {
 
   @Override
   public FileUploadResult uploadFile(
@@ -17,7 +21,7 @@ public class TestDockerFileUploadService implements FileUploadService {
 
     try {
       String lastDir = Paths.get(basePath).getFileName().toString();
-      Path localDir = Paths.get("build/test-dictionaries", lastDir);
+      Path localDir = Paths.get("infra/volumes/dictionaries", lastDir);
       Path localFile = localDir.resolve(fileName);
 
       Files.createDirectories(localDir);

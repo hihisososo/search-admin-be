@@ -9,12 +9,6 @@ import co.elastic.clients.elasticsearch.indices.GetIndexRequest;
 import co.elastic.clients.elasticsearch.indices.GetIndexResponse;
 import co.elastic.clients.elasticsearch.indices.IndexSettings;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yjlee.search.common.service.CommandService;
-import com.yjlee.search.common.service.FileUploadService;
-import com.yjlee.search.index.provider.IndexNameProvider;
-import com.yjlee.search.test.mock.TestDockerFileUploadService;
-import com.yjlee.search.test.mock.TestIndexNameProvider;
-import com.yjlee.search.test.mock.TestSsmCommandService;
 import java.io.ByteArrayInputStream;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -66,23 +60,19 @@ public abstract class BaseIntegrationTest {
 
   protected void deleteAllTestIndices() throws Exception {
     try {
-      // Get all indices
       GetIndexRequest getRequest = GetIndexRequest.of(i -> i.index("*"));
       GetIndexResponse getResponse = elasticsearchClient.indices().get(getRequest);
 
-      // Delete test indices one by one
       getResponse.result().keySet().forEach(indexName -> {
-        if (indexName.startsWith(TestIndexNameProvider.TEST_PREFIX)) {
+        if (!indexName.startsWith(".")) {
           try {
             DeleteIndexRequest deleteRequest = DeleteIndexRequest.of(d -> d.index(indexName));
             elasticsearchClient.indices().delete(deleteRequest);
           } catch (Exception e) {
-            // Ignore if index doesn't exist or already deleted
           }
         }
       });
     } catch (Exception e) {
-      // Ignore if no indices exist
     }
   }
 
@@ -95,22 +85,6 @@ public abstract class BaseIntegrationTest {
       return Mockito.mock(SsmClient.class);
     }
 
-    @Bean
-    @Primary
-    public IndexNameProvider testIndexNameProvider() {
-      return new TestIndexNameProvider();
-    }
 
-    @Bean
-    @Primary
-    public CommandService commandService() {
-      return new TestSsmCommandService();
-    }
-
-    @Bean
-    @Primary
-    public FileUploadService fileUploadService() {
-      return new TestDockerFileUploadService();
-    }
   }
 }

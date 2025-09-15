@@ -102,10 +102,8 @@ public class AnalysisService {
     }
 
     return indexEnvironmentRepository
-        .findByEnvironmentType(
-            environment == EnvironmentType.PROD ? EnvironmentType.PROD : EnvironmentType.DEV)
-        .orElseThrow(
-            () -> new AnalysisException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."))
+        .findByEnvironmentType(environment)
+        .orElseThrow(() -> new AnalysisException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."))
         .getIndexName();
   }
 }

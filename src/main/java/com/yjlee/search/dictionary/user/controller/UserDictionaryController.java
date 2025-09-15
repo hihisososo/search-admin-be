@@ -1,6 +1,6 @@
 package com.yjlee.search.dictionary.user.controller;
 
-import com.yjlee.search.common.PageResponse;
+import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;

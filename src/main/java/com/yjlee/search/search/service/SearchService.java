@@ -92,11 +92,6 @@ public class SearchService {
     typoCorrectionService.updateCacheRealtime(environmentType);
   }
 
-  public String getTypoCorrectionCacheStatus() {
-    // Spring Cache로 마이그레이션됨 - 캐시 상태는 CacheManager를 통해 확인
-    return "Cache managed by Spring Cache";
-  }
-
   public SearchExecuteResponse executeSearch(SearchParams params, HttpServletRequest httpRequest) {
     SearchExecuteRequest request = searchRequestMapper.toSearchExecuteRequest(params);
 

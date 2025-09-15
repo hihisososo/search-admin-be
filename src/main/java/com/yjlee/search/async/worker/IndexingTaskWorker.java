@@ -1,26 +1,31 @@
-package com.yjlee.search.deployment.service;
+package com.yjlee.search.async.worker;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yjlee.search.async.model.AsyncTask;
+import com.yjlee.search.async.model.AsyncTaskType;
 import com.yjlee.search.async.service.AsyncTaskService;
+import com.yjlee.search.async.service.TaskWorker;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.domain.IndexingResult;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.deployment.service.ElasticsearchIndexService;
 import com.yjlee.search.dictionary.common.service.DictionaryDataDeploymentService;
 import com.yjlee.search.index.provider.IndexNameProvider;
 import com.yjlee.search.index.service.ProductIndexingService;
 import java.time.LocalDateTime;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
-@Service
+@Component
 @RequiredArgsConstructor
-public class AsyncIndexingService {
+public class IndexingTaskWorker implements TaskWorker {
 
   private static final int PROGRESS_INIT = 10;
   private static final int PROGRESS_INDEXING_START = 30;
@@ -34,47 +39,79 @@ public class AsyncIndexingService {
   private final ElasticsearchIndexService elasticsearchIndexService;
   private final AsyncTaskService asyncTaskService;
   private final IndexNameProvider indexNameProvider;
+  private final ObjectMapper objectMapper;
 
-  @Async("deploymentTaskExecutor")
-  public void executeIndexingAsync(Long envId, String version, Long historyId, Long taskId) {
+  @Override
+  public AsyncTaskType getSupportedTaskType() {
+    return AsyncTaskType.INDEXING;
+  }
+
+  @Override
+  @Transactional
+  public void execute(AsyncTask task) {
     try {
+      if (task.getParams() == null || task.getParams().isEmpty()) {
+        throw new IllegalArgumentException("작업 파라미터가 없습니다");
+      }
+
+      Map<String, Object> params = objectMapper.readValue(task.getParams(), Map.class);
+      Long envId = ((Number) params.get("envId")).longValue();
+      String version = (String) params.get("version");
+      Long historyId = ((Number) params.get("historyId")).longValue();
+
+      log.info("인덱싱 작업 시작: taskId={}, version={}", task.getId(), version);
+
       // 사전 데이터 배포
-      asyncTaskService.updateProgress(taskId, PROGRESS_INIT, "사전 데이터 배포 중...");
+      asyncTaskService.updateProgress(task.getId(), PROGRESS_INIT, "사전 데이터 배포 중...");
       dictionaryDeploymentService.preIndexingAll();
 
       // 인덱스 생성
-      asyncTaskService.updateProgress(taskId, PROGRESS_INIT + 10, "인덱스 생성 중...");
+      asyncTaskService.updateProgress(task.getId(), PROGRESS_INIT + 10, "인덱스 생성 중...");
       elasticsearchIndexService.createNewIndex(version, EnvironmentType.DEV);
 
       // 상품 색인
-      asyncTaskService.updateProgress(taskId, PROGRESS_INDEXING_START, "상품 색인 시작...");
+      asyncTaskService.updateProgress(task.getId(), PROGRESS_INDEXING_START, "상품 색인 시작...");
       productIndexingService.setProgressCallback(
           (indexed, total) -> {
             int range = PROGRESS_INDEXING_END - PROGRESS_INDEXING_START;
             int progress = PROGRESS_INDEXING_START + (int) ((indexed * range) / total);
             String message = String.format("상품 색인 중: %d/%d", indexed, total);
-            asyncTaskService.updateProgress(taskId, progress, message);
+            asyncTaskService.updateProgress(task.getId(), progress, message);
           });
       int documentCount = productIndexingService.indexProducts(version);
 
       // 색인 후 사전 후처리
-      asyncTaskService.updateProgress(taskId, 95, "색인 후 사전 동기화 중...");
+      asyncTaskService.updateProgress(task.getId(), 95, "색인 후 사전 동기화 중...");
       dictionaryDeploymentService.postIndexingAll();
 
       // 색인 완료 처리
-      asyncTaskService.updateProgress(taskId, PROGRESS_COMPLETE, "색인 완료 처리 중...");
+      asyncTaskService.updateProgress(task.getId(), PROGRESS_COMPLETE, "색인 완료 처리 중...");
       finalizeAndUpdateEnvironment(envId, historyId, version, documentCount);
+
       asyncTaskService.completeTask(
-          taskId,
+          task.getId(),
           IndexingResult.builder()
               .version(version)
               .documentCount(documentCount)
               .indexName(indexNameProvider.getProductIndexName(version))
               .build());
+
+      log.info("인덱싱 작업 완료: taskId={}, version={}, documentCount={}", task.getId(), version, documentCount);
+
     } catch (Exception e) {
-      log.error("색인 실패 - 버전: {}", version, e);
-      asyncTaskService.failTask(taskId, "색인 실패: " + e.getMessage());
-      updateHistory(historyId, false, null);
+      log.error("인덱싱 작업 실패: taskId={}", task.getId(), e);
+      asyncTaskService.failTask(task.getId(), "색인 실패: " + e.getMessage());
+
+      // 히스토리 업데이트
+      try {
+        if (task.getParams() != null && !task.getParams().isEmpty()) {
+          Map<String, Object> params = objectMapper.readValue(task.getParams(), Map.class);
+          Long historyId = ((Number) params.get("historyId")).longValue();
+          updateHistory(historyId, false, null);
+        }
+      } catch (Exception ex) {
+        log.error("히스토리 업데이트 실패", ex);
+      }
     }
   }
 

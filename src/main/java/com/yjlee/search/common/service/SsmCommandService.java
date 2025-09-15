@@ -12,7 +12,7 @@ import software.amazon.awssdk.services.ssm.model.*;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class SsmCommandService implements CommandService {
+public class SsmCommandService {
 
   private final SsmClient ssmClient;
 
@@ -21,17 +21,15 @@ public class SsmCommandService implements CommandService {
   private static final int DEFAULT_TIMEOUT_SECONDS = 300;
   private static final String SHELL_SCRIPT_TYPE = "AWS-RunShellScript";
 
-  @Override
   public CommandResult executeCommand(String instanceId, List<String> commands) {
 
-    SendCommandRequest request =
-        SendCommandRequest.builder()
-            .instanceIds(instanceId)
-            .documentName(SHELL_SCRIPT_TYPE)
-            .parameters(Collections.singletonMap("commands", commands))
-            .comment("SSM Command Execution")
-            .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
-            .build();
+    SendCommandRequest request = SendCommandRequest.builder()
+        .instanceIds(instanceId)
+        .documentName(SHELL_SCRIPT_TYPE)
+        .parameters(Collections.singletonMap("commands", commands))
+        .comment("SSM Command Execution")
+        .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+        .build();
 
     SendCommandResponse response = ssmClient.sendCommand(request);
     String commandId = response.command().commandId();
@@ -51,12 +49,11 @@ public class SsmCommandService implements CommandService {
         throw new RuntimeException("명령 실행 대기 중 인터럽트 발생", e);
       }
 
-      GetCommandInvocationRequest invocationRequest =
-          GetCommandInvocationRequest.builder().commandId(commandId).instanceId(instanceId).build();
+      GetCommandInvocationRequest invocationRequest = GetCommandInvocationRequest.builder().commandId(commandId)
+          .instanceId(instanceId).build();
 
       try {
-        GetCommandInvocationResponse invocationResponse =
-            ssmClient.getCommandInvocation(invocationRequest);
+        GetCommandInvocationResponse invocationResponse = ssmClient.getCommandInvocation(invocationRequest);
 
         CommandInvocationStatus status = invocationResponse.status();
         log.debug("명령 상태 확인: {}", status);

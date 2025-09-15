@@ -1,4 +1,4 @@
-package com.yjlee.search.common;
+package com.yjlee.search.common.dto;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;

@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.stopword.service;
 
-import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.domain.FileUploadResult;
+import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.service.FileUploadService;
 import com.yjlee.search.deployment.model.IndexEnvironment;

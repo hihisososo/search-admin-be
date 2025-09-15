@@ -7,13 +7,13 @@ import com.yjlee.search.async.model.AsyncTask;
 import com.yjlee.search.async.model.AsyncTaskStatus;
 import com.yjlee.search.async.model.AsyncTaskType;
 import com.yjlee.search.async.repository.AsyncTaskRepository;
-import com.yjlee.search.evaluation.util.PaginationUtils;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,13 +32,18 @@ public class AsyncTaskService {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public AsyncTask createTask(AsyncTaskType taskType, String initialMessage) {
-    AsyncTask task =
-        AsyncTask.builder()
-            .taskType(taskType)
-            .status(AsyncTaskStatus.PENDING)
-            .progress(0)
-            .message(initialMessage)
-            .build();
+    return createTask(taskType, initialMessage, null);
+  }
+
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public AsyncTask createTask(AsyncTaskType taskType, String initialMessage, Object params) {
+    AsyncTask task = AsyncTask.builder()
+        .taskType(taskType)
+        .status(AsyncTaskStatus.PENDING)
+        .progress(0)
+        .message(initialMessage)
+        .params(params != null ? toJson(params) : null)
+        .build();
 
     AsyncTask savedTask = asyncTaskRepository.save(task);
     log.info("비동기 작업 생성: ID={}, 타입={}", savedTask.getId(), taskType);
@@ -46,82 +51,74 @@ public class AsyncTaskService {
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public AsyncTask createTaskWithParams(AsyncTaskType taskType, String initialMessage, Object params) {
+    return createTask(taskType, initialMessage, params);
+  }
+
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public AsyncTask createTaskIfNotRunning(AsyncTaskType taskType, String initialMessage, Object params) {
+    List<String> runningStatuses = RUNNING_STATUSES.stream()
+        .map(Enum::name)
+        .collect(Collectors.toList());
+
+    if (asyncTaskRepository.existsByTaskTypeAndStatusInForUpdate(taskType.name(), runningStatuses)) {
+      throw new IllegalStateException("작업이 이미 진행 중입니다: " + taskType.getDisplayName());
+    }
+
+    return createTask(taskType, initialMessage, params);
+  }
+
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void updateProgress(Long taskId, int progress, String message) {
-    executeOnTask(
-        taskId,
-        task -> {
-          task.updateProgress(progress, message);
-          log.debug("작업 진행률 업데이트: ID={}, 진행률={}%, 메시지={}", taskId, progress, message);
-        });
+    asyncTaskRepository.findById(taskId).ifPresent(task -> {
+      task.updateProgress(progress, message);
+      asyncTaskRepository.save(task);
+    });
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void completeTask(Long taskId, Object result) {
-    executeOnTask(
-        taskId,
-        task -> {
-          try {
-            String resultJson = objectMapper.writeValueAsString(result);
-            task.complete(resultJson);
-          } catch (Exception e) {
-            task.complete(result.toString());
-          }
-          log.info("작업 완료: ID={}, 타입={}", taskId, task.getTaskType());
-        });
+    asyncTaskRepository.findById(taskId).ifPresent(task -> {
+      task.complete(result != null ? toJson(result) : null);
+      asyncTaskRepository.save(task);
+      log.info("작업 완료: ID={}, 타입={}", taskId, task.getTaskType());
+    });
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void failTask(Long taskId, String errorMessage) {
-    executeOnTask(
-        taskId,
-        task -> {
-          task.fail(errorMessage);
-          log.error("작업 실패: ID={}, 타입={}, 에러={}", taskId, task.getTaskType(), errorMessage);
-        });
-  }
-
-  private void executeOnTask(Long taskId, Consumer<AsyncTask> action) {
-    asyncTaskRepository
-        .findById(taskId)
-        .ifPresent(
-            task -> {
-              action.accept(task);
-              asyncTaskRepository.save(task);
-            });
+    asyncTaskRepository.findById(taskId).ifPresent(task -> {
+      task.fail(errorMessage);
+      asyncTaskRepository.save(task);
+      log.error("작업 실패: ID={}, 타입={}", taskId, task.getTaskType());
+    });
   }
 
   public AsyncTaskResponse getTaskOrThrow(Long taskId) {
     return asyncTaskRepository
         .findById(taskId)
-        .map(this::convertToResponse)
+        .map(this::toResponse)
         .orElseThrow(() -> new NoSuchElementException("Task 를 찾을 수 없습니다: " + taskId));
   }
 
   public AsyncTaskListResponse getRecentTasks(int page, int size) {
-    List<AsyncTask> allTasks =
-        asyncTaskRepository.findByCreatedAtAfterOrderByCreatedAtDesc(
-            LocalDateTime.now().minusDays(7));
-
-    PaginationUtils.PagedResult<AsyncTask> pagedResult =
-        PaginationUtils.paginate(allTasks, page, size);
-
-    List<AsyncTaskResponse> taskResponses =
-        pagedResult.getContent().stream().map(this::convertToResponse).toList();
+    Page<AsyncTask> taskPage = asyncTaskRepository.findAllByOrderByCreatedAtDesc(
+        PageRequest.of(page, size));
 
     return AsyncTaskListResponse.builder()
-        .tasks(taskResponses)
-        .totalCount(pagedResult.getTotalCount())
-        .totalPages(pagedResult.getTotalPages())
-        .currentPage(pagedResult.getCurrentPage())
-        .size(pagedResult.getSize())
-        .hasNext(pagedResult.isHasNext())
-        .hasPrevious(pagedResult.isHasPrevious())
+        .tasks(taskPage.map(this::toResponse).getContent())
+        .totalCount(taskPage.getTotalElements())
+        .totalPages(taskPage.getTotalPages())
+        .currentPage(page)
+        .size(size)
+        .hasNext(taskPage.hasNext())
+        .hasPrevious(taskPage.hasPrevious())
         .build();
   }
 
   public List<AsyncTaskResponse> getRunningTasks() {
     return asyncTaskRepository.findByStatusInOrderByCreatedAtDesc(RUNNING_STATUSES).stream()
-        .map(this::convertToResponse)
+        .map(this::toResponse)
         .toList();
   }
 
@@ -129,7 +126,16 @@ public class AsyncTaskService {
     return asyncTaskRepository.existsByTaskTypeAndStatusIn(taskType, RUNNING_STATUSES);
   }
 
-  private AsyncTaskResponse convertToResponse(AsyncTask task) {
+  private String toJson(Object obj) {
+    try {
+      return objectMapper.writeValueAsString(obj);
+    } catch (Exception e) {
+      log.error("JSON 직렬화 실패", e);
+      return obj != null ? obj.toString() : "{}";
+    }
+  }
+
+  private AsyncTaskResponse toResponse(AsyncTask task) {
     return AsyncTaskResponse.builder()
         .id(task.getId())
         .taskType(task.getTaskType())

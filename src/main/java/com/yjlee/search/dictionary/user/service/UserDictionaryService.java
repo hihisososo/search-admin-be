@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.user.service;
 
-import com.yjlee.search.common.PageResponse;
 import com.yjlee.search.common.domain.FileUploadResult;
+import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.service.FileUploadService;
 import com.yjlee.search.deployment.model.IndexEnvironment;
@@ -183,7 +183,6 @@ public class UserDictionaryService implements DictionaryService {
 
   @Override
   public void realtimeSync(EnvironmentType environment) {
-    log.info("사용자사전 실시간 동기화는 지원하지 않음 - 환경: {}", environment);
   }
 
   private void deployToEC2(String version) {

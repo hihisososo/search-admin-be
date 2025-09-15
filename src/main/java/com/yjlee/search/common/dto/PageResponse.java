@@ -1,4 +1,4 @@
-package com.yjlee.search.common;
+package com.yjlee.search.common.dto;
 
 import java.util.List;
 import lombok.Builder;

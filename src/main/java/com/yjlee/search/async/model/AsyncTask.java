@@ -53,6 +53,9 @@ public class AsyncTask {
   @Column(columnDefinition = "TEXT")
   private String result;
 
+  @Column(columnDefinition = "TEXT")
+  private String params;
+
   @CreatedDate
   @Column(nullable = false, updatable = false)
   private LocalDateTime createdAt;
