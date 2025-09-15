@@ -11,12 +11,10 @@ import lombok.NoArgsConstructor;
 public class TextPreprocessor {
 
   // 의미있는 특수문자를 보존: /, -, +, &
-  private static final Pattern SPECIAL_CHARS_PATTERN =
-      Pattern.compile("[^\\p{L}\\p{N}\\s\\.\\-/+&]");
+  private static final Pattern SPECIAL_CHARS_PATTERN = Pattern.compile("[^\\p{L}\\p{N}\\s\\.\\-/+&]");
 
   // 천단위 구분자 패턴 - 숫자 3자리 단위로 구분
-  private static final Pattern THOUSAND_SEPARATOR_PATTERN =
-      Pattern.compile("(\\d),(?=\\d{3}(?:,|\\D|$))");
+  private static final Pattern THOUSAND_SEPARATOR_PATTERN = Pattern.compile("(\\d),(?=\\d{3}(?:,|\\D|$))");
 
   public static String preprocess(String text) {
     if (text == null || text.isBlank()) {

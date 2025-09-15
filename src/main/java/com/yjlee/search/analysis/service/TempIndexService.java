@@ -87,7 +87,6 @@ public class TempIndexService {
   protected String createTempIndexSettings() throws IOException {
     String templateJson = loadResourceFile("elasticsearch/product-settings.json");
 
-    // 임시 사전 파일 경로로 교체
     String modifiedJson =
         templateJson
             .replace("{USER_DICT_PATH}", TEMP_USER_DICT_PATH)
