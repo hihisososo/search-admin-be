@@ -13,7 +13,8 @@ class TokenParserTest {
   @Test
   @DisplayName("실제 ES analyze 응답 파싱 - 일반 토큰")
   void shouldParseNormalTokens() {
-    String jsonResponse = """
+    String jsonResponse =
+        """
         {
           "detail": {
             "tokenfilters": [
@@ -73,7 +74,8 @@ class TokenParserTest {
   @Test
   @DisplayName("빈 토큰 리스트 처리")
   void shouldHandleEmptyTokenList() {
-    String jsonResponse = """
+    String jsonResponse =
+        """
         {
           "detail": {
             "tokenfilters": [
@@ -103,7 +105,8 @@ class TokenParserTest {
   @Test
   @DisplayName("복잡한 실제 응답 파싱")
   void shouldParseComplexRealResponse() {
-    String jsonResponse = """
+    String jsonResponse =
+        """
         {
           "detail": {
             "tokenfilters": [

@@ -1,7 +1,6 @@
 package com.yjlee.search.async.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.yjlee.search.async.model.AsyncTask;
@@ -26,27 +25,28 @@ class ApplicationStartupListenerTest {
   @Test
   @DisplayName("애플리케이션 시작시 진행 중인 작업 실패 처리")
   void handleInProgressTasksOnStartup() {
-    AsyncTask task1 = AsyncTask.builder()
-        .id(1L)
-        .taskType(AsyncTaskType.INDEXING)
-        .status(AsyncTaskStatus.IN_PROGRESS)
-        .progress(50)
-        .message("진행 중인 작업 1")
-        .createdAt(LocalDateTime.now())
-        .build();
+    AsyncTask task1 =
+        AsyncTask.builder()
+            .id(1L)
+            .taskType(AsyncTaskType.INDEXING)
+            .status(AsyncTaskStatus.IN_PROGRESS)
+            .progress(50)
+            .message("진행 중인 작업 1")
+            .createdAt(LocalDateTime.now())
+            .build();
 
-    AsyncTask task2 = AsyncTask.builder()
-        .id(2L)
-        .taskType(AsyncTaskType.LLM_EVALUATION)
-        .status(AsyncTaskStatus.IN_PROGRESS)
-        .progress(30)
-        .message("진행 중인 작업 2")
-        .createdAt(LocalDateTime.now())
-        .build();
+    AsyncTask task2 =
+        AsyncTask.builder()
+            .id(2L)
+            .taskType(AsyncTaskType.LLM_EVALUATION)
+            .status(AsyncTaskStatus.IN_PROGRESS)
+            .progress(30)
+            .message("진행 중인 작업 2")
+            .createdAt(LocalDateTime.now())
+            .build();
 
     List<AsyncTask> inProgressTasks = List.of(task1, task2);
-    when(asyncTaskRepository.findByStatus(AsyncTaskStatus.IN_PROGRESS))
-        .thenReturn(inProgressTasks);
+    when(asyncTaskRepository.findByStatus(AsyncTaskStatus.IN_PROGRESS)).thenReturn(inProgressTasks);
 
     applicationStartupListener.handleApplicationReady();
 

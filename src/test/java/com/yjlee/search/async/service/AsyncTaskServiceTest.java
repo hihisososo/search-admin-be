@@ -38,13 +38,14 @@ class AsyncTaskServiceTest {
 
   @BeforeEach
   void setUp() {
-    testTask = AsyncTask.builder()
-        .id(1L)
-        .taskType(AsyncTaskType.INDEXING)
-        .status(AsyncTaskStatus.PENDING)
-        .progress(0)
-        .message("테스트 작업")
-        .build();
+    testTask =
+        AsyncTask.builder()
+            .id(1L)
+            .taskType(AsyncTaskType.INDEXING)
+            .status(AsyncTaskStatus.PENDING)
+            .progress(0)
+            .message("테스트 작업")
+            .build();
   }
 
   @Test
@@ -67,8 +68,8 @@ class AsyncTaskServiceTest {
     when(asyncTaskRepository.existsByTaskTypeAndStatusInForUpdate(anyString(), anyList()))
         .thenReturn(true);
 
-    assertThatThrownBy(() ->
-        asyncTaskService.createTaskIfNotRunning(AsyncTaskType.INDEXING, "새 작업", null))
+    assertThatThrownBy(
+            () -> asyncTaskService.createTaskIfNotRunning(AsyncTaskType.INDEXING, "새 작업", null))
         .isInstanceOf(IllegalStateException.class);
 
     verify(asyncTaskRepository).existsByTaskTypeAndStatusInForUpdate(anyString(), anyList());
@@ -159,13 +160,14 @@ class AsyncTaskServiceTest {
   @Test
   @DisplayName("실행 중인 작업 목록 조회")
   void getRunningTasks() {
-    AsyncTask runningTask = AsyncTask.builder()
-        .id(2L)
-        .taskType(AsyncTaskType.LLM_EVALUATION)
-        .status(AsyncTaskStatus.IN_PROGRESS)
-        .progress(30)
-        .message("실행 중")
-        .build();
+    AsyncTask runningTask =
+        AsyncTask.builder()
+            .id(2L)
+            .taskType(AsyncTaskType.LLM_EVALUATION)
+            .status(AsyncTaskStatus.IN_PROGRESS)
+            .progress(30)
+            .message("실행 중")
+            .build();
 
     when(asyncTaskRepository.findByStatusInOrderByCreatedAtDesc(anyList()))
         .thenReturn(List.of(testTask, runningTask));

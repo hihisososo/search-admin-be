@@ -2,7 +2,6 @@ package com.yjlee.search.analysis.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.yjlee.search.analysis.dto.TempIndexRefreshResponse;
 import com.yjlee.search.analysis.service.TempIndexService;
 import com.yjlee.search.index.provider.IndexNameProvider;
 import com.yjlee.search.test.base.BaseIntegrationTest;

@@ -1,15 +1,14 @@
 package com.yjlee.search.analysis.service;
 
-import com.yjlee.search.analysis.service.ElasticsearchAnalyzer;
 import com.yjlee.search.analysis.domain.TokenInfo;
-import com.yjlee.search.analysis.exception.AnalysisException;
-import com.yjlee.search.analysis.exception.TempIndexNotFoundException;
-import com.yjlee.search.analysis.util.MermaidDiagramGenerator;
-import com.yjlee.search.analysis.util.TokenParser;
 import com.yjlee.search.analysis.dto.AnalysisRequest;
 import com.yjlee.search.analysis.dto.IndexAnalysisResponse;
 import com.yjlee.search.analysis.dto.QueryAnalysisResponse;
 import com.yjlee.search.analysis.enums.AnalysisType;
+import com.yjlee.search.analysis.exception.AnalysisException;
+import com.yjlee.search.analysis.exception.TempIndexNotFoundException;
+import com.yjlee.search.analysis.util.MermaidDiagramGenerator;
+import com.yjlee.search.analysis.util.TokenParser;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.util.TextPreprocessor;
 import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
@@ -35,10 +34,11 @@ public class AnalysisService {
       String preprocessedQuery = TextPreprocessor.preprocess(query);
       List<TokenInfo> tokens = analyze(query, environment, AnalysisType.SEARCH);
 
-      List<String> tokenStrings = tokens.stream()
-          .filter(token -> !token.isSynonym())
-          .map(TokenInfo::getToken)
-          .collect(Collectors.toList());
+      List<String> tokenStrings =
+          tokens.stream()
+              .filter(token -> !token.isSynonym())
+              .map(TokenInfo::getToken)
+              .collect(Collectors.toList());
       String mermaidGraph = MermaidDiagramGenerator.generate(tokens);
 
       return QueryAnalysisResponse.builder()
@@ -61,16 +61,18 @@ public class AnalysisService {
       String preprocessedQuery = TextPreprocessor.preprocess(query);
       List<TokenInfo> tokens = analyze(query, environment, AnalysisType.INDEX);
 
-      List<String> tokenStrings = tokens.stream()
-          .filter(token -> !token.isAdditional())
-          .map(TokenInfo::getToken)
-          .distinct()
-          .collect(Collectors.toList());
-      List<String> additionalTokens = tokens.stream()
-          .filter(TokenInfo::isAdditional)
-          .map(TokenInfo::getToken)
-          .distinct()
-          .collect(Collectors.toList());
+      List<String> tokenStrings =
+          tokens.stream()
+              .filter(token -> !token.isAdditional())
+              .map(TokenInfo::getToken)
+              .distinct()
+              .collect(Collectors.toList());
+      List<String> additionalTokens =
+          tokens.stream()
+              .filter(TokenInfo::isAdditional)
+              .map(TokenInfo::getToken)
+              .distinct()
+              .collect(Collectors.toList());
 
       return IndexAnalysisResponse.builder()
           .originalQuery(query)
@@ -84,11 +86,12 @@ public class AnalysisService {
     }
   }
 
-  public List<TokenInfo> analyze(String text, EnvironmentType environment, AnalysisType analysisType)
-      throws IOException {
+  public List<TokenInfo> analyze(
+      String text, EnvironmentType environment, AnalysisType analysisType) throws IOException {
 
     String indexName = getIndexName(environment);
-    String jsonResponse = elasticsearchAnalyzer.analyze(indexName, text, analysisType.getAnalyzer());
+    String jsonResponse =
+        elasticsearchAnalyzer.analyze(indexName, text, analysisType.getAnalyzer());
 
     return TokenParser.parse(jsonResponse, analysisType.getTargetFilter());
   }
@@ -103,7 +106,8 @@ public class AnalysisService {
 
     return indexEnvironmentRepository
         .findByEnvironmentType(environment)
-        .orElseThrow(() -> new AnalysisException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."))
+        .orElseThrow(
+            () -> new AnalysisException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."))
         .getIndexName();
   }
 }

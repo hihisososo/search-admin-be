@@ -13,8 +13,6 @@ import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.index.provider.IndexNameProvider;
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -55,8 +53,9 @@ public class IndexingService {
 
     // 버전 생성 및 이력 저장
     String version = historyHelper.generateVersion();
-    DeploymentHistory history = historyHelper.createHistory(
-        DeploymentHistory.DeploymentType.INDEXING, version, request.getDescription());
+    DeploymentHistory history =
+        historyHelper.createHistory(
+            DeploymentHistory.DeploymentType.INDEXING, version, request.getDescription());
 
     // 색인 이름 저장
     String indexName = indexNameProvider.getProductIndexName(version);
@@ -67,11 +66,13 @@ public class IndexingService {
     environmentRepository.save(devEnv);
 
     String initialMessage = String.format("색인 준비 중... (버전: %s)", version);
-    Map<String, Object> params = Map.of(
-        "envId", devEnv.getId(),
-        "version", version,
-        "historyId", history.getId());
-    AsyncTask task = asyncTaskService.createTaskIfNotRunning(AsyncTaskType.INDEXING, initialMessage, params);
+    Map<String, Object> params =
+        Map.of(
+            "envId", devEnv.getId(),
+            "version", version,
+            "historyId", history.getId());
+    AsyncTask task =
+        asyncTaskService.createTaskIfNotRunning(AsyncTaskType.INDEXING, initialMessage, params);
 
     return new IndexingContext(devEnv.getId(), version, history.getId(), task.getId());
   }

@@ -49,7 +49,8 @@ public class AsyncConfig {
     executor.setQueueCapacity(100);
     executor.setKeepAliveSeconds(60);
     executor.setThreadNamePrefix("async-task-");
-    executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+    executor.setRejectedExecutionHandler(
+        new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
     executor.initialize();
     return executor;
   }

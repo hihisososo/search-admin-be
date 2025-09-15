@@ -24,19 +24,23 @@ public class AsyncTaskExecutor {
 
   private final AsyncTaskRepository asyncTaskRepository;
   private final List<TaskWorker> taskWorkers;
+
   @Qualifier("asyncThreadPoolExecutor")
   private final ThreadPoolTaskExecutor executor;
+
   private Map<String, TaskWorker> workerMap;
 
   @PostConstruct
   public void init() {
-    workerMap = taskWorkers.stream()
-        .collect(Collectors.toMap(
-            worker -> worker.getSupportedTaskType().name(),
-            worker -> worker));
+    workerMap =
+        taskWorkers.stream()
+            .collect(
+                Collectors.toMap(worker -> worker.getSupportedTaskType().name(), worker -> worker));
 
-    log.info("AsyncTaskExecutor 초기화 - 풀 크기: {}/{}",
-        executor.getCorePoolSize(), executor.getMaxPoolSize());
+    log.info(
+        "AsyncTaskExecutor 초기화 - 풀 크기: {}/{}",
+        executor.getCorePoolSize(),
+        executor.getMaxPoolSize());
   }
 
   @Scheduled(fixedDelay = 5000)
@@ -50,8 +54,8 @@ public class AsyncTaskExecutor {
       return;
     }
 
-    List<AsyncTask> pendingTasks = asyncTaskRepository
-        .findByStatusOrderByCreatedAtAsc(AsyncTaskStatus.PENDING);
+    List<AsyncTask> pendingTasks =
+        asyncTaskRepository.findByStatusOrderByCreatedAtAsc(AsyncTaskStatus.PENDING);
 
     if (pendingTasks.isEmpty()) {
       return;
@@ -78,14 +82,15 @@ public class AsyncTaskExecutor {
         return;
       }
 
-      executor.execute(() -> {
-        log.info("작업 실행 시작: ID={}, 타입={}", task.getId(), task.getTaskType());
-        try {
-          worker.execute(task);
-        } catch (Exception e) {
-          log.error("작업 실행 중 오류 발생: ID={}", task.getId(), e);
-        }
-      });
+      executor.execute(
+          () -> {
+            log.info("작업 실행 시작: ID={}, 타입={}", task.getId(), task.getTaskType());
+            try {
+              worker.execute(task);
+            } catch (Exception e) {
+              log.error("작업 실행 중 오류 발생: ID={}", task.getId(), e);
+            }
+          });
 
     } catch (Exception e) {
       log.error("작업 처리 중 오류 발생: ID={}", task.getId(), e);

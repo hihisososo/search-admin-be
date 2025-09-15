@@ -6,10 +6,11 @@ import com.yjlee.search.analysis.domain.TokenInfo;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
 public final class TokenParser {
 
-  private TokenParser() {
-  }
+  private TokenParser() {}
+
   private static final String DETAIL = "detail";
   private static final String TOKEN_FILTERS = "tokenfilters";
   private static final String NAME = "name";

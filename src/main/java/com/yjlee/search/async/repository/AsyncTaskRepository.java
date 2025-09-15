@@ -24,6 +24,10 @@ public interface AsyncTaskRepository extends JpaRepository<AsyncTask, Long> {
 
   List<AsyncTask> findByStatus(AsyncTaskStatus status);
 
-  @Query(value = "SELECT EXISTS(SELECT 1 FROM async_tasks t WHERE t.task_type = :taskType AND t.status IN :statuses FOR UPDATE)", nativeQuery = true)
-  boolean existsByTaskTypeAndStatusInForUpdate(@Param("taskType") String taskType, @Param("statuses") List<String> statuses);
+  @Query(
+      value =
+          "SELECT EXISTS(SELECT 1 FROM async_tasks t WHERE t.task_type = :taskType AND t.status IN :statuses FOR UPDATE)",
+      nativeQuery = true)
+  boolean existsByTaskTypeAndStatusInForUpdate(
+      @Param("taskType") String taskType, @Param("statuses") List<String> statuses);
 }

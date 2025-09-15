@@ -63,15 +63,20 @@ public abstract class BaseIntegrationTest {
       GetIndexRequest getRequest = GetIndexRequest.of(i -> i.index("*"));
       GetIndexResponse getResponse = elasticsearchClient.indices().get(getRequest);
 
-      getResponse.result().keySet().forEach(indexName -> {
-        if (!indexName.startsWith(".")) {
-          try {
-            DeleteIndexRequest deleteRequest = DeleteIndexRequest.of(d -> d.index(indexName));
-            elasticsearchClient.indices().delete(deleteRequest);
-          } catch (Exception e) {
-          }
-        }
-      });
+      getResponse
+          .result()
+          .keySet()
+          .forEach(
+              indexName -> {
+                if (!indexName.startsWith(".")) {
+                  try {
+                    DeleteIndexRequest deleteRequest =
+                        DeleteIndexRequest.of(d -> d.index(indexName));
+                    elasticsearchClient.indices().delete(deleteRequest);
+                  } catch (Exception e) {
+                  }
+                }
+              });
     } catch (Exception e) {
     }
   }
@@ -84,7 +89,5 @@ public abstract class BaseIntegrationTest {
     public SsmClient ssmClient() {
       return Mockito.mock(SsmClient.class);
     }
-
-
   }
 }

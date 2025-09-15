@@ -24,9 +24,10 @@ public class ApplicationStartupListener {
     var inProgressTasks = asyncTaskRepository.findByStatus(AsyncTaskStatus.IN_PROGRESS);
 
     if (!inProgressTasks.isEmpty()) {
-      inProgressTasks.forEach(task -> {
-        task.fail("애플리케이션 재시작으로 인한 작업 실패");
-      });
+      inProgressTasks.forEach(
+          task -> {
+            task.fail("애플리케이션 재시작으로 인한 작업 실패");
+          });
       asyncTaskRepository.saveAll(inProgressTasks);
       log.warn("진행 중이던 {}개의 작업을 실패 처리", inProgressTasks.size());
       return;

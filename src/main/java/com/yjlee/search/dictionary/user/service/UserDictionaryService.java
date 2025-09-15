@@ -182,8 +182,7 @@ public class UserDictionaryService implements DictionaryService {
   }
 
   @Override
-  public void realtimeSync(EnvironmentType environment) {
-  }
+  public void realtimeSync(EnvironmentType environment) {}
 
   private void deployToEC2(String version) {
     log.info("사용자사전 EC2 배포 시작 - 버전: {}", version);

@@ -37,13 +37,14 @@ public class AsyncTaskService {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public AsyncTask createTask(AsyncTaskType taskType, String initialMessage, Object params) {
-    AsyncTask task = AsyncTask.builder()
-        .taskType(taskType)
-        .status(AsyncTaskStatus.PENDING)
-        .progress(0)
-        .message(initialMessage)
-        .params(params != null ? toJson(params) : null)
-        .build();
+    AsyncTask task =
+        AsyncTask.builder()
+            .taskType(taskType)
+            .status(AsyncTaskStatus.PENDING)
+            .progress(0)
+            .message(initialMessage)
+            .params(params != null ? toJson(params) : null)
+            .build();
 
     AsyncTask savedTask = asyncTaskRepository.save(task);
     log.info("비동기 작업 생성: ID={}, 타입={}", savedTask.getId(), taskType);
@@ -51,17 +52,19 @@ public class AsyncTaskService {
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public AsyncTask createTaskWithParams(AsyncTaskType taskType, String initialMessage, Object params) {
+  public AsyncTask createTaskWithParams(
+      AsyncTaskType taskType, String initialMessage, Object params) {
     return createTask(taskType, initialMessage, params);
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public AsyncTask createTaskIfNotRunning(AsyncTaskType taskType, String initialMessage, Object params) {
-    List<String> runningStatuses = RUNNING_STATUSES.stream()
-        .map(Enum::name)
-        .collect(Collectors.toList());
+  public AsyncTask createTaskIfNotRunning(
+      AsyncTaskType taskType, String initialMessage, Object params) {
+    List<String> runningStatuses =
+        RUNNING_STATUSES.stream().map(Enum::name).collect(Collectors.toList());
 
-    if (asyncTaskRepository.existsByTaskTypeAndStatusInForUpdate(taskType.name(), runningStatuses)) {
+    if (asyncTaskRepository.existsByTaskTypeAndStatusInForUpdate(
+        taskType.name(), runningStatuses)) {
       throw new IllegalStateException("작업이 이미 진행 중입니다: " + taskType.getDisplayName());
     }
 
@@ -70,28 +73,37 @@ public class AsyncTaskService {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void updateProgress(Long taskId, int progress, String message) {
-    asyncTaskRepository.findById(taskId).ifPresent(task -> {
-      task.updateProgress(progress, message);
-      asyncTaskRepository.save(task);
-    });
+    asyncTaskRepository
+        .findById(taskId)
+        .ifPresent(
+            task -> {
+              task.updateProgress(progress, message);
+              asyncTaskRepository.save(task);
+            });
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void completeTask(Long taskId, Object result) {
-    asyncTaskRepository.findById(taskId).ifPresent(task -> {
-      task.complete(result != null ? toJson(result) : null);
-      asyncTaskRepository.save(task);
-      log.info("작업 완료: ID={}, 타입={}", taskId, task.getTaskType());
-    });
+    asyncTaskRepository
+        .findById(taskId)
+        .ifPresent(
+            task -> {
+              task.complete(result != null ? toJson(result) : null);
+              asyncTaskRepository.save(task);
+              log.info("작업 완료: ID={}, 타입={}", taskId, task.getTaskType());
+            });
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void failTask(Long taskId, String errorMessage) {
-    asyncTaskRepository.findById(taskId).ifPresent(task -> {
-      task.fail(errorMessage);
-      asyncTaskRepository.save(task);
-      log.error("작업 실패: ID={}, 타입={}", taskId, task.getTaskType());
-    });
+    asyncTaskRepository
+        .findById(taskId)
+        .ifPresent(
+            task -> {
+              task.fail(errorMessage);
+              asyncTaskRepository.save(task);
+              log.error("작업 실패: ID={}, 타입={}", taskId, task.getTaskType());
+            });
   }
 
   public AsyncTaskResponse getTaskOrThrow(Long taskId) {
@@ -102,8 +114,8 @@ public class AsyncTaskService {
   }
 
   public AsyncTaskListResponse getRecentTasks(int page, int size) {
-    Page<AsyncTask> taskPage = asyncTaskRepository.findAllByOrderByCreatedAtDesc(
-        PageRequest.of(page, size));
+    Page<AsyncTask> taskPage =
+        asyncTaskRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, size));
 
     return AsyncTaskListResponse.builder()
         .tasks(taskPage.map(this::toResponse).getContent())

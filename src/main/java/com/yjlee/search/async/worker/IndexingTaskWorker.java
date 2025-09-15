@@ -96,7 +96,11 @@ public class IndexingTaskWorker implements TaskWorker {
               .indexName(indexNameProvider.getProductIndexName(version))
               .build());
 
-      log.info("인덱싱 작업 완료: taskId={}, version={}, documentCount={}", task.getId(), version, documentCount);
+      log.info(
+          "인덱싱 작업 완료: taskId={}, version={}, documentCount={}",
+          task.getId(),
+          version,
+          documentCount);
 
     } catch (Exception e) {
       log.error("인덱싱 작업 실패: taskId={}", task.getId(), e);

@@ -1,5 +1,6 @@
 package com.yjlee.search;
 
+import com.yjlee.search.common.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.NoSuchElementException;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import com.yjlee.search.common.dto.ErrorResponse;
 
 @Slf4j
 @RestControllerAdvice

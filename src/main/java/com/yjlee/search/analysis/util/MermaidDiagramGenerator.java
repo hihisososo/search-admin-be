@@ -1,15 +1,13 @@
 package com.yjlee.search.analysis.util;
 
 import com.yjlee.search.analysis.domain.TokenInfo;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
 public final class MermaidDiagramGenerator {
 
-  private MermaidDiagramGenerator() {
-  }
-  
+  private MermaidDiagramGenerator() {}
+
   private static final String START_NODE = "START";
   private static final String END_NODE = "END";
   private static final String AND_NODE = "AND";
@@ -17,10 +15,14 @@ public final class MermaidDiagramGenerator {
   private static final String ARROW = "-->";
   private static final String NODE_CLASS_START_END = "startEnd";
   private static final String NODE_CLASS_AND = "andNode";
-  private static final String STYLE_START_END = "    classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:3px\n";
-  private static final String STYLE_AND_NODE = "    classDef andNode fill:#fff3e0,stroke:#e65100,stroke-width:2px\n";
-  private static final String STYLE_ORIGINAL = "    classDef original stroke:#2e7d32,stroke-width:3px,color:#1b5e20\n";
-  private static final String STYLE_SYNONYM = "    classDef synonym stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:#4a148c\n";
+  private static final String STYLE_START_END =
+      "    classDef startEnd fill:#e1f5fe,stroke:#01579b,stroke-width:3px\n";
+  private static final String STYLE_AND_NODE =
+      "    classDef andNode fill:#fff3e0,stroke:#e65100,stroke-width:2px\n";
+  private static final String STYLE_ORIGINAL =
+      "    classDef original stroke:#2e7d32,stroke-width:3px,color:#1b5e20\n";
+  private static final String STYLE_SYNONYM =
+      "    classDef synonym stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5,color:#4a148c\n";
 
   public static String generate(List<TokenInfo> tokens) {
     if (tokens.isEmpty()) {
@@ -39,8 +41,10 @@ public final class MermaidDiagramGenerator {
   }
 
   private static String generateEmptyDiagram() {
-    return GRAPH_HEADER + String.format("    %s((\"%s\")) %s %s((\"%s\"))\n",
-        START_NODE, START_NODE, ARROW, END_NODE, END_NODE);
+    return GRAPH_HEADER
+        + String.format(
+            "    %s((\"%s\")) %s %s((\"%s\"))\n",
+            START_NODE, START_NODE, ARROW, END_NODE, END_NODE);
   }
 
   private static void appendHeader(StringBuilder mermaid) {
@@ -80,8 +84,7 @@ public final class MermaidDiagramGenerator {
   }
 
   private static void appendNodes(StringBuilder mermaid, Map<Integer, Integer> positionMapping) {
-    Integer maxMappedPosition =
-        positionMapping.values().stream().max(Integer::compareTo).orElse(0);
+    Integer maxMappedPosition = positionMapping.values().stream().max(Integer::compareTo).orElse(0);
 
     for (Map.Entry<Integer, Integer> entry : positionMapping.entrySet()) {
       int remappedPos = entry.getValue();
@@ -133,9 +136,7 @@ public final class MermaidDiagramGenerator {
   }
 
   private static void appendTokenList(
-      StringBuilder mermaid,
-      List<TokenInfo> tokens,
-      Map<Integer, Integer> positionMapping) {
+      StringBuilder mermaid, List<TokenInfo> tokens, Map<Integer, Integer> positionMapping) {
     for (TokenInfo token : tokens) {
       String label = token.getToken();
       int fromPos = positionMapping.get(token.getPosition());
@@ -144,5 +145,4 @@ public final class MermaidDiagramGenerator {
       mermaid.append(String.format("    %d %s|%s| %d\n", fromPos, ARROW, label, toPos));
     }
   }
-
 }
