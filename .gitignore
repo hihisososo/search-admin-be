@@ -51,4 +51,4 @@ CLAUDE.md
 apm-agent/
 
 ### Test ###
-docker/
+infra/volumes/

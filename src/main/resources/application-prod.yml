@@ -1,14 +1,13 @@
 spring:
   datasource:
-    hikari:
-      connection-timeout: 10000
-      idle-timeout: 300000
-      max-lifetime: 900000
-      maximum-pool-size: 20
-      minimum-idle: 5
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
   jpa:
     hibernate:
       ddl-auto: validate
+    show-sql: false
 
 app:
   elasticsearch:
@@ -17,6 +16,7 @@ app:
   log-generator:
     enabled: true
     events-per-second: 1
+    parallel-llm-count: ${LOG_GENERATOR_PARALLEL_LLM:3}
 
 logging:
   level:
@@ -43,7 +43,7 @@ elastic:
   apm:
     enabled: ${ELASTIC_APM_ENABLED:false}
     service-name: search-admin-be
-    server-url: ${ELASTIC_APM_SERVER_URL:}
-    secret-token: ${ELASTIC_APM_SECRET_TOKEN:}
+    server-url: ${ELASTIC_APM_SERVER_URL}
+    secret-token: ${ELASTIC_APM_SECRET_TOKEN}
     environment: prod
     log-level: INFO

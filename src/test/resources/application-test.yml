@@ -1,69 +1,81 @@
 spring:
   application:
-    name: search-admin-be-test
-  main:
-    allow-bean-definition-overriding: true
+    name: search-admin-be
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password: 
-    driver-class-name: org.h2.Driver
+    url: jdbc:postgresql://localhost:5432/search_admin
+    username: search_admin
+    password: search_admin
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5            
+      idle-timeout: 600000       
+      connection-timeout: 30000  
+      max-lifetime: 1800000      
+      pool-name: SearchAdminPool
+      leak-detection-threshold: 2000 
   jpa:
     hibernate:
-      ddl-auto: create-drop
-    show-sql: true
-    database-platform: org.hibernate.dialect.H2Dialect
-  h2:
-    console:
-      enabled: true
-  sql:
-    init:
-      mode: never
+      ddl-auto: update
+    show-sql: false
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
 
 app:
   elasticsearch:
     host: localhost
-    port: 9201
+    port: 9200
+  aws:
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+    region: ap-northeast-2
+    dictionary:
+      ec2-instance-ids: ${AWS_DICTIONARY_EC2_INSTANCE_IDS}
+  deployment:
+    application-path: /home/ec2-user/search-admin-be
+    git-branch: ${GIT_BRANCH:main}
   log-generator:
     enabled: false
-  aws:
-    access-key: test-access-key
-    secret-key: test-secret-key
-    region: ap-northeast-2
-    s3:
-      bucket: test-bucket
-    ec2:
-      instance-ids: i-test123
-    dictionary:
-      ec2-instance-ids: test-instance-1,test-instance-2
-  deployment:
-    application-path: /test/path
-    git-branch: test-branch
+    parallel-llm-count: ${LOG_GENERATOR_PARALLEL_LLM:3}
 
-# 테스트 환경 전용 인덱스 설정
-test:
-  elasticsearch:
-    index-prefix: test-
-    indices:
-      products-search: test-products-search
-      autocomplete: test-autocomplete
-      search-logs: test-search-logs
-
-indexing:
-  max-documents:
+openai:
+  api:
+    key: ${OPENAI_API_KEY}
+    url: https://api.openai.com/v1/chat/completions
+    model: gpt-5-nano
+    connect-timeout-ms: 8000
+    read-timeout-ms: 45000
+    max-retries: 10
+    initial-backoff-ms: 1000
 
 upstage:
   api:
-    key: test-api-key
+    key: ${UPSTAGE_API_KEY}
     embedding:
       url: https://api.upstage.ai/v1/solar/embeddings
   embedding:
     query-model: solar-embedding-1-large-query
     document-model: solar-embedding-1-large-passage
     dimension: 4096
-
+  
 logging:
   level:
     com.yjlee.search: DEBUG
-    org.springframework.web: DEBUG
-    org.springframework.transaction: DEBUG
+
+evaluation:
+  llm:
+    batch-size: 10
+    worker-threads: 10
+
+llm:
+  queue:
+    worker-threads: 10
+
+indexing:
+  max-documents: ${INDEXING_MAX_DOCUMENTS:100000}
+  batch-size: ${INDEXING_BATCH_SIZE:200}
+  max-concurrent-batches: ${INDEXING_MAX_CONCURRENT:8}

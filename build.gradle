@@ -51,7 +51,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
 	implementation 'com.github.ben-manes.caffeine:caffeine'
 
-
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
@@ -61,33 +60,34 @@ dependencies {
 	
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
-	testRuntimeOnly 'com.h2database:h2'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	
-	// Testcontainers
-	testImplementation 'org.testcontainers:testcontainers:1.19.3'
-	testImplementation 'org.testcontainers:elasticsearch:1.19.3'
-	testImplementation 'org.testcontainers:junit-jupiter:1.19.3'
 }
 
-// Docker ES 시작 태스크
 task startTestES(type: Exec) {
-	commandLine 'docker-compose', '-f', 'docker-compose-test.yml', 'up', '-d'
+	commandLine 'docker-compose', '-f', 'infra/docker-compose.yml', 'up', '-d'
+	ignoreExitValue = true
 	doLast {
-		println 'Test ES container started, waiting for ES to be ready...'
-		Thread.sleep(10000) // ES가 준비될 때까지 10초 대기
+		println 'Waiting for Elasticsearch...'
+		def attempts = 0
+		while (attempts++ < 30) {
+			try {
+				new URL('http://localhost:9200/_cluster/health').text
+				println 'Elasticsearch is ready!'
+				break
+			} catch (ignored) {
+				Thread.sleep(1000)
+			}
+		}
 	}
 }
 
-// Docker ES 중지 태스크
 task stopTestES(type: Exec) {
-	commandLine 'docker-compose', '-f', 'docker-compose-test.yml', 'down'
+	commandLine 'docker-compose', '-f', 'infra/docker-compose.yml', 'down'
 	doLast {
 		println 'Test ES container stopped'
 	}
 }
 
-// 통합 테스트 전용 태스크
 task integrationTest(type: Test) {
 	useJUnitPlatform()
 	include '**/*IntegrationTest.class'
@@ -106,6 +106,5 @@ task integrationTest(type: Test) {
 
 test {
 	useJUnitPlatform()
-	// 기본 test는 단위 테스트만 실행 (통합 테스트 제외)
 	exclude '**/*IntegrationTest.class'
 }

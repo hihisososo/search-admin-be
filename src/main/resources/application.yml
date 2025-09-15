@@ -1,23 +1,22 @@
 spring:
+  profiles:
+    active: dev
   application:
     name: search-admin-be
   datasource:
-    url: ${DATABASE_URL}
-    username: ${DATABASE_USERNAME}
-    password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 50
-      minimum-idle: 10
-      idle-timeout: 300000
-      connection-timeout: 30000
-      max-lifetime: 600000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 600000
+      connection-timeout: 5000
+      max-lifetime: 1800000
       pool-name: SearchAdminPool
-      leak-detection-threshold: 6000000
+      leak-detection-threshold: 30000
   jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
 
 springdoc:
   api-docs:
@@ -26,21 +25,12 @@ springdoc:
     path: /swagger-ui.html
 
 app:
-  elasticsearch:
-    host: ${ELASTICSEARCH_HOST}
-    port: ${ELASTICSEARCH_PORT}
   aws:
     access-key: ${AWS_ACCESS_KEY_ID}
     secret-key: ${AWS_SECRET_ACCESS_KEY}
     region: ap-northeast-2
     dictionary:
       ec2-instance-ids: ${AWS_DICTIONARY_EC2_INSTANCE_IDS}
-  deployment:
-    application-path: /home/ec2-user/search-admin-be
-    git-branch: ${GIT_BRANCH:main}
-  log-generator:
-    enabled: ${LOG_GENERATOR_ENABLED:false}
-    parallel-llm-count: ${LOG_GENERATOR_PARALLEL_LLM:3}
 
 openai:
   api:
@@ -61,11 +51,6 @@ upstage:
     query-model: solar-embedding-1-large-query
     document-model: solar-embedding-1-large-passage
     dimension: 4096
-  
-logging:
-  level:
-    com.yjlee.search: INFO
-
 evaluation:
   llm:
     batch-size: 10
