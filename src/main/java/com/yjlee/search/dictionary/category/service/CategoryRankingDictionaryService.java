@@ -7,7 +7,6 @@ import com.yjlee.search.dictionary.category.mapper.CategoryRankingDictionaryMapp
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
 import com.yjlee.search.dictionary.common.enums.DictionarySortField;
-import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.search.service.category.CategoryRankingService;
 import jakarta.persistence.EntityNotFoundException;
@@ -24,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CategoryRankingDictionaryService implements DictionaryService {
+public class CategoryRankingDictionaryService {
 
   private final CategoryRankingDictionaryRepository repository;
   private final ProductRepository productRepository;
@@ -111,49 +110,69 @@ public class CategoryRankingDictionaryService implements DictionaryService {
         .build();
   }
 
-  @Override
-  @Transactional
-  public void preIndexing() {
-    deployToEnvironment(EnvironmentType.CURRENT, EnvironmentType.DEV);
-  }
-
-  @Override
-  @Transactional
-  public void preDeploy() {
-    deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-  }
-
-  @Override
-  public void deployToTemp() {
-    log.debug("카테고리 랭킹 사전 임시 환경 배포 건너뛰기 - 캐시 기반 동작");
-  }
-
-  private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
-    List<CategoryRankingDictionary> sourceDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(from);
-    if (sourceDictionaries.isEmpty()) return;
-
-    repository.deleteByEnvironmentType(to);
-
-    List<CategoryRankingDictionary> targetDictionaries =
-        sourceDictionaries.stream().map(dict -> mapper.copyWithEnvironment(dict, to)).toList();
-    repository.saveAll(targetDictionaries);
-    log.info("{} 환경 카테고리 랭킹 사전 배포 완료: {}개", to, targetDictionaries.size());
-  }
-
   private Sort createSort(String sortBy, String sortDir) {
     return Sort.by(
         "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC,
         DictionarySortField.getValidFieldOrDefault(sortBy));
   }
 
-  @Override
   public void realtimeSync(EnvironmentType environment) {
-    categoryRankingService.updateCacheRealtime(environment);
+    categoryRankingService.refreshCache(environment);
+  }
+
+  public void syncWithPreloadedData(
+      List<CategoryRankingDictionary> categoryRankings, String version) {
+    categoryRankingService.syncWithPreloadedData(categoryRankings, version);
   }
 
   @Transactional
   public void deleteByEnvironmentType(EnvironmentType environment) {
     repository.deleteByEnvironmentType(environment);
+  }
+
+  @Transactional
+  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
+    List<CategoryRankingDictionary> sourceDictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(from);
+
+    if (sourceDictionaries.isEmpty()) {
+      log.warn("{} 환경에서 {} 환경으로 배포할 카테고리 랭킹 사전이 없음 - 빈 사전으로 처리", from, to);
+    }
+
+    deleteByEnvironmentType(to);
+
+    List<CategoryRankingDictionary> targetDictionaries =
+        sourceDictionaries.stream()
+            .map(
+                dict ->
+                    CategoryRankingDictionary.of(
+                        dict.getKeyword(), dict.getCategoryMappings(), dict.getDescription(), to))
+            .toList();
+
+    repository.saveAll(targetDictionaries);
+    log.info("{} 환경 카테고리 랭킹 사전 배포 완료: {}개", to, targetDictionaries.size());
+  }
+
+  @Transactional
+  public void saveToEnvironment(
+      List<CategoryRankingDictionary> sourceData, EnvironmentType targetEnv) {
+    if (sourceData == null || sourceData.isEmpty()) {
+      log.info("카테고리 랭킹 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
+      return;
+    }
+
+    List<CategoryRankingDictionary> targetDictionaries =
+        sourceData.stream()
+            .map(
+                dict ->
+                    CategoryRankingDictionary.of(
+                        dict.getKeyword(),
+                        dict.getCategoryMappings(),
+                        dict.getDescription(),
+                        targetEnv))
+            .toList();
+
+    repository.saveAll(targetDictionaries);
+    log.info("{} 환경 카테고리 랭킹 사전 저장 완료: {}개", targetEnv, targetDictionaries.size());
   }
 }

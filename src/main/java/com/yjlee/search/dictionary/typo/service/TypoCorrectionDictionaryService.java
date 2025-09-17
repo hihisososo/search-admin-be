@@ -2,7 +2,6 @@ package com.yjlee.search.dictionary.typo.service;
 
 import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.dictionary.common.service.DictionaryService;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryCreateRequest;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryListResponse;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryResponse;
@@ -23,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TypoCorrectionDictionaryService implements DictionaryService {
+public class TypoCorrectionDictionaryService {
 
   private final TypoCorrectionDictionaryRepository repository;
   private final TypoCorrectionService typoCorrectionService;
@@ -149,77 +148,6 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
     log.info("오타교정 사전 삭제 완료: {} - 환경: {}", dictionaryId, environment);
   }
 
-  @Override
-  @Transactional
-  public void preIndexing() {
-    log.info("개발 환경 오타교정 사전 배포 시작");
-
-    List<TypoCorrectionDictionary> currentDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.CURRENT);
-    if (currentDictionaries.isEmpty()) {
-      log.warn("배포할 오타교정 사전이 없습니다.");
-      return;
-    }
-
-    // 기존 개발 환경 데이터 삭제
-    repository.deleteByEnvironmentType(EnvironmentType.DEV);
-
-    // CURRENT 데이터를 DEV로 복사
-    List<TypoCorrectionDictionary> devDictionaries =
-        currentDictionaries.stream()
-            .map(
-                dict ->
-                    TypoCorrectionDictionary.builder()
-                        .environmentType(EnvironmentType.DEV)
-                        .keyword(dict.getKeyword())
-                        .correctedWord(dict.getCorrectedWord())
-                        .description(dict.getDescription())
-                        .build())
-            .toList();
-
-    repository.saveAll(devDictionaries);
-    log.info("개발 환경 오타교정 사전 배포 완료: {}개", devDictionaries.size());
-  }
-
-  @Override
-  @Transactional
-  public void preDeploy() {
-    log.info("운영 환경 오타교정 사전 배포 시작");
-
-    List<TypoCorrectionDictionary> devDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.DEV);
-
-    // PROD 배포시 소스가 비어있어도 허용 (빈 사전도 유효함)
-    if (devDictionaries.isEmpty()) {
-      log.warn("DEV 환경에서 PROD 환경으로 배포할 오타교정 사전이 없음 - 빈 사전으로 처리");
-    }
-
-    // 기존 운영 환경 데이터 삭제
-    repository.deleteByEnvironmentType(EnvironmentType.PROD);
-
-    // DEV 데이터를 PROD로 복사
-    List<TypoCorrectionDictionary> prodDictionaries =
-        devDictionaries.stream()
-            .map(
-                dict ->
-                    TypoCorrectionDictionary.builder()
-                        .environmentType(EnvironmentType.PROD)
-                        .keyword(dict.getKeyword())
-                        .correctedWord(dict.getCorrectedWord())
-                        .description(dict.getDescription())
-                        .build())
-            .toList();
-
-    repository.saveAll(prodDictionaries);
-    log.info("운영 환경 오타교정 사전 배포 완료: {}개", prodDictionaries.size());
-  }
-
-  @Override
-  public void deployToTemp() {
-    // 오타교정 사전은 캐시 기반으로 동작하므로 임시 환경 배포 불필요
-    log.debug("오타교정 사전 임시 환경 배포 건너뛰기 - 캐시 기반 동작");
-  }
-
   /** 정렬 조건 생성 */
   private Sort createSort(String sortBy, String sortDir) {
     if (sortBy == null || sortBy.trim().isEmpty()) {
@@ -290,11 +218,15 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
     return content.toString();
   }
 
-  @Override
   public void realtimeSync(EnvironmentType environment) {
     log.info("오타교정 사전 실시간 동기화 - 환경: {}", environment);
-    typoCorrectionService.updateCacheRealtime(environment);
+    typoCorrectionService.refreshCache(environment);
     log.info("오타교정 캐시 업데이트 완료 - 환경: {}", environment);
+  }
+
+  public void syncWithPreloadedData(
+      List<TypoCorrectionDictionary> typoCorrections, String version) {
+    typoCorrectionService.syncWithPreloadedData(typoCorrections, version);
   }
 
   public String getDictionaryType() {
@@ -306,5 +238,56 @@ public class TypoCorrectionDictionaryService implements DictionaryService {
     log.info("오타교정 사전 환경별 삭제 시작 - 환경: {}", environment);
     repository.deleteByEnvironmentType(environment);
     log.info("오타교정 사전 환경별 삭제 완료 - 환경: {}", environment);
+  }
+
+  @Transactional
+  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
+    List<TypoCorrectionDictionary> sourceDictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(from);
+
+    if (sourceDictionaries.isEmpty()) {
+      log.warn("{} 환경에서 {} 환경으로 배포할 오타교정 사전이 없음 - 빈 사전으로 처리", from, to);
+    }
+
+    deleteByEnvironmentType(to);
+
+    List<TypoCorrectionDictionary> targetDictionaries =
+        sourceDictionaries.stream()
+            .map(
+                dict ->
+                    TypoCorrectionDictionary.builder()
+                        .environmentType(to)
+                        .keyword(dict.getKeyword())
+                        .correctedWord(dict.getCorrectedWord())
+                        .description(dict.getDescription())
+                        .build())
+            .toList();
+
+    repository.saveAll(targetDictionaries);
+    log.info("{} 환경 오타교정 사전 배포 완료: {}개", to, targetDictionaries.size());
+  }
+
+  @Transactional
+  public void saveToEnvironment(
+      List<TypoCorrectionDictionary> sourceData, EnvironmentType targetEnv) {
+    if (sourceData == null || sourceData.isEmpty()) {
+      log.info("오타교정 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
+      return;
+    }
+
+    List<TypoCorrectionDictionary> targetDictionaries =
+        sourceData.stream()
+            .map(
+                dict ->
+                    TypoCorrectionDictionary.builder()
+                        .environmentType(targetEnv)
+                        .keyword(dict.getKeyword())
+                        .correctedWord(dict.getCorrectedWord())
+                        .description(dict.getDescription())
+                        .build())
+            .toList();
+
+    repository.saveAll(targetDictionaries);
+    log.info("{} 환경 오타교정 사전 저장 완료: {}개", targetEnv, targetDictionaries.size());
   }
 }

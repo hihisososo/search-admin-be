@@ -4,10 +4,8 @@ import com.yjlee.search.common.domain.FileUploadResult;
 import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.service.FileUploadService;
-import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.common.enums.DictionarySortField;
-import com.yjlee.search.dictionary.common.service.DictionaryService;
+import com.yjlee.search.dictionary.common.model.DictionaryData;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryCreateRequest;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryListResponse;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryResponse;
@@ -30,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class UnitDictionaryService implements DictionaryService {
+public class UnitDictionaryService {
 
   private static final String EC2_UNIT_DICT_PATH =
       "/home/ec2-user/elasticsearch/config/analysis/unit";
@@ -38,7 +36,6 @@ public class UnitDictionaryService implements DictionaryService {
   private final UnitDictionaryRepository unitDictionaryRepository;
   private final FileUploadService fileUploadService;
   private final UnitDictionaryMapper mapper;
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
 
   public UnitDictionaryResponse create(
       UnitDictionaryCreateRequest request, EnvironmentType environment) {
@@ -59,12 +56,9 @@ public class UnitDictionaryService implements DictionaryService {
     Pageable pageable = PageRequest.of(page, size, sort);
 
     Page<UnitDictionary> entities =
-        (keyword != null && !keyword.trim().isEmpty())
-            ? searchInRepository(environment, keyword.trim(), pageable)
-            : findByEnvironmentType(environment, pageable);
-    Page<UnitDictionaryListResponse> resultPage = entities.map(mapper::toListResponse);
+        unitDictionaryRepository.findWithOptionalKeyword(environment, keyword, pageable);
 
-    return PageResponse.from(resultPage);
+    return PageResponse.from(entities.map(mapper::toListResponse));
   }
 
   public UnitDictionaryResponse get(Long id, EnvironmentType environment) {
@@ -103,59 +97,30 @@ public class UnitDictionaryService implements DictionaryService {
     return unitDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
   }
 
-  private Page<UnitDictionary> findByEnvironmentType(
-      EnvironmentType environment, Pageable pageable) {
-    return unitDictionaryRepository.findByEnvironmentType(environment, pageable);
-  }
-
-  @Override
-  public void preIndexing() {
-    deployToEnvironment(EnvironmentType.CURRENT, EnvironmentType.DEV);
-
-    // 버전 정보 DB에서 조회
-    IndexEnvironment devEnv =
-        indexEnvironmentRepository
-            .findByEnvironmentType(EnvironmentType.DEV)
-            .orElseThrow(() -> new IllegalStateException("DEV 환경이 없습니다"));
-    String version = devEnv.getVersion();
-    if (version == null) {
-      throw new IllegalStateException("DEV 환경에 버전이 설정되지 않았습니다");
-    }
-
-    deployToEC2(version);
-  }
-
-  @Override
-  public void preDeploy() {
-    deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-  }
-
-  @Override
-  public void deployToTemp() {
-    log.info("단위사전 임시 환경 배포 시작");
+  public void preIndexing(DictionaryData data) {
+    String version = data.getVersion();
+    List<UnitDictionary> units = data.getUnits();
+    log.info("단위 사전 배포 시작 - 버전: {}, 단어 수: {}", version, units.size());
 
     try {
-      String content = getDictionaryContent(EnvironmentType.CURRENT);
-
-      if (content == null || content.trim().isEmpty()) {
-        log.warn("단위사전 내용이 비어있음 - 임시 환경");
-        content = "";
-      }
-
+      List<String> keywords = units.stream().map(UnitDictionary::getKeyword).toList();
+      String content = String.join("\n", keywords);
       FileUploadResult result =
-          fileUploadService.uploadFile(
-              "temp-current.txt", EC2_UNIT_DICT_PATH, content, "temp-current");
+          fileUploadService.uploadFile(version + ".txt", EC2_UNIT_DICT_PATH, content, version);
 
       if (!result.isSuccess()) {
-        throw new RuntimeException("단위사전 임시 환경 EC2 업로드 실패: " + result.getMessage());
+        throw new RuntimeException("단위사전 EC2 업로드 실패: " + result.getMessage());
       }
 
-      log.info("단위사전 임시 환경 EC2 업로드 완료 - 내용 길이: {}", content.length());
-
+      log.info("단위사전 배포 완료", version);
     } catch (Exception e) {
-      log.error("단위사전 임시 환경 EC2 업로드 실패", e);
-      throw new RuntimeException("단위사전 임시 환경 배포 실패", e);
+      throw new RuntimeException("단위사전 배포 실패: " + e.getMessage(), e);
     }
+  }
+
+  @Transactional
+  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
+    deployToEnvironment(from, to);
   }
 
   private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
@@ -175,13 +140,23 @@ public class UnitDictionaryService implements DictionaryService {
     log.info("{} 환경 단위 사전 배포 완료: {}개", to, targetDictionaries.size());
   }
 
-  @Override
   public void deleteByEnvironmentType(EnvironmentType environment) {
     unitDictionaryRepository.deleteByEnvironmentType(environment);
   }
 
-  @Override
-  public void realtimeSync(EnvironmentType environment) {}
+  @Transactional
+  public void saveToEnvironment(List<UnitDictionary> sourceData, EnvironmentType targetEnv) {
+    if (sourceData == null || sourceData.isEmpty()) {
+      log.info("단위 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
+      return;
+    }
+
+    List<UnitDictionary> targetDictionaries =
+        sourceData.stream().map(dict -> UnitDictionary.of(dict.getKeyword(), targetEnv)).toList();
+
+    unitDictionaryRepository.saveAll(targetDictionaries);
+    log.info("{} 환경 단위 사전 저장 완료: {}개", targetEnv, targetDictionaries.size());
+  }
 
   private void deployToEC2(String version) {
     log.info("단위사전 EC2 배포 시작 - 버전: {}", version);
@@ -224,12 +199,6 @@ public class UnitDictionaryService implements DictionaryService {
     if (request.getKeyword() != null) {
       entity.updateKeyword(request.getKeyword());
     }
-  }
-
-  private Page<UnitDictionary> searchInRepository(
-      EnvironmentType environmentType, String keyword, Pageable pageable) {
-    return unitDictionaryRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
-        environmentType, keyword, pageable);
   }
 
   private Sort createSort(String sortBy, String sortDir) {

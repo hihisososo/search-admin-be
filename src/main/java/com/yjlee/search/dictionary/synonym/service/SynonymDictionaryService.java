@@ -7,8 +7,8 @@ import co.elastic.clients.elasticsearch.synonyms.SynonymRule;
 import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
-import com.yjlee.search.dictionary.common.service.DictionaryService;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
+import com.yjlee.search.dictionary.common.model.DictionaryData;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryCreateRequest;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryListResponse;
 import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryResponse;
@@ -16,7 +16,7 @@ import com.yjlee.search.dictionary.synonym.dto.SynonymDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.synonym.model.SynonymDictionary;
 import com.yjlee.search.dictionary.synonym.repository.SynonymDictionaryRepository;
 import jakarta.persistence.EntityNotFoundException;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -31,11 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SynonymDictionaryService implements DictionaryService {
+public class SynonymDictionaryService {
 
   private final SynonymDictionaryRepository repository;
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexEnvironmentService indexEnvironmentService;
 
   public String getDictionaryTypeEnum() {
     return "SYNONYM";
@@ -142,47 +142,26 @@ public class SynonymDictionaryService implements DictionaryService {
     log.info("동의어 사전 삭제 완료: {} - 환경: {}", id, environment);
   }
 
-  @Override
-  @Transactional
-  public void preIndexing() {
-    IndexEnvironment devEnv =
-        indexEnvironmentRepository
-            .findByEnvironmentType(EnvironmentType.DEV)
-            .orElseThrow(() -> new IllegalStateException("DEV 환경이 없습니다"));
+  public void preIndexing(DictionaryData data) {
+    String version = data.getVersion();
+    List<SynonymDictionary> synonyms = data.getSynonyms();
+    log.info("동의어 사전 배포 시작 - 버전: {}, 규칙 수: {}", version, synonyms.size());
 
-    String version = devEnv.getVersion();
-    if (version == null) {
-      throw new IllegalStateException("DEV 환경에 버전이 설정되지 않았습니다");
+    try {
+      String synonymSetName = "synonyms-nori-" + version;
+      List<String> synonymRules = new ArrayList<>();
+
+      for (SynonymDictionary dict : synonyms) {
+        synonymRules.add(dict.getKeyword());
+      }
+
+      updateElasticsearchSynonymSet(synonymSetName, synonymRules);
+      log.info("동의어 배포 완료 - synonymSet: {}", synonymSetName);
+
+    } catch (Exception e) {
+      log.error("동의어 사전 메모리 기반 배포 실패", e);
+      throw new RuntimeException("동의어 사전 배포 실패: " + e.getMessage(), e);
     }
-
-    log.info("개발 환경 동의어 사전 배포 시작 - 버전: {}", version);
-
-    List<SynonymDictionary> currentDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.CURRENT);
-
-    repository.deleteByEnvironmentType(EnvironmentType.DEV);
-
-    List<SynonymDictionary> devDictionaries =
-        currentDictionaries.stream()
-            .map(
-                dict ->
-                    SynonymDictionary.builder()
-                        .environmentType(EnvironmentType.DEV)
-                        .keyword(dict.getKeyword())
-                        .description(dict.getDescription())
-                        .build())
-            .toList();
-
-    repository.saveAll(devDictionaries);
-
-    // synonym set 생성 (DB에 저장된 이름 사용)
-    String synonymSetName = devEnv.getSynonymSetName();
-    if (synonymSetName != null) {
-      createOrUpdateSynonymSet(synonymSetName, EnvironmentType.DEV);
-      log.info("DEV synonym set 생성 완료: {}", synonymSetName);
-    }
-
-    log.info("개발 환경 동의어 사전 배포 완료: {}개", devDictionaries.size());
   }
 
   @Transactional
@@ -192,47 +171,68 @@ public class SynonymDictionaryService implements DictionaryService {
     log.info("동의어 사전 환경별 삭제 완료 - 환경: {}", environment);
   }
 
-  @Override
   @Transactional
-  public void preDeploy() {
-    log.info("운영 환경 동의어 사전 배포 시작");
+  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
+    List<SynonymDictionary> sourceDictionaries =
+        repository.findByEnvironmentTypeOrderByKeywordAsc(from);
 
-    List<SynonymDictionary> devDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType.DEV);
+    if (sourceDictionaries.isEmpty()) {
+      log.warn("{} 환경에서 {} 환경으로 배포할 동의어 사전이 없음 - 빈 사전으로 처리", from, to);
+    }
 
-    // 기존 운영 환경 데이터 삭제
-    repository.deleteByEnvironmentType(EnvironmentType.PROD);
+    deleteByEnvironmentType(to);
 
-    // DEV 데이터를 PROD로 복사
-    List<SynonymDictionary> prodDictionaries =
-        devDictionaries.stream()
+    List<SynonymDictionary> targetDictionaries =
+        sourceDictionaries.stream()
             .map(
                 dict ->
                     SynonymDictionary.builder()
-                        .environmentType(EnvironmentType.PROD)
+                        .environmentType(to)
                         .keyword(dict.getKeyword())
                         .description(dict.getDescription())
                         .build())
             .toList();
 
-    repository.saveAll(prodDictionaries);
-    log.info("운영 환경 동의어 사전 배포 완료: {}개", prodDictionaries.size());
+    repository.saveAll(targetDictionaries);
+    log.info("{} 환경 동의어 사전 배포 완료: {}개", to, targetDictionaries.size());
   }
 
-  @Override
-  public void deployToTemp() {
-    log.info("동의어 사전 임시 환경 배포 시작");
-
-    try {
-      // 임시 동의어 세트 생성/업데이트
-      String tempSynonymSetName = "synonyms-temp-current";
-      createOrUpdateSynonymSet(tempSynonymSetName, EnvironmentType.CURRENT);
-      log.info("동의어 사전 임시 환경 Elasticsearch 동기화 완료 - synonymSet: {}", tempSynonymSetName);
-
-    } catch (Exception e) {
-      log.error("동의어 사전 임시 환경 배포 실패", e);
-      throw new RuntimeException("동의어 사전 임시 환경 배포 실패", e);
+  @Transactional
+  public void saveToEnvironment(List<SynonymDictionary> sourceData, EnvironmentType targetEnv) {
+    if (sourceData == null || sourceData.isEmpty()) {
+      log.info("동의어 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
+      return;
     }
+
+    List<SynonymDictionary> targetDictionaries =
+        sourceData.stream()
+            .map(
+                dict ->
+                    SynonymDictionary.builder()
+                        .environmentType(targetEnv)
+                        .keyword(dict.getKeyword())
+                        .description(dict.getDescription())
+                        .build())
+            .toList();
+
+    repository.saveAll(targetDictionaries);
+    log.info("{} 환경 동의어 사전 저장 완료: {}개", targetEnv, targetDictionaries.size());
+  }
+
+  public void deployToTemp(DictionaryData data) {
+    if (data == null || data.getSynonyms().isEmpty()) {
+      log.info("동의어 사전 데이터가 비어있음 - 임시 환경 배포 건너뛰기");
+      return;
+    }
+    String tempSynonymSetName = "synonyms-temp-current";
+    List<String> synonymRules = new ArrayList<>();
+
+    for (SynonymDictionary dict : data.getSynonyms()) {
+      synonymRules.add(dict.getKeyword());
+    }
+
+    updateElasticsearchSynonymSet(tempSynonymSetName, synonymRules);
+    log.info("동의어 사전 배포 완료 - synonymSet: {}", tempSynonymSetName);
   }
 
   private SynonymDictionaryResponse convertToResponse(SynonymDictionary entity) {
@@ -258,7 +258,6 @@ public class SynonymDictionaryService implements DictionaryService {
     return content.toString();
   }
 
-  @Override
   public void realtimeSync(EnvironmentType environment) {
     log.info("동의어 사전 실시간 동기화 - 환경: {}", environment);
 
@@ -266,33 +265,14 @@ public class SynonymDictionaryService implements DictionaryService {
       String synonymSetName;
 
       if (environment == EnvironmentType.CURRENT) {
-        // CURRENT 환경은 synonyms-nori-current 사용
         synonymSetName = "synonyms-nori-current";
       } else {
-        // DEV/PROD 환경은 현재 인덱스 버전에 맞는 synonym set 사용
-        try {
-          IndexEnvironment indexEnvironment =
-              indexEnvironmentRepository
-                  .findByEnvironmentType(environment)
-                  .orElseThrow(
-                      () ->
-                          new IllegalArgumentException(
-                              environment.getDescription() + " 환경을 찾을 수 없습니다."));
-          String indexName = indexEnvironment.getIndexName();
-
-          // 인덱스 이름에서 버전 추출 (예: products_v15 -> v15)
-          String version = indexName.substring(indexName.lastIndexOf("_v") + 1);
-          synonymSetName = "synonyms-nori-" + version;
-        } catch (Exception e) {
-          // 인덱스가 아직 활성화되지 않은 경우 (예: 색인 중)
-          log.warn("동의어 사전 실시간 동기화 건너뛰기 - 환경: {} (인덱스 미활성화)", environment);
-          return;
-        }
+        IndexEnvironment indexEnvironment = indexEnvironmentService.getEnvironment(environment);
+        synonymSetName = indexEnvironment.getSynonymSetName();
       }
 
-      // Elasticsearch synonym set 업데이트
-      createOrUpdateSynonymSet(synonymSetName, environment);
-      log.info("동의어 사전 Elasticsearch 동기화 완료 - 환경: {}, synonymSet: {}", environment, synonymSetName);
+      createOrUpdateSynonymSet(environment);
+      log.info("동의어 사전 실시간 동기화 완료 - 환경: {}, synonymSet: {}", environment, synonymSetName);
 
     } catch (Exception e) {
       log.error("동의어 사전 실시간 동기화 실패 - 환경: {}", environment, e);
@@ -342,14 +322,29 @@ public class SynonymDictionaryService implements DictionaryService {
     return Sort.by(direction, sortBy);
   }
 
-  public void createOrUpdateSynonymSet(String setName, EnvironmentType environmentType) {
+  public void createOrUpdateSynonymSet(EnvironmentType environmentType) {
     try {
       List<String> synonymRules = getSynonymRules(environmentType);
-      updateElasticsearchSynonymSet(setName, synonymRules);
-      log.info("버전 동의어 세트 생성/업데이트 완료 - set: {}, 규칙 수: {}", setName, synonymRules.size());
+      String synonymSetName =
+          indexEnvironmentService.getEnvironment(environmentType).getSynonymSetName();
+      updateElasticsearchSynonymSet(synonymSetName, synonymRules);
+      log.info("버전 동의어 세트 생성/업데이트 완료 - set: {}, 규칙 수: {}", synonymSetName, synonymRules.size());
     } catch (Exception e) {
-      log.error("버전 동의어 세트 생성/업데이트 실패 - set: {}", setName, e);
+      log.error("버전 동의어 세트 생성/업데이트 실패", e);
       throw new RuntimeException("버전 동의어 세트 생성/업데이트 실패", e);
+    }
+  }
+
+  public void syncWithPreloadedData(List<SynonymDictionary> synonyms, String synonymSetName) {
+    try {
+      List<String> synonymRules =
+          synonyms.stream().map(SynonymDictionary::getKeyword).collect(Collectors.toList());
+
+      updateElasticsearchSynonymSet(synonymSetName, synonymRules);
+      log.info("Preloaded 동의어 세트 동기화 완료 - set: {}, 규칙 수: {}", synonymSetName, synonymRules.size());
+    } catch (Exception e) {
+      log.error("Preloaded 동의어 세트 동기화 실패", e);
+      throw new RuntimeException("Preloaded 동의어 세트 동기화 실패", e);
     }
   }
 
@@ -363,7 +358,6 @@ public class SynonymDictionaryService implements DictionaryService {
     }
   }
 
-  /** 환경별 동의어 규칙 조회 */
   private List<String> getSynonymRules(EnvironmentType environmentType) {
     try {
       List<SynonymDictionary> dictionaries =
@@ -375,12 +369,9 @@ public class SynonymDictionaryService implements DictionaryService {
     }
   }
 
-  /** Elasticsearch synonym set 업데이트 */
-  private void updateElasticsearchSynonymSet(String synonymSetName, List<String> synonymRules)
-      throws IOException {
-    log.info("Elasticsearch synonym set 업데이트 시작 - 규칙 수: {}", synonymRules.size());
+  private void updateElasticsearchSynonymSet(String synonymSetName, List<String> synonymRules) {
+    log.info("Elasticsearch synonym 업데이트 시작 - 규칙 수: {}", synonymRules.size());
 
-    // SynonymRule 객체 생성
     List<SynonymRule> rules =
         synonymRules.stream()
             .map(rule -> SynonymRule.of(sr -> sr.synonyms(rule)))
@@ -389,7 +380,11 @@ public class SynonymDictionaryService implements DictionaryService {
     PutSynonymRequest request =
         PutSynonymRequest.of(psr -> psr.id(synonymSetName).synonymsSet(rules));
 
-    elasticsearchClient.synonyms().putSynonym(request);
+    try {
+      elasticsearchClient.synonyms().putSynonym(request);
+    } catch (Exception e) {
+      throw new RuntimeException("Elastcisearch synonym 업로드 실패");
+    }
 
     log.info("Elasticsearch synonym set 업데이트 완료");
   }

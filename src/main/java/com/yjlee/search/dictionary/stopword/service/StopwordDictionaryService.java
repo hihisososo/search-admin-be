@@ -4,10 +4,8 @@ import com.yjlee.search.common.domain.FileUploadResult;
 import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.service.FileUploadService;
-import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.dictionary.common.enums.DictionarySortField;
-import com.yjlee.search.dictionary.common.service.DictionaryService;
+import com.yjlee.search.dictionary.common.model.DictionaryData;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryCreateRequest;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryListResponse;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryResponse;
@@ -30,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class StopwordDictionaryService implements DictionaryService {
+public class StopwordDictionaryService {
 
   private static final String EC2_STOPWORD_DICT_PATH =
       "/home/ec2-user/elasticsearch/config/analysis/stopword";
@@ -38,7 +36,6 @@ public class StopwordDictionaryService implements DictionaryService {
   private final StopwordDictionaryRepository stopwordDictionaryRepository;
   private final FileUploadService fileUploadService;
   private final StopwordDictionaryMapper mapper;
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
 
   public StopwordDictionaryResponse create(
       StopwordDictionaryCreateRequest request, EnvironmentType environment) {
@@ -60,12 +57,9 @@ public class StopwordDictionaryService implements DictionaryService {
     Pageable pageable = PageRequest.of(page, size, sort);
 
     Page<StopwordDictionary> entities =
-        (keyword != null && !keyword.trim().isEmpty())
-            ? searchInRepository(environment, keyword.trim(), pageable)
-            : findByEnvironmentType(environment, pageable);
-    Page<StopwordDictionaryListResponse> resultPage = entities.map(mapper::toListResponse);
+        stopwordDictionaryRepository.findWithOptionalKeyword(environment, keyword, pageable);
 
-    return PageResponse.from(resultPage);
+    return PageResponse.from(entities.map(mapper::toListResponse));
   }
 
   public StopwordDictionaryResponse get(Long id, EnvironmentType environment) {
@@ -104,59 +98,39 @@ public class StopwordDictionaryService implements DictionaryService {
     return stopwordDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
   }
 
-  private Page<StopwordDictionary> findByEnvironmentType(
-      EnvironmentType environment, Pageable pageable) {
-    return stopwordDictionaryRepository.findByEnvironmentType(environment, pageable);
-  }
-
-  @Override
-  public void preIndexing() {
-    deployToEnvironment(EnvironmentType.CURRENT, EnvironmentType.DEV);
-
-    // 버전 정보 DB에서 조회
-    IndexEnvironment devEnv =
-        indexEnvironmentRepository
-            .findByEnvironmentType(EnvironmentType.DEV)
-            .orElseThrow(() -> new IllegalStateException("DEV 환경이 없습니다"));
-    String version = devEnv.getVersion();
-    if (version == null) {
-      throw new IllegalStateException("DEV 환경에 버전이 설정되지 않았습니다");
+  public void preIndexing(DictionaryData data) {
+    if (data == null || data.getStopwords().isEmpty()) {
+      log.info("불용어 사전 데이터가 비어있음 - 빈 파일 생성");
     }
 
-    deployToEC2(version);
-  }
-
-  @Override
-  public void preDeploy() {
-    deployToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-  }
-
-  @Override
-  public void deployToTemp() {
-    log.info("불용어사전 임시 환경 배포 시작");
+    String version = data.getVersion();
+    List<StopwordDictionary> stopwords = data.getStopwords();
+    log.info("불용어 사전 메모리 기반 배포 시작 - 버전: {}, 단어 수: {}", version, stopwords.size());
 
     try {
-      String content = getDictionaryContent(EnvironmentType.CURRENT);
+      // 불용어 엔티티에서 키워드 추출하여 파일 내용으로 변환
+      List<String> keywords = stopwords.stream().map(StopwordDictionary::getKeyword).toList();
+      String content = String.join("\n", keywords);
 
-      if (content == null || content.trim().isEmpty()) {
-        log.warn("불용어사전 내용이 비어있음 - 임시 환경");
-        content = "";
-      }
-
+      // EC2에 파일 업로드
       FileUploadResult result =
-          fileUploadService.uploadFile(
-              "temp-current.txt", EC2_STOPWORD_DICT_PATH, content, "temp-current");
+          fileUploadService.uploadFile(version + ".txt", EC2_STOPWORD_DICT_PATH, content, version);
 
       if (!result.isSuccess()) {
-        throw new RuntimeException("불용어사전 임시 환경 EC2 업로드 실패: " + result.getMessage());
+        throw new RuntimeException("불용어사전 EC2 업로드 실패: " + result.getMessage());
       }
 
-      log.info("불용어사전 임시 환경 EC2 업로드 완료 - 내용 길이: {}", content.length());
+      log.info("불용어사전 메모리 기반 배포 완료 - 버전: {}, 내용 길이: {}", version, content.length());
 
     } catch (Exception e) {
-      log.error("불용어사전 임시 환경 EC2 업로드 실패", e);
-      throw new RuntimeException("불용어사전 임시 환경 배포 실패", e);
+      log.error("불용어사전 메모리 기반 배포 실패", e);
+      throw new RuntimeException("불용어사전 배포 실패: " + e.getMessage(), e);
     }
+  }
+
+  @Transactional
+  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
+    deployToEnvironment(from, to);
   }
 
   private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
@@ -176,14 +150,24 @@ public class StopwordDictionaryService implements DictionaryService {
     log.info("{} 환경 불용어 사전 배포 완료: {}개", to, targetDictionaries.size());
   }
 
-  @Override
   public void deleteByEnvironmentType(EnvironmentType environment) {
     stopwordDictionaryRepository.deleteByEnvironmentType(environment);
   }
 
-  @Override
-  public void realtimeSync(EnvironmentType environment) {
-    log.info("불용어사전 실시간 동기화는 지원하지 않음 - 환경: {}", environment);
+  @Transactional
+  public void saveToEnvironment(List<StopwordDictionary> sourceData, EnvironmentType targetEnv) {
+    if (sourceData == null || sourceData.isEmpty()) {
+      log.info("불용어 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
+      return;
+    }
+
+    List<StopwordDictionary> targetDictionaries =
+        sourceData.stream()
+            .map(dict -> StopwordDictionary.of(dict.getKeyword(), dict.getDescription(), targetEnv))
+            .toList();
+
+    stopwordDictionaryRepository.saveAll(targetDictionaries);
+    log.info("{} 환경 불용어 사전 저장 완료: {}개", targetEnv, targetDictionaries.size());
   }
 
   private void deployToEC2(String version) {
@@ -231,12 +215,6 @@ public class StopwordDictionaryService implements DictionaryService {
     if (request.getDescription() != null) {
       entity.updateDescription(request.getDescription());
     }
-  }
-
-  private Page<StopwordDictionary> searchInRepository(
-      EnvironmentType environmentType, String keyword, Pageable pageable) {
-    return stopwordDictionaryRepository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
-        environmentType, keyword, pageable);
   }
 
   private Sort createSort(String sortBy, String sortDir) {
