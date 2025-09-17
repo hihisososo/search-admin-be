@@ -107,10 +107,8 @@ class IndexEnvironmentServiceTest {
 
     assertThat(response).isNotNull();
     assertThat(response.getEnvironments()).hasSize(2);
-    assertThat(response.getEnvironments().get(0).getEnvironmentType())
-        .isEqualTo("DEV");
-    assertThat(response.getEnvironments().get(1).getEnvironmentType())
-        .isEqualTo("PROD");
+    assertThat(response.getEnvironments().get(0).getEnvironmentType()).isEqualTo("DEV");
+    assertThat(response.getEnvironments().get(1).getEnvironmentType()).isEqualTo("PROD");
     verify(repository).findAll();
   }
 
