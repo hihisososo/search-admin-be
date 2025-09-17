@@ -9,20 +9,20 @@ class TextPreprocessorTest {
 
   @Test
   @DisplayName("null 입력시 빈 문자열 반환")
-  void should_return_empty_string_when_input_is_null() {
+  void returnEmptyStringForNullInput() {
     assertThat(TextPreprocessor.preprocess(null)).isEmpty();
   }
 
   @Test
   @DisplayName("빈 문자열 처리")
-  void should_handle_empty_strings() {
+  void handleEmptyStrings() {
     assertThat(TextPreprocessor.preprocess("")).isEmpty();
     assertThat(TextPreprocessor.preprocess("   ")).isEmpty();
   }
 
   @Test
   @DisplayName("특수문자 제거")
-  void should_remove_special_chars_and_convert_to_lowercase() {
+  void removeSpecialCharsAndConvertToLowercase() {
     assertThat(TextPreprocessor.preprocess("Hello@World!+-123#Test"))
         .isEqualTo("hello world +-123 test");
     assertThat(TextPreprocessor.preprocess("안녕하세요!  테스트@입니다.")).isEqualTo("안녕하세요 테스트 입니다.");
@@ -31,14 +31,14 @@ class TextPreprocessorTest {
 
   @Test
   @DisplayName("특문 유지")
-  void should_preserve_some_special_chars() {
+  void preserveSomeSpecialChars() {
     assertThat(TextPreprocessor.preprocess("전자제품/노트북&태블릿")).isEqualTo("전자제품/노트북&태블릿");
     assertThat(TextPreprocessor.preprocess("식품-음료+디저트")).isEqualTo("식품-음료+디저트");
   }
 
   @Test
   @DisplayName("천단위 구분자 제거")
-  void should_remove_thousand_separators() {
+  void removeThousandSeparators() {
     assertThat(TextPreprocessor.preprocess("1,000원")).isEqualTo("1000원");
     assertThat(TextPreprocessor.preprocess("1,234,567개")).isEqualTo("1234567개");
     assertThat(TextPreprocessor.preprocess("10,000 ml")).isEqualTo("10000 ml");
@@ -50,7 +50,7 @@ class TextPreprocessorTest {
 
   @Test
   @DisplayName("실제 상품명")
-  void should_handle_real_product_scenarios() {
+  void handleRealProductScenarios() {
     assertThat(TextPreprocessor.preprocess("LG 올레드 TV 55인치 (139.7cm)"))
         .isEqualTo("lg 올레드 tv 55인치 139.7cm");
     assertThat(TextPreprocessor.preprocess("삼성 갤럭시북3 프로 NT960XFG-K71A"))

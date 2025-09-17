@@ -17,14 +17,13 @@ public class ProductSearchService {
 
   public SearchExecuteResponse search(
       String indexName, SearchExecuteRequest request, boolean withExplain) {
-    log.info(
-        "Product search - index: {}, query: {}, mode: {}, explain: {}",
+    log.debug(
+        "상품 검색 - index: {}, query: {}, mode: {}, explain: {}",
         indexName,
         request.getQuery(),
         request.getSearchMode(),
         withExplain);
 
-    // 적절한 전략 선택
     SearchStrategy strategy =
         searchStrategies.stream()
             .filter(s -> s.supports(request))
@@ -34,7 +33,6 @@ public class ProductSearchService {
                     new IllegalArgumentException(
                         "No search strategy found for mode: " + request.getSearchMode()));
 
-    // 전략 실행
     return strategy.search(indexName, request, withExplain);
   }
 }

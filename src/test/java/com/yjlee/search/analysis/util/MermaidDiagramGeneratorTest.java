@@ -12,7 +12,7 @@ class MermaidDiagramGeneratorTest {
 
   @Test
   @DisplayName("단순 다이어그램 생성")
-  void shouldGenerateSimpleTokenChain() {
+  void generateSimpleTokenChain() {
     List<TokenInfo> tokens =
         Arrays.asList(
             TokenInfo.builder()
@@ -54,7 +54,7 @@ class MermaidDiagramGeneratorTest {
 
   @Test
   @DisplayName("복잡한 토큰 구조 다이어그램 생성")
-  void shouldGenerateComplexDiagram() {
+  void generateComplexDiagram() {
     List<TokenInfo> tokens =
         Arrays.asList(
             TokenInfo.builder()

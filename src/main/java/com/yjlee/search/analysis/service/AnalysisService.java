@@ -11,7 +11,7 @@ import com.yjlee.search.analysis.util.MermaidDiagramGenerator;
 import com.yjlee.search.analysis.util.TokenParser;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.util.TextPreprocessor;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AnalysisService {
 
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexEnvironmentService environmentService;
   private final TempIndexService tempIndexService;
   private final ElasticsearchAnalyzer elasticsearchAnalyzer;
 
@@ -104,10 +104,10 @@ public class AnalysisService {
       return tempIndexService.getTempIndexName();
     }
 
-    return indexEnvironmentRepository
-        .findByEnvironmentType(environment)
-        .orElseThrow(
-            () -> new AnalysisException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다."))
-        .getIndexName();
+    var env = environmentService.getEnvironmentOrNull(environment);
+    if (env == null) {
+      throw new AnalysisException(environment.getDescription() + " 환경의 인덱스를 찾을 수 없습니다.");
+    }
+    return env.getIndexName();
   }
 }

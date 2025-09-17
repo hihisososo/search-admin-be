@@ -1,5 +1,7 @@
 package com.yjlee.search.deployment.model;
 
+import com.yjlee.search.deployment.enums.DeploymentStatus;
+import com.yjlee.search.deployment.enums.DeploymentType;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -44,38 +46,14 @@ public class DeploymentHistory {
   @Column(name = "created_at")
   private LocalDateTime createdAt;
 
-  public enum DeploymentType {
-    INDEXING("색인"),
-    DEPLOYMENT("배포"),
-    CLEANUP("정리");
-
-    private final String description;
-
-    DeploymentType(String description) {
-      this.description = description;
-    }
-
-    public String getDescription() {
-      return description;
-    }
-  }
-
-  public enum DeploymentStatus {
-    SUCCESS("성공"),
-    FAILED("실패"),
-    IN_PROGRESS("진행중"),
-    COMPLETED("완료"),
-    PARTIAL("부분완료");
-
-    private final String description;
-
-    DeploymentStatus(String description) {
-      this.description = description;
-    }
-
-    public String getDescription() {
-      return description;
-    }
+  public static DeploymentHistory createInProgress(
+      DeploymentType type, String version, String description) {
+    return DeploymentHistory.builder()
+        .deploymentType(type)
+        .status(DeploymentStatus.IN_PROGRESS)
+        .version(version)
+        .description(description)
+        .build();
   }
 
   public void complete(LocalDateTime deploymentTime, Long documentCount) {

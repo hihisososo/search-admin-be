@@ -1,4 +1,4 @@
-package com.yjlee.search.common.constants;
+package com.yjlee.search.searchlog.constants;
 
 public final class SearchLimits {
 

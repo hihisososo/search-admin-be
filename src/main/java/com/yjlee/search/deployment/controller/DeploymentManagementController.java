@@ -1,14 +1,16 @@
 package com.yjlee.search.deployment.controller;
 
+import com.yjlee.search.async.service.AsyncTaskService;
 import com.yjlee.search.deployment.dto.DeploymentHistoryListResponse;
 import com.yjlee.search.deployment.dto.DeploymentOperationResponse;
 import com.yjlee.search.deployment.dto.DeploymentRequest;
 import com.yjlee.search.deployment.dto.EnvironmentListResponse;
 import com.yjlee.search.deployment.dto.IndexingRequest;
 import com.yjlee.search.deployment.dto.IndexingStartResponse;
+import com.yjlee.search.deployment.service.DeploymentHistoryService;
 import com.yjlee.search.deployment.service.DeploymentService;
-import com.yjlee.search.deployment.service.EnvironmentQueryService;
-import com.yjlee.search.deployment.service.IndexingService;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
+import com.yjlee.search.deployment.service.IndexingTaskRegisterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -29,21 +31,23 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Deployment Management", description = "배포 관리 API")
 public class DeploymentManagementController {
 
-  private final EnvironmentQueryService environmentQueryService;
-  private final IndexingService indexingService;
+  private final IndexEnvironmentService environmentService;
+  private final DeploymentHistoryService historyService;
+  private final AsyncTaskService asyncTaskService;
   private final DeploymentService deploymentService;
+  private final IndexingTaskRegisterService indexingTaskRegisterService;
 
   @Operation(summary = "환경 정보 조회", description = "개발/운영 환경의 색인 정보를 조회합니다.")
   @GetMapping("/environments")
   public ResponseEntity<EnvironmentListResponse> getEnvironments() {
-    return ResponseEntity.ok(environmentQueryService.getEnvironments());
+    return ResponseEntity.ok(environmentService.getEnvironments());
   }
 
   @Operation(summary = "색인 실행", description = "개발 환경에서 비동기로 색인을 실행합니다.")
   @PostMapping("/indexing")
   public ResponseEntity<IndexingStartResponse> executeIndexing(
       @RequestBody IndexingRequest request) {
-    return ResponseEntity.ok(indexingService.executeIndexing(request));
+    return ResponseEntity.ok(indexingTaskRegisterService.register(request));
   }
 
   @Operation(summary = "배포 실행", description = "개발 환경에서 운영 환경으로 배포를 실행합니다.")
@@ -59,6 +63,6 @@ public class DeploymentManagementController {
       @ParameterObject
           @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
           Pageable pageable) {
-    return ResponseEntity.ok(environmentQueryService.getDeploymentHistory(pageable));
+    return ResponseEntity.ok(historyService.getDeploymentHistory(pageable));
   }
 }

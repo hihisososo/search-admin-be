@@ -8,10 +8,9 @@ import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.yjlee.search.common.constants.IndexNameConstants;
-import com.yjlee.search.common.constants.SearchLimits;
-import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.dto.SearchExecuteResponse;
+import com.yjlee.search.searchlog.constants.SearchLimits;
 import com.yjlee.search.searchlog.dto.SearchLogListRequest;
 import com.yjlee.search.searchlog.dto.SearchLogListResponse;
 import com.yjlee.search.searchlog.dto.SearchLogResponse;
@@ -31,16 +30,10 @@ import org.springframework.stereotype.Service;
 public class SearchLogService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final ProductRepository productRepository;
 
   private static final DateTimeFormatter INDEX_DATE_FORMAT =
-      DateTimeFormatter.ofPattern(IndexNameConstants.INDEX_DATE_FORMAT);
+      DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
-  /**
-   * 검색 로그를 Elasticsearch에 저장
-   *
-   * @param searchLogDocument 저장할 검색 로그
-   */
   public void saveSearchLog(SearchLogDocument searchLogDocument) {
     try {
       String indexName = generateIndexName(searchLogDocument.getTimestamp());

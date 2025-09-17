@@ -8,10 +8,9 @@ import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
 import co.elastic.clients.elasticsearch.indices.analyze.ExplainAnalyzeToken;
 import co.elastic.clients.elasticsearch.indices.analyze.TokenDetail;
 import co.elastic.clients.json.JsonData;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
 import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
 import com.yjlee.search.index.provider.IndexNameProvider;
 import java.io.IOException;
@@ -31,22 +30,19 @@ import org.springframework.stereotype.Service;
 public class ElasticsearchAnalyzeService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexEnvironmentService environmentService;
   private final IndexNameProvider indexNameProvider;
-  private final ObjectMapper objectMapper = new ObjectMapper();
 
   public List<AnalyzeTextResponse.TokenInfo> analyzeText(String text, EnvironmentType environment) {
     try {
       String indexName = getIndexName(environment);
 
-      // explain: true를 추가하여 상세한 분석 정보 요청
       AnalyzeRequest analyzeRequest =
           AnalyzeRequest.of(
               a -> a.index(indexName).analyzer("nori_search_analyzer").text(text).explain(true));
 
       AnalyzeResponse response = elasticsearchClient.indices().analyze(analyzeRequest);
 
-      // explain 응답에서 토큰 정보 추출
       return extractTokensFromExplainResponse(response);
     } catch (IOException e) {
       log.error("형태소 분석 중 오류 발생", e);
@@ -74,14 +70,13 @@ public class ElasticsearchAnalyzeService {
       return tokens;
     }
 
-    // detail에서 stopword_filter의 토큰 추출
     AnalyzeDetail detail = response.detail();
     if (detail.tokenfilters() != null) {
       for (TokenDetail filter : detail.tokenfilters()) {
         if ("stopword_filter".equals(filter.name())) {
           if (filter.tokens() != null) {
             for (ExplainAnalyzeToken token : filter.tokens()) {
-              // ExplainAnalyzeToken에서 직접 필드 접근
+              // ExplainAnalyzToken에서 직접 필드 접근
               tokens.add(
                   AnalyzeTextResponse.TokenInfo.builder()
                       .token(token.token())
@@ -103,7 +98,6 @@ public class ElasticsearchAnalyzeService {
       }
     }
 
-    // stopword_filter가 없으면 기본 토큰 사용
     if (tokens.isEmpty() && response.tokens() != null) {
       for (AnalyzeToken token : response.tokens()) {
         tokens.add(
@@ -274,11 +268,7 @@ public class ElasticsearchAnalyzeService {
     EnvironmentType envType =
         environment == EnvironmentType.PROD ? EnvironmentType.PROD : EnvironmentType.DEV;
 
-    IndexEnvironment indexEnvironment =
-        indexEnvironmentRepository
-            .findByEnvironmentType(envType)
-            .orElseThrow(
-                () -> new RuntimeException(envType.getDescription() + " 환경 인덱스가 설정되지 않았습니다."));
+    IndexEnvironment indexEnvironment = environmentService.getEnvironment(envType);
     return indexEnvironment.getIndexName();
   }
 }

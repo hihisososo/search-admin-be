@@ -8,7 +8,7 @@ import co.elastic.clients.elasticsearch.core.MgetResponse;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetResponseItem;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
 import com.yjlee.search.index.dto.ProductDocument;
 import com.yjlee.search.search.constants.VectorSearchConstants;
 import java.util.HashMap;
@@ -26,7 +26,7 @@ import org.springframework.util.ObjectUtils;
 public class ProductBulkFetchService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexEnvironmentService environmentService;
 
   public Map<String, ProductDocument> fetchBulk(List<String> productIds) {
     return fetchBulk(productIds, EnvironmentType.DEV);
@@ -41,13 +41,7 @@ public class ProductBulkFetchService {
 
     try {
 
-      IndexEnvironment indexEnvironment =
-          indexEnvironmentRepository
-              .findByEnvironmentType(environmentType)
-              .orElseThrow(
-                  () ->
-                      new RuntimeException(
-                          environmentType.getDescription() + " 환경 인덱스가 설정되지 않았습니다."));
+      IndexEnvironment indexEnvironment = environmentService.getEnvironment(environmentType);
       String indexName = indexEnvironment.getIndexName();
       MgetRequest.Builder requestBuilder =
           new MgetRequest.Builder()
@@ -101,13 +95,7 @@ public class ProductBulkFetchService {
   public Optional<ProductDocument> fetchSingle(String productId, EnvironmentType environmentType) {
 
     try {
-      IndexEnvironment indexEnvironment =
-          indexEnvironmentRepository
-              .findByEnvironmentType(environmentType)
-              .orElseThrow(
-                  () ->
-                      new RuntimeException(
-                          environmentType.getDescription() + " 환경 인덱스가 설정되지 않았습니다."));
+      IndexEnvironment indexEnvironment = environmentService.getEnvironment(environmentType);
       String indexName = indexEnvironment.getIndexName();
 
       GetRequest request =

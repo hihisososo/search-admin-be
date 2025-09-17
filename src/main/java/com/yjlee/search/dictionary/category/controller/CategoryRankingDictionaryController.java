@@ -78,7 +78,7 @@ public class CategoryRankingDictionaryController {
   @ResponseStatus(HttpStatus.OK)
   public Map<String, Object> syncCategoryRankingDictionary(
       @RequestParam EnvironmentType environment) {
-    categoryRankingService.updateCacheRealtime(environment);
+    categoryRankingService.refreshCache(environment);
     Map<String, Object> response = new HashMap<>();
     response.put("success", true);
     response.put("message", "카테고리 랭킹 사전 실시간 반영 완료");

@@ -64,12 +64,12 @@ dependencies {
 }
 
 task startTestES(type: Exec) {
-	commandLine 'docker-compose', '-f', 'infra/docker-compose.yml', 'up', '-d'
+	commandLine 'docker', 'compose', '-f', 'infra/docker-compose.yml', 'up', '-d', 'elasticsearch-local'
 	ignoreExitValue = true
 	doLast {
 		println 'Waiting for Elasticsearch...'
 		def attempts = 0
-		while (attempts++ < 30) {
+		while (attempts++ < 60) {
 			try {
 				new URL('http://localhost:9200/_cluster/health').text
 				println 'Elasticsearch is ready!'
@@ -82,7 +82,7 @@ task startTestES(type: Exec) {
 }
 
 task stopTestES(type: Exec) {
-	commandLine 'docker-compose', '-f', 'infra/docker-compose.yml', 'down'
+	commandLine 'docker', 'compose', '-f', 'infra/docker-compose.yml', 'down'
 	doLast {
 		println 'Test ES container stopped'
 	}

@@ -18,4 +18,8 @@ public class IndexingStartResponse {
 
   @Schema(description = "결과 메시지")
   private String message;
+
+  public static IndexingStartResponse of(Long taskId, String message) {
+    return IndexingStartResponse.builder().taskId(taskId).message(message).build();
+  }
 }

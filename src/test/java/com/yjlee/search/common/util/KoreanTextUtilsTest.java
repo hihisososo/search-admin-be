@@ -9,7 +9,7 @@ class KoreanTextUtilsTest {
 
   @Test
   @DisplayName("자소분리")
-  void decomposeHangulTest() {
+  void decomposeHangul() {
     assertThat(KoreanTextUtils.decomposeHangul("안녕하세요")).isEqualTo("ㅇㅏㄴㄴㅕㅇㅎㅏㅅㅔㅇㅛ");
     assertThat(KoreanTextUtils.decomposeHangul("테스트")).isEqualTo("ㅌㅔㅅㅡㅌㅡ");
     assertThat(KoreanTextUtils.decomposeHangul("나이키")).isEqualTo("ㄴㅏㅇㅣㅋㅣ");
@@ -20,7 +20,7 @@ class KoreanTextUtilsTest {
 
   @Test
   @DisplayName("초성추출")
-  void extractChosungTest() {
+  void extractChosung() {
     assertThat(KoreanTextUtils.extractChosung("안녕하세요")).isEqualTo("ㅇㄴㅎㅅㅇ");
     assertThat(KoreanTextUtils.extractChosung("테스트")).isEqualTo("ㅌㅅㅌ");
     assertThat(KoreanTextUtils.extractChosung("나이키")).isEqualTo("ㄴㅇㅋ");
@@ -32,28 +32,28 @@ class KoreanTextUtilsTest {
 
   @Test
   @DisplayName("특수문자 있을 경우")
-  void specialCharacterTest() {
+  void handleSpecialCharacters() {
     assertThat(KoreanTextUtils.extractChosung("나이키@에어맥스")).isEqualTo("ㄴㅇㅋ@ㅇㅇㅁㅅ");
     assertThat(KoreanTextUtils.decomposeHangul("나이키@에어맥스")).isEqualTo("ㄴㅏㅇㅣㅋㅣ@ㅇㅔㅇㅓㅁㅐㄱㅅㅡ");
   }
 
   @Test
   @DisplayName("공백 처리")
-  void whitespaceHandlingTest() {
+  void handleWhitespace() {
     assertThat(KoreanTextUtils.extractChosung("나이키 에어 맥스")).isEqualTo("ㄴㅇㅋ ㅇㅇ ㅁㅅ");
     assertThat(KoreanTextUtils.decomposeHangul("나이키 에어 맥스")).isEqualTo("ㄴㅏㅇㅣㅋㅣ ㅇㅔㅇㅓ ㅁㅐㄱㅅㅡ");
   }
 
   @Test
   @DisplayName("빈 문자열")
-  void emptyStringTest() {
+  void handleEmptyString() {
     assertThat(KoreanTextUtils.extractChosung("")).isEqualTo("");
     assertThat(KoreanTextUtils.decomposeHangul("")).isEqualTo("");
   }
 
   @Test
-  @DisplayName("종성도 잘 분리되는지ㅣ")
-  void withJongsungTest() {
+  @DisplayName("종성도 잘 분리되는지")
+  void handleJongsung() {
     assertThat(KoreanTextUtils.decomposeHangul("강")).isEqualTo("ㄱㅏㅇ");
     assertThat(KoreanTextUtils.decomposeHangul("힘")).isEqualTo("ㅎㅣㅁ");
     assertThat(KoreanTextUtils.extractChosung("강남역")).isEqualTo("ㄱㄴㅇ");

@@ -7,6 +7,7 @@ import com.yjlee.search.async.model.AsyncTask;
 import com.yjlee.search.async.model.AsyncTaskStatus;
 import com.yjlee.search.async.model.AsyncTaskType;
 import com.yjlee.search.async.repository.AsyncTaskRepository;
+import com.yjlee.search.common.service.ApplicationStartupListener;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;

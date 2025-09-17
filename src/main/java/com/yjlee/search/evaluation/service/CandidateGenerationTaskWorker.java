@@ -1,11 +1,10 @@
-package com.yjlee.search.async.worker;
+package com.yjlee.search.evaluation.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yjlee.search.async.model.AsyncTask;
 import com.yjlee.search.async.model.AsyncTaskType;
 import com.yjlee.search.async.service.TaskWorker;
 import com.yjlee.search.evaluation.dto.GenerateCandidatesRequest;
-import com.yjlee.search.evaluation.service.AsyncEvaluationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

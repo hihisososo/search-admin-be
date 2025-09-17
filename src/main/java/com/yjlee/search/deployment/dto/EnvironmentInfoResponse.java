@@ -43,6 +43,7 @@ public class EnvironmentInfoResponse {
         .environmentType(environment.getEnvironmentType().name())
         .environmentDescription(environment.getEnvironmentType().getDescription())
         .indexName(environment.getIndexName())
+        .autocompleteIndexName(environment.getAutocompleteIndexName())
         .documentCount(environment.getDocumentCount())
         .indexStatus(environment.getIndexStatus().name())
         .indexStatusDescription(environment.getIndexStatus().getDescription())

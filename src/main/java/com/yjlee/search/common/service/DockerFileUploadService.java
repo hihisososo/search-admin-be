@@ -24,9 +24,7 @@ public class DockerFileUploadService implements FileUploadService {
       Path localFile = localDir.resolve(fileName);
 
       Files.createDirectories(localDir);
-
       Files.writeString(localFile, content);
-      System.out.println("파일 생성 완료: " + localFile);
 
       return FileUploadResult.builder()
           .success(true)

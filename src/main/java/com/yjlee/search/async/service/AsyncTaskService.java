@@ -57,8 +57,8 @@ public class AsyncTaskService {
     return createTask(taskType, initialMessage, params);
   }
 
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public AsyncTask createTaskIfNotRunning(
+  @Transactional
+  public synchronized AsyncTask createTaskIfNotRunning(
       AsyncTaskType taskType, String initialMessage, Object params) {
     List<String> runningStatuses =
         RUNNING_STATUSES.stream().map(Enum::name).collect(Collectors.toList());

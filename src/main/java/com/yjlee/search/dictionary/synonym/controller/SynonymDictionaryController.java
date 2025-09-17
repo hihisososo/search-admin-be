@@ -2,7 +2,7 @@ package com.yjlee.search.dictionary.synonym.controller;
 
 import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
 import com.yjlee.search.dictionary.synonym.dto.*;
 import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class SynonymDictionaryController {
 
   private final SynonymDictionaryService synonymDictionaryService;
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexEnvironmentService environmentService;
 
   @Operation(summary = "사전 목록")
   @GetMapping
@@ -72,22 +72,7 @@ public class SynonymDictionaryController {
   @PostMapping("/realtime-sync")
   public SynonymSyncResponse syncSynonymDictionary(@RequestParam EnvironmentType environment) {
     try {
-      String synonymSetName = getSynonymSetName(environment);
-
-      if (environment != EnvironmentType.CURRENT) {
-        EnvironmentType envType =
-            environment == EnvironmentType.DEV ? EnvironmentType.DEV : EnvironmentType.PROD;
-
-        indexEnvironmentRepository
-            .findByEnvironmentType(envType)
-            .filter(env -> env.getVersion() != null)
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        environment.getDescription() + " 환경에 인덱스가 없습니다. 먼저 인덱스를 생성하고 배포해주세요."));
-      }
-
-      synonymDictionaryService.createOrUpdateSynonymSet(synonymSetName, environment);
+      synonymDictionaryService.createOrUpdateSynonymSet(environment);
       return SynonymSyncResponse.success(environment.getDescription());
     } catch (Exception e) {
       return SynonymSyncResponse.error(environment.getDescription(), e.getMessage());
@@ -102,9 +87,9 @@ public class SynonymDictionaryController {
     EnvironmentType envType =
         environment == EnvironmentType.DEV ? EnvironmentType.DEV : EnvironmentType.PROD;
 
-    return indexEnvironmentRepository
-        .findByEnvironmentType(envType)
-        .map(env -> "synonyms-nori-" + env.getVersion())
-        .orElse("synonyms-nori-" + environment.name().toLowerCase());
+    var env = environmentService.getEnvironment(envType);
+    return env != null && env.getVersion() != null
+        ? "synonyms-nori-" + env.getVersion()
+        : "synonyms-nori-" + environment.name().toLowerCase();
   }
 }

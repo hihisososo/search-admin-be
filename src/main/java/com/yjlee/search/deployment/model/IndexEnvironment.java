@@ -1,18 +1,22 @@
 package com.yjlee.search.deployment.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
+import com.yjlee.search.deployment.enums.IndexStatus;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "index_environments")
-@Data
+@Getter
+@Setter(AccessLevel.PACKAGE)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -56,23 +60,24 @@ public class IndexEnvironment {
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
 
-  public enum IndexStatus {
-    ACTIVE("활성"),
-    INACTIVE("비활성");
-
-    private final String description;
-
-    IndexStatus(String description) {
-      this.description = description;
-    }
-
-    public String getDescription() {
-      return description;
-    }
+  public static IndexEnvironment createNew(EnvironmentType type) {
+    return IndexEnvironment.builder()
+        .environmentType(type)
+        .indexStatus(IndexStatus.INACTIVE)
+        .documentCount(0L)
+        .build();
   }
 
-  public void activate(String version, Long documentCount) {
+  public void activate(
+      String indexName,
+      String autocompleteIndexName,
+      String synonymSetName,
+      String version,
+      Long documentCount) {
     this.indexStatus = IndexStatus.ACTIVE;
+    this.indexName = indexName;
+    this.autocompleteIndexName = autocompleteIndexName;
+    this.synonymSetName = synonymSetName;
     this.version = version;
     this.documentCount = documentCount;
     this.indexDate = LocalDateTime.now();
@@ -98,5 +103,17 @@ public class IndexEnvironment {
     this.autocompleteIndexName = autoCompleteIndexname;
     this.synonymSetName = synonymSetName;
     this.version = version;
+    this.indexStatus = IndexStatus.INACTIVE;
+    this.documentCount = 0L;
+  }
+
+  public void switchFrom(IndexEnvironment source) {
+    this.indexName = source.indexName;
+    this.autocompleteIndexName = source.autocompleteIndexName;
+    this.synonymSetName = source.synonymSetName;
+    this.version = source.version;
+    this.documentCount = source.documentCount;
+    this.indexStatus = IndexStatus.ACTIVE;
+    this.indexDate = LocalDateTime.now();
   }
 }

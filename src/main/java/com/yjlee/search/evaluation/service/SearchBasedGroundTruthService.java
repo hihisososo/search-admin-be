@@ -11,7 +11,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
 import com.yjlee.search.evaluation.model.EvaluationQuery;
 import com.yjlee.search.evaluation.model.QueryProductMapping;
 import com.yjlee.search.evaluation.repository.EvaluationQueryRepository;
@@ -41,7 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SearchBasedGroundTruthService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexEnvironmentService environmentService;
   private final EvaluationQueryRepository evaluationQueryRepository;
   private final QueryProductMappingRepository queryProductMappingRepository;
   private final VectorSearchService vectorSearchService;
@@ -210,10 +210,7 @@ public class SearchBasedGroundTruthService {
 
   private List<String> searchByBM25(String query, int size) {
     try {
-      IndexEnvironment indexEnvironment =
-          indexEnvironmentRepository
-              .findByEnvironmentType(EnvironmentType.DEV)
-              .orElseThrow(() -> new RuntimeException("DEV 환경 인덱스가 설정되지 않았습니다."));
+      IndexEnvironment indexEnvironment = environmentService.getEnvironment(EnvironmentType.DEV);
       String indexName = indexEnvironment.getIndexName();
 
       // SearchExecuteRequest 생성 (실제 검색과 동일한 쿼리 생성을 위해)
@@ -247,10 +244,7 @@ public class SearchBasedGroundTruthService {
 
   private List<String> searchByVector(String query, int size) {
     try {
-      IndexEnvironment indexEnvironment =
-          indexEnvironmentRepository
-              .findByEnvironmentType(EnvironmentType.DEV)
-              .orElseThrow(() -> new RuntimeException("DEV 환경 인덱스가 설정되지 않았습니다."));
+      IndexEnvironment indexEnvironment = environmentService.getEnvironment(EnvironmentType.DEV);
       String indexName = indexEnvironment.getIndexName();
 
       SearchResponse<JsonNode> response =
@@ -271,10 +265,7 @@ public class SearchBasedGroundTruthService {
 
   private List<String> searchByCrossField(String query, String[] fields, int size) {
     try {
-      IndexEnvironment indexEnvironment =
-          indexEnvironmentRepository
-              .findByEnvironmentType(EnvironmentType.DEV)
-              .orElseThrow(() -> new RuntimeException("DEV 환경 인덱스가 설정되지 않았습니다."));
+      IndexEnvironment indexEnvironment = environmentService.getEnvironment(EnvironmentType.DEV);
       String indexName = indexEnvironment.getIndexName();
       SearchRequest request =
           SearchRequest.of(

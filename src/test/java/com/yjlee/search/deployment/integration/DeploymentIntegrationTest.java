@@ -8,6 +8,9 @@ import com.yjlee.search.async.model.AsyncTask;
 import com.yjlee.search.async.model.AsyncTaskStatus;
 import com.yjlee.search.async.repository.AsyncTaskRepository;
 import com.yjlee.search.common.enums.EnvironmentType;
+import com.yjlee.search.deployment.enums.DeploymentStatus;
+import com.yjlee.search.deployment.enums.DeploymentType;
+import com.yjlee.search.deployment.enums.IndexStatus;
 import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.deployment.repository.DeploymentHistoryRepository;
@@ -42,25 +45,24 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
     asyncTaskRepository.deleteAll();
     productRepository.deleteAll();
 
+    environmentRepository.save(
+        IndexEnvironment.builder()
+            .environmentType(EnvironmentType.DEV)
+            .indexStatus(IndexStatus.INACTIVE)
+            .build());
+
+    environmentRepository.save(
+        IndexEnvironment.builder()
+            .environmentType(EnvironmentType.PROD)
+            .indexStatus(IndexStatus.INACTIVE)
+            .build());
+
     createTestProducts();
   }
 
   @Test
   @DisplayName("환경 목록 조회")
   void getEnvironments() throws Exception {
-
-    environmentRepository.save(
-        IndexEnvironment.builder()
-            .environmentType(EnvironmentType.DEV)
-            .indexStatus(IndexEnvironment.IndexStatus.INACTIVE)
-            .build());
-
-    environmentRepository.save(
-        IndexEnvironment.builder()
-            .environmentType(EnvironmentType.PROD)
-            .indexStatus(IndexEnvironment.IndexStatus.INACTIVE)
-            .build());
-
     mockMvc
         .perform(get("/api/v1/deployment/environments"))
         .andExpect(status().isOk())
@@ -73,10 +75,8 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
   @Test
   @DisplayName("색인 실행")
   void executeIndexing() throws Exception {
-
     Long taskId = executeIndexingRequest("테스트 색인");
     waitForAsyncTask(taskId, 30);
-
     verifyIndexingSuccess(taskId, 10L);
   }
 
@@ -99,10 +99,11 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
 
   @Test
   @DisplayName("색인 후 배포")
-  void indexingAndDeployment() throws Exception {
+  void executeIndexingAndDeployment() throws Exception {
 
     Long taskId = executeIndexingRequest("배포용 색인");
     waitForAsyncTask(taskId, 30);
+    verifyIndexingSuccess(taskId, 10L);
 
     mockMvc
         .perform(
@@ -135,8 +136,8 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
     for (int i = 0; i < 5; i++) {
       historyRepository.save(
           DeploymentHistory.builder()
-              .deploymentType(DeploymentHistory.DeploymentType.INDEXING)
-              .status(DeploymentHistory.DeploymentStatus.SUCCESS)
+              .deploymentType(DeploymentType.INDEXING)
+              .status(DeploymentStatus.SUCCESS)
               .version("v2024010112000" + i)
               .documentCount(1000L + i * 100)
               .build());
@@ -152,7 +153,7 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
 
   @Test
   @DisplayName("동시 색인 요청")
-  void concurrentIndexing() throws Exception {
+  void executeConcurrentIndexing() throws Exception {
 
     List<CompletableFuture<Integer>> futures =
         List.of(
@@ -167,6 +168,132 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
     assertThat(asyncTaskRepository.count()).isEqualTo(1);
 
     asyncTaskRepository.findAll().forEach(task -> waitForAsyncTask(task.getId(), 30));
+  }
+
+  @Test
+  @DisplayName("연속 배포 시나리오")
+  void executeSequentialDeployment() throws Exception {
+    Long firstTaskId = executeIndexingRequest("첫 번째 색인");
+    waitForAsyncTask(firstTaskId, 30);
+    verifyIndexingSuccess(firstTaskId, 10L);
+
+    mockMvc
+        .perform(
+            post("/api/v1/deployment/deploy")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"description\":\"첫 번째 배포\"}"))
+        .andExpect(status().isOk());
+
+    IndexEnvironment prodEnv =
+        environmentRepository.findByEnvironmentType(EnvironmentType.PROD).orElseThrow();
+    String firstVersion = prodEnv.getVersion();
+    assertThat(prodEnv.getIndexStatus()).isEqualTo(IndexStatus.ACTIVE);
+
+    Long secondTaskId = executeIndexingRequest("두 번째 색인");
+    waitForAsyncTask(secondTaskId, 30);
+    verifyIndexingSuccess(secondTaskId, 10L);
+
+    mockMvc
+        .perform(
+            post("/api/v1/deployment/deploy")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"description\":\"두 번째 배포\"}"))
+        .andExpect(status().isOk());
+
+    prodEnv = environmentRepository.findByEnvironmentType(EnvironmentType.PROD).orElseThrow();
+    assertThat(prodEnv.getVersion()).isNotEqualTo(firstVersion);
+    assertThat(prodEnv.getIndexStatus()).isEqualTo(IndexStatus.ACTIVE);
+  }
+
+  @Test
+  @DisplayName("색인 진행 중 배포 차단")
+  void blockDeploymentDuringIndexing() throws Exception {
+    String requestBody = "{\"description\":\"진행 중 색인\"}";
+    mockMvc
+        .perform(
+            post("/api/v1/deployment/indexing")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody))
+        .andExpect(status().isOk());
+
+    Thread.sleep(500);
+    mockMvc
+        .perform(
+            post("/api/v1/deployment/deploy")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"description\":\"차단될 배포\"}"))
+        .andExpect(status().isConflict());
+
+    AsyncTask runningTask = asyncTaskRepository.findAll().get(0);
+    waitForAsyncTask(runningTask.getId(), 30);
+  }
+
+  @Test
+  @DisplayName("배포 이력 정렬 및 페이징")
+  void paginateDeploymentHistory() throws Exception {
+    for (int i = 0; i < 15; i++) {
+      historyRepository.save(
+          DeploymentHistory.builder()
+              .deploymentType(i % 2 == 0 ? DeploymentType.INDEXING : DeploymentType.DEPLOYMENT)
+              .status(DeploymentStatus.SUCCESS)
+              .version(String.format("v20240101%02d0000", i))
+              .documentCount(1000L + i * 100)
+              .description("테스트 " + i)
+              .build());
+    }
+
+    mockMvc
+        .perform(get("/api/v1/deployment/history").param("page", "0").param("size", "10"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.deploymentHistories").isArray())
+        .andExpect(jsonPath("$.deploymentHistories.length()").value(10))
+        .andExpect(jsonPath("$.pagination.totalElements").value(15))
+        .andExpect(jsonPath("$.pagination.totalPages").value(2));
+
+    mockMvc
+        .perform(get("/api/v1/deployment/history").param("page", "1").param("size", "10"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.deploymentHistories.length()").value(5));
+  }
+
+  @Test
+  @DisplayName("환경 정보 업데이트 확인")
+  void verifyEnvironmentUpdates() throws Exception {
+    mockMvc
+        .perform(get("/api/v1/deployment/environments"))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.environments[?(@.environmentType=='DEV')].indexStatus").value("INACTIVE"))
+        .andExpect(
+            jsonPath("$.environments[?(@.environmentType=='PROD')].indexStatus").value("INACTIVE"));
+
+    Long taskId = executeIndexingRequest("환경 업데이트 테스트");
+    waitForAsyncTask(taskId, 30);
+    verifyIndexingSuccess(taskId, 10L);
+
+    mockMvc
+        .perform(get("/api/v1/deployment/environments"))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.environments[?(@.environmentType=='DEV')].indexStatus").value("ACTIVE"))
+        .andExpect(jsonPath("$.environments[?(@.environmentType=='DEV')].documentCount").value(10));
+
+    mockMvc
+        .perform(
+            post("/api/v1/deployment/deploy")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"description\":\"환경 전환 테스트\"}"))
+        .andExpect(status().isOk());
+
+    mockMvc
+        .perform(get("/api/v1/deployment/environments"))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.environments[?(@.environmentType=='DEV')].indexStatus").value("INACTIVE"))
+        .andExpect(
+            jsonPath("$.environments[?(@.environmentType=='PROD')].indexStatus").value("ACTIVE"))
+        .andExpect(
+            jsonPath("$.environments[?(@.environmentType=='PROD')].documentCount").value(10));
   }
 
   private void waitForAsyncTask(Long taskId, int maxWaitSeconds) {
@@ -202,7 +329,7 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
 
     IndexEnvironment devEnv =
         environmentRepository.findByEnvironmentType(EnvironmentType.DEV).orElseThrow();
-    assertThat(devEnv.getIndexStatus()).isEqualTo(IndexEnvironment.IndexStatus.ACTIVE);
+    assertThat(devEnv.getIndexStatus()).isEqualTo(IndexStatus.ACTIVE);
     assertThat(devEnv.getDocumentCount()).isEqualTo(expectedDocCount);
   }
 
@@ -212,9 +339,9 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
     IndexEnvironment devEnv =
         environmentRepository.findByEnvironmentType(EnvironmentType.DEV).orElseThrow();
 
-    assertThat(prodEnv.getIndexStatus()).isEqualTo(IndexEnvironment.IndexStatus.ACTIVE);
+    assertThat(prodEnv.getIndexStatus()).isEqualTo(IndexStatus.ACTIVE);
     assertThat(prodEnv.getDocumentCount()).isEqualTo(10L);
-    assertThat(devEnv.getIndexStatus()).isEqualTo(IndexEnvironment.IndexStatus.INACTIVE);
+    assertThat(devEnv.getIndexStatus()).isEqualTo(IndexStatus.INACTIVE);
   }
 
   private Integer sendIndexingRequest() {

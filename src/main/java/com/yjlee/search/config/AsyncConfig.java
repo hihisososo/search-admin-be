@@ -1,6 +1,7 @@
 package com.yjlee.search.config;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -31,16 +32,6 @@ public class AsyncConfig {
     return executor;
   }
 
-  @Bean(name = "indexingTaskExecutor")
-  public Executor indexingTaskExecutor() {
-    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(1);
-    executor.setMaxPoolSize(2);
-    executor.setThreadNamePrefix("indexing-");
-    executor.initialize();
-    return executor;
-  }
-
   @Bean(name = "asyncThreadPoolExecutor")
   public ThreadPoolTaskExecutor asyncThreadPoolExecutor() {
     ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -49,8 +40,7 @@ public class AsyncConfig {
     executor.setQueueCapacity(100);
     executor.setKeepAliveSeconds(60);
     executor.setThreadNamePrefix("async-task-");
-    executor.setRejectedExecutionHandler(
-        new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+    executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
     executor.initialize();
     return executor;
   }

@@ -22,7 +22,7 @@ class TempAnalysisIndexServiceIntegrationTest extends BaseIntegrationTest {
 
   @Test
   @DisplayName("임시 인덱스 생성")
-  void shouldCreateTempIndex() throws Exception {
+  void createTempIndex() throws Exception {
     assertThat(tempIndexService.isTempIndexExists()).isFalse();
 
     tempIndexService.refreshTempIndex();
@@ -34,7 +34,7 @@ class TempAnalysisIndexServiceIntegrationTest extends BaseIntegrationTest {
 
   @Test
   @DisplayName("기존 인덱스 재생성")
-  void shouldRecreateExistingIndex() throws Exception {
+  void recreateExistingIndex() throws Exception {
     tempIndexService.refreshTempIndex();
     assertThat(tempIndexService.isTempIndexExists()).isTrue();
 

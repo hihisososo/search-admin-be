@@ -39,8 +39,7 @@ public class QueryBuilder {
     }
 
     // 통합 쿼리 분석 - 모든 분석을 한 번에 수행
-    QueryContext context =
-        queryProcessor.analyzeQuery(originalQuery, request.getApplyTypoCorrection());
+    QueryContext context = queryProcessor.analyzeQuery(request, environment);
 
     // 쿼리 구성 요소 빌드
     Query mainQuery = mainQueryBuilder.buildMainQuery(context);

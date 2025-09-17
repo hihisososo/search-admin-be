@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.util.HttpRequestUtils;
 import com.yjlee.search.deployment.model.IndexEnvironment;
-import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
 import com.yjlee.search.index.provider.IndexNameProvider;
 import com.yjlee.search.search.converter.SearchRequestMapper;
 import com.yjlee.search.search.dto.*;
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class SearchService {
 
-  private final IndexEnvironmentRepository indexEnvironmentRepository;
+  private final IndexEnvironmentService environmentService;
   private final IndexNameProvider indexNameProvider;
   private final ProductSearchService productSearchService;
   private final AutocompleteSearchService autocompleteSearchService;
@@ -60,13 +60,7 @@ public class SearchService {
         request.getEnvironmentType().getDescription(),
         request.getQuery());
 
-    IndexEnvironment environment =
-        indexEnvironmentRepository
-            .findByEnvironmentType(request.getEnvironmentType())
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        request.getEnvironmentType().getDescription() + " 환경을 찾을 수 없습니다."));
+    IndexEnvironment environment = environmentService.getEnvironment(request.getEnvironmentType());
     String indexName = environment.getIndexName();
 
     return productSearchService.search(
@@ -77,19 +71,13 @@ public class SearchService {
       String keyword, EnvironmentType environmentType) {
 
     log.info("자동완성 시뮬레이션 요청 - 환경: {}, 키워드: {}", environmentType.getDescription(), keyword);
-    IndexEnvironment environment =
-        indexEnvironmentRepository
-            .findByEnvironmentType(environmentType)
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        environmentType.getDescription() + " 환경을 찾을 수 없습니다."));
+    IndexEnvironment environment = environmentService.getEnvironment(environmentType);
     String indexName = environment.getAutocompleteIndexName();
     return autocompleteSearchService.search(indexName, keyword);
   }
 
   public void updateTypoCorrectionCacheRealtime(EnvironmentType environmentType) {
-    typoCorrectionService.updateCacheRealtime(environmentType);
+    typoCorrectionService.refreshCache(environmentType);
   }
 
   public SearchExecuteResponse executeSearch(SearchParams params, HttpServletRequest httpRequest) {
@@ -117,13 +105,7 @@ public class SearchService {
   public JsonNode getDocumentById(String documentId, EnvironmentType environmentType) {
     String indexName;
     if (environmentType != null) {
-      IndexEnvironment environment =
-          indexEnvironmentRepository
-              .findByEnvironmentType(environmentType)
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          environmentType.getDescription() + " 환경을 찾을 수 없습니다."));
+      IndexEnvironment environment = environmentService.getEnvironment(environmentType);
       indexName = environment.getIndexName();
     } else {
       indexName = indexNameProvider.getProductsSearchAlias();

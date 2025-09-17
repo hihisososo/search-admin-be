@@ -12,7 +12,7 @@ class TokenParserTest {
 
   @Test
   @DisplayName("실제 ES analyze 응답 파싱 - 일반 토큰")
-  void shouldParseNormalTokens() {
+  void parseNormalTokens() {
     String jsonResponse =
         """
         {
@@ -73,7 +73,7 @@ class TokenParserTest {
 
   @Test
   @DisplayName("빈 토큰 리스트 처리")
-  void shouldHandleEmptyTokenList() {
+  void handleEmptyTokenList() {
     String jsonResponse =
         """
         {
@@ -95,7 +95,7 @@ class TokenParserTest {
 
   @Test
   @DisplayName("잘못된 JSON")
-  void shouldThrowExceptionForInvalidJson() {
+  void throwExceptionForInvalidJson() {
     String invalidJson = "{ invalid json }";
 
     assertThatThrownBy(() -> TokenParser.parse(invalidJson, "search_filter"))
@@ -104,7 +104,7 @@ class TokenParserTest {
 
   @Test
   @DisplayName("복잡한 실제 응답 파싱")
-  void shouldParseComplexRealResponse() {
+  void parseComplexRealResponse() {
     String jsonResponse =
         """
         {
