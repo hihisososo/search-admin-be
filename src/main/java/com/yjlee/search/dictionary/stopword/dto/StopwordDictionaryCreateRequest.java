@@ -3,11 +3,15 @@ package com.yjlee.search.dictionary.stopword.dto;
 import com.yjlee.search.dictionary.common.dto.BaseDictionaryCreateRequest;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class StopwordDictionaryCreateRequest implements BaseDictionaryCreateRequest {
 
   @NotBlank(message = "키워드는 필수입니다")
