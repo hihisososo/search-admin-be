@@ -20,6 +20,11 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
       @Index(name = "idx_category_ranking_keyword_env", columnList = "keyword, environmentType"),
       @Index(name = "idx_category_ranking_env", columnList = "environmentType"),
       @Index(name = "idx_category_ranking_updated", columnList = "updatedAt DESC")
+    },
+    uniqueConstraints = {
+      @UniqueConstraint(
+          name = "uk_category_ranking_keyword_env",
+          columnNames = {"keyword", "environmentType"})
     })
 @EntityListeners(AuditingEntityListener.class)
 @Getter
@@ -32,7 +37,7 @@ public class CategoryRankingDictionary implements DictionaryEntity {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
 
-  @Column(nullable = false, unique = true, length = 100)
+  @Column(nullable = false, length = 100)
   String keyword;
 
   @Column(name = "category_mappings", columnDefinition = "TEXT")
