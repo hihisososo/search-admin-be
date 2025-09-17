@@ -31,17 +31,17 @@ class ElasticsearchIndexServiceTest {
   @BeforeEach
   void setUp() throws Exception {
     when(elasticsearchClient.indices()).thenReturn(indicesClient);
-
     indexingContext = mock(IndexingContext.class);
-    when(indexingContext.getVersion()).thenReturn("v202401011200");
-    when(indexingContext.getProductIndexName()).thenReturn("products_v202401011200");
-    when(indexingContext.getAutocompleteIndexName()).thenReturn("products_ac_v202401011200");
-    when(indexingContext.getSynonymSetName()).thenReturn("synonym_v202401011200");
   }
 
   @Test
   @DisplayName("새 인덱스 생성 성공")
   void createNewIndexSuccess() throws Exception {
+    when(indexingContext.getVersion()).thenReturn("v202401011200");
+    when(indexingContext.getProductIndexName()).thenReturn("products_v202401011200");
+    when(indexingContext.getAutocompleteIndexName()).thenReturn("products_ac_v202401011200");
+    when(indexingContext.getSynonymSetName()).thenReturn("synonym_v202401011200");
+
     when(mappingService.loadProductMapping()).thenReturn("{\"properties\":{}}");
     when(mappingService.loadAutocompleteMapping()).thenReturn("{\"properties\":{}}");
     when(settingsService.createProductIndexSettings(any(), any()))
@@ -54,7 +54,6 @@ class ElasticsearchIndexServiceTest {
     when(indicesClient.exists(any(ExistsRequest.class))).thenReturn(falseResponse);
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
-    when(createResponse.acknowledged()).thenReturn(true);
     when(indicesClient.create(any(CreateIndexRequest.class))).thenReturn(createResponse);
 
     String result = elasticsearchIndexService.createNewIndex(indexingContext);
@@ -66,6 +65,11 @@ class ElasticsearchIndexServiceTest {
   @Test
   @DisplayName("기존 인덱스 삭제 후 생성")
   void deleteExistingIndexBeforeCreate() throws Exception {
+    when(indexingContext.getVersion()).thenReturn("v202401011200");
+    when(indexingContext.getProductIndexName()).thenReturn("products_v202401011200");
+    when(indexingContext.getAutocompleteIndexName()).thenReturn("products_ac_v202401011200");
+    when(indexingContext.getSynonymSetName()).thenReturn("synonym_v202401011200");
+
     when(mappingService.loadProductMapping()).thenReturn("{\"properties\":{}}");
     when(mappingService.loadAutocompleteMapping()).thenReturn("{\"properties\":{}}");
     when(settingsService.createProductIndexSettings(any(), any()))
@@ -78,11 +82,9 @@ class ElasticsearchIndexServiceTest {
     when(indicesClient.exists(any(ExistsRequest.class))).thenReturn(trueResponse);
 
     DeleteIndexResponse deleteResponse = mock(DeleteIndexResponse.class);
-    when(deleteResponse.acknowledged()).thenReturn(true);
     when(indicesClient.delete(any(DeleteIndexRequest.class))).thenReturn(deleteResponse);
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
-    when(createResponse.acknowledged()).thenReturn(true);
     when(indicesClient.create(any(CreateIndexRequest.class))).thenReturn(createResponse);
 
     String result = elasticsearchIndexService.createNewIndex(indexingContext);
@@ -113,7 +115,6 @@ class ElasticsearchIndexServiceTest {
     when(indicesClient.exists(any(ExistsRequest.class))).thenReturn(trueResponse);
 
     DeleteIndexResponse deleteResponse = mock(DeleteIndexResponse.class);
-    when(deleteResponse.acknowledged()).thenReturn(true);
     when(indicesClient.delete(any(DeleteIndexRequest.class))).thenReturn(deleteResponse);
 
     elasticsearchIndexService.deleteIndexIfExists("products_v202401011200");
@@ -138,6 +139,9 @@ class ElasticsearchIndexServiceTest {
   @Test
   @DisplayName("인덱스 생성 중 예외 발생")
   void createIndexException() throws Exception {
+    when(indexingContext.getProductIndexName()).thenReturn("products_v202401011200");
+    when(indexingContext.getSynonymSetName()).thenReturn("synonym_v202401011200");
+
     when(mappingService.loadProductMapping()).thenReturn("{\"properties\":{}}");
     when(settingsService.createProductIndexSettings(any(), any()))
         .thenReturn("{\"number_of_shards\":1}");

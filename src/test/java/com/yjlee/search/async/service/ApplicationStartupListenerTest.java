@@ -8,6 +8,8 @@ import com.yjlee.search.async.model.AsyncTaskStatus;
 import com.yjlee.search.async.model.AsyncTaskType;
 import com.yjlee.search.async.repository.AsyncTaskRepository;
 import com.yjlee.search.common.service.ApplicationStartupListener;
+import com.yjlee.search.deployment.service.IndexEnvironmentService;
+import com.yjlee.search.common.enums.EnvironmentType;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ApplicationStartupListenerTest {
 
   @Mock private AsyncTaskRepository asyncTaskRepository;
+  @Mock private IndexEnvironmentService environmentService;
   @InjectMocks private ApplicationStartupListener applicationStartupListener;
 
   @Test
@@ -48,6 +51,10 @@ class ApplicationStartupListenerTest {
 
     List<AsyncTask> inProgressTasks = List.of(task1, task2);
     when(asyncTaskRepository.findByStatus(AsyncTaskStatus.IN_PROGRESS)).thenReturn(inProgressTasks);
+
+    // IndexEnvironmentService Mock 설정
+    when(environmentService.existsEnvironment(EnvironmentType.DEV)).thenReturn(true);
+    when(environmentService.existsEnvironment(EnvironmentType.PROD)).thenReturn(true);
 
     applicationStartupListener.handleApplicationReady();
 

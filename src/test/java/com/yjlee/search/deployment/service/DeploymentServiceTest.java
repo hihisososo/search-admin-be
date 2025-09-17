@@ -73,7 +73,7 @@ class DeploymentServiceTest {
   }
 
   @Test
-  @DisplayName("성공적인 배포 실행")
+  @DisplayName("배포 성공")
   void executeDeploymentSuccess() {
     when(environmentService.getEnvironment(EnvironmentType.DEV)).thenReturn(devEnvironment);
     when(environmentService.getOrCreateEnvironment(EnvironmentType.PROD))
@@ -91,8 +91,8 @@ class DeploymentServiceTest {
     verify(historyService).createHistory(DeploymentType.DEPLOYMENT, "v202401011200", "테스트 배포");
     verify(environmentService).switchToProd();
     verify(environmentService).resetEnvironment(EnvironmentType.DEV);
+    verify(dictionaryDataDeploymentService).copyFromDevToProd();
     verify(dictionaryDataDeploymentService).deleteAllByEnvironment(EnvironmentType.DEV);
-    verify(dictionaryDataDeploymentService).realtimeSyncAll(EnvironmentType.PROD);
     verify(elasticsearchIndexAliasService).updateAliases(any(), any());
     verify(historyService).updateHistoryStatus(1L, true, 1000L);
   }
@@ -161,6 +161,7 @@ class DeploymentServiceTest {
 
     deploymentService.updateEnvironments(context);
 
+    verify(dictionaryDataDeploymentService).copyFromDevToProd();
     verify(environmentService).switchToProd();
     verify(environmentService).resetEnvironment(EnvironmentType.DEV);
     verify(dictionaryDataDeploymentService).deleteAllByEnvironment(EnvironmentType.DEV);
@@ -176,7 +177,7 @@ class DeploymentServiceTest {
     when(historyService.createHistory(any(), any(), any())).thenReturn(history);
     doThrow(new RuntimeException("동기화 실패"))
         .when(dictionaryDataDeploymentService)
-        .realtimeSyncAll(any());
+        .copyFromDevToProd();
 
     assertThatThrownBy(() -> deploymentService.executeDeployment(request))
         .isInstanceOf(RuntimeException.class)
