@@ -8,14 +8,12 @@ import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryResponse;
 import com.yjlee.search.dictionary.typo.dto.TypoCorrectionDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.typo.model.TypoCorrectionDictionary;
 import com.yjlee.search.dictionary.typo.repository.TypoCorrectionDictionaryRepository;
-import com.yjlee.search.search.service.typo.TypoCorrectionService;
+import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,11 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class TypoCorrectionDictionaryService {
 
   private final TypoCorrectionDictionaryRepository repository;
-  private final TypoCorrectionService typoCorrectionService;
-
-  public String getDictionaryTypeEnum() {
-    return "TYPO";
-  }
 
   /** 오타교정 사전 생성 */
   @Transactional
@@ -56,9 +49,7 @@ public class TypoCorrectionDictionaryService {
 
   @Transactional(readOnly = true)
   public PageResponse<TypoCorrectionDictionaryListResponse> getTypoCorrectionDictionaries(
-      Pageable pageable,
-      String search,
-      EnvironmentType environmentType) {
+      Pageable pageable, String search, EnvironmentType environmentType) {
 
     log.debug(
         "오타교정 사전 목록 조회 - page: {}, size: {}, search: {}, environment: {}",
@@ -123,14 +114,12 @@ public class TypoCorrectionDictionaryService {
     log.info("오타교정 사전 삭제 요청: {} - 환경: {}", dictionaryId, environment);
 
     if (!repository.existsById(dictionaryId)) {
-      throw new IllegalArgumentException("존재하지 않는 오타교정 사전입니다: " + dictionaryId);
+      throw new EntityNotFoundException("존재하지 않는 오타교정 사전입니다: " + dictionaryId);
     }
 
     repository.deleteById(dictionaryId);
     log.info("오타교정 사전 삭제 완료: {} - 환경: {}", dictionaryId, environment);
   }
-
-
 
   public String getDictionaryContent(EnvironmentType environment) {
     List<TypoCorrectionDictionary> dictionaries =
@@ -145,21 +134,6 @@ public class TypoCorrectionDictionaryService {
     return content.toString();
   }
 
-  public void realtimeSync(EnvironmentType environment) {
-    log.info("오타교정 사전 실시간 동기화 - 환경: {}", environment);
-    typoCorrectionService.refreshCache(environment);
-    log.info("오타교정 캐시 업데이트 완료 - 환경: {}", environment);
-  }
-
-  public void syncWithPreloadedData(
-      List<TypoCorrectionDictionary> typoCorrections, String version) {
-    typoCorrectionService.syncWithPreloadedData(typoCorrections, version);
-  }
-
-  public String getDictionaryType() {
-    return "TYPO_CORRECTION";
-  }
-
   @Transactional
   public void deleteByEnvironmentType(EnvironmentType environment) {
     log.info("오타교정 사전 환경별 삭제 시작 - 환경: {}", environment);
@@ -168,30 +142,13 @@ public class TypoCorrectionDictionaryService {
   }
 
   @Transactional
-  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
-    List<TypoCorrectionDictionary> sourceDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(from);
-
-    if (sourceDictionaries.isEmpty()) {
-      log.warn("{} 환경에서 {} 환경으로 배포할 오타교정 사전이 없음 - 빈 사전으로 처리", from, to);
-    }
-
-    deleteByEnvironmentType(to);
-
-    List<TypoCorrectionDictionary> targetDictionaries =
-        sourceDictionaries.stream()
-            .map(dict -> TypoCorrectionDictionary.copyWithEnvironment(dict, to))
-            .toList();
-
-    repository.saveAll(targetDictionaries);
-    log.info("{} 환경 오타교정 사전 배포 완료: {}개", to, targetDictionaries.size());
-  }
-
-  @Transactional
   public void saveToEnvironment(
       List<TypoCorrectionDictionary> sourceData, EnvironmentType targetEnv) {
+    // 기존 환경 데이터 삭제
+    deleteByEnvironmentType(targetEnv);
+    repository.flush(); // delete를 DB에 즉시 반영
+
     if (sourceData == null || sourceData.isEmpty()) {
-      log.info("오타교정 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
       return;
     }
 

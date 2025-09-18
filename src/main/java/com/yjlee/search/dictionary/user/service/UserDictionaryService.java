@@ -4,8 +4,6 @@ import com.yjlee.search.common.domain.FileUploadResult;
 import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.service.FileUploadService;
-import com.yjlee.search.dictionary.common.enums.DictionarySortField;
-import com.yjlee.search.dictionary.common.model.DictionaryData;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryCreateRequest;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryListResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
@@ -17,9 +15,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,16 +33,13 @@ public class UserDictionaryService {
 
   public UserDictionaryResponse create(
       UserDictionaryCreateRequest request, EnvironmentType environment) {
-    UserDictionary entity =
-        UserDictionary.of(request.getKeyword(), environment);
+    UserDictionary entity = UserDictionary.of(request.getKeyword(), environment);
     UserDictionary saved = userDictionaryRepository.save(entity);
     return UserDictionaryResponse.from(saved);
   }
 
   public PageResponse<UserDictionaryListResponse> getList(
-      Pageable pageable,
-      String keyword,
-      EnvironmentType environment) {
+      Pageable pageable, String keyword, EnvironmentType environment) {
 
     Page<UserDictionary> entities =
         userDictionaryRepository.findWithOptionalKeyword(environment, keyword, pageable);
@@ -90,9 +83,7 @@ public class UserDictionaryService {
     return userDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
   }
 
-  public void preIndexing(DictionaryData data) {
-    String version = data.getVersion();
-    List<UserDictionary> userWords = data.getUserWords();
+  public void upload(List<UserDictionary> userWords, String version) {
     log.info("사용자 사전 메모리 기반 배포 시작 - 버전: {}, 단어 수: {}", version, userWords.size());
 
     try {
@@ -114,43 +105,27 @@ public class UserDictionaryService {
     }
   }
 
-  @Transactional
-  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
-    deployToEnvironment(from, to);
-  }
-
-  private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
-    List<UserDictionary> sourceDictionaries = findByEnvironmentType(from);
-
-    deleteByEnvironmentType(to);
-
-    List<UserDictionary> targetDictionaries =
-        sourceDictionaries.stream().map(dict -> UserDictionary.copyWithEnvironment(dict, to)).toList();
-
-    userDictionaryRepository.saveAll(targetDictionaries);
-    log.info("{} 환경 사용자 사전 배포 완료: {}개", to, targetDictionaries.size());
-  }
-
   public void deleteByEnvironmentType(EnvironmentType environment) {
     userDictionaryRepository.deleteByEnvironmentType(environment);
   }
 
   @Transactional
   public void saveToEnvironment(List<UserDictionary> sourceData, EnvironmentType targetEnv) {
+    // 기존 환경 데이터 삭제
+    deleteByEnvironmentType(targetEnv);
+    userDictionaryRepository.flush(); // delete를 DB에 즉시 반영
+
     if (sourceData == null || sourceData.isEmpty()) {
-      log.info("사용자 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
       return;
     }
 
     List<UserDictionary> targetDictionaries =
-        sourceData.stream()
-            .map(dict -> UserDictionary.of(dict.getKeyword(), targetEnv))
-            .toList();
+        sourceData.stream().map(dict -> UserDictionary.of(dict.getKeyword(), targetEnv)).toList();
 
     userDictionaryRepository.saveAll(targetDictionaries);
     log.info("{} 환경 사용자 사전 저장 완료: {}개", targetEnv, targetDictionaries.size());
   }
-  
+
   private void updateEntity(UserDictionary entity, UserDictionaryUpdateRequest request) {
     if (request.getKeyword() != null) {
       entity.updateKeyword(request.getKeyword());

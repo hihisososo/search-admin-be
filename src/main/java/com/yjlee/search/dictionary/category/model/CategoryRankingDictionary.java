@@ -23,7 +23,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
     uniqueConstraints = {
       @UniqueConstraint(
           name = "uk_category_ranking_keyword_env",
-          columnNames = {"keyword", "environmentType"})
+          columnNames = {"keyword", "environment_type"})
     })
 @EntityListeners(AuditingEntityListener.class)
 @Getter

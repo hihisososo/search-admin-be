@@ -6,17 +6,13 @@ import com.yjlee.search.dictionary.category.dto.*;
 import com.yjlee.search.dictionary.category.model.CategoryMapping;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
-import com.yjlee.search.dictionary.common.enums.DictionarySortField;
 import com.yjlee.search.index.repository.ProductRepository;
-import com.yjlee.search.search.service.category.CategoryRankingService;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +23,6 @@ public class CategoryRankingDictionaryService {
 
   private final CategoryRankingDictionaryRepository repository;
   private final ProductRepository productRepository;
-  private final CategoryRankingService categoryRankingService;
 
   @Transactional
   public CategoryRankingDictionaryResponse create(
@@ -35,7 +30,8 @@ public class CategoryRankingDictionaryService {
     if (repository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
       throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
     }
-    CategoryRankingDictionary saved = repository.save(
+    CategoryRankingDictionary saved =
+        repository.save(
             CategoryRankingDictionary.of(
                 request.getKeyword(),
                 CategoryMapping.fromDtos(request.getCategoryMappings()),
@@ -45,9 +41,7 @@ public class CategoryRankingDictionaryService {
 
   @Transactional(readOnly = true)
   public PageResponse<CategoryRankingDictionaryListResponse> getList(
-      Pageable pageable,
-      String search,
-      EnvironmentType environmentType) {
+      Pageable pageable, String search, EnvironmentType environmentType) {
     Page<CategoryRankingDictionary> dictionaryPage =
         (search != null && !search.trim().isEmpty())
             ? repository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
@@ -58,7 +52,8 @@ public class CategoryRankingDictionaryService {
 
   @Transactional(readOnly = true)
   public CategoryRankingDictionaryResponse getDetail(Long id) {
-    CategoryRankingDictionary dictionary = repository
+    CategoryRankingDictionary dictionary =
+        repository
             .findById(id)
             .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
     return CategoryRankingDictionaryResponse.from(dictionary);
@@ -102,54 +97,19 @@ public class CategoryRankingDictionaryService {
         .build();
   }
 
-  private Sort createSort(String sortBy, String sortDir) {
-    return Sort.by(
-        "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC,
-        DictionarySortField.getValidFieldOrDefault(sortBy));
-  }
-
-  public void realtimeSync(EnvironmentType environment) {
-    categoryRankingService.refreshCache(environment);
-  }
-
-  public void syncWithPreloadedData(
-      List<CategoryRankingDictionary> categoryRankings, String version) {
-    categoryRankingService.syncWithPreloadedData(categoryRankings, version);
-  }
-
   @Transactional
   public void deleteByEnvironmentType(EnvironmentType environment) {
     repository.deleteByEnvironmentType(environment);
   }
 
   @Transactional
-  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
-    List<CategoryRankingDictionary> sourceDictionaries =
-        repository.findByEnvironmentTypeOrderByKeywordAsc(from);
-
-    if (sourceDictionaries.isEmpty()) {
-      log.warn("{} 환경에서 {} 환경으로 배포할 카테고리 랭킹 사전이 없음 - 빈 사전으로 처리", from, to);
-    }
-
-    deleteByEnvironmentType(to);
-
-    List<CategoryRankingDictionary> targetDictionaries =
-        sourceDictionaries.stream()
-            .map(
-                dict ->
-                    CategoryRankingDictionary.of(
-                        dict.getKeyword(), dict.getCategoryMappings(), to))
-            .toList();
-
-    repository.saveAll(targetDictionaries);
-    log.info("{} 환경 카테고리 랭킹 사전 배포 완료: {}개", to, targetDictionaries.size());
-  }
-
-  @Transactional
   public void saveToEnvironment(
       List<CategoryRankingDictionary> sourceData, EnvironmentType targetEnv) {
+    // 기존 환경 데이터 삭제
+    deleteByEnvironmentType(targetEnv);
+    repository.flush(); // delete를 DB에 즉시 반영
+
     if (sourceData == null || sourceData.isEmpty()) {
-      log.info("카테고리 랭킹 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
       return;
     }
 
@@ -158,9 +118,7 @@ public class CategoryRankingDictionaryService {
             .map(
                 dict ->
                     CategoryRankingDictionary.of(
-                        dict.getKeyword(),
-                        dict.getCategoryMappings(),
-                        targetEnv))
+                        dict.getKeyword(), dict.getCategoryMappings(), targetEnv))
             .toList();
 
     repository.saveAll(targetDictionaries);

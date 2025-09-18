@@ -4,8 +4,6 @@ import com.yjlee.search.common.domain.FileUploadResult;
 import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.common.service.FileUploadService;
-import com.yjlee.search.dictionary.common.enums.DictionarySortField;
-import com.yjlee.search.dictionary.common.model.DictionaryData;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryCreateRequest;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryListResponse;
 import com.yjlee.search.dictionary.stopword.dto.StopwordDictionaryResponse;
@@ -17,9 +15,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,16 +33,13 @@ public class StopwordDictionaryService {
 
   public StopwordDictionaryResponse create(
       StopwordDictionaryCreateRequest request, EnvironmentType environment) {
-    StopwordDictionary entity =
-        StopwordDictionary.of(request.getKeyword(), environment);
+    StopwordDictionary entity = StopwordDictionary.of(request.getKeyword(), environment);
     StopwordDictionary saved = stopwordDictionaryRepository.save(entity);
     return StopwordDictionaryResponse.from(saved);
   }
 
   public PageResponse<StopwordDictionaryListResponse> getList(
-      Pageable pageable,
-      String keyword,
-      EnvironmentType environment) {
+      Pageable pageable, String keyword, EnvironmentType environment) {
 
     Page<StopwordDictionary> entities =
         stopwordDictionaryRepository.findWithOptionalKeyword(environment, keyword, pageable);
@@ -90,21 +83,13 @@ public class StopwordDictionaryService {
     return stopwordDictionaryRepository.findByEnvironmentTypeOrderByKeywordAsc(environment);
   }
 
-  public void preIndexing(DictionaryData data) {
-    if (data == null || data.getStopwords().isEmpty()) {
-      log.info("불용어 사전 데이터가 비어있음 - 빈 파일 생성");
-    }
-
-    String version = data.getVersion();
-    List<StopwordDictionary> stopwords = data.getStopwords();
+  public void upload(List<StopwordDictionary> stopwords, String version) {
     log.info("불용어 사전 메모리 기반 배포 시작 - 버전: {}, 단어 수: {}", version, stopwords.size());
 
     try {
-      // 불용어 엔티티에서 키워드 추출하여 파일 내용으로 변환
       List<String> keywords = stopwords.stream().map(StopwordDictionary::getKeyword).toList();
       String content = String.join("\n", keywords);
 
-      // EC2에 파일 업로드
       FileUploadResult result =
           fileUploadService.uploadFile(version + ".txt", EC2_STOPWORD_DICT_PATH, content, version);
 
@@ -120,36 +105,16 @@ public class StopwordDictionaryService {
     }
   }
 
-  @Transactional
-  public void copyToEnvironment(EnvironmentType from, EnvironmentType to) {
-    deployToEnvironment(from, to);
-  }
-
-  private void deployToEnvironment(EnvironmentType from, EnvironmentType to) {
-    List<StopwordDictionary> sourceDictionaries = findByEnvironmentType(from);
-
-    // PROD 배포시 소스가 비어있어도 허용 (빈 사전도 유효함)
-    if (sourceDictionaries.isEmpty()) {
-      log.warn("{} 환경에서 {} 환경으로 배포할 불용어 사전이 없음 - 빈 사전으로 처리", from, to);
-    }
-
-    deleteByEnvironmentType(to);
-
-    List<StopwordDictionary> targetDictionaries =
-        sourceDictionaries.stream().map(dict -> StopwordDictionary.copyWithEnvironment(dict, to)).toList();
-
-    stopwordDictionaryRepository.saveAll(targetDictionaries);
-    log.info("{} 환경 불용어 사전 배포 완료: {}개", to, targetDictionaries.size());
-  }
-
   public void deleteByEnvironmentType(EnvironmentType environment) {
     stopwordDictionaryRepository.deleteByEnvironmentType(environment);
   }
 
   @Transactional
   public void saveToEnvironment(List<StopwordDictionary> sourceData, EnvironmentType targetEnv) {
+    deleteByEnvironmentType(targetEnv);
+    stopwordDictionaryRepository.flush(); // delete를 DB에 즉시 반영
+
     if (sourceData == null || sourceData.isEmpty()) {
-      log.info("불용어 사전 데이터가 비어있음 - {} 환경 스킵", targetEnv);
       return;
     }
 
