@@ -10,7 +10,7 @@ import com.yjlee.search.deployment.service.IndexEnvironmentService;
 import com.yjlee.search.index.provider.IndexNameProvider;
 import com.yjlee.search.search.converter.SearchRequestMapper;
 import com.yjlee.search.search.dto.*;
-import com.yjlee.search.search.service.typo.TypoCorrectionService;
+import com.yjlee.search.search.service.typo.TypoCorrectionCacheService;
 import com.yjlee.search.searchlog.service.SearchLogService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
@@ -30,7 +30,7 @@ public class SearchService {
   private final IndexNameProvider indexNameProvider;
   private final ProductSearchService productSearchService;
   private final AutocompleteSearchService autocompleteSearchService;
-  private final TypoCorrectionService typoCorrectionService;
+  private final TypoCorrectionCacheService typoCorrectionCacheService;
   private final SearchLogService searchLogService;
   private final SearchRequestMapper searchRequestMapper;
   private final SearchQueryExecutor searchQueryExecutor;
@@ -77,7 +77,7 @@ public class SearchService {
   }
 
   public void updateTypoCorrectionCacheRealtime(EnvironmentType environmentType) {
-    typoCorrectionService.refreshCache(environmentType);
+    typoCorrectionCacheService.refreshCache(environmentType);
   }
 
   public SearchExecuteResponse executeSearch(SearchParams params, HttpServletRequest httpRequest) {

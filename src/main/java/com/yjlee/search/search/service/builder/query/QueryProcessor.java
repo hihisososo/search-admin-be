@@ -6,7 +6,7 @@ import com.yjlee.search.search.dto.SearchExecuteRequest;
 import com.yjlee.search.search.service.builder.model.ExtractedTerms;
 import com.yjlee.search.search.service.builder.model.ProcessedQuery;
 import com.yjlee.search.search.service.builder.model.QueryContext;
-import com.yjlee.search.search.service.typo.TypoCorrectionService;
+import com.yjlee.search.search.service.typo.TypoCorrectionCacheService;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class QueryProcessor {
 
-  private final TypoCorrectionService typoCorrectionService;
+  private final TypoCorrectionCacheService typoCorrectionCacheService;
 
   public ProcessedQuery processQuery(SearchExecuteRequest req, EnvironmentType env) {
     if (req.getQuery() == null || req.getQuery().trim().isEmpty()) {
@@ -28,7 +28,7 @@ public class QueryProcessor {
 
     String correctedQuery = preprocessedQuery;
     if (shouldApplyTypoCorrection(req.getApplyTypoCorrection())) {
-      correctedQuery = typoCorrectionService.applyTypoCorrection(preprocessedQuery, env);
+      correctedQuery = typoCorrectionCacheService.applyTypoCorrection(preprocessedQuery, env);
       if (!correctedQuery.equals(preprocessedQuery)) {
         log.info("오타교정 적용 - 원본: '{}', 교정: '{}'", preprocessedQuery, correctedQuery);
       }

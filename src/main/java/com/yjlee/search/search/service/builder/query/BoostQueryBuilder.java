@@ -5,7 +5,10 @@ import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.search.constants.SearchBoostConstants;
-import com.yjlee.search.search.service.category.CategoryRankingService;
+import com.yjlee.search.search.service.category.CategoryRankingCacheService;
+import com.yjlee.search.analysis.service.AnalysisService;
+import com.yjlee.search.analysis.domain.TokenInfo;
+import com.yjlee.search.analysis.enums.AnalysisType;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +20,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BoostQueryBuilder {
 
-  private final CategoryRankingService categoryRankingService;
+  private final CategoryRankingCacheService categoryRankingCacheService;
+  private final AnalysisService analysisService;
 
   public List<Query> buildPhraseBoostQueries(String query) {
     if (query == null || query.trim().isEmpty()) {
@@ -51,8 +55,20 @@ public class BoostQueryBuilder {
       return List.of();
     }
 
+    // 형태소 분석 수행
+    List<String> analyzedTokens = null;
+    try {
+      List<TokenInfo> tokens = analysisService.analyze(query, environment, AnalysisType.SEARCH);
+      analyzedTokens = tokens.stream()
+          .filter(token -> !token.isSynonym())
+          .map(TokenInfo::getToken)
+          .toList();
+    } catch (Exception e) {
+      log.warn("형태소 분석 실패, 공백 단위 매칭만 사용: {}", e.getMessage());
+    }
+
     Map<String, Integer> categoryWeights =
-        categoryRankingService.getCategoryWeights(query, environment);
+        categoryRankingCacheService.getCategoryWeights(query, analyzedTokens, environment);
 
     if (categoryWeights.isEmpty()) {
       return List.of();
@@ -61,18 +77,6 @@ public class BoostQueryBuilder {
     return categoryWeights.entrySet().stream()
         .map(entry -> buildCategoryBoostQuery(entry.getKey(), entry.getValue()))
         .toList();
-  }
-
-  private Query buildPhraseQuery(String field, String query, float boost) {
-    return Query.of(q -> q.matchPhrase(mp -> mp.field(field).query(query).slop(10).boost(boost)));
-  }
-
-  private Query buildMatchQuery(String field, String query, float boost) {
-    return Query.of(q -> q.match(m -> m.field(field).query(query).boost(boost)));
-  }
-
-  private Query buildBoolShouldQuery(List<Query> queries, float boost) {
-    return Query.of(q -> q.bool(b -> b.should(queries).minimumShouldMatch("1").boost(boost)));
   }
 
   private Query buildCategoryBoostQuery(String category, Integer weight) {

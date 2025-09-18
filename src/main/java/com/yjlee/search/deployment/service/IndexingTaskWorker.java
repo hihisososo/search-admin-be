@@ -73,11 +73,11 @@ public class IndexingTaskWorker implements TaskWorker {
       // context에 preloaded 데이터 저장
       context.setPreloadedDictionaryData(dictionaryData);
 
-      // 사전 데이터 DEV 환경으로 복사 (DB)
-      dictionaryDeploymentService.copyToDevEnvironment(dictionaryData);
+      // 사전 데이터 DEV 환경으로 배포
+      dictionaryDeploymentService.deployToEnvironment(dictionaryData, EnvironmentType.DEV);
 
-      // 사전 데이터 배포 (파일 시스템)
-      dictionaryDeploymentService.preIndexingAll(dictionaryData);
+      // 사전 데이터 업로드
+      dictionaryDeploymentService.uploadDictionaries(dictionaryData);
 
       // 인덱스 생성
       createIndexes(context);
@@ -125,19 +125,21 @@ public class IndexingTaskWorker implements TaskWorker {
     // 상품 인덱스 생성
     elasticsearchIndexService.deleteIndexIfExists(productIndexName);
     String productMapping = mappingService.loadProductMapping();
-    String productSettings = settingsService.createProductIndexSettings(
-        indexNameProvider.getUserDictPath(version),
-        indexNameProvider.getStopwordDictPath(version),
-        indexNameProvider.getUnitDictPath(version),
-        synonymSetName);
+    String productSettings =
+        settingsService.createProductIndexSettings(
+            indexNameProvider.getUserDictPath(version),
+            indexNameProvider.getStopwordDictPath(version),
+            indexNameProvider.getUnitDictPath(version),
+            synonymSetName);
     elasticsearchIndexService.createIndex(productIndexName, productMapping, productSettings);
 
     // 자동완성 인덱스 생성
     elasticsearchIndexService.deleteIndexIfExists(autocompleteIndexName);
     String autocompleteMapping = mappingService.loadAutocompleteMapping();
-    String autocompleteSettings = settingsService.createAutocompleteIndexSettings(
-        indexNameProvider.getUserDictPath(version));
-    elasticsearchIndexService.createIndex(autocompleteIndexName, autocompleteMapping, autocompleteSettings);
+    String autocompleteSettings =
+        settingsService.createAutocompleteIndexSettings(indexNameProvider.getUserDictPath(version));
+    elasticsearchIndexService.createIndex(
+        autocompleteIndexName, autocompleteMapping, autocompleteSettings);
   }
 
   public IndexingContext prepareIndexingAndCreateContext(String description) {
@@ -170,10 +172,9 @@ public class IndexingTaskWorker implements TaskWorker {
   }
 
   public void finalizeIndexing(IndexingContext context) {
-    // 색인 완료 후 DB 업데이트
 
     // 1. 사전 데이터 동기화 (preloaded 데이터 사용)
-    dictionaryDeploymentService.syncWithPreloadedData(
+    dictionaryDeploymentService.sync(
         context.getPreloadedDictionaryData(), context.getSynonymSetName(), context.getVersion());
 
     // 2. 히스토리 업데이트
