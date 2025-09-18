@@ -1,8 +1,5 @@
 package com.yjlee.search.evaluation.controller;
 
-import static com.yjlee.search.evaluation.constants.EvaluationConstants.DEFAULT_DOCUMENT_PAGE_SIZE;
-import static com.yjlee.search.evaluation.constants.EvaluationConstants.DEFAULT_PAGE;
-import static com.yjlee.search.evaluation.constants.EvaluationConstants.DEFAULT_PAGE_SIZE;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.DEFAULT_PRODUCT_NAME;
 import static com.yjlee.search.evaluation.constants.EvaluationConstants.DEFAULT_PRODUCT_SPECS;
 
@@ -57,19 +54,26 @@ public class EvaluationSetController {
   @GetMapping("/queries")
   @Operation(summary = "평가 쿼리 리스트 조회")
   public ResponseEntity<EvaluationQueryListResponse> getQueries(
-      @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+      @ParameterObject
+          @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+          Pageable pageable,
       @RequestParam(required = false) String query) {
 
-    String sortBy = pageable.getSort().iterator().hasNext() ?
-        pageable.getSort().iterator().next().getProperty() : "createdAt";
-    String sortDirection = pageable.getSort().iterator().hasNext() ?
-        pageable.getSort().iterator().next().getDirection().name() : "DESC";
+    String sortBy =
+        pageable.getSort().iterator().hasNext()
+            ? pageable.getSort().iterator().next().getProperty()
+            : "createdAt";
+    String sortDirection =
+        pageable.getSort().iterator().hasNext()
+            ? pageable.getSort().iterator().next().getDirection().name()
+            : "DESC";
 
     List<EvaluationQueryDto> queriesWithStats =
         evaluationStatisticsService.getQueriesWithStats(sortBy, sortDirection, query);
 
     PaginationUtils.PagedResult<EvaluationQueryDto> pagedResult =
-        PaginationUtils.paginate(queriesWithStats, pageable.getPageNumber(), pageable.getPageSize());
+        PaginationUtils.paginate(
+            queriesWithStats, pageable.getPageNumber(), pageable.getPageSize());
 
     EvaluationQueryListResponse response =
         EvaluationQueryListResponse.builder()
@@ -88,7 +92,9 @@ public class EvaluationSetController {
   @Operation(summary = "쿼리별 문서 매핑 조회")
   public ResponseEntity<QueryDocumentMappingResponse> getQueryDocuments(
       @PathVariable Long queryId,
-      @ParameterObject @PageableDefault(size = 50, sort = "relevanceScore", direction = Sort.Direction.DESC) Pageable pageable) {
+      @ParameterObject
+          @PageableDefault(size = 50, sort = "relevanceScore", direction = Sort.Direction.DESC)
+          Pageable pageable) {
 
     Optional<EvaluationQuery> queryOpt = evaluationQueryService.getQueryById(queryId);
     if (queryOpt.isEmpty()) {
@@ -99,8 +105,7 @@ public class EvaluationSetController {
 
     // DB에서 정렬과 페이징 처리
     Page<QueryProductMapping> mappingPage =
-        evaluationCandidateService.getQueryMappingsWithPaging(
-            query.getQuery(), pageable);
+        evaluationCandidateService.getQueryMappingsWithPaging(query.getQuery(), pageable);
 
     List<QueryDocumentMappingResponse.ProductDocumentDto> documents =
         mappingPage.getContent().stream()

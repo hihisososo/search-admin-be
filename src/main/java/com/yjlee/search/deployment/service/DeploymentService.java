@@ -117,17 +117,14 @@ public class DeploymentService {
   public void updateEnvironments(DeploymentContext context) {
     log.info("환경 전환 시작: DEV → PROD");
 
-    // DEV 사전 데이터를 PROD로 복사
-    dictionaryDataDeploymentService.copyFromDevToProd();
+    // DEV 사전 데이터를 PROD로 이동
+    dictionaryDataDeploymentService.moveDictionaryDevToProd();
 
     // PROD 환경으로 전환
     environmentService.switchToProd();
 
     // DEV 환경 초기화
     environmentService.resetEnvironment(EnvironmentType.DEV);
-
-    // DEV 사전 데이터 삭제
-    dictionaryDataDeploymentService.deleteAllByEnvironment(EnvironmentType.DEV);
 
     log.info("환경 전환 완료");
   }

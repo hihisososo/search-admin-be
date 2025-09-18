@@ -34,7 +34,8 @@ class ElasticsearchSettingsServiceTest {
     String stopwordDictPath = "/path/stopword_v202401011200.txt";
     String unitDictPath = "/path/unit_v202401011200.txt";
     String synonymSetName = "synonym_v202401011200";
-    String template = """
+    String template =
+        """
         {
           "analysis": {
             "analyzer": {
@@ -52,8 +53,9 @@ class ElasticsearchSettingsServiceTest {
         .thenReturn(resource);
     when(resource.getInputStream()).thenReturn(new ByteArrayInputStream(template.getBytes()));
 
-    String result = settingsService.createProductIndexSettings(
-        userDictPath, stopwordDictPath, unitDictPath, synonymSetName);
+    String result =
+        settingsService.createProductIndexSettings(
+            userDictPath, stopwordDictPath, unitDictPath, synonymSetName);
 
     assertThat(result).contains("/path/user_v202401011200.txt");
     assertThat(result).contains("/path/stopword_v202401011200.txt");
@@ -70,7 +72,8 @@ class ElasticsearchSettingsServiceTest {
   void createAutocompleteIndexSettings_ReplacesUserDictPath() throws IOException {
     // given
     String userDictPath = "/path/user_v202401011200.txt";
-    String template = """
+    String template =
+        """
         {
           "analysis": {
             "tokenizer": {
@@ -107,8 +110,10 @@ class ElasticsearchSettingsServiceTest {
     when(resource.getInputStream()).thenThrow(new IOException("File not found"));
 
     // when & then
-    assertThatThrownBy(() -> settingsService.createProductIndexSettings(
-            userDictPath, stopwordDictPath, unitDictPath, synonymSetName))
+    assertThatThrownBy(
+            () ->
+                settingsService.createProductIndexSettings(
+                    userDictPath, stopwordDictPath, unitDictPath, synonymSetName))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("리소스 로드 중 에러");
   }
@@ -136,7 +141,8 @@ class ElasticsearchSettingsServiceTest {
   void replaceMultipleSamePlaceholders() throws IOException {
     // given
     String userDictPath = "/path/user_dict.txt";
-    String template = """
+    String template =
+        """
         {
           "tokenizer1": "{USER_DICT_PATH}",
           "tokenizer2": "{USER_DICT_PATH}",

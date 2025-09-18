@@ -147,8 +147,7 @@ class AsyncTaskServiceTest {
     List<AsyncTask> tasks = List.of(testTask);
     Pageable pageable = PageRequest.of(0, 10);
     Page<AsyncTask> page = new PageImpl<>(tasks, pageable, 1);
-    when(asyncTaskRepository.findAllByOrderByCreatedAtDesc(any(Pageable.class)))
-        .thenReturn(page);
+    when(asyncTaskRepository.findAllByOrderByCreatedAtDesc(any(Pageable.class))).thenReturn(page);
 
     AsyncTaskListResponse result = asyncTaskService.getRecentTasks(pageable);
 

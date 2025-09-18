@@ -31,7 +31,9 @@ public class AsyncTaskController {
   @GetMapping
   @Operation(summary = "비동기 작업 리스트 조회", description = "최근 7일간의 비동기 작업 목록을 조회합니다")
   public ResponseEntity<AsyncTaskListResponse> getTasks(
-      @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+      @ParameterObject
+          @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+          Pageable pageable) {
     return ResponseEntity.ok(asyncTaskService.getRecentTasks(pageable));
   }
 

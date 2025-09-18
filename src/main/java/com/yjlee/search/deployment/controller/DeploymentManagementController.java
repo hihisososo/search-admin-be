@@ -1,6 +1,5 @@
 package com.yjlee.search.deployment.controller;
 
-import com.yjlee.search.async.service.AsyncTaskService;
 import com.yjlee.search.deployment.dto.DeploymentHistoryListResponse;
 import com.yjlee.search.deployment.dto.DeploymentOperationResponse;
 import com.yjlee.search.deployment.dto.DeploymentRequest;

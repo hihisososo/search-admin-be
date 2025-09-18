@@ -16,5 +16,4 @@ class VersionGeneratorTest {
     assertThat(version).hasSize(15);
     assertThat(version.substring(1)).matches("\\d{14}"); // 숫자 14자리
   }
-
 }

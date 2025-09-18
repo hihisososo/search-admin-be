@@ -38,7 +38,8 @@ class ElasticsearchIndexServiceTest {
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(indicesClient.create(any(CreateIndexRequest.class))).thenReturn(createResponse);
 
-    assertThatCode(() -> elasticsearchIndexService.createIndex(indexName, mappingJson, settingsJson))
+    assertThatCode(
+            () -> elasticsearchIndexService.createIndex(indexName, mappingJson, settingsJson))
         .doesNotThrowAnyException();
 
     verify(indicesClient).create(any(CreateIndexRequest.class));
@@ -54,7 +55,8 @@ class ElasticsearchIndexServiceTest {
     when(indicesClient.create(any(CreateIndexRequest.class)))
         .thenThrow(new RuntimeException("Elasticsearch 연결 실패"));
 
-    assertThatThrownBy(() -> elasticsearchIndexService.createIndex(indexName, mappingJson, settingsJson))
+    assertThatThrownBy(
+            () -> elasticsearchIndexService.createIndex(indexName, mappingJson, settingsJson))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("인덱스 생성 중 에러");
   }
@@ -135,7 +137,8 @@ class ElasticsearchIndexServiceTest {
     when(indicesClient.delete(any(DeleteIndexRequest.class)))
         .thenThrow(new RuntimeException("Elasticsearch 연결 실패"));
 
-    assertThatThrownBy(() -> elasticsearchIndexService.deleteIndexIfExists("products_v202401011200"))
+    assertThatThrownBy(
+            () -> elasticsearchIndexService.deleteIndexIfExists("products_v202401011200"))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("ES 연결 중 에러");
   }

@@ -30,7 +30,8 @@ class ElasticsearchMappingServiceTest {
   @Test
   @DisplayName("Product 매핑 파일 로드 성공")
   void loadProductMapping_Success() throws IOException {
-    String expectedMapping = """
+    String expectedMapping =
+        """
         {
           "properties": {
             "name": {
@@ -56,7 +57,8 @@ class ElasticsearchMappingServiceTest {
   @Test
   @DisplayName("Autocomplete 매핑 파일 로드 성공")
   void loadAutocompleteMapping_Success() throws IOException {
-    String expectedMapping = """
+    String expectedMapping =
+        """
         {
           "properties": {
             "suggest": {
@@ -108,8 +110,7 @@ class ElasticsearchMappingServiceTest {
 
     when(resourceLoader.getResource("classpath:elasticsearch/product-mapping.json"))
         .thenReturn(resource);
-    when(resource.getInputStream())
-        .thenReturn(new ByteArrayInputStream(emptyMapping.getBytes()));
+    when(resource.getInputStream()).thenReturn(new ByteArrayInputStream(emptyMapping.getBytes()));
 
     String result = mappingService.loadProductMapping();
 
@@ -119,7 +120,8 @@ class ElasticsearchMappingServiceTest {
   @Test
   @DisplayName("UTF-8 인코딩된 한글 포함 매핑 파일 처리")
   void loadMapping_HandlesKoreanCharacters() throws IOException {
-    String koreanMapping = """
+    String koreanMapping =
+        """
         {
           "properties": {
             "상품명": {
@@ -131,8 +133,7 @@ class ElasticsearchMappingServiceTest {
 
     when(resourceLoader.getResource("classpath:elasticsearch/product-mapping.json"))
         .thenReturn(resource);
-    when(resource.getInputStream())
-        .thenReturn(new ByteArrayInputStream(koreanMapping.getBytes()));
+    when(resource.getInputStream()).thenReturn(new ByteArrayInputStream(koreanMapping.getBytes()));
 
     String result = mappingService.loadProductMapping();
 

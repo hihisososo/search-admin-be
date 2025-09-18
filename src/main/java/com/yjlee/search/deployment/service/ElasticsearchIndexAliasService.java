@@ -20,8 +20,11 @@ public class ElasticsearchIndexAliasService {
   private final ElasticsearchClient elasticsearchClient;
 
   @Transactional(readOnly = true)
-  public void updateAliases(String productIndexName, String productAliasName,
-                           String autocompleteIndexName, String autocompleteAliasName) {
+  public void updateAliases(
+      String productIndexName,
+      String productAliasName,
+      String autocompleteIndexName,
+      String autocompleteAliasName) {
     updateAlias(productIndexName, productAliasName);
     updateAlias(autocompleteIndexName, autocompleteAliasName);
   }

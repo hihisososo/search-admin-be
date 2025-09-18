@@ -1,6 +1,7 @@
 package com.yjlee.search;
 
 import com.yjlee.search.common.dto.ErrorResponse;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.NoSuchElementException;
@@ -18,7 +19,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-  @ExceptionHandler(NoSuchElementException.class)
+  @ExceptionHandler({NoSuchElementException.class, EntityNotFoundException.class})
   @ResponseStatus(HttpStatus.NOT_FOUND)
   public ErrorResponse handleNotFoundException(Exception ex, HttpServletRequest request) {
     return buildErrorResponse(request, ex, HttpStatus.NOT_FOUND);

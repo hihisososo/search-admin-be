@@ -19,8 +19,8 @@ public class ElasticsearchSettingsService {
 
   private final ResourceLoader resourceLoader;
 
-  public String createProductIndexSettings(String userDictPath, String stopwordDictPath,
-                                          String unitDictPath, String synonymSetName) {
+  public String createProductIndexSettings(
+      String userDictPath, String stopwordDictPath, String unitDictPath, String synonymSetName) {
     String settingsTemplate = loadResourceFile(MAPPING_PATH_PREFIX + PRODUCT_SETTINGS_FILE);
 
     return settingsTemplate

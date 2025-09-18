@@ -31,8 +31,10 @@ class ElasticsearchIndexAliasServiceTest {
   @Test
   @DisplayName("null 인덱스 이름 검증")
   void updateAliases_WithNullIndexName() {
-    assertThatThrownBy(() -> aliasService.updateAliases(null, "products-search",
-                                                        "products_ac_v202401011200", "autocomplete-search"))
+    assertThatThrownBy(
+            () ->
+                aliasService.updateAliases(
+                    null, "products-search", "products_ac_v202401011200", "autocomplete-search"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("인덱스 이름이 비어있습니다");
   }
@@ -40,8 +42,10 @@ class ElasticsearchIndexAliasServiceTest {
   @Test
   @DisplayName("빈 인덱스 이름 검증")
   void updateAliases_WithEmptyIndexName() {
-    assertThatThrownBy(() -> aliasService.updateAliases("  ", "products-search",
-                                                        "products_ac_v202401011200", "autocomplete-search"))
+    assertThatThrownBy(
+            () ->
+                aliasService.updateAliases(
+                    "  ", "products-search", "products_ac_v202401011200", "autocomplete-search"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("인덱스 이름이 비어있습니다");
   }
@@ -59,14 +63,20 @@ class ElasticsearchIndexAliasServiceTest {
 
     var getAliasResponse = mock(co.elastic.clients.elasticsearch.indices.GetAliasResponse.class);
     when(getAliasResponse.result()).thenReturn(new java.util.HashMap<>());
-    when(indicesClient.getAlias(any(co.elastic.clients.elasticsearch.indices.GetAliasRequest.class)))
+    when(indicesClient.getAlias(
+            any(co.elastic.clients.elasticsearch.indices.GetAliasRequest.class)))
         .thenReturn(getAliasResponse);
 
     UpdateAliasesResponse updateResponse = mock(UpdateAliasesResponse.class);
     when(indicesClient.updateAliases(any(UpdateAliasesRequest.class))).thenReturn(updateResponse);
 
-    assertThatCode(() -> aliasService.updateAliases(productIndexName, productAliasName,
-                                                    autocompleteIndexName, autocompleteAliasName))
+    assertThatCode(
+            () ->
+                aliasService.updateAliases(
+                    productIndexName,
+                    productAliasName,
+                    autocompleteIndexName,
+                    autocompleteAliasName))
         .doesNotThrowAnyException();
   }
 
@@ -83,14 +93,20 @@ class ElasticsearchIndexAliasServiceTest {
 
     var getAliasResponse = mock(co.elastic.clients.elasticsearch.indices.GetAliasResponse.class);
     when(getAliasResponse.result()).thenReturn(new java.util.HashMap<>());
-    when(indicesClient.getAlias(any(co.elastic.clients.elasticsearch.indices.GetAliasRequest.class)))
+    when(indicesClient.getAlias(
+            any(co.elastic.clients.elasticsearch.indices.GetAliasRequest.class)))
         .thenReturn(getAliasResponse);
 
     when(indicesClient.updateAliases(any(UpdateAliasesRequest.class)))
         .thenThrow(new IOException("Connection failed"));
 
-    assertThatThrownBy(() -> aliasService.updateAliases(productIndexName, productAliasName,
-                                                        autocompleteIndexName, autocompleteAliasName))
+    assertThatThrownBy(
+            () ->
+                aliasService.updateAliases(
+                    productIndexName,
+                    productAliasName,
+                    autocompleteIndexName,
+                    autocompleteAliasName))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("Elasticsearch alias 변경 실패")
         .hasCauseInstanceOf(IOException.class);
@@ -107,13 +123,13 @@ class ElasticsearchIndexAliasServiceTest {
 
     var getAliasResponse = mock(co.elastic.clients.elasticsearch.indices.GetAliasResponse.class);
     when(getAliasResponse.result()).thenReturn(new java.util.HashMap<>());
-    when(indicesClient.getAlias(any(co.elastic.clients.elasticsearch.indices.GetAliasRequest.class)))
+    when(indicesClient.getAlias(
+            any(co.elastic.clients.elasticsearch.indices.GetAliasRequest.class)))
         .thenReturn(getAliasResponse);
 
     UpdateAliasesResponse updateResponse = mock(UpdateAliasesResponse.class);
     when(indicesClient.updateAliases(any(UpdateAliasesRequest.class))).thenReturn(updateResponse);
 
-    assertThatCode(() -> aliasService.updateAlias(indexName, aliasName))
-        .doesNotThrowAnyException();
+    assertThatCode(() -> aliasService.updateAlias(indexName, aliasName)).doesNotThrowAnyException();
   }
 }
