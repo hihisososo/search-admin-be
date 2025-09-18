@@ -1,7 +1,6 @@
 package com.yjlee.search.dictionary.typo.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
-
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -52,7 +51,8 @@ public class TypoCorrectionDictionary {
     this.correctedWord = correctedWord;
   }
 
-  public static TypoCorrectionDictionary of(String keyword, String correctedWord, EnvironmentType environment) {
+  public static TypoCorrectionDictionary of(
+      String keyword, String correctedWord, EnvironmentType environment) {
     return TypoCorrectionDictionary.builder()
         .keyword(keyword)
         .correctedWord(correctedWord)
@@ -60,8 +60,8 @@ public class TypoCorrectionDictionary {
         .build();
   }
 
-
-  public static TypoCorrectionDictionary copyWithEnvironment(TypoCorrectionDictionary source, EnvironmentType targetEnvironment) {
+  public static TypoCorrectionDictionary copyWithEnvironment(
+      TypoCorrectionDictionary source, EnvironmentType targetEnvironment) {
     return TypoCorrectionDictionary.builder()
         .keyword(source.keyword)
         .correctedWord(source.correctedWord)

@@ -1,7 +1,6 @@
 package com.yjlee.search.dictionary.user.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
-
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -46,14 +45,11 @@ public class UserDictionary {
   }
 
   public static UserDictionary of(String keyword, EnvironmentType environment) {
-    return UserDictionary.builder()
-        .keyword(keyword)
-        .environmentType(environment)
-        .build();
+    return UserDictionary.builder().keyword(keyword).environmentType(environment).build();
   }
 
-
-  public static UserDictionary copyWithEnvironment(UserDictionary source, EnvironmentType targetEnvironment) {
+  public static UserDictionary copyWithEnvironment(
+      UserDictionary source, EnvironmentType targetEnvironment) {
     return UserDictionary.builder()
         .keyword(source.keyword)
         .environmentType(targetEnvironment)

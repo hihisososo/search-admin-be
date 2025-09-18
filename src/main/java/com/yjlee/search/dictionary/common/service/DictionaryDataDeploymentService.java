@@ -8,9 +8,8 @@ import com.yjlee.search.dictionary.synonym.service.SynonymDictionaryService;
 import com.yjlee.search.dictionary.typo.service.TypoCorrectionDictionaryService;
 import com.yjlee.search.dictionary.unit.service.UnitDictionaryService;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
-import java.util.Arrays;
-import java.util.List;
-import java.util.function.Consumer;
+import com.yjlee.search.search.service.category.CategoryRankingCacheService;
+import com.yjlee.search.search.service.typo.TypoCorrectionCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,72 +26,60 @@ public class DictionaryDataDeploymentService {
   private final StopwordDictionaryService stopwordService;
   private final TypoCorrectionDictionaryService typoCorrectionService;
   private final UnitDictionaryService unitService;
+  private final DictionaryDataLoader dataLoader;
+  private final CategoryRankingCacheService categoryRankingCacheService;
+  private final TypoCorrectionCacheService typoCorrectionCacheService;
 
   @Transactional
-  public void copyToDevEnvironment(DictionaryData data) {
-    log.info("사전 데이터 DEV 환경 복사 시작");
+  public void deployToEnvironment(DictionaryData data, EnvironmentType targetEnvironment) {
+    if (targetEnvironment == EnvironmentType.CURRENT) {
+      throw new IllegalArgumentException("CURRENT 환경으로는 배포할 수 없습니다");
+    }
 
-    // 기존 DEV 환경 데이터 삭제
+    log.info("사전 데이터 {} 환경 배포 시작", targetEnvironment);
+
+    userService.saveToEnvironment(data.getUserWords(), targetEnvironment);
+    stopwordService.saveToEnvironment(data.getStopwords(), targetEnvironment);
+    unitService.saveToEnvironment(data.getUnits(), targetEnvironment);
+    synonymService.saveToEnvironment(data.getSynonyms(), targetEnvironment);
+    categoryRankingService.saveToEnvironment(data.getCategoryRankings(), targetEnvironment);
+    typoCorrectionService.saveToEnvironment(data.getTypoCorrections(), targetEnvironment);
+
+    log.info("사전 데이터 {} 환경 배포 완료", targetEnvironment);
+  }
+
+  @Transactional
+  public void moveDictionaryDevToProd() {
+    log.info("사전 데이터 DEV -> PROD 이동 시작");
+
+    DictionaryData data = dataLoader.loadAll(EnvironmentType.DEV);
+    deployToEnvironment(data, EnvironmentType.PROD);
     deleteAllByEnvironment(EnvironmentType.DEV);
 
-    // 데이터를 DEV 환경으로 저장
-    userService.saveToEnvironment(data.getUserWords(), EnvironmentType.DEV);
-    stopwordService.saveToEnvironment(data.getStopwords(), EnvironmentType.DEV);
-    unitService.saveToEnvironment(data.getUnits(), EnvironmentType.DEV);
-    synonymService.saveToEnvironment(data.getSynonyms(), EnvironmentType.DEV);
-    categoryRankingService.saveToEnvironment(data.getCategoryRankings(), EnvironmentType.DEV);
-    typoCorrectionService.saveToEnvironment(data.getTypoCorrections(), EnvironmentType.DEV);
-
-    log.info("사전 데이터 DEV 환경 복사 완료");
+    log.info("사전 데이터 DEV -> PROD 이동 완료");
   }
 
   @Transactional
-  public void copyFromDevToProd() {
-    log.info("사전 데이터 DEV → PROD 복사 시작");
+  public void uploadDictionaries(DictionaryData data) {
+    log.info("사전 업로드 시작");
 
-    // 기존 PROD 환경 데이터 삭제
-    deleteAllByEnvironment(EnvironmentType.PROD);
+    synonymService.upload(data.getSynonyms(), data.getVersion());
+    userService.upload(data.getUserWords(), data.getVersion());
+    stopwordService.upload(data.getStopwords(), data.getVersion());
+    unitService.upload(data.getUnits(), data.getVersion());
 
-    // DEV에서 PROD로 복사
-    userService.copyToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-    stopwordService.copyToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-    unitService.copyToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-    synonymService.copyToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-    categoryRankingService.copyToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-    typoCorrectionService.copyToEnvironment(EnvironmentType.DEV, EnvironmentType.PROD);
-
-    log.info("사전 데이터 DEV → PROD 복사 완료");
+    log.info("사전 업로드 완료");
   }
 
   @Transactional
-  public void preIndexingAll(DictionaryData data) {
-    log.info("색인 전 사전 준비작업 시작");
-    executeAll(getPreIndexingOperations(), data);
-    log.info("색인 전 사전 준비작업 완료");
-  }
+  public void sync(DictionaryData preloadedData, String synonymSetName, String version) {
+    log.info("사전 동기화 시작 - version: {}", version);
 
-  @Transactional
-  public void realtimeSyncAll(EnvironmentType environment) {
-    log.info("모든 사전 실시간 동기화 시작");
-    executeAll(getRealtimeSyncOperations(), environment);
-    log.info("모든 사전 실시간 동기화 완료");
-  }
+    categoryRankingCacheService.syncWithPreloadedData(preloadedData.getCategoryRankings(), version);
+    synonymService.sync(preloadedData.getSynonyms(), synonymSetName);
+    typoCorrectionCacheService.syncWithPreloadedData(preloadedData.getTypoCorrections(), version);
 
-  @Transactional
-  public void syncWithPreloadedData(
-      DictionaryData preloadedData, String synonymSetName, String version) {
-    log.info("Preloaded 데이터로 사전 동기화 시작 - version: {}", version);
-
-    // 카테고리 랭킹 동기화
-    categoryRankingService.syncWithPreloadedData(preloadedData.getCategoryRankings(), version);
-
-    // 동의어 동기화
-    synonymService.syncWithPreloadedData(preloadedData.getSynonyms(), synonymSetName);
-
-    // 오타 교정 동기화
-    typoCorrectionService.syncWithPreloadedData(preloadedData.getTypoCorrections(), version);
-
-    log.info("Preloaded 데이터로 사전 동기화 완료");
+    log.info("사전 동기화 완료");
   }
 
   @Transactional
@@ -102,36 +89,14 @@ public class DictionaryDataDeploymentService {
     }
 
     log.info("{} 환경 모든 사전 삭제 시작", environment);
-    executeAll(getDeleteOperations(), environment);
+
+    categoryRankingService.deleteByEnvironmentType(environment);
+    synonymService.deleteByEnvironmentType(environment);
+    userService.deleteByEnvironmentType(environment);
+    stopwordService.deleteByEnvironmentType(environment);
+    typoCorrectionService.deleteByEnvironmentType(environment);
+    unitService.deleteByEnvironmentType(environment);
+
     log.info("{} 환경 모든 사전 삭제 완료", environment);
-  }
-
-  private List<Consumer<DictionaryData>> getPreIndexingOperations() {
-    return Arrays.asList(
-        synonymService::preIndexing,
-        userService::preIndexing,
-        stopwordService::preIndexing,
-        unitService::preIndexing);
-  }
-
-  private List<Consumer<EnvironmentType>> getRealtimeSyncOperations() {
-    return Arrays.asList(
-        categoryRankingService::realtimeSync,
-        synonymService::realtimeSync,
-        typoCorrectionService::realtimeSync);
-  }
-
-  private List<Consumer<EnvironmentType>> getDeleteOperations() {
-    return Arrays.asList(
-        categoryRankingService::deleteByEnvironmentType,
-        synonymService::deleteByEnvironmentType,
-        userService::deleteByEnvironmentType,
-        stopwordService::deleteByEnvironmentType,
-        typoCorrectionService::deleteByEnvironmentType,
-        unitService::deleteByEnvironmentType);
-  }
-
-  private <T> void executeAll(List<Consumer<T>> operations, T parameter) {
-    operations.forEach(op -> op.accept(parameter));
   }
 }

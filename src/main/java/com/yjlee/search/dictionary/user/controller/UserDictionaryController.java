@@ -8,7 +8,6 @@ import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +29,9 @@ public class UserDictionaryController {
   @Operation(summary = "사전 목록")
   @GetMapping
   public PageResponse<UserDictionaryListResponse> getUserDictionaries(
-      @ParameterObject @PageableDefault(size = 10, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
+      @ParameterObject
+          @PageableDefault(size = 10, sort = "updatedAt", direction = Sort.Direction.DESC)
+          Pageable pageable,
       @RequestParam(required = false) String search,
       @RequestParam(required = false) EnvironmentType environment) {
     return userDictionaryService.getList(pageable, search, environment);

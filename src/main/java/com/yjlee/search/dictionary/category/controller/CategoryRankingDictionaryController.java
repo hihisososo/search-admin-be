@@ -4,7 +4,8 @@ import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.dto.*;
 import com.yjlee.search.dictionary.category.service.CategoryRankingDictionaryService;
-import com.yjlee.search.search.service.category.CategoryRankingService;
+import com.yjlee.search.dictionary.category.service.ProductCategoryService;
+import com.yjlee.search.search.service.category.CategoryRankingCacheService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,12 +26,15 @@ import org.springframework.web.bind.annotation.*;
 public class CategoryRankingDictionaryController {
 
   private final CategoryRankingDictionaryService service;
-  private final CategoryRankingService categoryRankingService;
+  private final ProductCategoryService productCategoryService;
+  private final CategoryRankingCacheService categoryRankingCacheService;
 
   @Operation(summary = "사전 목록")
   @GetMapping
   public PageResponse<CategoryRankingDictionaryListResponse> getList(
-      @ParameterObject @PageableDefault(size = 20, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
+      @ParameterObject
+          @PageableDefault(size = 20, sort = "updatedAt", direction = Sort.Direction.DESC)
+          Pageable pageable,
       @RequestParam(required = false) String search,
       @RequestParam(required = false) EnvironmentType environment) {
     return service.getList(pageable, search, environment);
@@ -71,7 +75,7 @@ public class CategoryRankingDictionaryController {
   @GetMapping("/categories")
   public CategoryListResponse getCategories(
       @RequestParam(required = false) EnvironmentType environment) {
-    return service.getCategories(environment);
+    return productCategoryService.getCategories();
   }
 
   @Operation(summary = "실시간 반영")
@@ -79,7 +83,7 @@ public class CategoryRankingDictionaryController {
   @ResponseStatus(HttpStatus.OK)
   public Map<String, Object> syncCategoryRankingDictionary(
       @RequestParam EnvironmentType environment) {
-    categoryRankingService.refreshCache(environment);
+    categoryRankingCacheService.refreshCache(environment);
     Map<String, Object> response = new HashMap<>();
     response.put("success", true);
     return response;

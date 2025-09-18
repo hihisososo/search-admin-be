@@ -46,14 +46,11 @@ public class SynonymDictionary {
   }
 
   public static SynonymDictionary of(String keyword, EnvironmentType environment) {
-    return SynonymDictionary.builder()
-        .keyword(keyword)
-        .environmentType(environment)
-        .build();
+    return SynonymDictionary.builder().keyword(keyword).environmentType(environment).build();
   }
 
-
-  public static SynonymDictionary copyWithEnvironment(SynonymDictionary source, EnvironmentType targetEnvironment) {
+  public static SynonymDictionary copyWithEnvironment(
+      SynonymDictionary source, EnvironmentType targetEnvironment) {
     return SynonymDictionary.builder()
         .keyword(source.keyword)
         .environmentType(targetEnvironment)

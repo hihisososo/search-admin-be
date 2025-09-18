@@ -62,9 +62,7 @@ public class CategoryRankingDictionary {
   }
 
   public static CategoryRankingDictionary of(
-      String keyword,
-      List<CategoryMapping> mappings,
-      EnvironmentType environment) {
+      String keyword, List<CategoryMapping> mappings, EnvironmentType environment) {
     return CategoryRankingDictionary.builder()
         .keyword(keyword)
         .categoryMappings(mappings)
@@ -72,16 +70,19 @@ public class CategoryRankingDictionary {
         .build();
   }
 
-
-  public static CategoryRankingDictionary copyWithEnvironment(CategoryRankingDictionary source, EnvironmentType targetEnvironment) {
-    List<CategoryMapping> copiedMappings = source.categoryMappings != null ?
-        source.categoryMappings.stream()
-            .map(m -> CategoryMapping.builder()
-                .category(m.getCategory())
-                .weight(m.getWeight())
-                .build())
-            .toList() :
-        new ArrayList<>();
+  public static CategoryRankingDictionary copyWithEnvironment(
+      CategoryRankingDictionary source, EnvironmentType targetEnvironment) {
+    List<CategoryMapping> copiedMappings =
+        source.categoryMappings != null
+            ? source.categoryMappings.stream()
+                .map(
+                    m ->
+                        CategoryMapping.builder()
+                            .category(m.getCategory())
+                            .weight(m.getWeight())
+                            .build())
+                .toList()
+            : new ArrayList<>();
 
     return CategoryRankingDictionary.builder()
         .keyword(source.keyword)

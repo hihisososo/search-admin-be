@@ -44,16 +44,12 @@ public class StopwordDictionary {
     this.keyword = keyword;
   }
 
-  public static StopwordDictionary of(
-      String keyword, EnvironmentType environment) {
-    return StopwordDictionary.builder()
-        .keyword(keyword)
-        .environmentType(environment)
-        .build();
+  public static StopwordDictionary of(String keyword, EnvironmentType environment) {
+    return StopwordDictionary.builder().keyword(keyword).environmentType(environment).build();
   }
 
-
-  public static StopwordDictionary copyWithEnvironment(StopwordDictionary source, EnvironmentType targetEnvironment) {
+  public static StopwordDictionary copyWithEnvironment(
+      StopwordDictionary source, EnvironmentType targetEnvironment) {
     return StopwordDictionary.builder()
         .keyword(source.keyword)
         .environmentType(targetEnvironment)

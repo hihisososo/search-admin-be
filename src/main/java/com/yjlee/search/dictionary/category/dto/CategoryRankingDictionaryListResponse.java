@@ -32,7 +32,8 @@ public class CategoryRankingDictionaryListResponse {
     return CategoryRankingDictionaryListResponse.builder()
         .id(entity.getId())
         .keyword(entity.getKeyword())
-        .categoryCount(entity.getCategoryMappings() != null ? entity.getCategoryMappings().size() : 0)
+        .categoryCount(
+            entity.getCategoryMappings() != null ? entity.getCategoryMappings().size() : 0)
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
         .build();

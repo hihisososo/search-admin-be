@@ -29,7 +29,9 @@ public class StopwordDictionaryController {
   @Operation(summary = "사전 목록")
   @GetMapping
   public PageResponse<StopwordDictionaryListResponse> getStopwordDictionaries(
-      @ParameterObject @PageableDefault(size = 20, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
+      @ParameterObject
+          @PageableDefault(size = 20, sort = "updatedAt", direction = Sort.Direction.DESC)
+          Pageable pageable,
       @RequestParam(required = false) String search,
       @RequestParam(required = false) EnvironmentType environment) {
     return stopwordDictionaryService.getList(pageable, search, environment);
