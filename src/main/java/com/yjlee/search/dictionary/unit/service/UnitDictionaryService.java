@@ -192,11 +192,4 @@ public class UnitDictionaryService {
       entity.updateKeyword(request.getKeyword());
     }
   }
-
-  private Sort createSort(String sortBy, String sortDir) {
-    String field = DictionarySortField.getValidFieldOrDefault(sortBy);
-    Sort.Direction direction =
-        "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-    return Sort.by(direction, field);
-  }
 }
