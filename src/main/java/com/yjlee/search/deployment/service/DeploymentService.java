@@ -11,6 +11,7 @@ import com.yjlee.search.deployment.enums.IndexStatus;
 import com.yjlee.search.deployment.model.DeploymentHistory;
 import com.yjlee.search.deployment.model.IndexEnvironment;
 import com.yjlee.search.dictionary.common.service.DictionaryDataDeploymentService;
+import com.yjlee.search.index.provider.IndexNameProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class DeploymentService {
   private final ElasticsearchIndexService elasticsearchIndexService;
   private final DeploymentHistoryService historyService;
   private final AsyncTaskService asyncTaskService;
+  private final IndexNameProvider indexNameProvider;
 
   @Transactional
   public DeploymentOperationResponse executeDeployment(DeploymentRequest request) {
@@ -97,7 +99,8 @@ public class DeploymentService {
 
       // Alias 업데이트
       elasticsearchIndexAliasService.updateAliases(
-          context.getDevIndexName(), context.getDevAutocompleteIndexName());
+          context.getDevIndexName(), indexNameProvider.getProductsSearchAlias(),
+          context.getDevAutocompleteIndexName(), indexNameProvider.getAutocompleteSearchAlias());
 
       // 이전 인덱스 삭제
       elasticsearchIndexService.deleteIndexIfExists(context.getPreviousProdIndexName());

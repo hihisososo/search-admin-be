@@ -6,7 +6,6 @@ import co.elastic.clients.elasticsearch.indices.GetAliasRequest;
 import co.elastic.clients.elasticsearch.indices.GetAliasResponse;
 import co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
-import com.yjlee.search.index.provider.IndexNameProvider;
 import java.util.ArrayList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,15 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class ElasticsearchIndexAliasService {
 
   private final ElasticsearchClient elasticsearchClient;
-  private final IndexNameProvider indexNameProvider;
 
   @Transactional(readOnly = true)
-  public void updateAliases(String productIndexName, String autocompleteIndexName) {
-    updateAlias(productIndexName, indexNameProvider.getProductsSearchAlias());
-    updateAlias(autocompleteIndexName, indexNameProvider.getAutocompleteSearchAlias());
+  public void updateAliases(String productIndexName, String productAliasName,
+                           String autocompleteIndexName, String autocompleteAliasName) {
+    updateAlias(productIndexName, productAliasName);
+    updateAlias(autocompleteIndexName, autocompleteAliasName);
   }
 
-  private void updateAlias(String newIndexName, String aliasName) {
+  public void updateAlias(String newIndexName, String aliasName) {
     validateIndexName(newIndexName);
     GetAliasRequest getAliasRequest = GetAliasRequest.of(a -> a.name(aliasName));
 
@@ -43,7 +42,6 @@ public class ElasticsearchIndexAliasService {
           }
         }
       } catch (ElasticsearchException e) {
-        // alias가 없는 경우 (404) - 정상적인 상황
         if (e.getMessage().contains("http_status_404") || e.getMessage().contains("missing")) {
           log.info("Alias {} 가 존재하지 않아 새로 생성합니다.", aliasName);
         } else {

@@ -22,11 +22,7 @@ public class ApplicationStartupListener {
   @EventListener(ApplicationReadyEvent.class)
   @Transactional
   public void handleApplicationReady() {
-    // IndexEnvironment 초기화
     initializeEnvironments();
-
-    // 진행 중이었던 Task 정리
-    log.info("진행 중이었던 Task 정리 시작");
 
     var inProgressTasks = asyncTaskRepository.findByStatus(AsyncTaskStatus.IN_PROGRESS);
 
@@ -43,13 +39,11 @@ public class ApplicationStartupListener {
   }
 
   private void initializeEnvironments() {
-    // DEV 환경이 없으면 생성
     if (!environmentService.existsEnvironment(EnvironmentType.DEV)) {
       environmentService.createEnvironment(EnvironmentType.DEV);
       log.info("DEV 환경 초기화 완료");
     }
 
-    // PROD 환경도 미리 생성 (선택사항)
     if (!environmentService.existsEnvironment(EnvironmentType.PROD)) {
       environmentService.createEnvironment(EnvironmentType.PROD);
       log.info("PROD 환경 초기화 완료");

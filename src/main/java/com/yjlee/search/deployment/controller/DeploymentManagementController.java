@@ -33,7 +33,6 @@ public class DeploymentManagementController {
 
   private final IndexEnvironmentService environmentService;
   private final DeploymentHistoryService historyService;
-  private final AsyncTaskService asyncTaskService;
   private final DeploymentService deploymentService;
   private final IndexingTaskRegisterService indexingTaskRegisterService;
 

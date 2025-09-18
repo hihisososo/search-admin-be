@@ -37,6 +37,8 @@ public class IndexingTaskWorker implements TaskWorker {
   private final DictionaryDataDeploymentService dictionaryDeploymentService;
   private final DictionaryDataLoader dictionaryDataLoader;
   private final ElasticsearchIndexService elasticsearchIndexService;
+  private final ElasticsearchSettingsService settingsService;
+  private final ElasticsearchMappingService mappingService;
   private final AsyncTaskService asyncTaskService;
   private final IndexNameProvider indexNameProvider;
   private final ObjectMapper objectMapper;
@@ -78,7 +80,7 @@ public class IndexingTaskWorker implements TaskWorker {
       dictionaryDeploymentService.preIndexingAll(dictionaryData);
 
       // 인덱스 생성
-      elasticsearchIndexService.createNewIndex(context);
+      createIndexes(context);
 
       // 상품 색인
       asyncTaskService.updateProgress(task.getId(), PROGRESS_INDEXING_START, "상품 색인 시작...");
@@ -112,6 +114,30 @@ public class IndexingTaskWorker implements TaskWorker {
         failHistorySilently(context.getHistoryId());
       }
     }
+  }
+
+  private void createIndexes(IndexingContext context) {
+    String version = context.getVersion();
+    String productIndexName = context.getProductIndexName();
+    String autocompleteIndexName = context.getAutocompleteIndexName();
+    String synonymSetName = context.getSynonymSetName();
+
+    // 상품 인덱스 생성
+    elasticsearchIndexService.deleteIndexIfExists(productIndexName);
+    String productMapping = mappingService.loadProductMapping();
+    String productSettings = settingsService.createProductIndexSettings(
+        indexNameProvider.getUserDictPath(version),
+        indexNameProvider.getStopwordDictPath(version),
+        indexNameProvider.getUnitDictPath(version),
+        synonymSetName);
+    elasticsearchIndexService.createIndex(productIndexName, productMapping, productSettings);
+
+    // 자동완성 인덱스 생성
+    elasticsearchIndexService.deleteIndexIfExists(autocompleteIndexName);
+    String autocompleteMapping = mappingService.loadAutocompleteMapping();
+    String autocompleteSettings = settingsService.createAutocompleteIndexSettings(
+        indexNameProvider.getUserDictPath(version));
+    elasticsearchIndexService.createIndex(autocompleteIndexName, autocompleteMapping, autocompleteSettings);
   }
 
   public IndexingContext prepareIndexingAndCreateContext(String description) {

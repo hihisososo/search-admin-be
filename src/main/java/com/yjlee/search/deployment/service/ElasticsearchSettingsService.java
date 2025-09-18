@@ -1,6 +1,5 @@
 package com.yjlee.search.deployment.service;
 
-import com.yjlee.search.index.provider.IndexNameProvider;
 import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,21 +18,21 @@ public class ElasticsearchSettingsService {
   private static final String AUTOCOMPLETE_SETTINGS_FILE = "autocomplete-settings.json";
 
   private final ResourceLoader resourceLoader;
-  private final IndexNameProvider indexNameProvider;
 
-  public String createProductIndexSettings(String version, String synonymSetName) {
+  public String createProductIndexSettings(String userDictPath, String stopwordDictPath,
+                                          String unitDictPath, String synonymSetName) {
     String settingsTemplate = loadResourceFile(MAPPING_PATH_PREFIX + PRODUCT_SETTINGS_FILE);
 
     return settingsTemplate
-        .replace("{USER_DICT_PATH}", indexNameProvider.getUserDictPath(version))
-        .replace("{STOPWORD_DICT_PATH}", indexNameProvider.getStopwordDictPath(version))
-        .replace("{UNIT_DICT_PATH}", indexNameProvider.getUnitDictPath(version))
+        .replace("{USER_DICT_PATH}", userDictPath)
+        .replace("{STOPWORD_DICT_PATH}", stopwordDictPath)
+        .replace("{UNIT_DICT_PATH}", unitDictPath)
         .replace("{SYNONYM_SET_NAME}", synonymSetName);
   }
 
-  public String createAutocompleteIndexSettings(String version) {
+  public String createAutocompleteIndexSettings(String userDictPath) {
     String settingsTemplate = loadResourceFile(MAPPING_PATH_PREFIX + AUTOCOMPLETE_SETTINGS_FILE);
-    return settingsTemplate.replace("{USER_DICT_PATH}", indexNameProvider.getUserDictPath(version));
+    return settingsTemplate.replace("{USER_DICT_PATH}", userDictPath);
   }
 
   private String loadResourceFile(String path) {
