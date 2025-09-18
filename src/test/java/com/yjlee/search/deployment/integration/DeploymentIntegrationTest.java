@@ -18,6 +18,7 @@ import com.yjlee.search.deployment.repository.IndexEnvironmentRepository;
 import com.yjlee.search.index.model.Product;
 import com.yjlee.search.index.repository.ProductRepository;
 import com.yjlee.search.test.base.BaseIntegrationTest;
+import com.yjlee.search.test.util.TestDataLoader;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -36,9 +37,13 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
   @Autowired private AsyncTaskRepository asyncTaskRepository;
   @Autowired private ProductRepository productRepository;
 
+  private TestDataLoader testDataLoader;
+
   @BeforeEach
   void setUp() throws Exception {
     deleteAllTestIndices();
+
+    testDataLoader = new TestDataLoader(objectMapper);
 
     environmentRepository.deleteAll();
     historyRepository.deleteAll();
@@ -257,6 +262,25 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
   }
 
   @Test
+  @DisplayName("대용량 데이터 색인 테스트")
+  void executeLargeDatasetIndexing() throws Exception {
+    productRepository.deleteAll();
+    List<Product> products = testDataLoader.loadProducts();
+    productRepository.saveAll(products);
+
+    Long taskId = executeIndexingRequest("대용량 색인 테스트");
+    waitForAsyncTask(taskId, 60);
+
+    AsyncTask task = asyncTaskRepository.findById(taskId).orElseThrow();
+    assertThat(task.getStatus()).isEqualTo(AsyncTaskStatus.COMPLETED);
+
+    IndexEnvironment devEnv =
+        environmentRepository.findByEnvironmentType(EnvironmentType.DEV).orElseThrow();
+    assertThat(devEnv.getIndexStatus()).isEqualTo(IndexStatus.ACTIVE);
+    assertThat(devEnv.getDocumentCount()).isEqualTo((long) products.size());
+  }
+
+  @Test
   @DisplayName("환경 정보 업데이트 확인")
   void verifyEnvironmentUpdates() throws Exception {
     mockMvc
@@ -360,14 +384,7 @@ class DeploymentIntegrationTest extends BaseIntegrationTest {
   }
 
   private void createTestProducts() {
-    String uniqueId = String.valueOf(System.currentTimeMillis());
-    for (int i = 1; i <= 10; i++) {
-      Product product = new Product();
-      product.setName("테스트 상품 " + uniqueId + "_" + i);
-      product.setPrice((long) (10000 * i));
-      product.setCategoryId(1L);
-      product.setCategoryName("전자제품");
-      productRepository.save(product);
-    }
+    List<Product> products = testDataLoader.loadProducts(10);
+    productRepository.saveAll(products);
   }
 }

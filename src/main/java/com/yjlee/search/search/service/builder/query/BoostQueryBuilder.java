@@ -2,13 +2,13 @@ package com.yjlee.search.search.service.builder.query;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
+import com.yjlee.search.analysis.domain.TokenInfo;
+import com.yjlee.search.analysis.enums.AnalysisType;
+import com.yjlee.search.analysis.service.AnalysisService;
 import com.yjlee.search.common.constants.ESFields;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.search.constants.SearchBoostConstants;
 import com.yjlee.search.search.service.category.CategoryRankingCacheService;
-import com.yjlee.search.analysis.service.AnalysisService;
-import com.yjlee.search.analysis.domain.TokenInfo;
-import com.yjlee.search.analysis.enums.AnalysisType;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -59,10 +59,8 @@ public class BoostQueryBuilder {
     List<String> analyzedTokens = null;
     try {
       List<TokenInfo> tokens = analysisService.analyze(query, environment, AnalysisType.SEARCH);
-      analyzedTokens = tokens.stream()
-          .filter(token -> !token.isSynonym())
-          .map(TokenInfo::getToken)
-          .toList();
+      analyzedTokens =
+          tokens.stream().filter(token -> !token.isSynonym()).map(TokenInfo::getToken).toList();
     } catch (Exception e) {
       log.warn("형태소 분석 실패, 공백 단위 매칭만 사용: {}", e.getMessage());
     }

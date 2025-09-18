@@ -40,7 +40,8 @@ public class CategoryRankingCacheService {
     }
   }
 
-  public Map<String, Integer> getCategoryWeights(String query, List<String> analyzedTokens, EnvironmentType environmentType) {
+  public Map<String, Integer> getCategoryWeights(
+      String query, List<String> analyzedTokens, EnvironmentType environmentType) {
     if (query == null || query.trim().isEmpty()) {
       return Collections.emptyMap();
     }
