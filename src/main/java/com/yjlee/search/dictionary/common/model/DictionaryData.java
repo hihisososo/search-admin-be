@@ -27,13 +27,4 @@ public class DictionaryData {
   @Builder.Default List<CategoryRankingDictionary> categoryRankings = Collections.emptyList();
 
   String version;
-
-  public boolean isEmpty() {
-    return synonyms.isEmpty()
-        && stopwords.isEmpty()
-        && userWords.isEmpty()
-        && typoCorrections.isEmpty()
-        && units.isEmpty()
-        && categoryRankings.isEmpty();
-  }
 }

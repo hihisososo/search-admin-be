@@ -35,7 +35,7 @@ public class DictionaryDataDeploymentService {
     // 기존 DEV 환경 데이터 삭제
     deleteAllByEnvironment(EnvironmentType.DEV);
 
-    // 메모리 데이터를 DEV 환경으로 저장
+    // 데이터를 DEV 환경으로 저장
     userService.saveToEnvironment(data.getUserWords(), EnvironmentType.DEV);
     stopwordService.saveToEnvironment(data.getStopwords(), EnvironmentType.DEV);
     unitService.saveToEnvironment(data.getUnits(), EnvironmentType.DEV);

@@ -38,16 +38,11 @@ public class EvaluationCandidateService {
   }
 
   public Page<QueryProductMapping> getQueryMappingsWithPaging(
-      String query, int page, int size, String sortBy, String sortDirection) {
+      String query, Pageable pageable) {
     Optional<EvaluationQuery> evaluationQuery = evaluationQueryRepository.findByQuery(query);
     if (evaluationQuery.isEmpty()) {
       throw new IllegalArgumentException("평가 쿼리를 찾을 수 없습니다: " + query);
     }
-
-    Sort.Direction direction =
-        "DESC".equalsIgnoreCase(sortDirection) ? Sort.Direction.DESC : Sort.Direction.ASC;
-
-    Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
     return queryProductMappingRepository.findByEvaluationQuery(evaluationQuery.get(), pageable);
   }

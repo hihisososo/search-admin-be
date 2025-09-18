@@ -11,6 +11,10 @@ import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,13 +30,10 @@ public class CategoryRankingDictionaryController {
   @Operation(summary = "사전 목록")
   @GetMapping
   public PageResponse<CategoryRankingDictionaryListResponse> getList(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size,
+      @ParameterObject @PageableDefault(size = 20, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
       @RequestParam(required = false) String search,
-      @RequestParam(defaultValue = "updatedAt") String sortBy,
-      @RequestParam(defaultValue = "desc") String sortDir,
       @RequestParam(required = false) EnvironmentType environment) {
-    return service.getList(page, size, search, sortBy, sortDir, environment);
+    return service.getList(pageable, search, environment);
   }
 
   @Operation(summary = "사전 상세")
@@ -81,9 +82,6 @@ public class CategoryRankingDictionaryController {
     categoryRankingService.refreshCache(environment);
     Map<String, Object> response = new HashMap<>();
     response.put("success", true);
-    response.put("message", "카테고리 랭킹 사전 실시간 반영 완료");
-    response.put("environment", environment.getDescription());
-    response.put("timestamp", System.currentTimeMillis());
     return response;
   }
 }

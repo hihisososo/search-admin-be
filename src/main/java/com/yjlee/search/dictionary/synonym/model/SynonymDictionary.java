@@ -1,7 +1,6 @@
 package com.yjlee.search.dictionary.synonym.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.dictionary.common.model.DictionaryEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -24,16 +23,13 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SynonymDictionary implements DictionaryEntity {
+public class SynonymDictionary {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
 
   @Column(nullable = false, length = 1000)
   String keyword;
-
-  @Column(length = 500)
-  String description;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
@@ -49,7 +45,18 @@ public class SynonymDictionary implements DictionaryEntity {
     this.keyword = keyword;
   }
 
-  public void updateDescription(String description) {
-    this.description = description;
+  public static SynonymDictionary of(String keyword, EnvironmentType environment) {
+    return SynonymDictionary.builder()
+        .keyword(keyword)
+        .environmentType(environment)
+        .build();
+  }
+
+
+  public static SynonymDictionary copyWithEnvironment(SynonymDictionary source, EnvironmentType targetEnvironment) {
+    return SynonymDictionary.builder()
+        .keyword(source.keyword)
+        .environmentType(targetEnvironment)
+        .build();
   }
 }

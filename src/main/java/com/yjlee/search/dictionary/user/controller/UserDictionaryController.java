@@ -8,9 +8,14 @@ import com.yjlee.search.dictionary.user.dto.UserDictionaryResponse;
 import com.yjlee.search.dictionary.user.dto.UserDictionaryUpdateRequest;
 import com.yjlee.search.dictionary.user.service.UserDictionaryService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,13 +30,10 @@ public class UserDictionaryController {
   @Operation(summary = "사전 목록")
   @GetMapping
   public PageResponse<UserDictionaryListResponse> getUserDictionaries(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size,
+      @ParameterObject @PageableDefault(size = 10, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
       @RequestParam(required = false) String search,
-      @RequestParam(defaultValue = "updatedAt") String sortBy,
-      @RequestParam(defaultValue = "desc") String sortDir,
       @RequestParam(required = false) EnvironmentType environment) {
-    return userDictionaryService.getList(page, size, sortBy, sortDir, search, environment);
+    return userDictionaryService.getList(pageable, search, environment);
   }
 
   @Operation(summary = "사전 상세")

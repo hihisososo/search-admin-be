@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.typo.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.dictionary.common.model.DictionaryEntity;
+
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -24,19 +24,16 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class TypoCorrectionDictionary implements DictionaryEntity {
+public class TypoCorrectionDictionary {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
 
   @Column(nullable = false, length = 100)
-  String keyword; // 오타 단어 (예: "삼송")
+  String keyword;
 
   @Column(nullable = false, length = 100)
-  String correctedWord; // 교정어 (예: "삼성")
-
-  @Column(length = 500)
-  String description;
+  String correctedWord;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
@@ -55,7 +52,20 @@ public class TypoCorrectionDictionary implements DictionaryEntity {
     this.correctedWord = correctedWord;
   }
 
-  public void updateDescription(String description) {
-    this.description = description;
+  public static TypoCorrectionDictionary of(String keyword, String correctedWord, EnvironmentType environment) {
+    return TypoCorrectionDictionary.builder()
+        .keyword(keyword)
+        .correctedWord(correctedWord)
+        .environmentType(environment)
+        .build();
+  }
+
+
+  public static TypoCorrectionDictionary copyWithEnvironment(TypoCorrectionDictionary source, EnvironmentType targetEnvironment) {
+    return TypoCorrectionDictionary.builder()
+        .keyword(source.keyword)
+        .correctedWord(source.correctedWord)
+        .environmentType(targetEnvironment)
+        .build();
   }
 }

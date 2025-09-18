@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.user.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.dictionary.common.model.DictionaryEntity;
+
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -24,16 +24,13 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class UserDictionary implements DictionaryEntity {
+public class UserDictionary {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
 
   @Column(nullable = false, length = 1000)
   String keyword;
-
-  @Column(length = 500)
-  String description;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
@@ -44,20 +41,22 @@ public class UserDictionary implements DictionaryEntity {
 
   @LastModifiedDate @Column LocalDateTime updatedAt;
 
-  // 비즈니스 메서드들
   public void updateKeyword(String keyword) {
     this.keyword = keyword;
   }
 
-  public void updateDescription(String description) {
-    this.description = description;
-  }
-
-  public static UserDictionary of(String keyword, String description, EnvironmentType environment) {
+  public static UserDictionary of(String keyword, EnvironmentType environment) {
     return UserDictionary.builder()
         .keyword(keyword)
-        .description(description)
         .environmentType(environment)
+        .build();
+  }
+
+
+  public static UserDictionary copyWithEnvironment(UserDictionary source, EnvironmentType targetEnvironment) {
+    return UserDictionary.builder()
+        .keyword(source.keyword)
+        .environmentType(targetEnvironment)
         .build();
   }
 }

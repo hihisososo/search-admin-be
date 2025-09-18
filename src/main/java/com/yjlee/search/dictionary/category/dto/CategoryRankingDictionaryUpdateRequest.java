@@ -21,8 +21,4 @@ public class CategoryRankingDictionaryUpdateRequest {
   @Valid
   @Schema(description = "카테고리 매핑 목록 (전체 교체)")
   private List<CategoryMappingDto> categoryMappings;
-
-  @Size(max = 500, message = "설명은 500자 이하여야 합니다")
-  @Schema(description = "설명", example = "아이폰 관련 카테고리 부스팅")
-  private String description;
 }

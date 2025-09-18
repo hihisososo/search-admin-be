@@ -2,7 +2,6 @@ package com.yjlee.search.dictionary.category.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.converter.CategoryMappingListConverter;
-import com.yjlee.search.dictionary.common.model.DictionaryEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -32,7 +31,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CategoryRankingDictionary implements DictionaryEntity {
+public class CategoryRankingDictionary {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
@@ -44,9 +43,6 @@ public class CategoryRankingDictionary implements DictionaryEntity {
   @Convert(converter = CategoryMappingListConverter.class)
   @Builder.Default
   List<CategoryMapping> categoryMappings = new ArrayList<>();
-
-  @Column(length = 500)
-  String description;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
@@ -65,33 +61,32 @@ public class CategoryRankingDictionary implements DictionaryEntity {
     this.categoryMappings = categoryMappings != null ? categoryMappings : new ArrayList<>();
   }
 
-  public void updateDescription(String description) {
-    this.description = description;
-  }
-
-  public void addCategoryMapping(String category, Integer weight) {
-    if (categoryMappings == null) {
-      categoryMappings = new ArrayList<>();
-    }
-    categoryMappings.add(new CategoryMapping(category, weight));
-  }
-
-  public void removeCategoryMapping(String category) {
-    if (categoryMappings != null) {
-      categoryMappings.removeIf(m -> m.getCategory().equals(category));
-    }
-  }
-
   public static CategoryRankingDictionary of(
       String keyword,
       List<CategoryMapping> mappings,
-      String description,
       EnvironmentType environment) {
     return CategoryRankingDictionary.builder()
         .keyword(keyword)
         .categoryMappings(mappings)
-        .description(description)
         .environmentType(environment)
+        .build();
+  }
+
+
+  public static CategoryRankingDictionary copyWithEnvironment(CategoryRankingDictionary source, EnvironmentType targetEnvironment) {
+    List<CategoryMapping> copiedMappings = source.categoryMappings != null ?
+        source.categoryMappings.stream()
+            .map(m -> CategoryMapping.builder()
+                .category(m.getCategory())
+                .weight(m.getWeight())
+                .build())
+            .toList() :
+        new ArrayList<>();
+
+    return CategoryRankingDictionary.builder()
+        .keyword(source.keyword)
+        .categoryMappings(copiedMappings)
+        .environmentType(targetEnvironment)
         .build();
   }
 }

@@ -11,7 +11,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface StopwordDictionaryRepository extends JpaRepository<StopwordDictionary, Long> {
 
-  // environment_type 기반 조회
   Page<StopwordDictionary> findByEnvironmentType(
       EnvironmentType environmentType, Pageable pageable);
 

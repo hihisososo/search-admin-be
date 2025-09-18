@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class AsyncTaskServiceTest {
@@ -144,17 +145,18 @@ class AsyncTaskServiceTest {
   @DisplayName("작업 목록 조회")
   void getRecentTasks() {
     List<AsyncTask> tasks = List.of(testTask);
-    Page<AsyncTask> page = new PageImpl<>(tasks, PageRequest.of(0, 10), 1);
-    when(asyncTaskRepository.findAllByOrderByCreatedAtDesc(any(PageRequest.class)))
+    Pageable pageable = PageRequest.of(0, 10);
+    Page<AsyncTask> page = new PageImpl<>(tasks, pageable, 1);
+    when(asyncTaskRepository.findAllByOrderByCreatedAtDesc(any(Pageable.class)))
         .thenReturn(page);
 
-    AsyncTaskListResponse result = asyncTaskService.getRecentTasks(0, 10);
+    AsyncTaskListResponse result = asyncTaskService.getRecentTasks(pageable);
 
     assertThat(result).isNotNull();
     assertThat(result.getTasks()).hasSize(1);
     assertThat(result.getTotalCount()).isEqualTo(1);
     assertThat(result.getCurrentPage()).isEqualTo(0);
-    verify(asyncTaskRepository).findAllByOrderByCreatedAtDesc(any(PageRequest.class));
+    verify(asyncTaskRepository).findAllByOrderByCreatedAtDesc(any(Pageable.class));
   }
 
   @Test

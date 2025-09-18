@@ -11,7 +11,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserDictionaryRepository extends JpaRepository<UserDictionary, Long> {
 
-  // environment_type 기반 조회
   Page<UserDictionary> findByEnvironmentType(EnvironmentType environmentType, Pageable pageable);
 
   List<UserDictionary> findByEnvironmentTypeOrderByKeywordAsc(EnvironmentType environmentType);

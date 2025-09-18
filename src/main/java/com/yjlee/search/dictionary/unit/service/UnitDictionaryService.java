@@ -10,7 +10,6 @@ import com.yjlee.search.dictionary.unit.dto.UnitDictionaryCreateRequest;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryListResponse;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryResponse;
 import com.yjlee.search.dictionary.unit.dto.UnitDictionaryUpdateRequest;
-import com.yjlee.search.dictionary.unit.mapper.UnitDictionaryMapper;
 import com.yjlee.search.dictionary.unit.model.UnitDictionary;
 import com.yjlee.search.dictionary.unit.repository.UnitDictionaryRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -35,30 +34,23 @@ public class UnitDictionaryService {
 
   private final UnitDictionaryRepository unitDictionaryRepository;
   private final FileUploadService fileUploadService;
-  private final UnitDictionaryMapper mapper;
 
   public UnitDictionaryResponse create(
       UnitDictionaryCreateRequest request, EnvironmentType environment) {
     UnitDictionary entity = UnitDictionary.of(request.getKeyword(), environment);
     UnitDictionary saved = unitDictionaryRepository.save(entity);
-    return mapper.toResponse(saved);
+    return UnitDictionaryResponse.from(saved);
   }
 
   public PageResponse<UnitDictionaryListResponse> getList(
-      int page,
-      int size,
-      String sortBy,
-      String sortDir,
+      Pageable pageable,
       String keyword,
       EnvironmentType environment) {
-
-    Sort sort = createSort(sortBy, sortDir);
-    Pageable pageable = PageRequest.of(page, size, sort);
 
     Page<UnitDictionary> entities =
         unitDictionaryRepository.findWithOptionalKeyword(environment, keyword, pageable);
 
-    return PageResponse.from(entities.map(mapper::toListResponse));
+    return PageResponse.from(entities.map(UnitDictionaryListResponse::from));
   }
 
   public UnitDictionaryResponse get(Long id, EnvironmentType environment) {
@@ -67,7 +59,7 @@ public class UnitDictionaryService {
         unitDictionaryRepository
             .findById(id)
             .orElseThrow(() -> new EntityNotFoundException("단위 사전을 찾을 수 없습니다: " + id));
-    return mapper.toResponse(entity);
+    return UnitDictionaryResponse.from(entity);
   }
 
   public UnitDictionaryResponse update(
@@ -81,7 +73,7 @@ public class UnitDictionaryService {
     updateEntity(entity, request);
     UnitDictionary updated = unitDictionaryRepository.save(entity);
 
-    return mapper.toResponse(updated);
+    return UnitDictionaryResponse.from(updated);
   }
 
   public void delete(Long id, EnvironmentType environment) {
@@ -134,7 +126,7 @@ public class UnitDictionaryService {
     deleteByEnvironmentType(to);
 
     List<UnitDictionary> targetDictionaries =
-        sourceDictionaries.stream().map(dict -> mapper.copyWithEnvironment(dict, to)).toList();
+        sourceDictionaries.stream().map(dict -> UnitDictionary.copyWithEnvironment(dict, to)).toList();
 
     unitDictionaryRepository.saveAll(targetDictionaries);
     log.info("{} 환경 단위 사전 배포 완료: {}개", to, targetDictionaries.size());

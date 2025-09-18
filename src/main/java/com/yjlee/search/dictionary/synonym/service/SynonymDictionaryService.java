@@ -51,38 +51,26 @@ public class SynonymDictionaryService {
     }
 
     SynonymDictionary dictionary =
-        SynonymDictionary.builder()
-            .environmentType(environment)
-            .keyword(request.getKeyword())
-            .description(request.getDescription())
-            .build();
+        SynonymDictionary.of(request.getKeyword(), environment);
 
     SynonymDictionary saved = repository.save(dictionary);
     log.info("동의어 사전 생성 완료: {} (ID: {}) - 환경: {}", saved.getKeyword(), saved.getId(), environment);
 
-    return convertToResponse(saved);
+    return SynonymDictionaryResponse.from(saved);
   }
 
   @Transactional(readOnly = true)
   public PageResponse<SynonymDictionaryListResponse> getList(
-      int page,
-      int size,
-      String sortBy,
-      String sortDir,
+      Pageable pageable,
       String search,
       EnvironmentType environmentType) {
 
     log.debug(
-        "동의어 사전 목록 조회 - page: {}, size: {}, search: {}, sortBy: {}, sortDir: {}, environment: {}",
-        page,
-        size,
+        "동의어 사전 목록 조회 - page: {}, size: {}, search: {}, environment: {}",
+        pageable.getPageNumber(),
+        pageable.getPageSize(),
         search,
-        sortBy,
-        sortDir,
         environmentType);
-
-    Sort sort = createSort(sortBy, sortDir);
-    Pageable pageable = PageRequest.of(Math.max(0, page), size, sort);
 
     Page<SynonymDictionary> dictionaryPage;
     if (search != null && !search.trim().isEmpty()) {
@@ -93,7 +81,7 @@ public class SynonymDictionaryService {
       dictionaryPage = repository.findByEnvironmentType(environmentType, pageable);
     }
 
-    return PageResponse.from(dictionaryPage.map(this::convertToListResponse));
+    return PageResponse.from(dictionaryPage.map(SynonymDictionaryListResponse::from));
   }
 
   @Transactional(readOnly = true)
@@ -104,7 +92,7 @@ public class SynonymDictionaryService {
         repository
             .findById(id)
             .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
-    return convertToResponse(dictionary);
+    return SynonymDictionaryResponse.from(dictionary);
   }
 
   @Transactional
@@ -120,14 +108,11 @@ public class SynonymDictionaryService {
     if (request.getKeyword() != null) {
       existing.updateKeyword(request.getKeyword());
     }
-    if (request.getDescription() != null) {
-      existing.updateDescription(request.getDescription());
-    }
 
     SynonymDictionary updated = repository.save(existing);
     log.info("동의어 사전 수정 완료: {} - 환경: {}", id, environment);
 
-    return convertToResponse(updated);
+    return SynonymDictionaryResponse.from(updated);
   }
 
   @Transactional
@@ -189,7 +174,6 @@ public class SynonymDictionaryService {
                     SynonymDictionary.builder()
                         .environmentType(to)
                         .keyword(dict.getKeyword())
-                        .description(dict.getDescription())
                         .build())
             .toList();
 
@@ -206,13 +190,7 @@ public class SynonymDictionaryService {
 
     List<SynonymDictionary> targetDictionaries =
         sourceData.stream()
-            .map(
-                dict ->
-                    SynonymDictionary.builder()
-                        .environmentType(targetEnv)
-                        .keyword(dict.getKeyword())
-                        .description(dict.getDescription())
-                        .build())
+            .map(dict -> SynonymDictionary.copyWithEnvironment(dict, targetEnv))
             .toList();
 
     repository.saveAll(targetDictionaries);
@@ -233,16 +211,6 @@ public class SynonymDictionaryService {
 
     updateElasticsearchSynonymSet(tempSynonymSetName, synonymRules);
     log.info("동의어 사전 배포 완료 - synonymSet: {}", tempSynonymSetName);
-  }
-
-  private SynonymDictionaryResponse convertToResponse(SynonymDictionary entity) {
-    return SynonymDictionaryResponse.builder()
-        .id(entity.getId())
-        .keyword(entity.getKeyword())
-        .description(entity.getDescription())
-        .createdAt(entity.getCreatedAt())
-        .updatedAt(entity.getUpdatedAt())
-        .build();
   }
 
   public String getDictionaryContent(EnvironmentType environment) {
@@ -284,43 +252,6 @@ public class SynonymDictionaryService {
     return "SYNONYM";
   }
 
-  private SynonymDictionaryListResponse convertToListResponse(SynonymDictionary entity) {
-    return SynonymDictionaryListResponse.builder()
-        .id(entity.getId())
-        .keyword(entity.getKeyword())
-        .description(entity.getDescription())
-        .createdAt(entity.getCreatedAt())
-        .updatedAt(entity.getUpdatedAt())
-        .build();
-  }
-
-  private Sort createSort(String sortBy, String sortDir) {
-    if (sortBy == null || sortBy.trim().isEmpty()) {
-      sortBy = "updatedAt";
-    }
-    if (sortDir == null || sortDir.trim().isEmpty()) {
-      sortDir = "desc";
-    }
-
-    String[] allowedFields = {"keyword", "createdAt", "updatedAt"};
-    boolean isValidField = false;
-    for (String field : allowedFields) {
-      if (field.equals(sortBy)) {
-        isValidField = true;
-        break;
-      }
-    }
-
-    if (!isValidField) {
-      log.warn("허용되지 않은 정렬 필드: {}. 기본값 updatedAt 사용", sortBy);
-      sortBy = "updatedAt";
-    }
-
-    Sort.Direction direction =
-        "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-
-    return Sort.by(direction, sortBy);
-  }
 
   public void createOrUpdateSynonymSet(EnvironmentType environmentType) {
     try {

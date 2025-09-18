@@ -25,8 +25,7 @@ public class CategoryMappingListConverter
     try {
       return objectMapper.writeValueAsString(mappings);
     } catch (JsonProcessingException e) {
-      log.error("Failed to convert category mappings to JSON", e);
-      throw new RuntimeException("Failed to convert category mappings to JSON", e);
+      throw new RuntimeException("카테고리 매핑 json 변경 실패", e);
     }
   }
 
@@ -38,8 +37,7 @@ public class CategoryMappingListConverter
     try {
       return objectMapper.readValue(json, new TypeReference<List<CategoryMapping>>() {});
     } catch (IOException e) {
-      log.error("Failed to parse category mappings JSON: {}", json, e);
-      throw new RuntimeException("Failed to parse category mappings JSON", e);
+      throw new RuntimeException("카테고리 매핑 json 변경 실패", e);
     }
   }
 }

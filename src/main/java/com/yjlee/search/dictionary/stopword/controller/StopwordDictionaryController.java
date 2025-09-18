@@ -11,6 +11,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,13 +29,10 @@ public class StopwordDictionaryController {
   @Operation(summary = "사전 목록")
   @GetMapping
   public PageResponse<StopwordDictionaryListResponse> getStopwordDictionaries(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size,
+      @ParameterObject @PageableDefault(size = 20, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
       @RequestParam(required = false) String search,
-      @RequestParam(defaultValue = "updatedAt") String sortBy,
-      @RequestParam(defaultValue = "desc") String sortDir,
       @RequestParam(required = false) EnvironmentType environment) {
-    return stopwordDictionaryService.getList(page, size, sortBy, sortDir, search, environment);
+    return stopwordDictionaryService.getList(pageable, search, environment);
   }
 
   @Operation(summary = "사전 상세")

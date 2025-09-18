@@ -1,7 +1,7 @@
 package com.yjlee.search.dictionary.unit.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.dictionary.common.model.DictionaryEntity;
+
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -24,7 +24,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class UnitDictionary implements DictionaryEntity {
+public class UnitDictionary {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
@@ -45,15 +45,15 @@ public class UnitDictionary implements DictionaryEntity {
     this.keyword = keyword;
   }
 
-  public String getDescription() {
-    return null;
-  }
-
-  public void updateDescription(String description) {
-    // 단위 사전은 description을 사용하지 않음
-  }
-
   public static UnitDictionary of(String keyword, EnvironmentType environment) {
     return UnitDictionary.builder().keyword(keyword).environmentType(environment).build();
+  }
+
+
+  public static UnitDictionary copyWithEnvironment(UnitDictionary source, EnvironmentType targetEnvironment) {
+    return UnitDictionary.builder()
+        .keyword(source.keyword)
+        .environmentType(targetEnvironment)
+        .build();
   }
 }

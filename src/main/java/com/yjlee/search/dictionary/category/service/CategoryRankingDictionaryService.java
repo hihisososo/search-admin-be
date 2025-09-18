@@ -3,7 +3,7 @@ package com.yjlee.search.dictionary.category.service;
 import com.yjlee.search.common.dto.PageResponse;
 import com.yjlee.search.common.enums.EnvironmentType;
 import com.yjlee.search.dictionary.category.dto.*;
-import com.yjlee.search.dictionary.category.mapper.CategoryRankingDictionaryMapper;
+import com.yjlee.search.dictionary.category.model.CategoryMapping;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
 import com.yjlee.search.dictionary.common.enums.DictionarySortField;
@@ -28,7 +28,6 @@ public class CategoryRankingDictionaryService {
   private final CategoryRankingDictionaryRepository repository;
   private final ProductRepository productRepository;
   private final CategoryRankingService categoryRankingService;
-  private final CategoryRankingDictionaryMapper mapper;
 
   @Transactional
   public CategoryRankingDictionaryResponse create(
@@ -36,38 +35,33 @@ public class CategoryRankingDictionaryService {
     if (repository.existsByKeywordAndEnvironmentType(request.getKeyword(), environment)) {
       throw new IllegalArgumentException("이미 존재하는 키워드입니다: " + request.getKeyword());
     }
-    return mapper.toResponse(
-        repository.save(
+    CategoryRankingDictionary saved = repository.save(
             CategoryRankingDictionary.of(
                 request.getKeyword(),
-                mapper.toMappings(request.getCategoryMappings()),
-                request.getDescription(),
-                environment)));
+                CategoryMapping.fromDtos(request.getCategoryMappings()),
+                environment));
+    return CategoryRankingDictionaryResponse.from(saved);
   }
 
   @Transactional(readOnly = true)
   public PageResponse<CategoryRankingDictionaryListResponse> getList(
-      int page,
-      int size,
+      Pageable pageable,
       String search,
-      String sortBy,
-      String sortDir,
       EnvironmentType environmentType) {
-    Pageable pageable = PageRequest.of(Math.max(0, page), size, createSort(sortBy, sortDir));
     Page<CategoryRankingDictionary> dictionaryPage =
         (search != null && !search.trim().isEmpty())
             ? repository.findByEnvironmentTypeAndKeywordContainingIgnoreCase(
                 environmentType, search.trim(), pageable)
             : repository.findByEnvironmentType(environmentType, pageable);
-    return PageResponse.from(dictionaryPage.map(mapper::toListResponse));
+    return PageResponse.from(dictionaryPage.map(CategoryRankingDictionaryListResponse::from));
   }
 
   @Transactional(readOnly = true)
   public CategoryRankingDictionaryResponse getDetail(Long id) {
-    return mapper.toResponse(
-        repository
+    CategoryRankingDictionary dictionary = repository
             .findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id)));
+            .orElseThrow(() -> new EntityNotFoundException("사전을 찾을 수 없습니다: " + id));
+    return CategoryRankingDictionaryResponse.from(dictionary);
   }
 
   @Transactional
@@ -86,12 +80,10 @@ public class CategoryRankingDictionaryService {
       existing.updateKeyword(request.getKeyword());
     }
     if (request.getCategoryMappings() != null) {
-      existing.updateCategoryMappings(mapper.toMappings(request.getCategoryMappings()));
+      existing.updateCategoryMappings(CategoryMapping.fromDtos(request.getCategoryMappings()));
     }
-    if (request.getDescription() != null) {
-      existing.updateDescription(request.getDescription());
-    }
-    return mapper.toResponse(repository.save(existing));
+    CategoryRankingDictionary updated = repository.save(existing);
+    return CategoryRankingDictionaryResponse.from(updated);
   }
 
   @Transactional
@@ -146,7 +138,7 @@ public class CategoryRankingDictionaryService {
             .map(
                 dict ->
                     CategoryRankingDictionary.of(
-                        dict.getKeyword(), dict.getCategoryMappings(), dict.getDescription(), to))
+                        dict.getKeyword(), dict.getCategoryMappings(), to))
             .toList();
 
     repository.saveAll(targetDictionaries);
@@ -168,7 +160,6 @@ public class CategoryRankingDictionaryService {
                     CategoryRankingDictionary.of(
                         dict.getKeyword(),
                         dict.getCategoryMappings(),
-                        dict.getDescription(),
                         targetEnv))
             .toList();
 

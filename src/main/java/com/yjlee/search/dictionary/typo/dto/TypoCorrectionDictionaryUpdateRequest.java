@@ -20,8 +20,4 @@ public class TypoCorrectionDictionaryUpdateRequest {
   @Size(max = 100, message = "교정어는 100자 이하여야 합니다")
   @Schema(description = "교정어", example = "삼성", required = true)
   private String correctedWord;
-
-  @Size(max = 500, message = "설명은 500자 이하여야 합니다")
-  @Schema(description = "설명", example = "삼성 브랜드 오타")
-  private String description;
 }

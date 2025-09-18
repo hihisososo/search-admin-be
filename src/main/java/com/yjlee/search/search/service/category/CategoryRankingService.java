@@ -8,8 +8,9 @@ import com.yjlee.search.deployment.service.IndexEnvironmentService;
 import com.yjlee.search.dictionary.category.model.CategoryMapping;
 import com.yjlee.search.dictionary.category.model.CategoryRankingDictionary;
 import com.yjlee.search.dictionary.category.repository.CategoryRankingDictionaryRepository;
-import com.yjlee.search.dictionary.user.dto.AnalyzeTextResponse;
-import com.yjlee.search.dictionary.user.service.ElasticsearchAnalyzeService;
+import com.yjlee.search.analysis.domain.TokenInfo;
+import com.yjlee.search.analysis.enums.AnalysisType;
+import com.yjlee.search.analysis.service.AnalysisService;
 import jakarta.annotation.PostConstruct;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CategoryRankingService {
 
-  private final ElasticsearchAnalyzeService analyzeService;
+  private final AnalysisService analysisService;
   private final IndexEnvironmentService indexEnvironmentService;
   private final CategoryRankingDictionaryRepository categoryRankingDictionaryRepository;
 
@@ -76,9 +77,9 @@ public class CategoryRankingService {
 
     // 2. nori 형태소 분석 결과로도 매칭
     try {
-      List<AnalyzeTextResponse.TokenInfo> tokens =
-          analyzeService.analyzeText(query, environmentType);
-      for (AnalyzeTextResponse.TokenInfo tokenInfo : tokens) {
+      List<TokenInfo> tokens =
+          analysisService.analyze(query, environmentType, AnalysisType.SEARCH);
+      for (TokenInfo tokenInfo : tokens) {
         String token = tokenInfo.getToken().toLowerCase();
 
         if (appliedKeywords.contains(token)) {

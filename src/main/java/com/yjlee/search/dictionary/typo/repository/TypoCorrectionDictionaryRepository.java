@@ -10,7 +10,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface TypoCorrectionDictionaryRepository
     extends JpaRepository<TypoCorrectionDictionary, Long> {
 
-  // environment_type 기반 조회
   Page<TypoCorrectionDictionary> findByEnvironmentType(
       EnvironmentType environmentType, Pageable pageable);
 

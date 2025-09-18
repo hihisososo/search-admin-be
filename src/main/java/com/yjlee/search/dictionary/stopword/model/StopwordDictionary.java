@@ -1,7 +1,6 @@
 package com.yjlee.search.dictionary.stopword.model;
 
 import com.yjlee.search.common.enums.EnvironmentType;
-import com.yjlee.search.dictionary.common.model.DictionaryEntity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -24,16 +23,13 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class StopwordDictionary implements DictionaryEntity {
+public class StopwordDictionary {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   Long id;
 
   @Column(nullable = false, length = 1000)
   String keyword;
-
-  @Column(length = 500)
-  String description;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
@@ -48,16 +44,19 @@ public class StopwordDictionary implements DictionaryEntity {
     this.keyword = keyword;
   }
 
-  public void updateDescription(String description) {
-    this.description = description;
-  }
-
   public static StopwordDictionary of(
-      String keyword, String description, EnvironmentType environment) {
+      String keyword, EnvironmentType environment) {
     return StopwordDictionary.builder()
         .keyword(keyword)
-        .description(description)
         .environmentType(environment)
+        .build();
+  }
+
+
+  public static StopwordDictionary copyWithEnvironment(StopwordDictionary source, EnvironmentType targetEnvironment) {
+    return StopwordDictionary.builder()
+        .keyword(source.keyword)
+        .environmentType(targetEnvironment)
         .build();
   }
 }

@@ -7,6 +7,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,8 +31,8 @@ public class AsyncTaskController {
   @GetMapping
   @Operation(summary = "비동기 작업 리스트 조회", description = "최근 7일간의 비동기 작업 목록을 조회합니다")
   public ResponseEntity<AsyncTaskListResponse> getTasks(
-      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-    return ResponseEntity.ok(asyncTaskService.getRecentTasks(page, size));
+      @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    return ResponseEntity.ok(asyncTaskService.getRecentTasks(pageable));
   }
 
   @GetMapping("/running")

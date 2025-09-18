@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -113,16 +114,16 @@ public class AsyncTaskService {
         .orElseThrow(() -> new NoSuchElementException("Task 를 찾을 수 없습니다: " + taskId));
   }
 
-  public AsyncTaskListResponse getRecentTasks(int page, int size) {
+  public AsyncTaskListResponse getRecentTasks(Pageable pageable) {
     Page<AsyncTask> taskPage =
-        asyncTaskRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, size));
+        asyncTaskRepository.findAllByOrderByCreatedAtDesc(pageable);
 
     return AsyncTaskListResponse.builder()
         .tasks(taskPage.map(this::toResponse).getContent())
         .totalCount(taskPage.getTotalElements())
         .totalPages(taskPage.getTotalPages())
-        .currentPage(page)
-        .size(size)
+        .currentPage(pageable.getPageNumber())
+        .size(pageable.getPageSize())
         .hasNext(taskPage.hasNext())
         .hasPrevious(taskPage.hasPrevious())
         .build();

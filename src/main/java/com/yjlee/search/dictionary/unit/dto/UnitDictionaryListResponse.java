@@ -1,5 +1,6 @@
 package com.yjlee.search.dictionary.unit.dto;
 
+import com.yjlee.search.dictionary.unit.model.UnitDictionary;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 import lombok.Builder;
@@ -21,4 +22,13 @@ public class UnitDictionaryListResponse {
 
   @Schema(description = "수정일시")
   private LocalDateTime updatedAt;
+
+  public static UnitDictionaryListResponse from(UnitDictionary entity) {
+    return UnitDictionaryListResponse.builder()
+        .id(entity.getId())
+        .keyword(entity.getKeyword())
+        .createdAt(entity.getCreatedAt())
+        .updatedAt(entity.getUpdatedAt())
+        .build();
+  }
 }
